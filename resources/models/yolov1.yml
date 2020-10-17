@@ -1,0 +1,25 @@
+model:
+  batch: 1
+  channels: 3
+  height: 448
+  width: 448
+
+  layers:
+    - type: conv
+      dilation: 1
+      filters: 64
+      kernel: 7
+      pad: 1
+      stride: 2
+
+    - type: maxpool
+      kernel: 2
+      stride: 2
+
+    - type: conv
+      dilation: 1
+      filters: 192
+      kernel: 3
+      pad: 1
+      stride: 1
+
