@@ -14,11 +14,57 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include "Layer.h"
 #include "ConvLayer.h"
+#include "Layer.h"
+#include "MaxPoolLayer.h"
+#include "Singleton.h"
+#include "common.h"
 #include <Error.h>
 
-using namespace px;
+PX_BEGIN
+
+class LayerFactories : public Singleton<LayerFactories>
+{
+public:
+    LayerFactories();
+
+    template<typename T>
+    void registerFactory(const char* type);
+
+    Layer::Ptr create(const YAML::Node& layerDef);
+
+private:
+    using LayerFactory = std::function<Layer::Ptr(const YAML::Node& layerDef)>;
+    std::unordered_map<std::string, LayerFactory> factories_;
+};
+
+LayerFactories::LayerFactories()
+{
+    registerFactory<ConvLayer>("conv");
+    registerFactory<MaxPoolLayer>("maxpool");
+}
+
+template<typename T>
+void LayerFactories::registerFactory(const char* type)
+{
+    factories_[type] = [](const YAML::Node& layerDef) {
+        return Layer::Ptr(new T(layerDef));
+    };
+}
+
+Layer::Ptr LayerFactories::create(const YAML::Node& layerDef)
+{
+    PX_CHECK(layerDef.IsMap(), "Layer definition is not a map.");
+
+    const auto type = layerDef["type"].as<std::string>();
+
+    const auto it = factories_.find(type);
+    if (it == std::end(factories_)) {
+        PX_ERROR_THROW("Unable to find a layer factory for layer type \"%s\".", type.c_str());
+    }
+
+    return (it->second)(layerDef);
+}
 
 Layer::Layer(const YAML::Node& layerDef) : layerDef_(layerDef)
 {
@@ -30,14 +76,7 @@ Layer::~Layer()
 
 Layer::Ptr Layer::create(const YAML::Node& layerDef)
 {
-    PX_CHECK(layerDef.IsMap(), "Layer definition is not a map.");
-
-    const auto type = layerDef["type"].as<std::string>();
-
-    if (type == "conv") {
-        return std::shared_ptr<Layer>(new ConvLayer(layerDef));
-    }
-
-    return px::Layer::Ptr();
+    return LayerFactories::instance().create(layerDef);
 }
 
+PX_END

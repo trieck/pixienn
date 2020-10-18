@@ -30,7 +30,7 @@ public:
     virtual ~ConvLayer();
 
 private:
-    friend class Layer;
+    friend LayerFactories;
 
     int dilation_ = 0, filters_ = 0, kernel_ = 0, pad_ = 0, stride_ = 0;
 };

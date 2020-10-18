@@ -7,10 +7,13 @@ find_package(OpenCV REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 set(SOURCES
+        include/Singleton.h
+        include/SingletonRegistry.h
         src/ConvLayer.cpp
         src/Error.cpp
         src/Image.cpp
         src/Layer.cpp
+        src/MaxPoolLayer.cpp
         src/Model.cpp
         src/main.cpp
         )

@@ -14,47 +14,17 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_LAYER_H
-#define PIXIENN_LAYER_H
+#include "MaxPoolLayer.h"
 
-#include "common.h"
-#include "Error.h"
+using namespace px;
 
-#include <yaml-cpp/yaml.h>
-
-PX_BEGIN
-
-class LayerFactories;
-
-class Layer
+MaxPoolLayer::MaxPoolLayer(const YAML::Node& layerDef) : Layer(layerDef)
 {
-protected:
-    Layer(const YAML::Node& layerDef);
-
-public:
-    virtual ~Layer() = 0;
-    using Ptr = std::shared_ptr<Layer>;
-
-    static Layer::Ptr create(const YAML::Node& layerDef);
-
-protected:
-    template<typename T>
-    T property(const std::string& prop) const;
-
-private:
-    YAML::Node layerDef_;
-};
-
-template<typename T>
-T Layer::property(const std::string& prop) const
-{
-    const auto node = layerDef_[prop];
-
-    PX_CHECK(node.IsDefined() && !node.IsNull(), "Layer has no property named \"%s\".", prop.c_str());
-
-    return node.as<T>();
+    kernel_ = property<int>("kernel");
+    stride_ = property<int>("stride");
 }
 
-PX_END
+MaxPoolLayer::~MaxPoolLayer()
+{
 
-#endif // PIXIENN_LAYER_H
+}
