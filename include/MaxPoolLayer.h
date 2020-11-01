@@ -29,10 +29,12 @@ protected:
 public:
     virtual ~MaxPoolLayer();
 
+    virtual std::ostream& print(std::ostream& os);
+
 private:
     friend LayerFactories;
 
-    int kernel_ = 0, stride_ = 0;
+    int kernel_ = 0, stride_ = 0, size_ = 0, padding_;
 };
 
 PX_END

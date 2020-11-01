@@ -31,19 +31,46 @@
 ********************************************************************************/
 
 #include "ConvLayer.h"
+#include "xtensor/xrandom.hpp"
 
 using namespace px;
+using namespace xt;
 
 ConvLayer::ConvLayer(const YAML::Node& layerDef) : Layer(layerDef)
 {
-    dilation_ = property<int>("dilation");
-    filters_ = property<int>("filters");
-    kernel_ = property<int>("kernel");
-    pad_ = property<int>("pad");
-    stride_ = property<int>("stride");
+    dilation_ = property<int>("dilation", 0);
+    filters_ = property<int>("filters", 1);
+    kernel_ = property<int>("kernel", 1);
+    pad_ = property<int>("pad", 0);
+    stride_ = property<int>("stride", 1);
+
+    weights_ = random::rand<float>({ filters_, 3 /* channels */, kernel_, kernel_ });
+    biases_ = zeros<float>({ filters_ });
+
+    setOutChannels(filters_);
+    setOutHeight((height() + 2 * pad_ - kernel_) / stride_ + 1);
+    setOutWidth((width() + 2 * pad_ - kernel_) / stride_ + 1);
 }
 
 ConvLayer::~ConvLayer()
 {
 
+}
+
+std::ostream& ConvLayer::print(std::ostream& os)
+{
+    os << std::setfill('.');
+
+    os << std::setw(20) << std::left << "conv"
+       << std::setw(20) << std::left << filters_
+       << std::setw(20) << std::left
+       << std::string(std::to_string(kernel_) + " x " + std::to_string(kernel_) + " / " + std::to_string(stride_))
+       << std::setw(20) << std::left
+       << std::string(std::to_string(channels()) + " x " + std::to_string(height()) + " x " + std::to_string(width()))
+       << std::setw(20) << std::left
+       << std::string(
+               std::to_string(outChannels()) + " x " + std::to_string(outHeight()) + " x " + std::to_string(outWidth()))
+       << std::endl;
+
+    return os;
 }

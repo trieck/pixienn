@@ -68,6 +68,12 @@ Layer::Ptr LayerFactories::create(const YAML::Node& layerDef)
 
 Layer::Layer(const YAML::Node& layerDef) : layerDef_(layerDef)
 {
+    batch_ = property<int>("batch");
+    channels_ = property<int>("channels");
+    height_ = property<int>("height");
+    width_ = property<int>("width");
+
+    outChannels_ = outHeight_ = outWidth_ = 0;
 }
 
 Layer::~Layer()
@@ -77,6 +83,56 @@ Layer::~Layer()
 Layer::Ptr Layer::create(const YAML::Node& layerDef)
 {
     return LayerFactories::instance().create(layerDef);
+}
+
+const int Layer::batch() const
+{
+    return batch_;
+}
+
+const int Layer::channels() const
+{
+    return channels_;
+}
+
+const int Layer::height() const
+{
+    return height_;
+}
+
+const int Layer::width() const
+{
+    return width_;
+}
+
+const int Layer::outChannels() const
+{
+    return outChannels_;
+}
+
+const int Layer::outHeight() const
+{
+    return outHeight_;
+}
+
+const int Layer::outWidth() const
+{
+    return outWidth_;
+}
+
+void Layer::setOutChannels(int channels)
+{
+    outChannels_ = channels;
+}
+
+void Layer::setOutHeight(int height)
+{
+    outHeight_ = height;
+}
+
+void Layer::setOutWidth(int width)
+{
+    outWidth_ = width;
 }
 
 PX_END

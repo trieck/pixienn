@@ -49,8 +49,30 @@ void Model::parse()
     const auto layers = model["layers"];
     PX_CHECK(layers.IsSequence(), "Model has no layers.");
 
+    std::cout << std::setfill('_');
+
+    std::cout << std::setw(20) << std::left << "Layer"
+              << std::setw(20) << "Filters"
+              << std::setw(20) << "Size"
+              << std::setw(20) << "Input"
+              << std::setw(20) << "Output"
+              << std::endl;
+
+    int channels(channels_), height(height_), width(width_);
     for (const auto& layerDef: layers) {
-        const auto layer = Layer::create(layerDef);
+        YAML::Node params(layerDef);
+        params["batch"] = batch_;
+        params["channels"] = channels;
+        params["height"] = height;
+        params["width"] = width;
+
+        const auto layer = Layer::create(params);
+        channels = layer->outChannels();
+        height = layer->outHeight();
+        width = layer->outWidth();
+
+        layer->print(std::cout);
+
         layers_.emplace_back(std::move(layer));
     }
 }

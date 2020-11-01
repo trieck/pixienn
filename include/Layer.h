@@ -37,12 +37,32 @@ public:
 
     static Layer::Ptr create(const YAML::Node& layerDef);
 
+    const int batch() const;
+    const int channels() const;
+    const int height() const;
+    const int width() const;
+
+    const int outChannels() const;
+    const int outHeight() const;
+    const int outWidth() const;
+
+    virtual std::ostream& print(std::ostream& os) = 0;
+
 protected:
     template<typename T>
     T property(const std::string& prop) const;
 
+    template<typename T>
+    T property(const std::string& prop, const T& def) const;
+
+    void setOutChannels(int channels);
+    void setOutHeight(int height);
+    void setOutWidth(int width);
+
 private:
     YAML::Node layerDef_;
+    int batch_, channels_, height_, width_;
+    int outChannels_, outHeight_, outWidth_;
 };
 
 template<typename T>
@@ -51,6 +71,17 @@ T Layer::property(const std::string& prop) const
     const auto node = layerDef_[prop];
 
     PX_CHECK(node.IsDefined() && !node.IsNull(), "Layer has no property named \"%s\".", prop.c_str());
+
+    return node.as<T>();
+}
+
+template<typename T>
+T Layer::property(const std::string& prop, const T& def) const
+{
+    const auto node = layerDef_[prop];
+    if (!node.IsDefined() || node.IsNull()) {
+        return def;
+    }
 
     return node.as<T>();
 }

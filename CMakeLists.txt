@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 17)
 
 find_package(OpenCV REQUIRED)
 find_package(yaml-cpp REQUIRED)
+find_package(xtl REQUIRED)
+find_package(xtensor REQUIRED)
 
 set(SOURCES
         include/Singleton.h
@@ -23,6 +25,6 @@ include_directories(${INCLUDE_DIRS})
 
 add_executable(pixienn ${SOURCES})
 
-target_link_libraries(pixienn ${OpenCV_LIBS} yaml-cpp)
+target_link_libraries(pixienn ${OpenCV_LIBS} yaml-cpp xtensor xtensor::optimize)
 
 

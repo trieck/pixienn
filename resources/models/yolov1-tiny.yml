@@ -7,18 +7,19 @@ model:
   layers:
     - type: conv
       dilation: 1
-      filters: 64
-      kernel: 7
+      filters: 16
+      kernel: 3
       pad: 1
-      stride: 2
+      stride: 1
 
     - type: maxpool
       kernel: 2
       stride: 2
+      size: 2
 
     - type: conv
       dilation: 1
-      filters: 192
+      filters: 32
       kernel: 3
       pad: 1
       stride: 1

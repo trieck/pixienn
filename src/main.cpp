@@ -50,7 +50,7 @@ void testConvolve()
 
 void testModel()
 {
-    const auto model = Model::create("/home/trieck/work/pixienn/resources/models/yolov1.yml");
+    const auto model = Model::create("/home/trieck/work/pixienn/resources/models/yolov1-tiny.yml");
 }
 
 int main()

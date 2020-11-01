@@ -17,6 +17,8 @@
 #ifndef PIXIENN_CONVLAYER_H
 #define PIXIENN_CONVLAYER_H
 
+#include <xtensor/xtensor.hpp>
+
 #include "Layer.h"
 
 PX_BEGIN
@@ -29,10 +31,15 @@ protected:
 public:
     virtual ~ConvLayer();
 
+    virtual std::ostream& print(std::ostream& os);
+
 private:
     friend LayerFactories;
 
     int dilation_ = 0, filters_ = 0, kernel_ = 0, pad_ = 0, stride_ = 0;
+
+    xt::xtensor<float, 4> weights_;
+    xt::xtensor<float, 1> biases_;
 };
 
 PX_END
