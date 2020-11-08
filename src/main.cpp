@@ -49,19 +49,21 @@ void testConvolve()
     cv::waitKey();
 }
 
-void testDarknet()
+void testYolo()
 {
-    const auto model = Model("resources/models/yolov1-tiny.yml");
+    auto model = Model("resources/models/yolov1-tiny.yml");
     loadDarknetWeights(model, "resources/weights/yolov1-tiny.weights");
 
     auto image = px::imletterbox("resources/images/dog.jpg", model.width(), model.height());
+    auto input = px::imarray(image);
 
+    auto result = model.forward(std::move(input));
 }
 
 int main()
 {
     try {
-        testDarknet();
+        testYolo();
     } catch (const px::Error& e) {
         std::cerr << e.what() << std::endl;
         exit(1);

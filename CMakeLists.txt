@@ -31,6 +31,6 @@ include_directories(${INCLUDE_DIRS})
 
 add_executable(pixienn ${SOURCES})
 
-target_link_libraries(pixienn ${OpenCV_LIBS} yaml-cpp xtensor xtensor::optimize tiff tiffxx)
+target_link_libraries(pixienn ${OpenCV_LIBS} yaml-cpp xtensor xtensor::optimize tiff)
 
 

@@ -20,6 +20,7 @@
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/hal/interface.h>
 #include <opencv2/highgui/highgui.hpp>
+#include <xtensor/xarray.hpp>
 
 namespace px {
 
@@ -28,7 +29,7 @@ cv::Mat immake(int height, int width, int channels, float value = 0.0f);
 cv::Mat imrandom(int height, int width, int channels);
 cv::Mat imletterbox(const char* path, int width, int height);
 cv::Mat imread(const char* path);
-void imsave(const char* path, cv::Mat image);
+void imsave(const char* path, const cv::Mat& image);
 
 float imget(const cv::Mat& image, int x, int y, int c);
 float imgetextend(const cv::Mat& image, int x, int y, int c);
@@ -38,6 +39,8 @@ void imadd(cv::Mat& image, int x, int y, int c, float value);
 void imconvolve(const cv::Mat& image, const cv::Mat& kernel, int stride, int channel, cv::Mat& out);
 void imset(cv::Mat& image, int x, int y, int c, float value);
 void imzero(const cv::Mat& image, int c);
+
+xt::xarray<float> imarray(const cv::Mat& image);
 
 } // px
 

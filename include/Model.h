@@ -18,6 +18,7 @@
 #define PIXIENN_MODEL_H
 
 #include "Layer.h"
+#include "xtensor/xarray.hpp"
 
 namespace px {
 
@@ -32,13 +33,14 @@ public:
     Model& operator=(Model&& rhs) = default;
 
     using LayerVec = std::vector<Layer::Ptr>;
-
     const LayerVec& layers() const;
 
     const int batch() const;
     const int channels() const;
     const int height() const;
     const int width() const;
+
+    xt::xarray<float> forward(xt::xarray<float>&& input);
 
 private:
     void parse();

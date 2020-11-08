@@ -20,8 +20,8 @@
 
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
-
 #include <tiffio.h>
+#include <xtensor/xadapt.hpp>
 
 using namespace cv;
 
@@ -41,7 +41,7 @@ Mat imread(const char* path)
     return out;
 }
 
-void imsave(const char* path, Mat image)
+void imsave(const char* path, const cv::Mat& image)
 {
     auto* tif = TIFFOpen(path, "w");
     PX_CHECK(tif != nullptr, "Cannot open image \"%s\".", path);
@@ -69,7 +69,6 @@ void imsave(const char* path, Mat image)
     TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, rowsPerStrip);
 
     TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, depth >= CV_32F ? SAMPLEFORMAT_IEEEFP : SAMPLEFORMAT_UINT);
-
     TIFFSetField(tif, TIFFTAG_PREDICTOR, PREDICTOR_HORIZONTAL);
 
     size_t scanlineSize = TIFFScanlineSize(tif);
@@ -103,14 +102,12 @@ void imsave(const char* path, Mat image)
         PX_CHECK(TIFFWriteScanline(tif, buffer, y, 0) == 1, "Cannot write scane line.");
     }
 
-    TIFFWriteDirectory(tif);
     TIFFClose(tif);
 }
 
 Mat imletterbox(const char* path, int width, int height)
 {
     auto image = imread(path);
-    imsave("/home/trieck/Desktop/image.tif", image);
 
     int newWidth, newHeight;
     int imageWidth = image.cols;
@@ -127,16 +124,12 @@ Mat imletterbox(const char* path, int width, int height)
     Mat resized;
     resize(image, resized, { newWidth, newHeight });
 
-    imsave("/home/trieck/Desktop/resized.tif", resized);
-
-    auto boxed = immake(height, width, image.channels(), 0.5f);
+    auto boxed = imrandom(height, width, image.channels());
 
     auto x = (width - newWidth) / 2;
     auto y = (height - newHeight) / 2;
 
     resized.copyTo(boxed(Rect(x, y, resized.cols, resized.rows)));
-
-    imsave("/home/trieck/Desktop/letterbox.tif", boxed);
 
     return boxed;
 }
@@ -189,7 +182,7 @@ Mat imrandom(int height, int width, int channels)
 {
     Mat image = immake(height, width, channels);
 
-    randu(image, Scalar(0.f), Scalar(1.f));
+    randu(image, Scalar::all(0.f), Scalar::all(1.f));
 
     return image;
 }
@@ -237,6 +230,21 @@ void imzero(const Mat& image, int c)
 
     auto channel = imchannel(image, c);
     channel.setTo(Scalar::all(0.0f));
+}
+
+xt::xarray<float> imarray(const cv::Mat& image)
+{
+    PX_CHECK(image.isContinuous(), "Non-continuous mat not supported.");
+
+    int channels = image.channels();
+    int width = image.cols;
+    int height = image.rows;
+
+    std::vector<int> shape({channels, height, width});
+
+    auto array = xt::adapt((float*)image.data, height * width * channels, xt::no_ownership(), shape);
+
+    return array;
 }
 
 } // px
