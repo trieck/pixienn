@@ -17,12 +17,10 @@
 #ifndef PIXIENN_LAYER_H
 #define PIXIENN_LAYER_H
 
-#include "common.h"
 #include "Error.h"
-
 #include <yaml-cpp/yaml.h>
 
-PX_BEGIN
+namespace px {
 
 class LayerFactories;
 
@@ -37,6 +35,7 @@ public:
 
     static Layer::Ptr create(const YAML::Node& layerDef);
 
+    const int inputs() const;
     const int batch() const;
     const int channels() const;
     const int height() const;
@@ -45,8 +44,12 @@ public:
     const int outChannels() const;
     const int outHeight() const;
     const int outWidth() const;
+    const int outputs() const;
 
     virtual std::ostream& print(std::ostream& os) = 0;
+
+    virtual void loadDarknetWeights(std::istream& is)
+    {}
 
 protected:
     template<typename T>
@@ -55,6 +58,12 @@ protected:
     template<typename T>
     T property(const std::string& prop, const T& def) const;
 
+    void setInputs(int inputs);
+    void setChannels(int channels);
+    void setHeight(int height);
+    void setWidth(int width);
+
+    void setOutputs(int outputs);
     void setOutChannels(int channels);
     void setOutHeight(int height);
     void setOutWidth(int width);
@@ -62,7 +71,7 @@ protected:
 private:
     YAML::Node layerDef_;
     int batch_, channels_, height_, width_;
-    int outChannels_, outHeight_, outWidth_;
+    int outChannels_, outHeight_, outWidth_, inputs_, outputs_;
 };
 
 template<typename T>
@@ -86,6 +95,6 @@ T Layer::property(const std::string& prop, const T& def) const
     return node.as<T>();
 }
 
-PX_END
+} // px
 
 #endif // PIXIENN_LAYER_H

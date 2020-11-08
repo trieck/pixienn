@@ -14,38 +14,15 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_CONVLAYER_H
-#define PIXIENN_CONVLAYER_H
+#ifndef PIXIENN_DARKNET_H
+#define PIXIENN_DARKNET_H
 
-#include <xtensor/xtensor.hpp>
-
-#include "Layer.h"
+#include "Model.h"
 
 namespace px {
 
-class ConvLayer : public Layer
-{
-protected:
-    ConvLayer(const YAML::Node& layerDef);
-
-public:
-    virtual ~ConvLayer();
-
-    std::ostream& print(std::ostream& os) override;
-    void loadDarknetWeights(std::istream& is) override;
-
-private:
-    friend LayerFactories;
-
-    xt::xtensor<float, 4> weights_;
-    xt::xtensor<float, 1> biases_;
-
-    bool batchNormalize_;
-    float scales_, rollingMean_, rollingVar_;
-    int dilation_ = 0, filters_, kernel_, pad_, stride_, groups_;
-    std::string activation_;
-};
+void loadDarknetWeights(const Model& model, const std::string& filename);
 
 } // px
 
-#endif // PIXIENN_CONVLAYER_H
+#endif // PIXIENN_DARKNET_H

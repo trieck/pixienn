@@ -19,6 +19,7 @@
 #include "Error.h"
 #include "Model.h"
 #include "Image.h"
+#include "Darknet.h"
 
 using namespace px;
 
@@ -48,15 +49,19 @@ void testConvolve()
     cv::waitKey();
 }
 
-void testModel()
+void testDarknet()
 {
-    const auto model = Model::create("/home/trieck/work/pixienn/resources/models/yolov1-tiny.yml");
+    const auto model = Model("resources/models/yolov1-tiny.yml");
+    loadDarknetWeights(model, "resources/weights/yolov1-tiny.weights");
+
+    auto image = px::imletterbox("resources/images/dog.jpg", model.width(), model.height());
+
 }
 
 int main()
 {
     try {
-        testModel();
+        testDarknet();
     } catch (const px::Error& e) {
         std::cerr << e.what() << std::endl;
         exit(1);

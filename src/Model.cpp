@@ -18,17 +18,13 @@
 #include "Model.h"
 #include "Layer.h"
 
-using namespace px;
 using namespace YAML;
+
+namespace px {
 
 Model::Model(const std::string& filename) : filename_(filename)
 {
     parse();
-}
-
-Model::Ptr Model::create(const std::string& filename)
-{
-    return std::shared_ptr<Model>(new Model(filename));
 }
 
 void Model::parse()
@@ -45,6 +41,7 @@ void Model::parse()
     channels_ = model["channels"].as<int>();
     height_ = model["height"].as<int>();
     width_ = model["width"].as<int>();
+    int inputs = height_ * width_ * channels_;
 
     const auto layers = model["layers"];
     PX_CHECK(layers.IsSequence(), "Model has no layers.");
@@ -62,14 +59,17 @@ void Model::parse()
     for (const auto& layerDef: layers) {
         YAML::Node params(layerDef);
         params["batch"] = batch_;
+        params["inputs"] = inputs;
         params["channels"] = channels;
         params["height"] = height;
         params["width"] = width;
 
         const auto layer = Layer::create(params);
+
         channels = layer->outChannels();
         height = layer->outHeight();
         width = layer->outWidth();
+        inputs = layer->outputs();
 
         layer->print(std::cout);
 
@@ -77,5 +77,29 @@ void Model::parse()
     }
 }
 
+const Model::LayerVec& Model::layers() const
+{
+    return layers_;
+}
 
+const int Model::batch() const
+{
+    return batch_;
+}
 
+const int Model::channels() const
+{
+    return channels_;
+}
+
+const int Model::height() const
+{
+    return height_;
+}
+
+const int Model::width() const
+{
+    return width_;
+}
+
+} // px

@@ -23,6 +23,8 @@
 #include <shared_mutex>
 #include <unordered_map>
 
+namespace px {
+
 template<typename Key, typename Value>
 class SingletonRegistry : public Singleton<SingletonRegistry<Key, Value>>
 {
@@ -91,5 +93,7 @@ SingletonRegistry<Key, Value>::~SingletonRegistry()
         delete item.second;
     }
 }
+
+} // px
 
 #endif // PIXIENN_SINGLETONREGISTRY_H

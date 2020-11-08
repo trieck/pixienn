@@ -19,35 +19,139 @@
 #include "Error.h"
 
 #include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
 
-PX_BEGIN
+#include <tiffio.h>
 
-cv::Mat imread(const char* path)
+using namespace cv;
+
+namespace px {
+
+Mat imread(const char* path)
 {
-    cv::Mat image = cv::imread(path);
+    Mat image = imread(path, IMREAD_UNCHANGED);
     PX_CHECK(!image.empty(), "Could not open image \"%s\".", path);
 
     // convert to float and normalize
-    cv::Mat out;
-
-    image.convertTo(out, CV_MAKETYPE(CV_32F, image.channels()));
+    Mat out;
+    image.convertTo(out, CV_32FC(image.channels()));
 
     out /= 255.0f;
 
     return out;
 }
 
-cv::Mat imchannel(const cv::Mat& image, int c)
+void imsave(const char* path, Mat image)
+{
+    auto* tif = TIFFOpen(path, "w");
+    PX_CHECK(tif != nullptr, "Cannot open image \"%s\".", path);
+
+    int channels = image.channels();
+    int width = image.cols, height = image.rows;
+    int type = image.type();
+    int depth = CV_MAT_DEPTH(type);
+
+    TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, width);
+    TIFFSetField(tif, TIFFTAG_IMAGELENGTH, height);
+
+    size_t fileStep = (width * channels * 32) / 8;
+
+    auto rowsPerStrip = (int) ((1 << 13) / fileStep);
+    rowsPerStrip = std::max(1, std::min(height, rowsPerStrip));
+
+    int colorspace = channels > 1 ? PHOTOMETRIC_RGB : PHOTOMETRIC_MINISBLACK;
+
+    TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 32);
+    TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
+    TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, colorspace);
+    TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, channels);
+    TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+    TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, rowsPerStrip);
+
+    TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, depth >= CV_32F ? SAMPLEFORMAT_IEEEFP : SAMPLEFORMAT_UINT);
+
+    TIFFSetField(tif, TIFFTAG_PREDICTOR, PREDICTOR_HORIZONTAL);
+
+    size_t scanlineSize = TIFFScanlineSize(tif);
+    AutoBuffer<uchar> _buffer(scanlineSize + 32);
+
+    uchar* buffer = _buffer;
+    Mat mat(Size(width, 1), CV_MAKETYPE(depth, channels), buffer, (size_t) scanlineSize);
+
+    for (int y = 0; y < height; ++y) {
+        switch (channels) {
+        case 1: {
+            memcpy(buffer, image.ptr(y), scanlineSize);
+            break;
+        }
+
+        case 3: {
+            cvtColor(image(Rect(0, y, width, 1)), mat, COLOR_BGR2RGB);
+            break;
+        }
+
+        case 4: {
+            cvtColor(image(Rect(0, y, width, 1)), mat, COLOR_BGRA2RGBA);
+            break;
+        }
+
+        default: {
+            CV_Assert(0);
+        }
+        }
+
+        PX_CHECK(TIFFWriteScanline(tif, buffer, y, 0) == 1, "Cannot write scane line.");
+    }
+
+    TIFFWriteDirectory(tif);
+    TIFFClose(tif);
+}
+
+Mat imletterbox(const char* path, int width, int height)
+{
+    auto image = imread(path);
+    imsave("/home/trieck/Desktop/image.tif", image);
+
+    int newWidth, newHeight;
+    int imageWidth = image.cols;
+    int imageHeight = image.rows;
+
+    if (((float) width / imageWidth) < ((float) height / imageHeight)) {
+        newWidth = width;
+        newHeight = (imageHeight * width) / imageWidth;
+    } else {
+        newHeight = height;
+        newWidth = (imageWidth * height) / imageHeight;
+    }
+
+    Mat resized;
+    resize(image, resized, { newWidth, newHeight });
+
+    imsave("/home/trieck/Desktop/resized.tif", resized);
+
+    auto boxed = immake(height, width, image.channels(), 0.5f);
+
+    auto x = (width - newWidth) / 2;
+    auto y = (height - newHeight) / 2;
+
+    resized.copyTo(boxed(Rect(x, y, resized.cols, resized.rows)));
+
+    imsave("/home/trieck/Desktop/letterbox.tif", boxed);
+
+    return boxed;
+}
+
+Mat imchannel(const Mat& image, int c)
 {
     PX_CHECK(c < image.channels(), "Channel out of bounds.");
 
-    cv::Mat channel;
-    cv::extractChannel(image, channel, c);
+    Mat channel;
+    extractChannel(image, channel, c);
 
     return channel;
 }
 
-float imget(const cv::Mat& image, int x, int y, int c)
+float imget(const Mat& image, int x, int y, int c)
 {
     PX_CHECK(image.rows > y, "Row out of bounds");
     PX_CHECK(image.cols > x, "Column out of bounds");
@@ -56,46 +160,46 @@ float imget(const cv::Mat& image, int x, int y, int c)
     return image.ptr<float>(y, x)[c];
 }
 
-float imgetextend(const cv::Mat& image, int x, int y, int c)
+float imgetextend(const Mat& image, int x, int y, int c)
 {
     if (x < 0 || x >= image.cols || y < 0 || y >= image.rows || c < 0 || c >= image.channels()) return 0;
 
     return imget(image, x, y, c);
 }
 
-void imset(cv::Mat& image, int x, int y, int c, float value)
+void imset(Mat& image, int x, int y, int c, float value)
 {
-    PX_CHECK(image.rows > y, "Row out of bounds");
-    PX_CHECK(image.cols > x, "Column out of bounds");
-    PX_CHECK(image.channels() > c, "Channel out of bounds");
+    PX_CHECK(image.rows > y, "Row out of bounds.");
+    PX_CHECK(image.cols > x, "Column out of bounds.");
+    PX_CHECK(image.channels() > c, "Channel out of bounds.");
 
     image.ptr<float>(y, x)[c] = value;
 }
 
-void imadd(cv::Mat& image, int x, int y, int c, float value)
+void imadd(Mat& image, int x, int y, int c, float value)
 {
-    PX_CHECK(image.rows > y, "Row out of bounds");
-    PX_CHECK(image.cols > x, "Column out of bounds");
-    PX_CHECK(image.channels() > c, "Channel out of bounds");
+    PX_CHECK(image.rows > y, "Row out of bounds.");
+    PX_CHECK(image.cols > x, "Column out of bounds.");
+    PX_CHECK(image.channels() > c, "Channel out of bounds.");
 
     image.ptr<float>(y, x)[c] += value;
 }
 
-cv::Mat imrandom(int height, int width, int channels)
+Mat imrandom(int height, int width, int channels)
 {
-    cv::Mat image = immake(height, width, channels);
+    Mat image = immake(height, width, channels);
 
-    cv::randu(image, cv::Scalar(0.f), cv::Scalar(1.f));
+    randu(image, Scalar(0.f), Scalar(1.f));
 
     return image;
 }
 
-cv::Mat immake(int height, int width, int channels)
+Mat immake(int height, int width, int channels, float value)
 {
-    return cv::Mat(height, width, CV_MAKETYPE(CV_32F, channels), cv::Scalar(0.0f));
+    return Mat(height, width, CV_32FC(channels), Scalar::all(value));
 }
 
-void imconvolve(const cv::Mat& image, const cv::Mat& kernel, int stride, int channel, cv::Mat& out)
+void imconvolve(const Mat& image, const Mat& kernel, int stride, int channel, Mat& out)
 {
     PX_CHECK(image.channels() == kernel.channels(), "Image and kernel have different number of channels.");
 
@@ -106,8 +210,8 @@ void imconvolve(const cv::Mat& image, const cv::Mat& kernel, int stride, int cha
     }
 }
 
-void im2dconvolve(const cv::Mat& image, int imChannel, const cv::Mat& kernel, int kernelChannel, int stride,
-                  cv::Mat& out, int outChannel)
+void im2dconvolve(const Mat& image, int imChannel, const Mat& kernel, int kernelChannel, int stride,
+                  Mat& out, int outChannel)
 {
     PX_CHECK(stride > 0, "Stride must be greater than zero.");
 
@@ -127,12 +231,13 @@ void im2dconvolve(const cv::Mat& image, int imChannel, const cv::Mat& kernel, in
     }
 }
 
-void imzero(const cv::Mat& image, int c)
+void imzero(const Mat& image, int c)
 {
     PX_CHECK(c < image.channels(), "Channel out of bounds.");
 
     auto channel = imchannel(image, c);
-    channel.setTo(cv::Scalar::all(0.0f));
+    channel.setTo(Scalar::all(0.0f));
 }
 
-PX_END
+} // px
+

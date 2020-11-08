@@ -19,26 +19,35 @@
 
 #include "Layer.h"
 
-PX_BEGIN
+namespace px {
 
 class Model
 {
-private:
-    Model(const std::string& filename);
-
 public:
-    using Ptr = std::shared_ptr<Model>;
+    Model(const std::string& filename);
+    Model(const Model& rhs) = default;
+    Model(Model&& rhs) = default;
 
-    static Model::Ptr create(const std::string& filename);
+    Model& operator=(const Model& rhs) = default;
+    Model& operator=(Model&& rhs) = default;
+
+    using LayerVec = std::vector<Layer::Ptr>;
+
+    const LayerVec& layers() const;
+
+    const int batch() const;
+    const int channels() const;
+    const int height() const;
+    const int width() const;
 
 private:
     void parse();
     std::string filename_;
     int batch_ = 0, channels_ = 0, height_ = 0, width_ = 0;
 
-    std::vector<Layer::Ptr> layers_;
+    LayerVec layers_;
 };
 
-PX_END
+}   // px
 
 #endif // PIXIENN_MODEL_H

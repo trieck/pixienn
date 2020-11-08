@@ -17,16 +17,19 @@
 #ifndef PIXIENN_IMAGE_H
 #define PIXIENN_IMAGE_H
 
-#include "common.h"
 #include <opencv2/core/mat.hpp>
+#include <opencv2/core/hal/interface.h>
 #include <opencv2/highgui/highgui.hpp>
 
-PX_BEGIN
+namespace px {
 
 cv::Mat imchannel(const cv::Mat& image, int c);
-cv::Mat immake(int height, int width, int channels);
+cv::Mat immake(int height, int width, int channels, float value = 0.0f);
 cv::Mat imrandom(int height, int width, int channels);
+cv::Mat imletterbox(const char* path, int width, int height);
 cv::Mat imread(const char* path);
+void imsave(const char* path, cv::Mat image);
+
 float imget(const cv::Mat& image, int x, int y, int c);
 float imgetextend(const cv::Mat& image, int x, int y, int c);
 void im2dconvolve(const cv::Mat& image, int imChannel, const cv::Mat& kernel, int kernelChannel, int stride,
@@ -36,6 +39,6 @@ void imconvolve(const cv::Mat& image, const cv::Mat& kernel, int stride, int cha
 void imset(cv::Mat& image, int x, int y, int c, float value);
 void imzero(const cv::Mat& image, int c);
 
-PX_END
+} // px
 
 #endif // PIXIENN_IMAGE_H

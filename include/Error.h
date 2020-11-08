@@ -19,7 +19,7 @@
 
 #include "common.h"
 
-PX_BEGIN
+namespace px {
 
 class Error : public std::exception
 {
@@ -63,6 +63,6 @@ private:
 #define PX_ERROR_THROW(format, ...) throw px::Error::fromFormat(__FILENAME__, __LINE__, __FUNCTION__, format, ##__VA_ARGS__)
 #define PX_CHECK(condition, message, ...) if(!(condition)) PX_ERROR_THROW((message), ##__VA_ARGS__)
 
-PX_END
+} // px
 
 #endif // PIXIENN_ERROR_H

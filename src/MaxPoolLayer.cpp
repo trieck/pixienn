@@ -16,7 +16,7 @@
 
 #include "MaxPoolLayer.h"
 
-using namespace px;
+namespace px {
 
 MaxPoolLayer::MaxPoolLayer(const YAML::Node& layerDef) : Layer(layerDef)
 {
@@ -28,6 +28,8 @@ MaxPoolLayer::MaxPoolLayer(const YAML::Node& layerDef) : Layer(layerDef)
     setOutChannels(channels());
     setOutHeight((height() + padding_ - size_) / stride_ + 1);
     setOutWidth((width() + padding_ - size_) / stride_ + 1);
+
+    setOutputs(outHeight() * outWidth() * outChannels());
 }
 
 MaxPoolLayer::~MaxPoolLayer()
@@ -51,3 +53,5 @@ std::ostream& MaxPoolLayer::print(std::ostream& os)
 
     return os;
 }
+
+} // px

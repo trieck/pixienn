@@ -14,14 +14,16 @@
 * limitations under the License.
 ********************************************************************************/
 
+#include "ConnLayer.h"
 #include "ConvLayer.h"
+#include "DetectLayer.h"
 #include "Layer.h"
 #include "MaxPoolLayer.h"
 #include "Singleton.h"
 #include "common.h"
 #include <Error.h>
 
-PX_BEGIN
+namespace px {
 
 class LayerFactories : public Singleton<LayerFactories>
 {
@@ -40,7 +42,9 @@ private:
 
 LayerFactories::LayerFactories()
 {
+    registerFactory<ConnLayer>("connected");
     registerFactory<ConvLayer>("conv");
+    registerFactory<DetectLayer>("detection");
     registerFactory<MaxPoolLayer>("maxpool");
 }
 
@@ -68,12 +72,13 @@ Layer::Ptr LayerFactories::create(const YAML::Node& layerDef)
 
 Layer::Layer(const YAML::Node& layerDef) : layerDef_(layerDef)
 {
+    inputs_ = property<int>("inputs");
     batch_ = property<int>("batch");
     channels_ = property<int>("channels");
     height_ = property<int>("height");
     width_ = property<int>("width");
 
-    outChannels_ = outHeight_ = outWidth_ = 0;
+    outChannels_ = outHeight_ = outWidth_ = outputs_ = 0;
 }
 
 Layer::~Layer()
@@ -120,6 +125,11 @@ const int Layer::outWidth() const
     return outWidth_;
 }
 
+const int Layer::outputs() const
+{
+    return outputs_;
+}
+
 void Layer::setOutChannels(int channels)
 {
     outChannels_ = channels;
@@ -135,4 +145,34 @@ void Layer::setOutWidth(int width)
     outWidth_ = width;
 }
 
-PX_END
+void Layer::setOutputs(int outputs)
+{
+    outputs_ = outputs;
+}
+
+const int Layer::inputs() const
+{
+    return inputs_;
+}
+
+void Layer::setInputs(int inputs)
+{
+    inputs_ = inputs;
+}
+
+void Layer::setChannels(int channels)
+{
+    channels_ = channels;
+}
+
+void Layer::setHeight(int height)
+{
+    height_ = height;
+}
+
+void Layer::setWidth(int width)
+{
+    width_ = width;
+}
+
+} // px

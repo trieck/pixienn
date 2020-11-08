@@ -12,7 +12,4 @@
 #include <unordered_map>
 #include <vector>
 
-#define PX_BEGIN  namespace px {
-#define PX_END    } // px
-
 #endif // PIXIENN_COMMON_H

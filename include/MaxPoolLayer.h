@@ -19,7 +19,7 @@
 
 #include "Layer.h"
 
-PX_BEGIN
+namespace px {
 
 class MaxPoolLayer : public Layer
 {
@@ -29,7 +29,7 @@ protected:
 public:
     virtual ~MaxPoolLayer();
 
-    virtual std::ostream& print(std::ostream& os);
+    std::ostream& print(std::ostream& os) override;
 
 private:
     friend LayerFactories;
@@ -37,6 +37,6 @@ private:
     int kernel_ = 0, stride_ = 0, size_ = 0, padding_;
 };
 
-PX_END
+} // px
 
 #endif // PIXIENN_MAXPOOLLAYER_H

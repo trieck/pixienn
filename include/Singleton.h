@@ -21,6 +21,7 @@
 #include <mutex>
 #include <utility>
 
+namespace px {
 template<class T>
 class Singleton
 {
@@ -50,5 +51,7 @@ std::mutex Singleton<T>::mutex_;
 
 template<class T>
 std::atomic<T*> Singleton<T>::instance_ = ATOMIC_VAR_INIT(nullptr);
+
+} // px
 
 #endif // PIXIENN_SINGLETON_H

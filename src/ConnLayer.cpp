@@ -30,60 +30,55 @@
 * with this legend must also reproduce the markings.
 ********************************************************************************/
 
-#include "ConvLayer.h"
+#include "ConnLayer.h"
 #include "xtensor/xrandom.hpp"
 
 using namespace px;
 using namespace xt;
 
-ConvLayer::ConvLayer(const YAML::Node& layerDef) : Layer(layerDef)
+ConnLayer::ConnLayer(const YAML::Node& layerDef) : Layer(layerDef)
 {
     activation_ = property<std::string>("activation");
     batchNormalize_ = property<bool>("batch_normalize", false);
-    dilation_ = property<int>("dilation", 0);
-    filters_ = property<int>("filters", 1);
-    kernel_ = property<int>("kernel", 1);
-    pad_ = property<int>("pad", 0);
-    stride_ = property<int>("stride", 1);
-    groups_ = std::max(1, property<int>("groups", 1));
 
-    weights_ = random::rand<float>({ filters_, channels() / groups_, kernel_, kernel_ });
-    biases_ = zeros<float>({ filters_ });
+    setChannels(inputs());
+    setHeight(1);
+    setWidth(1);
 
-    setOutChannels(filters_);
-    setOutHeight((height() + 2 * pad_ - kernel_) / stride_ + 1);
-    setOutWidth((width() + 2 * pad_ - kernel_) / stride_ + 1);
+    setOutputs(property<int>("output", 1));
+    setOutHeight(1);
+    setOutWidth(1);
+    setOutChannels(outputs());
 
-    setOutputs(outHeight() * outWidth() * outChannels());
+    weights_ = random::rand<float>({ inputs(), outputs() });
+    biases_ = zeros<float>({ outputs() });
 }
 
-ConvLayer::~ConvLayer()
+ConnLayer::~ConnLayer()
 {
 
 }
 
-std::ostream& ConvLayer::print(std::ostream& os)
+std::ostream& ConnLayer::print(std::ostream& os)
 {
     os << std::setfill('.');
 
-    os << std::setw(20) << std::left << "conv"
-       << std::setw(20) << std::left << filters_
+    os << std::setw(60) << std::left << "connected"
+       << std::setw(20) << std::left << inputs()
        << std::setw(20) << std::left
-       << std::string(std::to_string(kernel_) + " x " + std::to_string(kernel_) + " / " + std::to_string(stride_))
-       << std::setw(20) << std::left
-       << std::string(std::to_string(channels()) + " x " + std::to_string(height()) + " x " + std::to_string(width()))
-       << std::setw(20) << std::left
-       << std::string(
-               std::to_string(outChannels()) + " x " + std::to_string(outHeight()) + " x " + std::to_string(outWidth()))
+       << outputs()
        << std::endl;
 
     return os;
 }
 
-void ConvLayer::loadDarknetWeights(std::istream& is)
+void ConnLayer::loadDarknetWeights(std::istream& is)
 {
-    is.read((char*) biases_.data(), filters_ * sizeof(float));
+    is.read((char*) biases_.data(), biases_.size() * sizeof(float));
     PX_CHECK(is.good(), "Could not read biases");
+
+    is.read((char*) weights_.data(), sizeof(float) * weights_.size());
+    PX_CHECK(is.good(), "Could not read weights");
 
     if (batchNormalize_) {
         is.read((char*) &scales_, sizeof(float));
@@ -91,7 +86,4 @@ void ConvLayer::loadDarknetWeights(std::istream& is)
         is.read((char*) &rollingVar_, sizeof(float));
         PX_CHECK(is.good(), "Could not read batch_normalize parameters");
     }
-
-    is.read((char*) weights_.data(), sizeof(float) * weights_.size());
-    PX_CHECK(is.good(), "Could not read weights");
 }

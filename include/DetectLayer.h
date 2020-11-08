@@ -14,38 +14,32 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_CONVLAYER_H
-#define PIXIENN_CONVLAYER_H
+#ifndef PIXIENN_DETECTLAYER_H
+#define PIXIENN_DETECTLAYER_H
 
-#include <xtensor/xtensor.hpp>
 
 #include "Layer.h"
 
 namespace px {
 
-class ConvLayer : public Layer
+class DetectLayer : public Layer
 {
 protected:
-    ConvLayer(const YAML::Node& layerDef);
+    DetectLayer(const YAML::Node& layerDef);
 
 public:
-    virtual ~ConvLayer();
+    virtual ~DetectLayer();
 
     std::ostream& print(std::ostream& os) override;
-    void loadDarknetWeights(std::istream& is) override;
 
 private:
     friend LayerFactories;
 
-    xt::xtensor<float, 4> weights_;
-    xt::xtensor<float, 1> biases_;
-
-    bool batchNormalize_;
-    float scales_, rollingMean_, rollingVar_;
-    int dilation_ = 0, filters_, kernel_, pad_, stride_, groups_;
-    std::string activation_;
+    int coords_, classes_ , num_, side_, maxBoxes_;
+    bool rescore_, softmax_, sqrt_, forced_, random_, reorg_;
+    float coordScale_, objectScale_, noObjectScale_, classScale, jitter_;
 };
 
 } // px
 
-#endif // PIXIENN_CONVLAYER_H
+#endif // PIXIENN_DETECTLAYER_H
