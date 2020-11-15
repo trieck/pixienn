@@ -17,16 +17,17 @@ find_package(xtl REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 set(SOURCES
-        include/ImageToCol.h
+        include/Utility.h
         include/Singleton.h
         include/SingletonRegistry.h
+        src/BatchNormLayer.cpp
         src/ConnLayer.cpp
         src/ConvLayer.cpp
         src/Darknet.cpp
         src/DetectLayer.cpp
         src/Error.cpp
         src/Image.cpp
-        src/ImageToCol.cpp
+        src/Utility.cpp
         src/Layer.cpp
         src/MaxPoolLayer.cpp
         src/Model.cpp

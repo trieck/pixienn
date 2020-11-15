@@ -15,7 +15,8 @@
 ********************************************************************************/
 
 #include "ConvLayer.h"
-#include "ImageToCol.h"
+
+#include "Utility.h"
 #include "xtensor/xadapt.hpp"
 #include "xtensor/xrandom.hpp"
 #include <cblas.h>
@@ -23,11 +24,10 @@
 using namespace px;
 using namespace xt;
 
-
 ConvLayer::ConvLayer(const YAML::Node& layerDef) : Layer(layerDef)
 {
     activation_ = property<std::string>("activation");
-    batchNormalize_ = property<bool>("batch_normalize", false);
+    auto batchNormalize = property<bool>("batch_normalize", false);
     dilation_ = property<int>("dilation", 0);
     filters_ = property<int>("filters", 1);
     kernel_ = property<int>("kernel", 1);
@@ -35,27 +35,25 @@ ConvLayer::ConvLayer(const YAML::Node& layerDef) : Layer(layerDef)
     stride_ = property<int>("stride", 1);
     groups_ = std::max(1, property<int>("groups", 1));
 
-    weights_ = random::rand<float>({ filters_, channels() / groups_, kernel_, kernel_ });
-    biases_ = zeros<float>({ filters_ });
-
-    if (batchNormalize_) {
-        scales_ = zeros<float>({ filters_ });
-        rollingMean_ = zeros<float>({ filters_ });
-        rollingVar_ = zeros<float>({ filters_ });
-    }
-
     setOutChannels(filters_);
     setOutHeight((height() + 2 * pad_ - kernel_) / stride_ + 1);
     setOutWidth((width() + 2 * pad_ - kernel_) / stride_ + 1);
-
     setOutputs(outHeight() * outWidth() * outChannels());
 
-    output_ = zeros<float>({ batch(), outChannels(), outHeight(), outWidth() });
-}
+    if (batchNormalize) {
+        auto def = layerDef;
+        def["type"] = "batchnorm";
+        def["channels"] = outChannels();
+        def["height"] = outHeight();
+        def["width"] = outWidth();
+        batchNormalize_ = Layer::create(def);
+    } else {
+        biases_ = zeros<float>({ filters_ });
+    }
 
-ConvLayer::~ConvLayer()
-{
-
+    weights_ = random::rand<float>({ filters_, channels() / groups_, kernel_, kernel_ });
+    column_ = empty<float>({ kernel_ * kernel_ * channels() / groups_, outHeight() * outWidth() });
+    output_ = empty<float>({ batch(), outChannels(), outHeight(), outWidth() });
 }
 
 std::ostream& ConvLayer::print(std::ostream& os)
@@ -78,14 +76,11 @@ std::ostream& ConvLayer::print(std::ostream& os)
 
 void ConvLayer::loadDarknetWeights(std::istream& is)
 {
-    is.read((char*) biases_.data(), filters_ * sizeof(float));
-    PX_CHECK(is.good(), "Could not read biases");
-
     if (batchNormalize_) {
-        is.read((char*) scales_.data(), sizeof(float) * scales_.size());
-        is.read((char*) rollingMean_.data(), sizeof(float) * rollingMean_.size());
-        is.read((char*) rollingVar_.data(), sizeof(float) * rollingVar_.size());
-        PX_CHECK(is.good(), "Could not read batch_normalize parameters");
+        batchNormalize_->loadDarknetWeights(is);
+    } else {
+        is.read((char*) biases_.data(), biases_.size() * sizeof(float));
+        PX_CHECK(is.good(), "Could not read biases");
     }
 
     is.read((char*) weights_.data(), sizeof(float) * weights_.size());
@@ -99,29 +94,33 @@ xt::xarray<float> ConvLayer::forward(const xt::xarray<float>& input)
     int k = kernel_ * kernel_ * channels() / groups_;
 
     int nweights = weights_.size();
-    const float* pweights = weights_.data();
+    const auto* pweights = weights_.data();
 
-    const float* pin = input.data();
-    float* pout = output_.data();
-
-    xt::xtensor<float, 2> B = empty<float>({ k, outHeight() * outWidth() });
+    const auto* pin = input.data();
+    auto* pout = output_.data();
 
     for (auto i = 0; i < batch(); ++i) {
         for (auto j = 0; j < groups_; ++j) {
-            const float* a = pweights + j * nweights / groups_;
-            const float* im = pin + (i * groups_ + j) * channels() / groups_ * height() * width();
-            float* c = pout + (i * groups_ + j) * n * m;
+            const auto* im = pin + (i * groups_ + j) * channels() / groups_ * height() * width();
+            const auto* a = pweights + j * nweights / groups_;
+            const auto* b = kernel_ == 1 ? im : column_.data();
+            auto* c = pout + (i * groups_ + j) * n * m;
 
-            const float* b = B.data();
-            if (kernel_ == 1) {
-                b = im;
-            } else {
-                im2col_cpu(im, channels() / groups_, height(), width(), kernel_, stride_, pad_, B.data());
+            if (kernel_ != 1) {
+                im2col_cpu(im, channels() / groups_, height(), width(), kernel_, stride_, pad_, column_.data());
             }
 
             cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, 1.0f, a, k, b, n, 1.0f, c, n);
         }
     }
+
+    if (batchNormalize_) {
+        output_ = batchNormalize_->forward(output_);
+    } else {
+        // add_bias(l.output, l.biases, l.batch, l.n, l.out_h*l.out_w);
+    }
+
+    // activate_array(l.output, l.outputs*l.batch, l.activation);
 
     return output_;
 }

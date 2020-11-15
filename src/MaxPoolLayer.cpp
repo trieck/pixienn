@@ -15,26 +15,25 @@
 ********************************************************************************/
 
 #include "MaxPoolLayer.h"
+#include "xtensor/xbuilder.hpp"
 
 namespace px {
+
+using namespace xt;
 
 MaxPoolLayer::MaxPoolLayer(const YAML::Node& layerDef) : Layer(layerDef)
 {
     kernel_ = property<int>("kernel", 1);
     stride_ = property<int>("stride", 1);
-    size_ = property<int>("size", stride_);
-    padding_ = property<int>("padding", std::max(0, size_ - 1));
+    padding_ = property<int>("padding", std::max(0, kernel_ - 1));
 
     setOutChannels(channels());
-    setOutHeight((height() + padding_ - size_) / stride_ + 1);
-    setOutWidth((width() + padding_ - size_) / stride_ + 1);
+    setOutHeight((height() + padding_ - kernel_) / stride_ + 1);
+    setOutWidth((width() + padding_ - kernel_) / stride_ + 1);
 
     setOutputs(outHeight() * outWidth() * outChannels());
-}
 
-MaxPoolLayer::~MaxPoolLayer()
-{
-
+    output_ = empty<float>({ batch(), outChannels(), outHeight(), outWidth() });
 }
 
 std::ostream& MaxPoolLayer::print(std::ostream& os)
@@ -43,7 +42,7 @@ std::ostream& MaxPoolLayer::print(std::ostream& os)
 
     os << std::setw(40) << std::left << "max"
        << std::setw(20) << std::left
-       << std::string(std::to_string(size_) + " x " + std::to_string(size_) + " / " + std::to_string(stride_))
+       << std::string(std::to_string(kernel_) + " x " + std::to_string(kernel_) + " / " + std::to_string(stride_))
        << std::setw(20) << std::left
        << std::string(std::to_string(channels()) + " x " + std::to_string(height()) + " x " + std::to_string(width()))
        << std::setw(20) << std::left
@@ -56,7 +55,40 @@ std::ostream& MaxPoolLayer::print(std::ostream& os)
 
 xt::xarray<float> MaxPoolLayer::forward(const xt::xarray<float>& input)
 {
-    return xt::xarray<float>();
+    int wOffset = -padding_ / 2;
+    int hOffset = -padding_ / 2;
+
+    auto h = outHeight();
+    auto w = outWidth();
+    auto c = channels();
+    const auto min = -std::numeric_limits<float>::max();
+
+    const auto* pin = input.data();
+    auto* pout = output_.data();
+
+    for (auto b = 0; b < batch(); ++b) {
+        for (auto k = 0; k < c; ++k) {
+            for (auto i = 0; i < h; ++i) {
+                for (auto j = 0; j < w; ++j) {
+                    auto outIndex = j + w * (i + h * (k + c * b));
+                    float max = min;
+                    for (auto n = 0; n < kernel_; ++n) {
+                        for (auto m = 0; m < kernel_; ++m) {
+                            auto curH = hOffset + i * stride_ + n;
+                            auto curW = wOffset + j * stride_ + m;
+                            auto index = curW + w * (curH + h * (k + b * c));
+                            auto valid = (curH >= 0 && curH < h && curW >= 0 && curW < w);
+                            auto val = (valid != 0) ? pin[index] : min;
+                            max = (val > max) ? val : max;
+                        }
+                    }
+                    pout[outIndex] = max;
+                }
+            }
+        }
+    }
+
+    return output_;
 }
 
 } // px

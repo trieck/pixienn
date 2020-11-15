@@ -17,6 +17,7 @@
 #ifndef PIXIENN_MAXPOOLLAYER_H
 #define PIXIENN_MAXPOOLLAYER_H
 
+#include <xtensor/xtensor.hpp>
 #include "Layer.h"
 
 namespace px {
@@ -27,15 +28,16 @@ protected:
     MaxPoolLayer(const YAML::Node& layerDef);
 
 public:
-    virtual ~MaxPoolLayer();
+    virtual ~MaxPoolLayer() = default;
 
     std::ostream& print(std::ostream& os) override;
     xt::xarray<float> forward(const xt::xarray<float>& input) override;
 
 private:
     friend LayerFactories;
+    xt::xtensor<float, 4> output_;
 
-    int kernel_ = 0, stride_ = 0, size_ = 0, padding_;
+    int kernel_ = 0, stride_ = 0, padding_;
 };
 
 } // px

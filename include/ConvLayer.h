@@ -29,7 +29,7 @@ protected:
     ConvLayer(const YAML::Node& layerDef);
 
 public:
-    virtual ~ConvLayer();
+    virtual ~ConvLayer() = default;
 
     std::ostream& print(std::ostream& os) override;
     void loadDarknetWeights(std::istream& is) override;
@@ -39,11 +39,12 @@ private:
     friend LayerFactories;
 
     xt::xtensor<float, 4> weights_, output_;
-    xt::xtensor<float, 1> biases_, scales_, rollingMean_, rollingVar_;
+    xt::xtensor<float, 1> biases_;
+    xt::xtensor<float, 2> column_;
 
-    bool batchNormalize_;
     int dilation_ = 0, filters_, kernel_, pad_, stride_, groups_;
     std::string activation_;
+    Layer::Ptr batchNormalize_;
 };
 
 } // px

@@ -14,6 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
+#include "BatchNormLayer.h"
 #include "ConnLayer.h"
 #include "ConvLayer.h"
 #include "DetectLayer.h"
@@ -42,6 +43,7 @@ private:
 
 LayerFactories::LayerFactories()
 {
+    registerFactory<BatchNormLayer>("batchnorm");
     registerFactory<ConnLayer>("connected");
     registerFactory<ConvLayer>("conv");
     registerFactory<DetectLayer>("detection");

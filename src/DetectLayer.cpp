@@ -38,11 +38,6 @@ DetectLayer::DetectLayer(const YAML::Node& layerDef) : Layer(layerDef)
     sqrt_ = property<bool>("sqrt", false);
 }
 
-DetectLayer::~DetectLayer()
-{
-
-}
-
 std::ostream& DetectLayer::print(std::ostream& os)
 {
     os << std::setfill('.');

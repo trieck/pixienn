@@ -14,8 +14,8 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_CONNLAYER_H
-#define PIXIENN_CONNLAYER_H
+#ifndef PIXIENN_BATCHNORMLAYER_H
+#define PIXIENN_BATCHNORMLAYER_H
 
 #include <xtensor/xtensor.hpp>
 
@@ -23,29 +23,24 @@
 
 namespace px {
 
-class ConnLayer : public Layer
+class BatchNormLayer : public Layer
 {
 protected:
-    ConnLayer(const YAML::Node& layerDef);
+    BatchNormLayer(const YAML::Node& layerDef);
 
 public:
-    virtual ~ConnLayer() = default;
+    virtual ~BatchNormLayer() = default;
 
     std::ostream& print(std::ostream& os) override;
-    void loadDarknetWeights(std::istream& is) override;
     xt::xarray<float> forward(const xt::xarray<float>& input) override;
+    void loadDarknetWeights(std::istream& is) override;
 
 private:
     friend LayerFactories;
-
-    xt::xtensor<float, 2> weights_;
-    xt::xtensor<float, 1> biases_;
-
-    bool batchNormalize_;
-    std::string activation_;
-    float scales_, rollingMean_, rollingVar_;
+    xt::xtensor<float, 1> biases_, scales_, rollingMean_, rollingVar_;
+    xt::xtensor<float, 4> output_;
 };
 
 } // px
 
-#endif // PIXIENN_CONNLAYER_H
+#endif // PIXIENN_BATCHNORMLAYER_H

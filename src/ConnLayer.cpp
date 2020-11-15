@@ -38,11 +38,6 @@ ConnLayer::ConnLayer(const YAML::Node& layerDef) : Layer(layerDef)
     biases_ = zeros<float>({ outputs() });
 }
 
-ConnLayer::~ConnLayer()
-{
-
-}
-
 std::ostream& ConnLayer::print(std::ostream& os)
 {
     os << std::setfill('.');

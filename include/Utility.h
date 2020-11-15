@@ -14,14 +14,18 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_IMAGETOCOL_H
-#define PIXIENN_IMAGETOCOL_H
+#ifndef PIXIENN_UTILITY_H
+#define PIXIENN_UTILITY_H
 
 namespace px {
 
-void im2col_cpu(const float* data_im, int channels, int height, int width, int ksize, int stride, int pad,
-                float* data_col);
+void
+im2col_cpu(const float* dataIm, int channels, int height, int width, int ksize, int stride, int pad, float* dataCol);
+
+void normalize_cpu(float* x, float* mean, float* variance, int batch, int filters, int spatial);
+void scale_bias(float* output, float* scales, int batch, int n, int size);
+void add_bias(float* output, float* biases, int batch, int n, int size);
 
 }   // px
 
-#endif // PIXIENN_IMAGETOCOL_H
+#endif // PIXIENN_UTILITY_H

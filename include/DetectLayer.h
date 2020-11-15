@@ -28,7 +28,7 @@ protected:
     DetectLayer(const YAML::Node& layerDef);
 
 public:
-    virtual ~DetectLayer();
+    virtual ~DetectLayer() = default;
 
     std::ostream& print(std::ostream& os) override;
     xt::xarray<float> forward(const xt::xarray<float>& input) override;

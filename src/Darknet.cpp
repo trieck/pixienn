@@ -47,7 +47,7 @@ void loadDarknetWeights(const Model& model, const std::string& filename)
         layer->loadDarknetWeights(ifs);
     }
 
-    PX_CHECK(ifs.tellg() == length, "Did not fully read weights file.");
+    PX_CHECK(ifs.tellg() == length, "Did not fully read weights file.  Model/Weights mismatch?");
 
     ifs.close();
 }
