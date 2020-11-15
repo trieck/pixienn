@@ -18,7 +18,6 @@
 #define PIXIENN_MODEL_H
 
 #include "Layer.h"
-#include "xtensor/xarray.hpp"
 
 namespace px {
 
@@ -40,7 +39,7 @@ public:
     const int height() const;
     const int width() const;
 
-    xt::xarray<float> forward(xt::xarray<float>&& input);
+    xt::xarray<float> forward(const xt::xarray<float>& input);
 
 private:
     void parse();

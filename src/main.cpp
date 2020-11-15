@@ -52,12 +52,17 @@ void testConvolve()
 void testYolo()
 {
     auto model = Model("resources/models/yolov1-tiny.yml");
+
+    std::cout << "Loading weights...";
     loadDarknetWeights(model, "resources/weights/yolov1-tiny.weights");
+    std::cout << "done." << std::endl;
 
     auto image = px::imletterbox("resources/images/dog.jpg", model.width(), model.height());
     auto input = px::imarray(image);
 
+    std::cout << "Running network...";
     auto result = model.forward(std::move(input));
+    std::cout << "done." << std::endl;
 }
 
 int main()

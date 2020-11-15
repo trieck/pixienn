@@ -102,9 +102,18 @@ const int Model::width() const
     return width_;
 }
 
-xt::xarray<float> Model::forward(xt::xarray<float>&& input)
+xt::xarray<float> Model::forward(const xt::xarray<float>& input)
 {
-    return xt::xarray<float>();
+    xt::xarray<float> out;
+
+    auto in = input;
+
+    for (auto& layer: layers()) {
+        out = layer->forward(in);
+        in = out;
+    }
+
+    return out;
 }
 
 } // px

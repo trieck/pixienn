@@ -16,8 +16,8 @@ model:
 
     - type: maxpool
       kernel: 2
-      stride: 2
       size: 2
+      stride: 2
 
     - type: conv
       activation: leaky
@@ -30,8 +30,8 @@ model:
 
     - type: maxpool
       kernel: 2
-      stride: 2
       size: 2
+      stride: 2
 
     - type: conv
       activation: leaky
@@ -44,8 +44,8 @@ model:
 
     - type: maxpool
       kernel: 2
-      stride: 2
       size: 2
+      stride: 2
 
     - type: conv
       activation: leaky
@@ -58,8 +58,8 @@ model:
 
     - type: maxpool
       kernel: 2
-      stride: 2
       size: 2
+      stride: 2
 
     - type: conv
       activation: leaky
@@ -72,8 +72,8 @@ model:
 
     - type: maxpool
       kernel: 2
-      stride: 2
       size: 2
+      stride: 2
 
     - type: conv
       activation: leaky
@@ -86,8 +86,8 @@ model:
 
     - type: maxpool
       kernel: 2
-      stride: 2
       size: 2
+      stride: 2
 
     - type: conv
       activation: leaky
@@ -108,8 +108,8 @@ model:
       stride: 1
 
     - type: connected
-      output: 1470
       activation: linear
+      output: 1470
 
     - type: detection
       class_scale: 1

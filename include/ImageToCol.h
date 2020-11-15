@@ -14,33 +14,14 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_DETECTLAYER_H
-#define PIXIENN_DETECTLAYER_H
-
-
-#include "Layer.h"
+#ifndef PIXIENN_IMAGETOCOL_H
+#define PIXIENN_IMAGETOCOL_H
 
 namespace px {
 
-class DetectLayer : public Layer
-{
-protected:
-    DetectLayer(const YAML::Node& layerDef);
+void im2col_cpu(const float* data_im, int channels, int height, int width, int ksize, int stride, int pad,
+                float* data_col);
 
-public:
-    virtual ~DetectLayer();
+}   // px
 
-    std::ostream& print(std::ostream& os) override;
-    xt::xarray<float> forward(const xt::xarray<float>& input) override;
-
-private:
-    friend LayerFactories;
-
-    int coords_, classes_ , num_, side_, maxBoxes_;
-    bool rescore_, softmax_, sqrt_, forced_, random_, reorg_;
-    float coordScale_, objectScale_, noObjectScale_, classScale, jitter_;
-};
-
-} // px
-
-#endif // PIXIENN_DETECTLAYER_H
+#endif // PIXIENN_IMAGETOCOL_H

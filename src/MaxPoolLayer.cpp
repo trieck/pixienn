@@ -54,4 +54,9 @@ std::ostream& MaxPoolLayer::print(std::ostream& os)
     return os;
 }
 
+xt::xarray<float> MaxPoolLayer::forward(const xt::xarray<float>& input)
+{
+    return xt::xarray<float>();
+}
+
 } // px

@@ -18,6 +18,7 @@
 #define PIXIENN_LAYER_H
 
 #include "Error.h"
+#include <xtensor/xarray.hpp>
 #include <yaml-cpp/yaml.h>
 
 namespace px {
@@ -50,6 +51,8 @@ public:
 
     virtual void loadDarknetWeights(std::istream& is)
     {}
+
+    virtual xt::xarray<float> forward(const xt::xarray<float>& input) = 0;
 
 protected:
     template<typename T>

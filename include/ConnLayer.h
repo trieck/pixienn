@@ -33,6 +33,7 @@ public:
 
     std::ostream& print(std::ostream& os) override;
     void loadDarknetWeights(std::istream& is) override;
+    xt::xarray<float> forward(const xt::xarray<float>& input) override;
 
 private:
     friend LayerFactories;

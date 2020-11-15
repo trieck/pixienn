@@ -47,8 +47,7 @@ void loadDarknetWeights(const Model& model, const std::string& filename)
         layer->loadDarknetWeights(ifs);
     }
 
-    // FIXME: check read file fully
-    // std::cout << "current: " << ifs.tellg() << ", length: " << length << std::endl;
+    PX_CHECK(ifs.tellg() == length, "Did not fully read weights file.");
 
     ifs.close();
 }

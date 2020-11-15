@@ -30,6 +30,7 @@ public:
     virtual ~MaxPoolLayer();
 
     std::ostream& print(std::ostream& os) override;
+    xt::xarray<float> forward(const xt::xarray<float>& input) override;
 
 private:
     friend LayerFactories;

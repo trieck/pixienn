@@ -33,15 +33,15 @@ public:
 
     std::ostream& print(std::ostream& os) override;
     void loadDarknetWeights(std::istream& is) override;
+    xt::xarray<float> forward(const xt::xarray<float>& input) override;
 
 private:
     friend LayerFactories;
 
-    xt::xtensor<float, 4> weights_;
-    xt::xtensor<float, 1> biases_;
+    xt::xtensor<float, 4> weights_, output_;
+    xt::xtensor<float, 1> biases_, scales_, rollingMean_, rollingVar_;
 
     bool batchNormalize_;
-    float scales_, rollingMean_, rollingVar_;
     int dilation_ = 0, filters_, kernel_, pad_, stride_, groups_;
     std::string activation_;
 };
