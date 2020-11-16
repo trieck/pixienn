@@ -17,7 +17,8 @@
 #include "ConnLayer.h"
 #include "xtensor/xrandom.hpp"
 
-using namespace px;
+namespace px {
+
 using namespace xt;
 
 ConnLayer::ConnLayer(const YAML::Node& layerDef) : Layer(layerDef)
@@ -71,3 +72,5 @@ xt::xarray<float> ConnLayer::forward(const xt::xarray<float>& input)
 {
     return xt::xarray<float>();
 }
+
+} // px

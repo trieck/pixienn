@@ -16,7 +16,7 @@
 
 #include "DetectLayer.h"
 
-using namespace px;
+namespace px {
 
 DetectLayer::DetectLayer(const YAML::Node& layerDef) : Layer(layerDef)
 {
@@ -52,3 +52,4 @@ xt::xarray<float> DetectLayer::forward(const xt::xarray<float>& input)
     return xt::xarray<float>();
 }
 
+}   // px

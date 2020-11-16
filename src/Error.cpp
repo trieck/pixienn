@@ -19,7 +19,7 @@
 
 #define PX_ERROR_MAX_LEN (2048)
 
-using namespace px;
+namespace px {
 
 Error::Error() noexcept: line_(0)
 {
@@ -150,3 +150,4 @@ void Error::init() noexcept
     what_ = message_ + " in " + function_ + ", file: " + file_ + ", line: " + strLine + ".";
 }
 
+}   // px

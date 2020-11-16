@@ -17,7 +17,8 @@
 #include "BatchNormLayer.h"
 #include "Utility.h"
 
-using namespace px;
+namespace px {
+
 using namespace xt;
 
 BatchNormLayer::BatchNormLayer(const YAML::Node& layerDef) : Layer(layerDef)
@@ -75,3 +76,6 @@ void BatchNormLayer::loadDarknetWeights(std::istream& is)
     is.read((char*) rollingVar_.data(), sizeof(float) * rollingVar_.size());
     PX_CHECK(is.good(), "Could not read batch_normalize parameters");
 }
+
+}   // px
+

@@ -16,17 +16,21 @@
 
 #include "ConvLayer.h"
 
+#include "Activation.h"
 #include "Utility.h"
 #include "xtensor/xadapt.hpp"
 #include "xtensor/xrandom.hpp"
 #include <cblas.h>
 
-using namespace px;
+namespace px {
+
 using namespace xt;
 
 ConvLayer::ConvLayer(const YAML::Node& layerDef) : Layer(layerDef)
 {
-    activation_ = property<std::string>("activation");
+    activation_ = property<std::string>("activation", "logistic");
+    activationFnc_ = Activation::get(activation_);
+
     auto batchNormalize = property<bool>("batch_normalize", false);
     dilation_ = property<int>("dilation", 0);
     filters_ = property<int>("filters", 1);
@@ -117,10 +121,12 @@ xt::xarray<float> ConvLayer::forward(const xt::xarray<float>& input)
     if (batchNormalize_) {
         output_ = batchNormalize_->forward(output_);
     } else {
-        // add_bias(l.output, l.biases, l.batch, l.n, l.out_h*l.out_w);
+        add_bias(output_.data(), biases_.data(), batch(), outChannels(), outHeight() * outWidth());
     }
 
-    // activate_array(l.output, l.outputs*l.batch, l.activation);
+    activationFnc_->apply(output_);
 
     return output_;
 }
+
+}   // px

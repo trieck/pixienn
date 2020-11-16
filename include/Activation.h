@@ -14,41 +14,33 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_CONVLAYER_H
-#define PIXIENN_CONVLAYER_H
+#ifndef PIXIENN_ACTIVATION_H
+#define PIXIENN_ACTIVATION_H
 
-#include <xtensor/xtensor.hpp>
-
-#include "Activation.h"
-#include "Layer.h"
+#include "common.h"
+#include "xtensor/xcontainer.hpp"
 
 namespace px {
 
-class ConvLayer : public Layer
+class Activation
 {
-protected:
-    ConvLayer(const YAML::Node& layerDef);
-
 public:
-    virtual ~ConvLayer() = default;
+    using Ptr = std::shared_ptr<Activation>;
 
-    std::ostream& print(std::ostream& os) override;
-    void loadDarknetWeights(std::istream& is) override;
-    xt::xarray<float> forward(const xt::xarray<float>& input) override;
+    static Activation::Ptr get(const std::string& s);
 
-private:
-    friend LayerFactories;
+    virtual void apply(float* begin, float* end) const = 0;
 
-    xt::xtensor<float, 4> weights_, output_;
-    xt::xtensor<float, 1> biases_;
-    xt::xtensor<float, 2> column_;
-
-    int dilation_ = 0, filters_, kernel_, pad_, stride_, groups_;
-    std::string activation_;
-    Layer::Ptr batchNormalize_;
-    Activation::Ptr activationFnc_;
+    template<typename T>
+    void apply(xt::xcontainer<T>&) const;
 };
 
-} // px
+template<typename T>
+void Activation::apply(xt::xcontainer<T>& container) const
+{
+    apply(container.begin(), container.end());
+}
 
-#endif // PIXIENN_CONVLAYER_H
+}   // px
+
+#endif // PIXIENN_ACTIVATION_H
