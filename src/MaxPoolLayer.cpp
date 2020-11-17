@@ -58,8 +58,10 @@ xt::xarray<float> MaxPoolLayer::forward(const xt::xarray<float>& input)
     int wOffset = -padding_ / 2;
     int hOffset = -padding_ / 2;
 
-    auto h = outHeight();
-    auto w = outWidth();
+    auto ih = height();
+    auto iw = width();
+    auto oh = outHeight();
+    auto ow = outWidth();
     auto c = channels();
     const auto min = -std::numeric_limits<float>::max();
 
@@ -68,25 +70,28 @@ xt::xarray<float> MaxPoolLayer::forward(const xt::xarray<float>& input)
 
     for (auto b = 0; b < batch(); ++b) {
         for (auto k = 0; k < c; ++k) {
-            for (auto i = 0; i < h; ++i) {
-                for (auto j = 0; j < w; ++j) {
-                    auto outIndex = j + w * (i + h * (k + c * b));
+            for (auto i = 0; i < oh; ++i) {
+                for (auto j = 0; j < ow; ++j) {
+                    auto outIndex = j + ow * (i + oh * (k + c * b));
                     float max = min;
                     for (auto n = 0; n < kernel_; ++n) {
                         for (auto m = 0; m < kernel_; ++m) {
                             auto curH = hOffset + i * stride_ + n;
                             auto curW = wOffset + j * stride_ + m;
-                            auto index = curW + w * (curH + h * (k + b * c));
-                            auto valid = (curH >= 0 && curH < h && curW >= 0 && curW < w);
-                            auto val = (valid != 0) ? pin[index] : min;
+                            auto index = curW + iw * (curH + ih * (k + b * c));
+                            auto valid = (curH >= 0 && curH < ih && curW >= 0 && curW < iw);
+                            auto val = valid ? pin[index] : min;
                             max = (val > max) ? val : max;
                         }
                     }
+
                     pout[outIndex] = max;
                 }
             }
         }
     }
+
+
 
     return output_;
 }

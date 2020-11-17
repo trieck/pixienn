@@ -15,6 +15,9 @@
 ********************************************************************************/
 
 #include "DetectLayer.h"
+#include "Math.h"
+
+using namespace xt;
 
 namespace px {
 
@@ -47,9 +50,12 @@ std::ostream& DetectLayer::print(std::ostream& os)
     return os;
 }
 
+
 xt::xarray<float> DetectLayer::forward(const xt::xarray<float>& input)
 {
-    return xt::xarray<float>();
+    auto output = softmax(input);
+
+    return output;
 }
 
 }   // px

@@ -15,7 +15,9 @@
 ********************************************************************************/
 
 #include "ConnLayer.h"
+#include "Utility.h"
 #include "xtensor/xrandom.hpp"
+#include <cblas.h>
 
 namespace px {
 
@@ -23,8 +25,10 @@ using namespace xt;
 
 ConnLayer::ConnLayer(const YAML::Node& layerDef) : Layer(layerDef)
 {
-    activation_ = property<std::string>("activation");
-    batchNormalize_ = property<bool>("batch_normalize", false);
+    activation_ = property<std::string>("activation", "logistic");
+    activationFnc_ = Activation::get(activation_);
+
+    auto batchNormalize = property<bool>("batch_normalize", false);
 
     setChannels(inputs());
     setHeight(1);
@@ -35,8 +39,19 @@ ConnLayer::ConnLayer(const YAML::Node& layerDef) : Layer(layerDef)
     setOutWidth(1);
     setOutChannels(outputs());
 
+    if (batchNormalize) {
+        auto def = layerDef;
+        def["type"] = "batchnorm";
+        def["channels"] = outChannels();
+        def["height"] = outHeight();
+        def["width"] = outWidth();
+        batchNormalize_ = Layer::create(def);
+    } else {
+        biases_ = zeros<float>({ outputs() });
+    }
+
     weights_ = random::rand<float>({ inputs(), outputs() });
-    biases_ = zeros<float>({ outputs() });
+    output_ = zeros<float>({ batch(), outChannels(), outHeight(), outWidth() });
 }
 
 std::ostream& ConnLayer::print(std::ostream& os)
@@ -70,7 +85,26 @@ void ConnLayer::loadDarknetWeights(std::istream& is)
 
 xt::xarray<float> ConnLayer::forward(const xt::xarray<float>& input)
 {
-    return xt::xarray<float>();
+    // fill_cpu(l.outputs*l.batch, 0, l.output, 1);
+
+    auto m = batch();
+    auto n = outputs();
+    auto k = inputs();
+    auto* a = input.data();
+    auto* b = weights_.data();
+    auto* c = output_.data();
+
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, m, n, k, 1.0f, a, k, b, k, 1.0f, c, n);
+
+    if (batchNormalize_) {
+        output_ = batchNormalize_->forward(output_);
+    } else {
+        add_bias(c, biases_.data(), m, outChannels(), outHeight() * outWidth());
+    }
+
+    activationFnc_->apply(output_);
+
+    return output_;
 }
 
 } // px

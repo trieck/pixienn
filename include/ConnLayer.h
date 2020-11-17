@@ -19,6 +19,7 @@
 
 #include <xtensor/xtensor.hpp>
 
+#include "Activation.h"
 #include "Layer.h"
 
 namespace px {
@@ -40,8 +41,11 @@ private:
 
     xt::xtensor<float, 2> weights_;
     xt::xtensor<float, 1> biases_;
+    xt::xtensor<float, 4> output_;
 
-    bool batchNormalize_;
+    Activation::Ptr activationFnc_;
+
+    Layer::Ptr batchNormalize_;
     std::string activation_;
     float scales_, rollingMean_, rollingVar_;
 };
