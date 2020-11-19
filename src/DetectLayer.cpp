@@ -50,10 +50,15 @@ std::ostream& DetectLayer::print(std::ostream& os)
     return os;
 }
 
-
 xt::xarray<float> DetectLayer::forward(const xt::xarray<float>& input)
 {
-    auto output = softmax(input);
+    xt::xarray<float> output;
+
+    if (softmax_) {
+        output = softmax(input);
+    } else {
+        output = input;
+    }
 
     return output;
 }

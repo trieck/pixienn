@@ -39,10 +39,13 @@ public:
     const int height() const;
     const int width() const;
 
-    xt::xarray<float> forward(const xt::xarray<float>& input);
+    void loadDarknetWeights(const std::string& filename);
 
+    xt::xarray<float> predict(xt::xarray<float>&& input);
 private:
+    xt::xarray<float> forward(xt::xarray<float>&& input);
     void parse();
+
     std::string filename_;
     int batch_ = 0, channels_ = 0, height_ = 0, width_ = 0;
 

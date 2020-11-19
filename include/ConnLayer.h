@@ -41,7 +41,7 @@ private:
 
     xt::xtensor<float, 2> weights_;
     xt::xtensor<float, 1> biases_;
-    xt::xtensor<float, 4> output_;
+    xt::xtensor<float, 1> output_;
 
     Activation::Ptr activationFnc_;
 

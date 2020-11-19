@@ -51,7 +51,7 @@ ConnLayer::ConnLayer(const YAML::Node& layerDef) : Layer(layerDef)
     }
 
     weights_ = random::rand<float>({ inputs(), outputs() });
-    output_ = zeros<float>({ batch(), outChannels(), outHeight(), outWidth() });
+    output_ = zeros<float>({ batch() * outputs() });
 }
 
 std::ostream& ConnLayer::print(std::ostream& os)
@@ -85,7 +85,7 @@ void ConnLayer::loadDarknetWeights(std::istream& is)
 
 xt::xarray<float> ConnLayer::forward(const xt::xarray<float>& input)
 {
-    // fill_cpu(l.outputs*l.batch, 0, l.output, 1);
+    output_.fill(0);
 
     auto m = batch();
     auto n = outputs();

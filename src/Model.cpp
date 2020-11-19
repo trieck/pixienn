@@ -15,8 +15,9 @@
 ********************************************************************************/
 
 #include "Error.h"
-#include "Model.h"
 #include "Layer.h"
+#include "Model.h"
+#include <fstream>
 
 using namespace YAML;
 
@@ -102,18 +103,54 @@ const int Model::width() const
     return width_;
 }
 
-xt::xarray<float> Model::forward(const xt::xarray<float>& input)
+xt::xarray<float> Model::forward(xt::xarray<float>&& input)
 {
-    xt::xarray<float> out;
-
-    auto in = input;
+    auto in = std::move(input);
 
     for (auto& layer: layers()) {
-        out = layer->forward(in);
-        in = out;
+        in = layer->forward(std::forward<xt::xarray<float>>(in));
     }
 
-    return out;
+    return in;
+}
+
+void Model::loadDarknetWeights(const std::string& filename)
+{
+    std::ifstream ifs(filename, std::ios::in | std::ios::binary);
+    PX_CHECK(ifs.good(), "Could not open file \"%s\".", filename.c_str());
+
+    ifs.seekg(0, ifs.end);
+    auto length = ifs.tellg();
+    ifs.seekg(0, ifs.beg);
+
+    int major, minor, revision;
+
+    ifs.read((char*) &major, sizeof(int));
+    ifs.read((char*) &minor, sizeof(int));
+    ifs.read((char*) &revision, sizeof(int));
+
+    if ((major * 10 + minor) >= 2 && major < 1000 && minor < 1000) {
+        size_t seen;
+        ifs.read((char*) &seen, sizeof(size_t));
+    } else {
+        int iseen = 0;
+        ifs.read((char*) &iseen, sizeof(int));
+    }
+
+    for (const auto& layer: layers()) {
+        layer->loadDarknetWeights(ifs);
+    }
+
+    PX_CHECK(ifs.tellg() == length, "Did not fully read weights file.  Model/Weights mismatch?");
+
+    ifs.close();
+}
+
+xt::xarray<float> Model::predict(xt::xarray<float>&& input)
+{
+    auto result = forward(std::forward<xt::xarray<float>>(input));
+
+    return result;
 }
 
 } // px

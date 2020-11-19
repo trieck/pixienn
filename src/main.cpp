@@ -19,7 +19,8 @@
 #include "Error.h"
 #include "Model.h"
 #include "Image.h"
-#include "Darknet.h"
+
+#include "xtensor/xio.hpp"
 
 using namespace px;
 
@@ -54,14 +55,17 @@ void testYolo()
     auto model = Model("resources/models/yolov1-tiny.yml");
 
     std::cout << "Loading weights...";
-    loadDarknetWeights(model, "resources/weights/yolov1-tiny.weights");
+    model.loadDarknetWeights("resources/weights/yolov1-tiny.weights");
     std::cout << "done." << std::endl;
 
     auto image = px::imletterbox("resources/images/dog.jpg", model.width(), model.height());
     auto input = px::imarray(image);
 
     std::cout << "Running network...";
-    auto result = model.forward(std::move(input));
+
+    auto result = model.predict(std::move(input));
+
+    std::cout << result << std::endl;
     std::cout << "done." << std::endl;
 }
 
