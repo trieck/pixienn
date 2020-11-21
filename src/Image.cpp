@@ -105,10 +105,8 @@ void imsave(const char* path, const cv::Mat& image)
     TIFFClose(tif);
 }
 
-Mat imletterbox(const char* path, int width, int height)
+Mat imletterbox(const Mat& image, int width, int height)
 {
-    auto image = imread(path);
-
     int newWidth, newHeight;
     int imageWidth = image.cols;
     int imageHeight = image.rows;

@@ -14,37 +14,34 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_DETECTLAYER_H
-#define PIXIENN_DETECTLAYER_H
+#ifndef PIXIENN_DETECTION_H
+#define PIXIENN_DETECTION_H
 
-#include <xtensor/xtensor.hpp>
-#include "Layer.h"
-#include "Detection.h"
+#include "opencv2/core/types.hpp"
 
 namespace px {
 
-class DetectLayer : public Layer, public Detector
+class Detection
 {
-protected:
-    DetectLayer(const YAML::Node& layerDef);
-
 public:
-    virtual ~DetectLayer() = default;
+    Detection(int classes, cv::Rect2f box, float objectness);
 
-    std::ostream& print(std::ostream& os) override;
-    xt::xarray<float> forward(const xt::xarray<float>& input) override;
+    float& operator[](int clazz);
+    const float& operator[](int clazz) const;
 
-    void addDetects(std::vector<Detection>& detections, int width, int height, float threshold) override;
+    int size() const noexcept;
 
 private:
-    friend LayerFactories;
-
-    int coords_, classes_, num_, side_, maxBoxes_;
-    bool rescore_, softmax_, sqrt_, forced_, random_, reorg_;
-    float coordScale_, objectScale_, noObjectScale_, classScale, jitter_;
-    xt::xtensor<float, 1> output_;
+    cv::Rect2f box_;
+    std::vector<float> prob_;
+    float objectness_;
 };
 
-} // px
+struct Detector
+{
+    virtual void addDetects(std::vector<Detection>& detections, int width, int height, float threshold) = 0;
+};
 
-#endif // PIXIENN_DETECTLAYER_H
+}   // px
+
+#endif // PIXIENN_DETECTION_H

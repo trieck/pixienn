@@ -14,37 +14,34 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_DETECTLAYER_H
-#define PIXIENN_DETECTLAYER_H
-
-#include <xtensor/xtensor.hpp>
-#include "Layer.h"
 #include "Detection.h"
+#include "Error.h"
 
 namespace px {
 
-class DetectLayer : public Layer, public Detector
+Detection::Detection(int classes, cv::Rect2f box, float objectness) : box_(std::move(box)), objectness_(objectness)
 {
-protected:
-    DetectLayer(const YAML::Node& layerDef);
+    prob_.resize(classes);
+}
 
-public:
-    virtual ~DetectLayer() = default;
+float& Detection::operator[](int clazz)
+{
+    PX_CHECK(clazz < prob_.size(), "Class out of range");
 
-    std::ostream& print(std::ostream& os) override;
-    xt::xarray<float> forward(const xt::xarray<float>& input) override;
+    prob_[clazz];
+}
 
-    void addDetects(std::vector<Detection>& detections, int width, int height, float threshold) override;
+const float& Detection::operator[](int clazz) const
+{
+    PX_CHECK(clazz < prob_.size(), "Class out of range");
 
-private:
-    friend LayerFactories;
+    prob_[clazz];
+}
 
-    int coords_, classes_, num_, side_, maxBoxes_;
-    bool rescore_, softmax_, sqrt_, forced_, random_, reorg_;
-    float coordScale_, objectScale_, noObjectScale_, classScale, jitter_;
-    xt::xtensor<float, 1> output_;
-};
+int Detection::size() const noexcept
+{
+    return prob_.size();
+}
 
-} // px
+}   // px
 
-#endif // PIXIENN_DETECTLAYER_H

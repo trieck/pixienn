@@ -27,7 +27,7 @@ namespace px {
 cv::Mat imchannel(const cv::Mat& image, int c);
 cv::Mat immake(int height, int width, int channels, float value = 0.0f);
 cv::Mat imrandom(int height, int width, int channels);
-cv::Mat imletterbox(const char* path, int width, int height);
+cv::Mat imletterbox(const cv::Mat& image, int width, int height);
 cv::Mat imread(const char* path);
 void imsave(const char* path, const cv::Mat& image);
 

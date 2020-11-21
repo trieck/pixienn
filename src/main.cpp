@@ -58,14 +58,22 @@ void testYolo()
     model.loadDarknetWeights("resources/weights/yolov1-tiny.weights");
     std::cout << "done." << std::endl;
 
-    auto image = px::imletterbox("resources/images/dog.jpg", model.width(), model.height());
-    auto input = px::imarray(image);
+    auto image = px::imread("resources/images/dog.jpg");
+    auto sized = px::imletterbox(image, model.width(), model.height());
+    auto input = px::imarray(sized);
 
     std::cout << "Running network...";
 
-    auto result = model.predict(std::move(input));
+    auto detects = model.predict(std::move(input), image.cols, image.rows, 0.09f);
 
-    std::cout << result << std::endl;
+    for (const auto& det: detects) {
+        for (auto i = 0; i < det.size(); ++i) {
+            if (det[i] >= 0.09f) {
+                printf("%.0f%%\n", det[i] * 100);
+            }
+        }
+    }
+
     std::cout << "done." << std::endl;
 }
 

@@ -17,6 +17,7 @@
 #ifndef PIXIENN_MODEL_H
 #define PIXIENN_MODEL_H
 
+#include "Detection.h"
 #include "Layer.h"
 
 namespace px {
@@ -41,13 +42,15 @@ public:
 
     void loadDarknetWeights(const std::string& filename);
 
-    xt::xarray<float> predict(xt::xarray<float>&& input);
+    std::vector<Detection> predict(xt::xarray<float>&& input, int width, int height, float threshold);
 private:
     xt::xarray<float> forward(xt::xarray<float>&& input);
+
     void parse();
 
     std::string filename_;
     int batch_ = 0, channels_ = 0, height_ = 0, width_ = 0;
+    int major_ = 0, minor_ = 0, revision_ = 0;
 
     LayerVec layers_;
 };

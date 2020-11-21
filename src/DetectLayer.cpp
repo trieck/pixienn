@@ -39,6 +39,13 @@ DetectLayer::DetectLayer(const YAML::Node& layerDef) : Layer(layerDef)
     side_ = property<int>("side", 7);
     softmax_ = property<bool>("softmax", false);
     sqrt_ = property<bool>("sqrt", false);
+
+    setOutChannels(channels());
+    setOutHeight(height());
+    setOutWidth(width());
+    setOutputs(batch() * inputs());
+
+    output_ = empty<float>({ outputs() });
 }
 
 std::ostream& DetectLayer::print(std::ostream& os)
@@ -52,15 +59,46 @@ std::ostream& DetectLayer::print(std::ostream& os)
 
 xt::xarray<float> DetectLayer::forward(const xt::xarray<float>& input)
 {
-    xt::xarray<float> output;
-
     if (softmax_) {
-        output = softmax(input);
+        output_ = softmax(input);
     } else {
-        output = input;
+        output_ = input;
     }
 
-    return output;
+    return output_;
+}
+
+void DetectLayer::addDetects(std::vector<Detection>& detections, int width, int height, float threshold)
+{
+    const auto* predictions = output_.data();
+
+    for (auto i = 0; i < side_ * side_; ++i) {
+        auto row = i / side_;
+        auto col = i % side_;
+
+        for (auto n = 0; n < num_; ++n) {
+            auto pindex = side_ * side_ * classes_ + i * num_ + n;
+            auto scale = predictions[pindex];
+
+            auto bindex = side_ * side_ * (classes_ + num_) + (i * num_ + n) * 4;
+
+            cv::Rect2f b;
+            b.x = (predictions[bindex + 0] + col) / side_ * width;
+            b.y = (predictions[bindex + 1] + row) / side_ * height;
+            b.width = pow(predictions[bindex + 2], (sqrt_ ? 2 : 1)) * width;
+            b.height = pow(predictions[bindex + 3], (sqrt_ ? 2 : 1)) * height;
+
+            Detection det(classes_, b, scale);
+            for (auto j = 0; j < classes_; ++j) {
+                auto index = i * classes_;
+                auto prob = scale * predictions[index + j];
+                det[j] = prob >= threshold ? prob : 0;
+            }
+
+            detections.emplace_back(std::move(det));
+        }
+    }
+
 }
 
 }   // px

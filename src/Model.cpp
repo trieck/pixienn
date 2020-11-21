@@ -123,13 +123,11 @@ void Model::loadDarknetWeights(const std::string& filename)
     auto length = ifs.tellg();
     ifs.seekg(0, ifs.beg);
 
-    int major, minor, revision;
+    ifs.read((char*) &major_, sizeof(int));
+    ifs.read((char*) &minor_, sizeof(int));
+    ifs.read((char*) &revision_, sizeof(int));
 
-    ifs.read((char*) &major, sizeof(int));
-    ifs.read((char*) &minor, sizeof(int));
-    ifs.read((char*) &revision, sizeof(int));
-
-    if ((major * 10 + minor) >= 2 && major < 1000 && minor < 1000) {
+    if ((major_ * 10 + minor_) >= 2 && major_ < 1000 && minor_ < 1000) {
         size_t seen;
         ifs.read((char*) &seen, sizeof(size_t));
     } else {
@@ -146,11 +144,20 @@ void Model::loadDarknetWeights(const std::string& filename)
     ifs.close();
 }
 
-xt::xarray<float> Model::predict(xt::xarray<float>&& input)
+std::vector<Detection> Model::predict(xt::xarray<float>&& input, int width, int height, float threshold)
 {
     auto result = forward(std::forward<xt::xarray<float>>(input));
 
-    return result;
+    std::vector<Detection> detections;
+
+    for (auto& layer: layers()) {
+        auto* detector = dynamic_cast<Detector*>(layer.get());
+        if (detector) {
+            detector->addDetects(detections, width, height, threshold);
+        }
+    }
+
+    return detections;
 }
 
 } // px
