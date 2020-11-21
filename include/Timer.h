@@ -14,35 +14,33 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_DETECTION_H
-#define PIXIENN_DETECTION_H
+#ifndef PIXIENN_TIMER_H
+#define PIXIENN_TIMER_H
 
-#include "opencv2/core/types.hpp"
+#include "common.h"
+#include <chrono>
 
 namespace px {
 
-class Detection
+class Timer
 {
 public:
-    Detection(int classes, cv::Rect2f box, float objectness);
+    Timer();
+    ~Timer();
 
-    float& operator[](int clazz);
-    const float& operator[](int clazz) const;
-
-    int size() const noexcept;
-    const cv::Rect2f& box() const noexcept;
-
+    std::string str() const;
+    void restart();
 private:
-    cv::Rect2f box_;
-    std::vector<float> prob_;
-    float objectness_;
+    using Clock = std::chrono::high_resolution_clock;
+    using TimePoint = std::chrono::time_point<std::chrono::high_resolution_clock>;
+    TimePoint start_;
 };
 
-struct Detector
+inline std::ostream& operator<<(std::ostream& s, const Timer& timer)
 {
-    virtual void addDetects(std::vector<Detection>& detections, int width, int height, float threshold) = 0;
-};
+    return s << timer.str();
+}
 
 }   // px
 
-#endif // PIXIENN_DETECTION_H
+#endif // PIXIENN_TIMER_H

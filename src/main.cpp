@@ -17,10 +17,9 @@
 #include <iostream>
 
 #include "Error.h"
-#include "Model.h"
 #include "Image.h"
-
-#include "xtensor/xio.hpp"
+#include "Model.h"
+#include "Timer.h"
 
 using namespace px;
 
@@ -58,18 +57,23 @@ void testYolo()
     model.loadDarknetWeights("resources/weights/yolov1-tiny.weights");
     std::cout << "done." << std::endl;
 
-    auto image = px::imread("resources/images/dog.jpg");
+    const auto* filename = "resources/images/dog.jpg";
+    auto image = px::imread(filename);
     auto sized = px::imletterbox(image, model.width(), model.height());
     auto input = px::imarray(sized);
 
-    std::cout << "Running network...";
+    std::cout << "Running network..." << std::endl;
 
-    auto detects = model.predict(std::move(input), image.cols, image.rows, 0.09f);
+    Timer timer;
+    auto detects = model.predict(std::move(input), image.cols, image.rows, 0.1f);
+
+    std::printf("%s: Predicted in %s.\n", filename, timer.str().c_str());
 
     for (const auto& det: detects) {
         for (auto i = 0; i < det.size(); ++i) {
-            if (det[i] >= 0.09f) {
-                printf("%.0f%%\n", det[i] * 100);
+            if (det[i] >= 0.1f) {
+                printf("class = %d, prob = %.2f%%, box = [%.0f, %.0f, %.0f, %.0f]\n", i, det[i] * 100,
+                       det.box().x, det.box().y, det.box().width, det.box().height);
             }
         }
     }

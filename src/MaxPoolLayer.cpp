@@ -44,10 +44,10 @@ std::ostream& MaxPoolLayer::print(std::ostream& os)
        << std::setw(20) << std::left
        << std::string(std::to_string(kernel_) + " x " + std::to_string(kernel_) + " / " + std::to_string(stride_))
        << std::setw(20) << std::left
-       << std::string(std::to_string(channels()) + " x " + std::to_string(height()) + " x " + std::to_string(width()))
+       << std::string(std::to_string(height()) + " x " + std::to_string(width()) + +" x " + std::to_string(channels()))
        << std::setw(20) << std::left
        << std::string(
-               std::to_string(outChannels()) + " x " + std::to_string(outHeight()) + " x " + std::to_string(outWidth()))
+               std::to_string(outHeight()) + " x " + std::to_string(outWidth()) + " x " + std::to_string(outChannels()))
        << std::endl;
 
     return os;
@@ -90,7 +90,6 @@ xt::xarray<float> MaxPoolLayer::forward(const xt::xarray<float>& input)
             }
         }
     }
-
 
 
     return output_;

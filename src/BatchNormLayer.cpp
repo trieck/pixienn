@@ -43,10 +43,10 @@ std::ostream& BatchNormLayer::print(std::ostream& os)
     os << std::setw(20) << std::left << "batchnorm"
        << std::setw(40)
        << std::setw(20) << std::left
-       << std::string(std::to_string(channels()) + " x " + std::to_string(height()) + " x " + std::to_string(width()))
+       << std::string(std::to_string(height()) + " x " + std::to_string(width()) + " x " + std::to_string(channels()))
        << std::setw(20) << std::left
        << std::string(
-               std::to_string(outChannels()) + " x " + std::to_string(outHeight()) + " x " + std::to_string(outWidth()))
+               std::to_string(outHeight()) + " x " + std::to_string(outWidth()) + " x " + std::to_string(outChannels()))
        << std::endl;
 
     return os;

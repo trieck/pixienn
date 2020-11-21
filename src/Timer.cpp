@@ -14,39 +14,47 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include "Detection.h"
-#include "Error.h"
+#include "Timer.h"
+#include <boost/format.hpp>
 
 namespace px {
 
-Detection::Detection(int classes, cv::Rect2f box, float objectness) : box_(std::move(box)), objectness_(objectness)
+Timer::Timer()
 {
-    prob_.resize(classes);
+    start_ = Clock::now();
 }
 
-float& Detection::operator[](int clazz)
+Timer::~Timer()
 {
-    PX_CHECK(clazz < prob_.size(), "Class out of range");
-
-    prob_[clazz];
 }
 
-const float& Detection::operator[](int clazz) const
+std::string Timer::str() const
 {
-    PX_CHECK(clazz < prob_.size(), "Class out of range");
+    using std::chrono::duration_cast;
+    auto now = Clock::now();
 
-    prob_[clazz];
+    auto elapsed = duration_cast<std::chrono::milliseconds>(now - start_).count();
+
+    auto hours = (elapsed / 1000) / 3600;
+    auto minutes = ((elapsed / 1000) % 3600) / 60;
+    auto seconds = (elapsed / 1000) % 60;
+    auto millis = elapsed % 1000;
+
+    boost::format fmt;
+
+    if (hours)
+        fmt = boost::format("%d:%02d:%02d hours") % hours % minutes % seconds;
+    else if (minutes)
+        fmt = boost::format("%d:%02d minutes") % minutes % seconds;
+    else
+        fmt = boost::format("%d.%03d seconds") % seconds % millis;
+
+    return fmt.str();
 }
 
-int Detection::size() const noexcept
+void Timer::restart()
 {
-    return prob_.size();
-}
-
-const cv::Rect2f& Detection::box() const noexcept
-{
-    return box_;
+    start_ = Clock::now();
 }
 
 }   // px
-

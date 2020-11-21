@@ -32,9 +32,16 @@ Mat imread(const char* path)
     Mat image = imread(path, IMREAD_UNCHANGED);
     PX_CHECK(!image.empty(), "Could not open image \"%s\".", path);
 
+    Mat swapped;
+    if (image.channels() == 3) {
+        cv::cvtColor(image, swapped, CV_BGR2RGB);
+    } else {
+        swapped = image;
+    }
+
     // convert to float and normalize
     Mat out;
-    image.convertTo(out, CV_32FC(image.channels()));
+    swapped.convertTo(out, CV_32FC(swapped.channels()));
 
     out /= 255.0f;
 
@@ -59,7 +66,7 @@ void imsave(const char* path, const cv::Mat& image)
     auto rowsPerStrip = (int) ((1 << 13) / fileStep);
     rowsPerStrip = std::max(1, std::min(height, rowsPerStrip));
 
-    int colorspace = channels > 1 ? PHOTOMETRIC_RGB : PHOTOMETRIC_MINISBLACK;
+    auto colorspace = channels > 1 ? PHOTOMETRIC_RGB : PHOTOMETRIC_MINISBLACK;
 
     TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 32);
     TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
@@ -71,34 +78,11 @@ void imsave(const char* path, const cv::Mat& image)
     TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, depth >= CV_32F ? SAMPLEFORMAT_IEEEFP : SAMPLEFORMAT_UINT);
     TIFFSetField(tif, TIFFTAG_PREDICTOR, PREDICTOR_HORIZONTAL);
 
-    size_t scanlineSize = TIFFScanlineSize(tif);
-    AutoBuffer<uchar> _buffer(scanlineSize + 32);
+    auto scanlineSize = TIFFScanlineSize(tif);
+    AutoBuffer<uchar> buffer(scanlineSize + 32);
 
-    uchar* buffer = _buffer;
-    Mat mat(Size(width, 1), CV_MAKETYPE(depth, channels), buffer, (size_t) scanlineSize);
-
-    for (int y = 0; y < height; ++y) {
-        switch (channels) {
-        case 1: {
-            memcpy(buffer, image.ptr(y), scanlineSize);
-            break;
-        }
-
-        case 3: {
-            cvtColor(image(Rect(0, y, width, 1)), mat, COLOR_BGR2RGB);
-            break;
-        }
-
-        case 4: {
-            cvtColor(image(Rect(0, y, width, 1)), mat, COLOR_BGRA2RGBA);
-            break;
-        }
-
-        default: {
-            CV_Assert(0);
-        }
-        }
-
+    for (auto y = 0; y < height; ++y) {
+        memcpy(buffer, image.ptr(y), scanlineSize);
         PX_CHECK(TIFFWriteScanline(tif, buffer, y, 0) == 1, "Cannot write scane line.");
     }
 
@@ -238,9 +222,9 @@ xt::xarray<float> imarray(const cv::Mat& image)
     int width = image.cols;
     int height = image.rows;
 
-    std::vector<int> shape({channels, height, width});
+    std::vector<int> shape({ height, width, channels });
 
-    auto array = xt::adapt((float*)image.data, height * width * channels, xt::no_ownership(), shape);
+    auto array = xt::adapt((float*) image.data, height * width * channels, xt::no_ownership(), shape);
 
     return array;
 }
