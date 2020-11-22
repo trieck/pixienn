@@ -106,7 +106,7 @@ Mat imletterbox(const Mat& image, int width, int height)
     Mat resized;
     resize(image, resized, { newWidth, newHeight });
 
-    auto boxed = imrandom(height, width, image.channels());
+    auto boxed = immake(height, width, image.channels(), 0.5f);
 
     auto x = (width - newWidth) / 2;
     auto y = (height - newHeight) / 2;
@@ -171,7 +171,7 @@ Mat imrandom(int height, int width, int channels)
 
 Mat immake(int height, int width, int channels, float value)
 {
-    return Mat(height, width, CV_32FC(channels), Scalar::all(value));
+    return Mat(height, width, CV_32FC(channels), Scalar_<float>::all(value));
 }
 
 void imconvolve(const Mat& image, const Mat& kernel, int stride, int channel, Mat& out)
@@ -221,10 +221,20 @@ xt::xarray<float> imarray(const cv::Mat& image)
     int channels = image.channels();
     int width = image.cols;
     int height = image.rows;
+    auto pimage = std::make_unique<float[]>(height * width * channels);
+
+    // convert interleaved mat to planar image
+    for (auto i = 0; i < height; ++i) {
+        for (auto j = 0; j < width; ++j) {
+            for (auto k = 0; k < channels; ++k) {
+                pimage[k * width * height + i * width + j] = image.ptr<float>(i, j)[k];
+            }
+        }
+    }
 
     std::vector<int> shape({ height, width, channels });
 
-    auto array = xt::adapt((float*) image.data, height * width * channels, xt::no_ownership(), shape);
+    auto array = xt::adapt(pimage.release(), height * width * channels, xt::no_ownership(), shape);
 
     return array;
 }
