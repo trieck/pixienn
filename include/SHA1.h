@@ -17,7 +17,7 @@
 #ifndef PIXIENN_SHA1_H
 #define PIXIENN_SHA1_H
 
-#include "common.h"
+#include "Common.h"
 
 namespace px {
 

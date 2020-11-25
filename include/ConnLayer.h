@@ -27,21 +27,20 @@ namespace px {
 class ConnLayer : public Layer
 {
 protected:
-    ConnLayer(const YAML::Node& layerDef);
+    ConnLayer(const Model& model, const YAML::Node& layerDef);
 
 public:
     virtual ~ConnLayer() = default;
 
     std::ostream& print(std::ostream& os) override;
-    void loadDarknetWeights(std::istream& is) override;
-    xt::xarray<float> forward(const xt::xarray<float>& input) override;
+    std::streamoff loadDarknetWeights(std::istream& is) override;
+    void forward(const xt::xarray<float>& input) override;
 
 private:
     friend LayerFactories;
 
     xt::xtensor<float, 2> weights_;
     xt::xtensor<float, 1> biases_;
-    xt::xtensor<float, 1> output_;
 
     Activation::Ptr activationFnc_;
 

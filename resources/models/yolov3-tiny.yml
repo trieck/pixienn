@@ -1,8 +1,8 @@
 model:
   batch: 1
   channels: 3
-  height: 448
-  width: 448
+  height: 416
+  width: 416
 
   layers:
     - type: conv
@@ -81,7 +81,7 @@ model:
 
     - type: maxpool
       kernel: 2
-      stride: 2
+      stride: 1
 
     - type: conv
       activation: leaky
@@ -92,6 +92,62 @@ model:
       pad: True
       stride: 1
 
+    ###########
+
+    - type: conv
+      activation: leaky
+      batch_normalize: True
+      dilation: 1
+      filters: 256
+      kernel: 1
+      pad: True
+      stride: 1
+
+    - type: conv
+      activation: leaky
+      batch_normalize: True
+      dilation: 1
+      filters: 512
+      kernel: 3
+      pad: True
+      stride: 1
+
+    - type: conv
+      activation: leaky
+      dilation: 1
+      filters: 255
+      kernel: 1
+      pad: True
+      stride: 1
+
+    - type: yolo
+      mask: [ 3,4,5 ]
+      anchors: [ 10,14, 23,27, 37,58, 81,82, 135,169, 344,319 ]
+      classes: 80
+      num: 6
+      jitter: 0.3
+      ignore_thresh: 0.7
+      truth_thresh: True
+      random: True
+
+    - type: route
+      layers: [ -4 ]
+
+    - type: conv
+      activation: leaky
+      batch_normalize: True
+      dilation: 1
+      filters: 128
+      kernel: 1
+      pad: True
+      stride: 1
+
+    - type: upsample
+      stride: 2
+
+    - type: route
+      layers: [ -1, 8 ]
+
     - type: conv
       activation: leaky
       batch_normalize: True
@@ -101,20 +157,20 @@ model:
       pad: True
       stride: 1
 
-    - type: connected
+    - type: conv
       activation: linear
-      output: 1470
+      dilation: 1
+      filters: 255
+      kernel: 1
+      pad: True
+      stride: 1
 
-    - type: detection
-      class_scale: 1
-      classes: 20
-      coord_scale: 5
-      coords: 4
-      jitter: 0.2
-      noobject_scale: 0.5
-      num: 2
-      object_scale: 1
-      rescore: True
-      side: 7
-      softmax: False
-      sqrt: True
+    - type: yolo
+      mask: 0,1,2
+      anchors: [ 10,14, 23,27, 37,58, 81,82, 135,169, 344,319 ]
+      classes: 80
+      num: 6
+      jitter: .3
+      ignore_thresh: .7
+      truth_thresh: True
+      random: True

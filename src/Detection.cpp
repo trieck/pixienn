@@ -28,14 +28,14 @@ float& Detection::operator[](int clazz)
 {
     PX_CHECK(clazz < prob_.size(), "Class out of range");
 
-    prob_[clazz];
+    return prob_[clazz];
 }
 
 const float& Detection::operator[](int clazz) const
 {
     PX_CHECK(clazz < prob_.size(), "Class out of range");
 
-    prob_[clazz];
+    return prob_[clazz];
 }
 
 int Detection::size() const noexcept

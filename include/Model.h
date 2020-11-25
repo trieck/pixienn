@@ -40,6 +40,9 @@ public:
     const int height() const;
     const int width() const;
 
+    const int layerSize() const;
+    const Layer::Ptr& layerAt(int index) const;
+
     void loadDarknetWeights(const std::string& filename);
 
     std::vector<Detection> predict(xt::xarray<float>&& input, int width, int height, float threshold);

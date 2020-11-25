@@ -14,9 +14,8 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include "ConvLayer.h"
-
 #include "Activation.h"
+#include "ConvLayer.h"
 #include "Utility.h"
 #include "xtensor/xadapt.hpp"
 #include "xtensor/xrandom.hpp"
@@ -26,7 +25,7 @@ namespace px {
 
 using namespace xt;
 
-ConvLayer::ConvLayer(const YAML::Node& layerDef) : Layer(layerDef)
+ConvLayer::ConvLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
     activation_ = property<std::string>("activation", "logistic");
     activationFnc_ = Activation::get(activation_);
@@ -35,13 +34,14 @@ ConvLayer::ConvLayer(const YAML::Node& layerDef) : Layer(layerDef)
     dilation_ = property<int>("dilation", 0);
     filters_ = property<int>("filters", 1);
     kernel_ = property<int>("kernel", 1);
-    pad_ = property<int>("pad", 0);
+    auto pad = property<bool>("pad", 0);
+    padding_ = pad ? kernel_ / 2 : 0;
     stride_ = property<int>("stride", 1);
     groups_ = std::max(1, property<int>("groups", 1));
 
     setOutChannels(filters_);
-    setOutHeight((height() + 2 * pad_ - kernel_) / stride_ + 1);
-    setOutWidth((width() + 2 * pad_ - kernel_) / stride_ + 1);
+    setOutHeight((height() + 2 * padding_ - kernel_) / stride_ + 1);
+    setOutWidth((width() + 2 * padding_ - kernel_) / stride_ + 1);
     setOutputs(outHeight() * outWidth() * outChannels());
 
     if (batchNormalize) {
@@ -50,7 +50,7 @@ ConvLayer::ConvLayer(const YAML::Node& layerDef) : Layer(layerDef)
         def["channels"] = outChannels();
         def["height"] = outHeight();
         def["width"] = outWidth();
-        batchNormalize_ = Layer::create(def);
+        batchNormalize_ = Layer::create(model, def);
     } else {
         biases_ = zeros<float>({ filters_ });
     }
@@ -78,8 +78,10 @@ std::ostream& ConvLayer::print(std::ostream& os)
     return os;
 }
 
-void ConvLayer::loadDarknetWeights(std::istream& is)
+std::streamoff ConvLayer::loadDarknetWeights(std::istream& is)
 {
+    auto start = is.tellg();
+
     if (batchNormalize_) {
         batchNormalize_->loadDarknetWeights(is);
     } else {
@@ -89,9 +91,11 @@ void ConvLayer::loadDarknetWeights(std::istream& is)
 
     is.read((char*) weights_.data(), sizeof(float) * weights_.size());
     PX_CHECK(is.good(), "Could not read weights");
+
+    return is.tellg() - start;
 }
 
-xt::xarray<float> ConvLayer::forward(const xt::xarray<float>& input)
+void ConvLayer::forward(const xt::xarray<float>& input)
 {
     int m = filters_ / groups_;
     int n = outWidth() * outHeight();
@@ -111,7 +115,7 @@ xt::xarray<float> ConvLayer::forward(const xt::xarray<float>& input)
             auto* c = pout + (i * groups_ + j) * n * m;
 
             if (kernel_ != 1) {
-                im2col_cpu(im, channels() / groups_, height(), width(), kernel_, stride_, pad_, column_.data());
+                im2col_cpu(im, channels() / groups_, height(), width(), kernel_, stride_, padding_, column_.data());
             }
 
             cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, 1.0f, a, k, b, n, 1.0f, c, n);
@@ -119,14 +123,13 @@ xt::xarray<float> ConvLayer::forward(const xt::xarray<float>& input)
     }
 
     if (batchNormalize_) {
-        output_ = batchNormalize_->forward(output_);
+        batchNormalize_->forward(output_);
+        output_ = batchNormalize_->output();
     } else {
         add_bias(output_.data(), biases_.data(), batch(), outChannels(), outHeight() * outWidth());
     }
 
     activationFnc_->apply(output_);
-
-    return output_;
 }
 
 }   // px

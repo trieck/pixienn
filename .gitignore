@@ -1,3 +1,4 @@
 /.idea/
 /cmake-build-debug/
 /resources/weights/
+/cmake-build-release/

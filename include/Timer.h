@@ -17,7 +17,7 @@
 #ifndef PIXIENN_TIMER_H
 #define PIXIENN_TIMER_H
 
-#include "common.h"
+#include "Common.h"
 #include <chrono>
 
 namespace px {

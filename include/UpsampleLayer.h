@@ -14,32 +14,30 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_BATCHNORMLAYER_H
-#define PIXIENN_BATCHNORMLAYER_H
 
-#include <xtensor/xtensor.hpp>
+#ifndef PIXIENN_UPSAMPLELAYER_H
+#define PIXIENN_UPSAMPLELAYER_H
 
 #include "Layer.h"
 
 namespace px {
 
-class BatchNormLayer : public Layer
+class UpsampleLayer : public Layer
 {
 protected:
-    BatchNormLayer(const Model& model, const YAML::Node& layerDef);
+    UpsampleLayer(const Model& model, const YAML::Node& layerDef);
 
 public:
-    virtual ~BatchNormLayer() = default;
+    virtual ~UpsampleLayer() = default;
 
     std::ostream& print(std::ostream& os) override;
     void forward(const xt::xarray<float>& input) override;
-    std::streamoff loadDarknetWeights(std::istream& is) override;
 
 private:
     friend LayerFactories;
-    xt::xtensor<float, 1> biases_, scales_, rollingMean_, rollingVar_;
+    int stride_;
 };
 
 } // px
 
-#endif // PIXIENN_BATCHNORMLAYER_H
+#endif // PIXIENN_UPSAMPLELAYER_H

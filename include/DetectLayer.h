@@ -26,13 +26,13 @@ namespace px {
 class DetectLayer : public Layer, public Detector
 {
 protected:
-    DetectLayer(const YAML::Node& layerDef);
+    DetectLayer(const Model& model, const YAML::Node& layerDef);
 
 public:
     virtual ~DetectLayer() = default;
 
     std::ostream& print(std::ostream& os) override;
-    xt::xarray<float> forward(const xt::xarray<float>& input) override;
+    void forward(const xt::xarray<float>& input) override;
 
     void addDetects(std::vector<Detection>& detections, int width, int height, float threshold) override;
 
@@ -42,7 +42,6 @@ private:
     int coords_, classes_, num_, side_, maxBoxes_;
     bool rescore_, softmax_, sqrt_, forced_, random_, reorg_;
     float coordScale_, objectScale_, noObjectScale_, classScale, jitter_;
-    xt::xtensor<float, 1> output_;
 };
 
 } // px

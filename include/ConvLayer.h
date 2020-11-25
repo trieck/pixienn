@@ -27,23 +27,23 @@ namespace px {
 class ConvLayer : public Layer
 {
 protected:
-    ConvLayer(const YAML::Node& layerDef);
+    ConvLayer(const Model& model, const YAML::Node& layerDef);
 
 public:
     virtual ~ConvLayer() = default;
 
     std::ostream& print(std::ostream& os) override;
-    void loadDarknetWeights(std::istream& is) override;
-    xt::xarray<float> forward(const xt::xarray<float>& input) override;
+    std::streamoff loadDarknetWeights(std::istream& is) override;
+    void forward(const xt::xarray<float>& input) override;
 
 private:
     friend LayerFactories;
 
-    xt::xtensor<float, 4> weights_, output_;
+    xt::xtensor<float, 4> weights_;
     xt::xtensor<float, 1> biases_;
     xt::xtensor<float, 2> column_;
 
-    int dilation_ = 0, filters_, kernel_, pad_, stride_, groups_;
+    int dilation_ = 0, filters_, kernel_, padding_, stride_, groups_;
     std::string activation_;
     Layer::Ptr batchNormalize_;
     Activation::Ptr activationFnc_;

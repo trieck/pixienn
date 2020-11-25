@@ -17,7 +17,7 @@
 #ifndef PIXIENN_ERROR_H
 #define PIXIENN_ERROR_H
 
-#include "common.h"
+#include "Common.h"
 
 namespace px {
 

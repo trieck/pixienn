@@ -15,14 +15,18 @@
 ********************************************************************************/
 
 #include "BatchNormLayer.h"
+#include "Common.h"
 #include "ConnLayer.h"
 #include "ConvLayer.h"
 #include "DetectLayer.h"
+#include "Error.h"
 #include "Layer.h"
 #include "MaxPoolLayer.h"
+#include "Model.h"
+#include "RouteLayer.h"
 #include "Singleton.h"
-#include "common.h"
-#include <Error.h>
+#include "UpsampleLayer.h"
+#include "YoloLayer.h"
 
 namespace px {
 
@@ -34,10 +38,10 @@ public:
     template<typename T>
     void registerFactory(const char* type);
 
-    Layer::Ptr create(const YAML::Node& layerDef);
+    Layer::Ptr create(const Model& model, const YAML::Node& layerDef);
 
 private:
-    using LayerFactory = std::function<Layer::Ptr(const YAML::Node& layerDef)>;
+    using LayerFactory = std::function<Layer::Ptr(const Model& model, const YAML::Node& layerDef)>;
     std::unordered_map<std::string, LayerFactory> factories_;
 };
 
@@ -48,17 +52,20 @@ LayerFactories::LayerFactories()
     registerFactory<ConvLayer>("conv");
     registerFactory<DetectLayer>("detection");
     registerFactory<MaxPoolLayer>("maxpool");
+    registerFactory<RouteLayer>("route");
+    registerFactory<UpsampleLayer>("upsample");
+    registerFactory<YoloLayer>("yolo");
 }
 
 template<typename T>
 void LayerFactories::registerFactory(const char* type)
 {
-    factories_[type] = [](const YAML::Node& layerDef) {
-        return Layer::Ptr(new T(layerDef));
+    factories_[type] = [](const Model& model, const YAML::Node& layerDef) {
+        return Layer::Ptr(new T(model, layerDef));
     };
 }
 
-Layer::Ptr LayerFactories::create(const YAML::Node& layerDef)
+Layer::Ptr LayerFactories::create(const Model& model, const YAML::Node& layerDef)
 {
     PX_CHECK(layerDef.IsMap(), "Layer definition is not a map.");
 
@@ -69,15 +76,16 @@ Layer::Ptr LayerFactories::create(const YAML::Node& layerDef)
         PX_ERROR_THROW("Unable to find a layer factory for layer type \"%s\".", type.c_str());
     }
 
-    return (it->second)(layerDef);
+    return (it->second)(model, layerDef);
 }
 
-Layer::Layer(const YAML::Node& layerDef) : layerDef_(layerDef)
+Layer::Layer(const Model& model, const YAML::Node& layerDef) : model_(model), layerDef_(layerDef)
 {
-    inputs_ = property<int>("inputs");
     batch_ = property<int>("batch");
     channels_ = property<int>("channels");
     height_ = property<int>("height");
+    index_ = property<int>("index");
+    inputs_ = property<int>("inputs");
     width_ = property<int>("width");
 
     outChannels_ = outHeight_ = outWidth_ = outputs_ = 0;
@@ -87,9 +95,9 @@ Layer::~Layer()
 {
 }
 
-Layer::Ptr Layer::create(const YAML::Node& layerDef)
+Layer::Ptr Layer::create(const Model& model, const YAML::Node& layerDef)
 {
-    return LayerFactories::instance().create(layerDef);
+    return LayerFactories::instance().create(model, layerDef);
 }
 
 const int Layer::batch() const
@@ -175,6 +183,21 @@ void Layer::setHeight(int height)
 void Layer::setWidth(int width)
 {
     width_ = width;
+}
+
+const xt::xarray<float>& Layer::output() const noexcept
+{
+    return output_;
+}
+
+const Model& Layer::model() const noexcept
+{
+    return model_;
+}
+
+const int Layer::index() const
+{
+    return index_;
 }
 
 } // px

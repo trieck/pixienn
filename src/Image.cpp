@@ -14,7 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include "common.h"
+#include "Common.h"
 #include "Image.h"
 #include "Error.h"
 

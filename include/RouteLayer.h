@@ -14,32 +14,29 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_BATCHNORMLAYER_H
-#define PIXIENN_BATCHNORMLAYER_H
-
-#include <xtensor/xtensor.hpp>
+#ifndef PIXIENN_ROUTELAYER_H
+#define PIXIENN_ROUTELAYER_H
 
 #include "Layer.h"
 
 namespace px {
 
-class BatchNormLayer : public Layer
+class RouteLayer : public Layer
 {
 protected:
-    BatchNormLayer(const Model& model, const YAML::Node& layerDef);
+    RouteLayer(const Model& model, const YAML::Node& layerDef);
 
 public:
-    virtual ~BatchNormLayer() = default;
+    virtual ~RouteLayer() = default;
 
     std::ostream& print(std::ostream& os) override;
     void forward(const xt::xarray<float>& input) override;
-    std::streamoff loadDarknetWeights(std::istream& is) override;
 
 private:
     friend LayerFactories;
-    xt::xtensor<float, 1> biases_, scales_, rollingMean_, rollingVar_;
+    std::vector<Layer::Ptr> layers_;
 };
 
 } // px
 
-#endif // PIXIENN_BATCHNORMLAYER_H
+#endif //PIXIENN_ROUTELAYER_H

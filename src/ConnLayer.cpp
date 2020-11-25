@@ -23,7 +23,7 @@ namespace px {
 
 using namespace xt;
 
-ConnLayer::ConnLayer(const YAML::Node& layerDef) : Layer(layerDef)
+ConnLayer::ConnLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
     activation_ = property<std::string>("activation", "logistic");
     activationFnc_ = Activation::get(activation_);
@@ -45,7 +45,7 @@ ConnLayer::ConnLayer(const YAML::Node& layerDef) : Layer(layerDef)
         def["channels"] = outChannels();
         def["height"] = outHeight();
         def["width"] = outWidth();
-        batchNormalize_ = Layer::create(def);
+        batchNormalize_ = Layer::create(model, def);
     } else {
         biases_ = zeros<float>({ outputs() });
     }
@@ -67,8 +67,10 @@ std::ostream& ConnLayer::print(std::ostream& os)
     return os;
 }
 
-void ConnLayer::loadDarknetWeights(std::istream& is)
+std::streamoff ConnLayer::loadDarknetWeights(std::istream& is)
 {
+    auto start = is.tellg();
+
     is.read((char*) biases_.data(), biases_.size() * sizeof(float));
     PX_CHECK(is.good(), "Could not read biases");
 
@@ -81,9 +83,11 @@ void ConnLayer::loadDarknetWeights(std::istream& is)
         is.read((char*) &rollingVar_, sizeof(float));
         PX_CHECK(is.good(), "Could not read batch_normalize parameters");
     }
+
+    return is.tellg() - start;
 }
 
-xt::xarray<float> ConnLayer::forward(const xt::xarray<float>& input)
+void ConnLayer::forward(const xt::xarray<float>& input)
 {
     output_.fill(0);
 
@@ -97,14 +101,13 @@ xt::xarray<float> ConnLayer::forward(const xt::xarray<float>& input)
     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, m, n, k, 1.0f, a, k, b, k, 1.0f, c, n);
 
     if (batchNormalize_) {
-        output_ = batchNormalize_->forward(output_);
+        batchNormalize_->forward(output_);
+        output_ = batchNormalize_->output();
     } else {
         add_bias(c, biases_.data(), m, outChannels(), outHeight() * outWidth());
     }
 
     activationFnc_->apply(output_);
-
-    return output_;
 }
 
 } // px

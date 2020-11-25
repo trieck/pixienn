@@ -21,7 +21,7 @@ namespace px {
 
 using namespace xt;
 
-MaxPoolLayer::MaxPoolLayer(const YAML::Node& layerDef) : Layer(layerDef)
+MaxPoolLayer::MaxPoolLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
     kernel_ = property<int>("kernel", 1);
     stride_ = property<int>("stride", 1);
@@ -53,7 +53,7 @@ std::ostream& MaxPoolLayer::print(std::ostream& os)
     return os;
 }
 
-xt::xarray<float> MaxPoolLayer::forward(const xt::xarray<float>& input)
+void MaxPoolLayer::forward(const xt::xarray<float>& input)
 {
     int wOffset = -padding_ / 2;
     int hOffset = -padding_ / 2;
@@ -90,9 +90,6 @@ xt::xarray<float> MaxPoolLayer::forward(const xt::xarray<float>& input)
             }
         }
     }
-
-
-    return output_;
 }
 
 } // px

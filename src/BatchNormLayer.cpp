@@ -21,7 +21,7 @@ namespace px {
 
 using namespace xt;
 
-BatchNormLayer::BatchNormLayer(const YAML::Node& layerDef) : Layer(layerDef)
+BatchNormLayer::BatchNormLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
     biases_ = zeros<float>({ channels() });
     scales_ = ones<float>({ channels() });
@@ -52,7 +52,7 @@ std::ostream& BatchNormLayer::print(std::ostream& os)
     return os;
 }
 
-xt::xarray<float> BatchNormLayer::forward(const xt::xarray<float>& input)
+void BatchNormLayer::forward(const xt::xarray<float>& input)
 {
     output_ = input;
 
@@ -64,17 +64,19 @@ xt::xarray<float> BatchNormLayer::forward(const xt::xarray<float>& input)
 
     scale_bias(output_.data(), scales_.data(), b, c, size);
     add_bias(output_.data(), biases_.data(), b, c, size);
-
-    return output_;
 }
 
-void BatchNormLayer::loadDarknetWeights(std::istream& is)
+std::streamoff BatchNormLayer::loadDarknetWeights(std::istream& is)
 {
+    auto start = is.tellg();
+
     is.read((char*) biases_.data(), sizeof(float) * biases_.size());
     is.read((char*) scales_.data(), sizeof(float) * scales_.size());
     is.read((char*) rollingMean_.data(), sizeof(float) * rollingMean_.size());
     is.read((char*) rollingVar_.data(), sizeof(float) * rollingVar_.size());
     PX_CHECK(is.good(), "Could not read batch_normalize parameters");
+
+    return is.tellg() - start;
 }
 
 }   // px

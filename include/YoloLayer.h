@@ -14,32 +14,29 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_BATCHNORMLAYER_H
-#define PIXIENN_BATCHNORMLAYER_H
-
-#include <xtensor/xtensor.hpp>
+#ifndef PIXIENN_YOLOLAYER_H
+#define PIXIENN_YOLOLAYER_H
 
 #include "Layer.h"
 
 namespace px {
 
-class BatchNormLayer : public Layer
+class YoloLayer : public Layer
 {
 protected:
-    BatchNormLayer(const Model& model, const YAML::Node& layerDef);
+    YoloLayer(const Model& model, const YAML::Node& layerDef);
 
 public:
-    virtual ~BatchNormLayer() = default;
+    virtual ~YoloLayer() = default;
 
     std::ostream& print(std::ostream& os) override;
     void forward(const xt::xarray<float>& input) override;
-    std::streamoff loadDarknetWeights(std::istream& is) override;
 
 private:
     friend LayerFactories;
-    xt::xtensor<float, 1> biases_, scales_, rollingMean_, rollingVar_;
+    int classes_, num_;
 };
 
 } // px
 
-#endif // PIXIENN_BATCHNORMLAYER_H
+#endif // PIXIENN_YOLOLAYER_H

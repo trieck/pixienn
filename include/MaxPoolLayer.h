@@ -25,18 +25,16 @@ namespace px {
 class MaxPoolLayer : public Layer
 {
 protected:
-    MaxPoolLayer(const YAML::Node& layerDef);
+    MaxPoolLayer(const Model& model, const YAML::Node& layerDef);
 
 public:
     virtual ~MaxPoolLayer() = default;
 
     std::ostream& print(std::ostream& os) override;
-    xt::xarray<float> forward(const xt::xarray<float>& input) override;
+    void forward(const xt::xarray<float>& input) override;
 
 private:
     friend LayerFactories;
-    xt::xtensor<float, 4> output_;
-
     int kernel_ = 0, stride_ = 0, padding_;
 };
 

@@ -49,7 +49,7 @@ void Model::parse()
 
     std::cout << std::setfill('_');
 
-    std::cout << std::setw(20) << std::left << "Layer"
+    std::cout << std::setw(26) << std::left << "Layer"
               << std::setw(20) << "Filters"
               << std::setw(20) << "Size"
               << std::setw(20) << "Input"
@@ -57,20 +57,25 @@ void Model::parse()
               << std::endl;
 
     int channels(channels_), height(height_), width(width_);
+
+    auto index = 0;
     for (const auto& layerDef: layers) {
         YAML::Node params(layerDef);
         params["batch"] = batch_;
+        params["index"] = index;
         params["inputs"] = inputs;
         params["channels"] = channels;
         params["height"] = height;
         params["width"] = width;
 
-        const auto layer = Layer::create(params);
+        const auto layer = Layer::create(*this, params);
 
         channels = layer->outChannels();
         height = layer->outHeight();
         width = layer->outWidth();
         inputs = layer->outputs();
+
+        std::cout << std::setfill(' ') << std::setw(5) << std::right << index++ << ' ';
 
         layer->print(std::cout);
 
@@ -105,10 +110,11 @@ const int Model::width() const
 
 xt::xarray<float> Model::forward(xt::xarray<float>&& input)
 {
-    auto in = std::move(input);
+    auto& in = input;
 
     for (auto& layer: layers()) {
-        in = layer->forward(std::forward<xt::xarray<float>>(in));
+        layer->forward(in);
+        in = layer->output();
     }
 
     return in;
@@ -135,11 +141,13 @@ void Model::loadDarknetWeights(const std::string& filename)
         ifs.read((char*) &iseen, sizeof(int));
     }
 
+    std::streamoff pos = ifs.tellg();
     for (const auto& layer: layers()) {
-        layer->loadDarknetWeights(ifs);
+        pos += layer->loadDarknetWeights(ifs);
     }
 
-    PX_CHECK(ifs.tellg() == length, "Did not fully read weights file.  Model/Weights mismatch?");
+    PX_CHECK(pos == length, "Did not fully read weights file; read %ld bytes, expected to read %ld bytes.",
+             pos, length);
 
     ifs.close();
 }
@@ -158,6 +166,18 @@ std::vector<Detection> Model::predict(xt::xarray<float>&& input, int width, int 
     }
 
     return detections;
+}
+
+const int Model::layerSize() const
+{
+    return layers_.size();
+}
+
+const Layer::Ptr& Model::layerAt(int index) const
+{
+    PX_CHECK(index < layers_.size(), "Index out of range.");
+
+    return layers_[index];
 }
 
 } // px

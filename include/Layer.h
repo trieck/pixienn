@@ -23,20 +23,23 @@
 
 namespace px {
 
+class Model;
+
 class LayerFactories;
 
 class Layer
 {
 protected:
-    Layer(const YAML::Node& layerDef);
+    Layer(const Model& model, const YAML::Node& layerDef);
 
 public:
     virtual ~Layer() = 0;
     using Ptr = std::shared_ptr<Layer>;
 
-    static Layer::Ptr create(const YAML::Node& layerDef);
+    static Layer::Ptr create(const Model& model, const YAML::Node& layerDef);
 
     const int inputs() const;
+    const int index() const;
     const int batch() const;
     const int channels() const;
     const int height() const;
@@ -49,12 +52,18 @@ public:
 
     virtual std::ostream& print(std::ostream& os) = 0;
 
-    virtual void loadDarknetWeights(std::istream& is)
-    {}
+    virtual inline std::streamoff loadDarknetWeights(std::istream& is)
+    {
+        return 0;
+    }
 
-    virtual xt::xarray<float> forward(const xt::xarray<float>& input) = 0;
+    virtual void forward(const xt::xarray<float>& input) = 0;
+
+    const xt::xarray<float>& output() const noexcept;
 
 protected:
+    const Model& model() const noexcept;
+
     template<typename T>
     T property(const std::string& prop) const;
 
@@ -71,10 +80,12 @@ protected:
     void setOutHeight(int height);
     void setOutWidth(int width);
 
+    xt::xarray<float> output_;
 private:
+    const Model& model_;
     YAML::Node layerDef_;
     int batch_, channels_, height_, width_;
-    int outChannels_, outHeight_, outWidth_, inputs_, outputs_;
+    int outChannels_, outHeight_, outWidth_, inputs_, index_, outputs_;
 };
 
 template<typename T>

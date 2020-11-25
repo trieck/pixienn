@@ -17,7 +17,7 @@
 #ifndef PIXIENN_ACTIVATION_H
 #define PIXIENN_ACTIVATION_H
 
-#include "common.h"
+#include "Common.h"
 #include "xtensor/xcontainer.hpp"
 
 namespace px {

@@ -21,7 +21,7 @@ using namespace xt;
 
 namespace px {
 
-DetectLayer::DetectLayer(const YAML::Node& layerDef) : Layer(layerDef)
+DetectLayer::DetectLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
     classScale = property<float>("class_scale", 1.0f);
     classes_ = property<int>("classes", 1);
@@ -57,15 +57,13 @@ std::ostream& DetectLayer::print(std::ostream& os)
     return os;
 }
 
-xt::xarray<float> DetectLayer::forward(const xt::xarray<float>& input)
+void DetectLayer::forward(const xt::xarray<float>& input)
 {
     if (softmax_) {
         output_ = softmax(input);
     } else {
         output_ = input;
     }
-
-    return output_;
 }
 
 void DetectLayer::addDetects(std::vector<Detection>& detections, int width, int height, float threshold)
@@ -98,7 +96,6 @@ void DetectLayer::addDetects(std::vector<Detection>& detections, int width, int 
             detections.emplace_back(std::move(det));
         }
     }
-
 }
 
 }   // px
