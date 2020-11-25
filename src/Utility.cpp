@@ -34,7 +34,7 @@ im2col_get_pixel(const float* im, int height, int width, int row, int col, int c
 }
 
 
-void im2col_cpu(const float* dataIm, int channels, int height, int width, int ksize, int stride, int pad,
+void im2col_cpu(const float* im, int channels, int height, int width, int ksize, int stride, int pad,
                 float* dataCol)
 {
     int c, h, w;
@@ -51,7 +51,7 @@ void im2col_cpu(const float* dataIm, int channels, int height, int width, int ks
                 int imRow = hOffset + h * stride;
                 int imCol = wOffset + w * stride;
                 int colIndex = (c * heightCol + h) * widthCol + w;
-                dataCol[colIndex] = im2col_get_pixel(dataIm, height, width, imRow, imCol, cIm, pad);
+                dataCol[colIndex] = im2col_get_pixel(im, height, width, imRow, imCol, cIm, pad);
             }
         }
     }

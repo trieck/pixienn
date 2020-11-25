@@ -35,6 +35,7 @@ public:
 
 private:
     friend LayerFactories;
+    float scale_;
     int stride_;
 };
 

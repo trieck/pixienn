@@ -49,8 +49,8 @@ void Model::parse()
 
     std::cout << std::setfill('_');
 
-    std::cout << std::setw(26) << std::left << "Layer"
-              << std::setw(20) << "Filters"
+    std::cout << std::setw(21) << std::left << "Layer"
+              << std::setw(10) << "Filters"
               << std::setw(20) << "Size"
               << std::setw(20) << "Input"
               << std::setw(20) << "Output"
@@ -62,7 +62,7 @@ void Model::parse()
     for (const auto& layerDef: layers) {
         YAML::Node params(layerDef);
         params["batch"] = batch_;
-        params["index"] = index;
+        params["index"] = index++;
         params["inputs"] = inputs;
         params["channels"] = channels;
         params["height"] = height;
@@ -74,8 +74,6 @@ void Model::parse()
         height = layer->outHeight();
         width = layer->outWidth();
         inputs = layer->outputs();
-
-        std::cout << std::setfill(' ') << std::setw(5) << std::right << index++ << ' ';
 
         layer->print(std::cout);
 

@@ -19,7 +19,7 @@
 
 namespace px {
 
-void im2col_cpu(const float* dataIm, int channels, int height, int width, int ksize, int stride, int pad, float* dataCol);
+void im2col_cpu(const float* im, int channels, int height, int width, int ksize, int stride, int pad, float* dataCol);
 
 void normalize_cpu(float* x, float* mean, float* variance, int batch, int filters, int spatial);
 void scale_bias(float* output, float* scales, int batch, int n, int size);

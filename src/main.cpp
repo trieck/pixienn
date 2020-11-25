@@ -103,7 +103,7 @@ void testYolo3()
     auto sized = px::imletterbox(image, model.width(), model.height());
     auto input = px::imarray(sized);
 
-    std::string labelsFile("resources/data/voc.names");
+    std::string labelsFile("resources/data/coco.names");
     std::ifstream ifs(labelsFile, std::ios::in | std::ios::binary);
     PX_CHECK(ifs.good(), "Could not open file \"%s\".", labelsFile.c_str());
 
@@ -119,10 +119,22 @@ void testYolo3()
     std::printf("%s: Predicted in %s.\n", filename, timer.str().c_str());
 
     for (const auto& det: detects) {
+        const auto& b = det.box();
+
+        int left = (b.x - b.width / 2.0f) * image.cols;
+        int right = (b.x + b.width / 2.0f) * image.cols;
+        int top = (b.y - b.height / 2.0f) * image.rows;
+        int bot = (b.y + b.height / 2.0f) * image.rows;
+
+        if (left < 0) left = 0;
+        if (right > image.cols - 1) right = image.cols - 1;
+        if (top < 0) top = 0;
+        if (bot > image.rows - 1) bot = image.rows - 1;
+
         for (auto i = 0; i < det.size(); ++i) {
             if (det[i] >= 0.2f) {
-                printf("class = %s, prob = %.0f%%, box = [%.0f, %.0f, %.0f, %.0f]\n", labels[i].c_str(), det[i] * 100,
-                       det.box().x, det.box().y, det.box().width, det.box().height);
+                printf("class = %s, prob = %.0f%%, box = [%d, %d, %d, %d]\n", labels[i].c_str(), det[i] * 100,
+                       left, top, right, bot);
             }
         }
     }

@@ -50,9 +50,7 @@ DetectLayer::DetectLayer(const Model& model, const YAML::Node& layerDef) : Layer
 
 std::ostream& DetectLayer::print(std::ostream& os)
 {
-    os << std::setfill('.');
-
-    os << std::setw(100) << std::left << "detection" << std::endl;
+    Layer::print(os, "detection", { height(), width(), channels() }, { outHeight(), outWidth(), outChannels() });
 
     return os;
 }
@@ -70,15 +68,17 @@ void DetectLayer::addDetects(std::vector<Detection>& detections, int width, int 
 {
     const auto* predictions = output_.data();
 
-    for (auto i = 0; i < side_ * side_; ++i) {
+    const auto area = side_ * side_;
+
+    for (auto i = 0; i < area; ++i) {
         auto row = i / side_;
         auto col = i % side_;
 
         for (auto n = 0; n < num_; ++n) {
-            auto pindex = side_ * side_ * classes_ + i * num_ + n;
+            auto pindex = area * classes_ + i * num_ + n;
             auto scale = predictions[pindex];
 
-            auto bindex = side_ * side_ * (classes_ + num_) + (i * num_ + n) * 4;
+            auto bindex = area * (classes_ + num_) + (i * num_ + n) * 4;
 
             cv::Rect2f b;
             b.x = (predictions[bindex + 0] + col) / side_ * width;

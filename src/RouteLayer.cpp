@@ -14,8 +14,10 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include "RouteLayer.h"
 #include "Model.h"
+#include "RouteLayer.h"
+#include <cblas.h>
+#include <xtensor/xtensor.hpp>
 
 namespace px {
 
@@ -57,45 +59,33 @@ RouteLayer::RouteLayer(const Model& model, const YAML::Node& layerDef) : Layer(m
     setOutHeight(outHeight);
     setOutWidth(outWidth);
     setOutputs(outputs);
+
+    output_ = empty<float>({ batch(), outChannels, outHeight, outWidth });
 }
 
 std::ostream& RouteLayer::print(std::ostream& os)
 {
-    os << std::setfill('.');
-
-    os << std::setw(60) << std::left << "route"
-       << std::setw(20) << std::left
-       << std::string(std::to_string(height()) + " x " + std::to_string(width()) + " x " + std::to_string(channels()))
-       << std::setw(20) << std::left
-       << std::string(
-               std::to_string(outHeight()) + " x " + std::to_string(outWidth()) + " x " + std::to_string(outChannels()))
-       << std::endl;
+    Layer::print(os, "route", { height(), width(), channels() }, { outHeight(), outWidth(), outChannels() });
 
     return os;
 }
 
-void RouteLayer::forward(const xt::xarray<float>& input)
+void RouteLayer::forward(const xt::xarray<float>& /*input*/)
 {
     auto offset = 0;
+
+    auto* output = output_.data();
 
     for (auto layer: layers_) {
         auto* input = layer->output().data();
         auto inputSize = layer->outputs();
 
         for (auto i = 0; i < batch(); ++i) {
-            // FIXME: copy_cpu(input_size, input + j*input_size, 1, l.output + offset + j*l.outputs, 1);
-
-            // void copy_cpu(int N, float *X, int INCX, float *Y, int INCY)
-            //{
-            //    int i;
-            //    for(i = 0; i < N; ++i) Y[i*INCY] = X[i*INCX];
-            //}
+            cblas_scopy(inputSize, input + i * inputSize, 1, output + offset + i * outputs(), 1);
         }
 
         offset += inputSize;
     }
-
-    output_ = input;
 }
 
 } // px

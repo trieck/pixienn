@@ -62,18 +62,8 @@ ConvLayer::ConvLayer(const Model& model, const YAML::Node& layerDef) : Layer(mod
 
 std::ostream& ConvLayer::print(std::ostream& os)
 {
-    os << std::setfill('.');
-
-    os << std::setw(20) << std::left << "conv"
-       << std::setw(20) << std::left << filters_
-       << std::setw(20) << std::left
-       << std::string(std::to_string(kernel_) + " x " + std::to_string(kernel_) + " / " + std::to_string(stride_))
-       << std::setw(20) << std::left
-       << std::string(std::to_string(height()) + " x " + std::to_string(width()) + " x " + std::to_string(channels()))
-       << std::setw(20) << std::left
-       << std::string(
-               std::to_string(outHeight()) + " x " + std::to_string(outWidth()) + " x " + std::to_string(outChannels()))
-       << std::endl;
+    Layer::print(os, "conv", { height(), width(), channels() }, { outHeight(), outWidth(), outChannels() },
+                 filters_, std::array<int, 3>{ kernel_, kernel_, stride_ });
 
     return os;
 }

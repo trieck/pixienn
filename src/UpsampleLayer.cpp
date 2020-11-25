@@ -15,6 +15,11 @@
 ********************************************************************************/
 
 #include "UpsampleLayer.h"
+#include <cv.hpp>
+#include <opencv2/core/mat.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <xtensor/xadapt.hpp>
+#include <xtensor/xtensor.hpp>
 
 namespace px {
 
@@ -22,32 +27,36 @@ using namespace xt;
 
 UpsampleLayer::UpsampleLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
-    stride_ = property<int>("stride", 2);
+    scale_ = property("scale", 1.0f);
+    stride_ = property("stride", 2);    // FIXME: does not support negative stride (reverse upsample)
 
     setOutChannels(channels());
     setOutHeight(height() * stride_);
     setOutWidth(width() * stride_);
     setOutputs(outHeight() * outWidth() * outChannels());
+
+    output_ = empty<float>({ batch(), outChannels(), outHeight(), outWidth() });
 }
 
 std::ostream& UpsampleLayer::print(std::ostream& os)
 {
-    os << std::setfill('.');
-
-    os << std::setw(60) << std::left << "upsample"
-       << std::setw(20) << std::left
-       << std::string(std::to_string(height()) + " x " + std::to_string(width()) + " x " + std::to_string(channels()))
-       << std::setw(20) << std::left
-       << std::string(
-               std::to_string(outHeight()) + " x " + std::to_string(outWidth()) + " x " + std::to_string(outChannels()))
-       << std::endl;
+    Layer::print(os, "upsample", { height(), width(), channels() }, { outHeight(), outWidth(), outChannels() });
 
     return os;
 }
 
 void UpsampleLayer::forward(const xt::xarray<float>& input)
 {
-    output_ = input;
+    for (auto b = 0; b < batch(); ++b) {
+        auto* pinput = input.data() + b * inputs();
+        auto* poutput = output_.data() + b * outputs();
+
+        cv::Mat mInput(height(), width(), CV_32FC(channels()), (void*) pinput, cv::Mat::AUTO_STEP);
+        cv::Mat mOutput(outHeight(), outWidth(), CV_32FC(outChannels()), (void*) poutput, cv::Mat::AUTO_STEP);
+
+        cv::resize(std::move(mInput), std::move(mOutput), { outWidth(), outHeight() }, scale_, scale_,
+                   cv::INTER_NEAREST);
+    }
 }
 
 } // px

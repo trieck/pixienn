@@ -56,13 +56,7 @@ ConnLayer::ConnLayer(const Model& model, const YAML::Node& layerDef) : Layer(mod
 
 std::ostream& ConnLayer::print(std::ostream& os)
 {
-    os << std::setfill('.');
-
-    os << std::setw(60) << std::left << "connected"
-       << std::setw(20) << std::left << inputs()
-       << std::setw(20) << std::left
-       << outputs()
-       << std::endl;
+    Layer::print(os, "connected", { height(), width(), channels() }, { outHeight(), outWidth(), outChannels() });
 
     return os;
 }

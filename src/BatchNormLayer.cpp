@@ -38,16 +38,7 @@ BatchNormLayer::BatchNormLayer(const Model& model, const YAML::Node& layerDef) :
 
 std::ostream& BatchNormLayer::print(std::ostream& os)
 {
-    os << std::setfill('.');
-
-    os << std::setw(20) << std::left << "batchnorm"
-       << std::setw(40)
-       << std::setw(20) << std::left
-       << std::string(std::to_string(height()) + " x " + std::to_string(width()) + " x " + std::to_string(channels()))
-       << std::setw(20) << std::left
-       << std::string(
-               std::to_string(outHeight()) + " x " + std::to_string(outWidth()) + " x " + std::to_string(outChannels()))
-       << std::endl;
+    Layer::print(os, "batchnorm", { height(), width(), channels() }, { outHeight(), outWidth(), outChannels() });
 
     return os;
 }

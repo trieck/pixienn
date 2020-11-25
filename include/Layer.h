@@ -38,17 +38,17 @@ public:
 
     static Layer::Ptr create(const Model& model, const YAML::Node& layerDef);
 
-    const int inputs() const;
-    const int index() const;
-    const int batch() const;
-    const int channels() const;
-    const int height() const;
-    const int width() const;
+    int inputs() const;
+    int index() const;
+    int batch() const;
+    int channels() const;
+    int height() const;
+    int width() const;
 
-    const int outChannels() const;
-    const int outHeight() const;
-    const int outWidth() const;
-    const int outputs() const;
+    int outChannels() const;
+    int outHeight() const;
+    int outWidth() const;
+    int outputs() const;
 
     virtual std::ostream& print(std::ostream& os) = 0;
 
@@ -79,6 +79,12 @@ protected:
     void setOutChannels(int channels);
     void setOutHeight(int height);
     void setOutWidth(int width);
+
+    void print(std::ostream& os, const std::string& name,
+               std::array<int, 3>&& input,
+               std::array<int, 3>&& output,
+               std::optional<int>&& filters = std::nullopt,
+               std::optional<std::array<int, 3>>&& size = std::nullopt);
 
     xt::xarray<float> output_;
 private:

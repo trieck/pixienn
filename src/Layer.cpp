@@ -100,42 +100,42 @@ Layer::Ptr Layer::create(const Model& model, const YAML::Node& layerDef)
     return LayerFactories::instance().create(model, layerDef);
 }
 
-const int Layer::batch() const
+int Layer::batch() const
 {
     return batch_;
 }
 
-const int Layer::channels() const
+int Layer::channels() const
 {
     return channels_;
 }
 
-const int Layer::height() const
+int Layer::height() const
 {
     return height_;
 }
 
-const int Layer::width() const
+int Layer::width() const
 {
     return width_;
 }
 
-const int Layer::outChannels() const
+int Layer::outChannels() const
 {
     return outChannels_;
 }
 
-const int Layer::outHeight() const
+int Layer::outHeight() const
 {
     return outHeight_;
 }
 
-const int Layer::outWidth() const
+int Layer::outWidth() const
 {
     return outWidth_;
 }
 
-const int Layer::outputs() const
+int Layer::outputs() const
 {
     return outputs_;
 }
@@ -160,7 +160,7 @@ void Layer::setOutputs(int outputs)
     outputs_ = outputs;
 }
 
-const int Layer::inputs() const
+int Layer::inputs() const
 {
     return inputs_;
 }
@@ -195,9 +195,40 @@ const Model& Layer::model() const noexcept
     return model_;
 }
 
-const int Layer::index() const
+int Layer::index() const
 {
     return index_;
+}
+
+void Layer::print(std::ostream& os, const std::string& name, std::array<int, 3>&& input, std::array<int, 3>&& output,
+                  std::optional<int>&& filters, std::optional<std::array<int, 3>>&& size)
+{
+    std::cout << std::setfill(' ') << std::setw(5) << std::right << index() << ' ';
+
+    os << std::setfill('.');
+
+    if (filters.has_value()) {
+        os << std::setw(15) << std::left << name;
+        os << std::setw(10) << std::left << filters.value();
+    } else {
+        os << std::setw(25) << std::left << name;
+    }
+
+    if (size.has_value()) {
+        const auto& value = size.value();
+        os << std::setw(20) << std::left << std::string(
+                std::to_string(value[0]) + " x " + std::to_string(value[1]) + " / " + std::to_string(value[2]));
+    } else {
+        os << std::setw(20) << std::left << "";
+    }
+
+    os << std::setw(20) << std::left << std::string(
+            std::to_string(input[0]) + " x " + std::to_string(input[1]) + " x " + std::to_string(input[2]));
+
+    os << std::setw(20) << std::left << std::string(
+            std::to_string(output[0]) + " x " + std::to_string(output[1]) + " x " + std::to_string(output[2]));
+
+    os << std::endl << std::flush;
 }
 
 } // px

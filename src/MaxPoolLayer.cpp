@@ -38,17 +38,8 @@ MaxPoolLayer::MaxPoolLayer(const Model& model, const YAML::Node& layerDef) : Lay
 
 std::ostream& MaxPoolLayer::print(std::ostream& os)
 {
-    os << std::setfill('.');
-
-    os << std::setw(40) << std::left << "max"
-       << std::setw(20) << std::left
-       << std::string(std::to_string(kernel_) + " x " + std::to_string(kernel_) + " / " + std::to_string(stride_))
-       << std::setw(20) << std::left
-       << std::string(std::to_string(height()) + " x " + std::to_string(width()) + +" x " + std::to_string(channels()))
-       << std::setw(20) << std::left
-       << std::string(
-               std::to_string(outHeight()) + " x " + std::to_string(outWidth()) + " x " + std::to_string(outChannels()))
-       << std::endl;
+    Layer::print(os, "maxpool", { height(), width(), channels() }, { outHeight(), outWidth(), outChannels() },
+                 std::nullopt, std::array<int, 3>{ kernel_, kernel_, stride_ });
 
     return os;
 }
