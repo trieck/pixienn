@@ -113,7 +113,7 @@ model:
       stride: 1
 
     - type: conv
-      activation: leaky
+      activation: linear
       dilation: 1
       filters: 255
       kernel: 1

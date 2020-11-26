@@ -16,7 +16,6 @@
 
 #include "Model.h"
 #include "RouteLayer.h"
-#include <cblas.h>
 #include <xtensor/xtensor.hpp>
 
 namespace px {
@@ -77,11 +76,15 @@ void RouteLayer::forward(const xt::xarray<float>& /*input*/)
     auto* output = output_.data();
 
     for (auto layer: layers_) {
-        auto* input = layer->output().data();
+        const auto* input = layer->output().data();
         auto inputSize = layer->outputs();
 
         for (auto i = 0; i < batch(); ++i) {
-            cblas_scopy(inputSize, input + i * inputSize, 1, output + offset + i * outputs(), 1);
+            const auto* start = input + i * inputSize;
+            const auto* end = start + inputSize + 1;
+            auto* out = output + offset + i * outputs();
+
+            std::copy(start, end, out);
         }
 
         offset += inputSize;

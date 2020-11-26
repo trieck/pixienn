@@ -17,8 +17,6 @@
 #include "UpsampleLayer.h"
 #include <cv.hpp>
 #include <opencv2/core/mat.hpp>
-#include <opencv2/imgcodecs.hpp>
-#include <xtensor/xadapt.hpp>
 #include <xtensor/xtensor.hpp>
 
 namespace px {

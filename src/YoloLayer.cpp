@@ -16,6 +16,7 @@
 
 #include "Model.h"
 #include "YoloLayer.h"
+#include <xtensor/xtensor.hpp>
 
 namespace px {
 
@@ -35,6 +36,8 @@ YoloLayer::YoloLayer(const Model& model, const YAML::Node& layerDef) : Layer(mod
     setOutHeight(height());
     setOutWidth(width());
     setOutputs(outHeight() * outWidth() * outChannels());
+
+    output_ = empty<float>({ batch(), outChannels(), outHeight(), outWidth() });
 }
 
 std::ostream& YoloLayer::print(std::ostream& os)
@@ -46,7 +49,7 @@ std::ostream& YoloLayer::print(std::ostream& os)
 
 void YoloLayer::forward(const xt::xarray<float>& input)
 {
-    output_ = input;
+    std::copy(input.begin(), input.end(), output_.begin());
 
     auto area = std::max(1, width() * height());
 
