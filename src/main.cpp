@@ -108,8 +108,9 @@ void testYolo3()
     PX_CHECK(ifs.good(), "Could not open file \"%s\".", labelsFile.c_str());
 
     std::vector<std::string> labels;
-    std::copy(std::istream_iterator<std::string>(ifs), std::istream_iterator<std::string>(),
-              std::back_inserter(labels));
+    for (std::string label; std::getline(ifs, label);) {
+        labels.push_back(label);
+    }
 
     std::cout << "Running network..." << std::endl;
 
