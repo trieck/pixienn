@@ -14,44 +14,15 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_DETECTION_H
-#define PIXIENN_DETECTION_H
+#ifndef PIXIENN_NMS_H
+#define PIXIENN_NMS_H
 
-#include "opencv2/core/types.hpp"
+#include "Detection.h"
 
 namespace px {
 
-class Detection
-{
-public:
-    Detection(int classes, cv::Rect box, float objectness);
-
-    float& operator[](int clazz);
-    const float& operator[](int clazz) const;
-
-    const std::vector<float>& prob() const noexcept;
-
-    int size() const noexcept;
-    const cv::Rect& box() const noexcept;
-
-    float max() const noexcept;
-    int maxClass() const noexcept;
-    void setMaxClass(int max);
-
-private:
-    cv::Rect box_;
-    std::vector<float> prob_;
-    float objectness_;
-    int maxClass_ = 0;
-};
-
-using Detections = std::vector<Detection>;
-
-struct Detector
-{
-    virtual void addDetects(Detections& detects, int width, int height, float threshold) = 0;
-};
+void nms(Detections& detects, float threshold);
 
 }   // px
 
-#endif // PIXIENN_DETECTION_H
+#endif // PIXIENN_NMS_H

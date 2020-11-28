@@ -17,6 +17,7 @@
 #include "Error.h"
 #include "Image.h"
 #include "Model.h"
+#include "NMS.h"
 
 #include <boost/program_options.hpp>
 #include <iostream>
@@ -31,7 +32,7 @@ void predict(const char* cfgFile, const char* imageFile)
     auto model = Model(cfgFile);
 
     auto detects = model.predict(imageFile, 0.2f);
-    nms(detects, 0.2f);
+    nms(detects, 0.4f);
 
     auto json = model.asJson(std::move(detects));
 

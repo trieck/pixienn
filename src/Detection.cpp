@@ -53,36 +53,20 @@ const std::vector<float>& Detection::prob() const noexcept
     return prob_;
 }
 
-static float boxIntersection(const cv::Rect& a, const cv::Rect& b)
+void Detection::setMaxClass(int max)
 {
-    return (a & b).area();
+    PX_CHECK(max >= 0 && max < prob_.size(), "Index out of range.");
+    maxClass_ = max;
 }
 
-static float boxUnion(const cv::Rect& a, const cv::Rect& b)
+int Detection::maxClass() const noexcept
 {
-    return (a | b).area();
+    return maxClass_;
 }
 
-static float boxIou(const cv::Rect& a, const cv::Rect& b)
+float Detection::max() const noexcept
 {
-    return boxIntersection(a, b) / boxUnion(a, b);
-}
-
-void nms(Detections& detects, float threshold)
-{
-    for (auto i = 0; i < detects.size(); ++i) {
-        for (auto j = i + 1; j < detects.size(); ++j) {
-            if (boxIou(detects[i].box(), detects[j].box()) > threshold) {
-                for (auto k = 0; k < detects[i].size(); ++k) {
-                    if (detects[i][k] < detects[j][k]) {
-                        detects[i][k] = 0;
-                    } else {
-                        detects[j][k] = 0;
-                    }
-                }
-            }
-        }
-    }
+    return prob_[maxClass_];
 }
 
 }   // px

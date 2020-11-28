@@ -1,4 +1,8 @@
 /.idea/
 /cmake-build-debug/
-/resources/weights/
 /cmake-build-release/
+/resources/weights/
+
+*.geojson
+*.qml
+*.aux.xml

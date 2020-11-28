@@ -245,10 +245,12 @@ std::string Model::asJson(std::vector<Detection>&& detects) const noexcept
     auto features = json::array();
 
     for (const auto& det: detects) {
-        auto it = std::max_element(det.prob().cbegin(), det.prob().cend());
-        if (*it == 0) {
+        auto max = det.max();
+        if (max == 0) {
             continue;   // suppressed
         }
+
+        auto index = det.maxClass();
 
         auto feature = json::object();
         auto geometry = json::object();
@@ -273,10 +275,8 @@ std::string Model::asJson(std::vector<Detection>&& detects) const noexcept
 
         geometry["coordinates"] = json::array({ coords });
 
-        auto index = std::distance(det.prob().cbegin(), it);
-
         props["top_cat"] = labels_[index];
-        props["top_score"] = *it;
+        props["top_score"] = max;
 
         feature["geometry"] = geometry;
         feature["properties"] = props;

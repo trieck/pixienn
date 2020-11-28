@@ -139,13 +139,20 @@ void YoloLayer::addDetects(Detections& detections, int width, int height, float 
             auto box = yoloBox(predictions, mask_[n], boxIndex, col, row, width, height);
 
             Detection det(classes_, box, objectness);
+
+            int max = 0;
             for (auto j = 0; j < classes_; ++j) {
-                int clsIndex = entryIndex(0, n * area + i, 4 + 1 + j);
-                auto prob = objectness * predictions[clsIndex];
-                det[j] = prob >= threshold ? prob : 0;
+                int clsIndex = entryIndex(0, n * area + i, 5 + j);
+                det[j] = objectness * predictions[clsIndex];
+                if (det[j] > det[max]) {
+                    max = j;
+                }
             }
 
-            detections.emplace_back(std::move(det));
+            if (det[max] >= threshold) {
+                det.setMaxClass(max);
+                detections.emplace_back(std::move(det));
+            }
         }
     }
 }

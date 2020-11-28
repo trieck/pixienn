@@ -80,20 +80,37 @@ void DetectLayer::addDetects(Detections& detections, int width, int height, floa
 
             auto bindex = area * (classes_ + num_) + (i * num_ + n) * 4;
 
-            cv::Rect2f b;
-            b.x = (predictions[bindex + 0] + col) / side_ * width;
-            b.y = (predictions[bindex + 1] + row) / side_ * height;
-            b.width = pow(predictions[bindex + 2], (sqrt_ ? 2 : 1)) * width;
-            b.height = pow(predictions[bindex + 3], (sqrt_ ? 2 : 1)) * height;
+            auto x = (predictions[bindex + 0] + col) / side_ * width;
+            auto y = (predictions[bindex + 1] + row) / side_ * height;
+            auto w = pow(predictions[bindex + 2], (sqrt_ ? 2 : 1)) * width;
+            auto h = pow(predictions[bindex + 3], (sqrt_ ? 2 : 1)) * height;
+
+            auto left = std::max<int>(0, (x - w / 2));
+            auto right = std::min<int>(width - 1, (x + w / 2));
+            auto top = std::max<int>(0, (y - h / 2));
+            auto bottom = std::min<int>(height - 1, (y + h / 2));
+
+            cv::Rect b;
+            b.x = left;
+            b.y = top;
+            b.width = right - left;
+            b.height = bottom - top;
 
             Detection det(classes_, b, scale);
+            int max = 0;
+
             for (auto j = 0; j < classes_; ++j) {
                 auto index = i * classes_;
-                auto prob = scale * predictions[index + j];
-                det[j] = prob >= threshold ? prob : 0;
+                det[j] = scale * predictions[index + j];
+                if (det[j] > det[max]) {
+                    max = j;
+                }
             }
 
-            detections.emplace_back(std::move(det));
+            if (det[max] >= threshold) {
+                det.setMaxClass(max);
+                detections.emplace_back(std::move(det));
+            }
         }
     }
 }
