@@ -15,12 +15,14 @@ find_package(TIFF REQUIRED)
 find_package(xtensor REQUIRED)
 find_package(xtl REQUIRED)
 find_package(yaml-cpp REQUIRED)
+find_package(nlohmann_json REQUIRED)
 
 file(GLOB SOURCES "src/*.cpp" "include/*.h")
 
 add_executable(pixienn ${SOURCES})
 
 target_include_directories(pixienn PRIVATE include)
-target_link_libraries(pixienn ${OpenCV_LIBS} yaml-cpp xtensor xtensor::optimize tiff openblas)
+target_link_libraries(pixienn ${OpenCV_LIBS} yaml-cpp xtensor xtensor::optimize tiff openblas boost_program_options
+        boost_filesystem nlohmann_json::nlohmann_json)
 
 

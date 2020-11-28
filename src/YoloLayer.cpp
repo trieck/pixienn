@@ -78,10 +78,8 @@ int YoloLayer::entryIndex(int batch, int location, int entry) const noexcept
     return batch * outputs() + n * area * (classes_ + 5) + entry * area + loc;
 }
 
-cv::Rect2f YoloLayer::yoloBox(const float* x, int mask, int index, int col, int row, int w, int h)
+cv::Rect YoloLayer::yoloBox(const float* p, int mask, int index, int col, int row, int w, int h)
 {
-    cv::Rect2f box;
-
     const auto stride = width() * height();
     const auto netW = model().width();
     const auto netH = model().height();
@@ -95,22 +93,33 @@ cv::Rect2f YoloLayer::yoloBox(const float* x, int mask, int index, int col, int 
         newW = (w * netH) / h;
     }
 
-    box.x = (col + x[index + 0 * stride]) / width();
-    box.x = (box.x - (netW - newW) / 2.0f / netW) / ((float) newW / netW);
+    auto x = (col + p[index + 0 * stride]) / width();
+    x = (x - (netW - newW) / 2.0f / netW) / ((float) newW / netW);
 
-    box.y = (row + x[index + 1 * stride]) / height();
-    box.y = (box.y - (netH - newH) / 2.0f / netH) / ((float) newH / netH);
+    auto y = (row + p[index + 1 * stride]) / height();
+    y = (y - (netH - newH) / 2.0f / netH) / ((float) newH / netH);
 
-    box.width = std::exp(x[index + 2 * stride]) * anchors_[2 * mask] / netW;
-    box.width *= (float) netW / newW;
+    auto width = std::exp(p[index + 2 * stride]) * anchors_[2 * mask] / netW;
+    width *= (float) netW / newW;
 
-    box.height = std::exp(x[index + 3 * stride]) * anchors_[2 * mask + 1] / netH;
-    box.height *= (float) netH / newH;
+    auto height = std::exp(p[index + 3 * stride]) * anchors_[2 * mask + 1] / netH;
+    height *= (float) netH / newH;
 
-    return box;
+    auto left = std::max<int>(0, (x - width / 2) * w);
+    auto right = std::min<int>(w - 1, (x + width / 2) * w);
+    auto top = std::max<int>(0, (y - height / 2) * h);
+    auto bottom = std::min<int>(h - 1, (y + height / 2) * h);
+
+    cv::Rect b;
+    b.x = left;
+    b.y = top;
+    b.width = right - left;
+    b.height = bottom - top;
+
+    return b;
 }
 
-void YoloLayer::addDetects(std::vector<Detection>& detections, int width, int height, float threshold)
+void YoloLayer::addDetects(Detections& detections, int width, int height, float threshold)
 {
     const auto* predictions = output_.data();
     auto area = std::max(1, this->width() * this->height());

@@ -34,7 +34,7 @@ public:
     std::ostream& print(std::ostream& os) override;
     void forward(const xt::xarray<float>& input) override;
 
-    void addDetects(std::vector<Detection>& detections, int width, int height, float threshold) override;
+    void addDetects(Detections& detections, int width, int height, float threshold) override;
 
 private:
     friend LayerFactories;

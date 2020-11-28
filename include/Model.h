@@ -25,7 +25,7 @@ namespace px {
 class Model
 {
 public:
-    Model(const std::string& filename);
+    Model(const std::string& cfgFile);
     Model(const Model& rhs) = default;
     Model(Model&& rhs) = default;
 
@@ -43,19 +43,26 @@ public:
     const int layerSize() const;
     const Layer::Ptr& layerAt(int index) const;
 
-    void loadDarknetWeights(const std::string& filename);
+    std::vector<Detection> predict(const std::string& imageFile, float threshold);
+    std::string asJson(std::vector<Detection>&& detects) const noexcept;
 
-    std::vector<Detection> predict(xt::xarray<float>&& input, int width, int height, float threshold);
+    const std::vector<std::string>& labels() const noexcept;
+
 private:
     xt::xarray<float> forward(xt::xarray<float>&& input);
 
-    void parse();
+    void parseConfig();
+    void parseModel();
+    void loadDarknetWeights();
+    void loadLabels();
 
-    std::string filename_;
+    std::string cfgFile_, modelFile_, weightsFile_, labelsFile_;
+
     int batch_ = 0, channels_ = 0, height_ = 0, width_ = 0;
     int major_ = 0, minor_ = 0, revision_ = 0;
 
     LayerVec layers_;
+    std::vector<std::string> labels_;
 };
 
 }   // px

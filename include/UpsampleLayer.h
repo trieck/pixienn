@@ -18,6 +18,7 @@
 #ifndef PIXIENN_UPSAMPLELAYER_H
 #define PIXIENN_UPSAMPLELAYER_H
 
+#include <cv.hpp>
 #include "Layer.h"
 
 namespace px {
@@ -35,8 +36,11 @@ public:
 
 private:
     friend LayerFactories;
+    void setInterpolationFlags();
+
     float scale_;
     int stride_;
+    cv::InterpolationFlags flags_;
 };
 
 } // px

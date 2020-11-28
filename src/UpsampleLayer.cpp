@@ -22,12 +22,14 @@
 namespace px {
 
 using namespace xt;
+using namespace cv;
 
 UpsampleLayer::UpsampleLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
     scale_ = property("scale", 1.0f);
     stride_ = property("stride", 2);    // FIXME: does not support negative stride (reverse upsample)
 
+    setInterpolationFlags();
     setOutChannels(channels());
     setOutHeight(height() * stride_);
     setOutWidth(width() * stride_);
@@ -49,11 +51,29 @@ void UpsampleLayer::forward(const xt::xarray<float>& input)
         auto* pinput = input.data() + b * inputs();
         auto* poutput = output_.data() + b * outputs();
 
-        cv::Mat mInput(height(), width(), CV_32FC(channels()), (void*) pinput, cv::Mat::AUTO_STEP);
-        cv::Mat mOutput(outHeight(), outWidth(), CV_32FC(outChannels()), (void*) poutput, cv::Mat::AUTO_STEP);
+        Mat mInput(height(), width(), CV_32FC(channels()), (void*) pinput, cv::Mat::AUTO_STEP);
+        Mat mOutput(outHeight(), outWidth(), CV_32FC(outChannels()), (void*) poutput, cv::Mat::AUTO_STEP);
 
-        cv::resize(std::move(mInput), std::move(mOutput), { outWidth(), outHeight() }, scale_, scale_,
-                   cv::INTER_NEAREST);
+        resize(std::move(mInput), std::move(mOutput), { outWidth(), outHeight() }, scale_, scale_, flags_);
+    }
+}
+
+void UpsampleLayer::setInterpolationFlags()
+{
+    auto method = property<std::string>("interpolation", "nearest");
+
+    if (method == "nearest") {
+        flags_ = InterpolationFlags::INTER_NEAREST;
+    } else if (method == "linear") {
+        flags_ = InterpolationFlags::INTER_LINEAR;
+    } else if (method == "linear_exact") {
+        flags_ = InterpolationFlags::INTER_LINEAR_EXACT;
+    } else if (method == "cubic") {
+        flags_ = InterpolationFlags::INTER_CUBIC;
+    } else if (method == "area") {
+        flags_ = InterpolationFlags::INTER_AREA;
+    } else {
+        PX_ERROR_THROW("Unsupported interpolation method \"%s\".", method.c_str());
     }
 }
 

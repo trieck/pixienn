@@ -17,136 +17,46 @@
 #include "Error.h"
 #include "Image.h"
 #include "Model.h"
-#include "Timer.h"
 
+#include <boost/program_options.hpp>
 #include <iostream>
 #include <fstream>
 
+namespace po = boost::program_options;
+
 using namespace px;
 
-void showLayers(const cv::Mat& image, const char* baseName)
+void predict(const char* cfgFile, const char* imageFile)
 {
-    int i;
-    char buff[256];
-    for (i = 0; i < image.channels(); ++i) {
-        sprintf(buff, "%s - Layer %d", baseName, i);
-        auto layer = px::imchannel(image, i);
+    auto model = Model(cfgFile);
 
-        cv::namedWindow(buff, cv::WINDOW_AUTOSIZE);
-        cv::imshow(buff, layer);
-    }
-}
+    auto detects = model.predict(imageFile, 0.2f);
+    nms(detects, 0.2f);
 
-void testConvolve()
-{
-    auto image = px::imread("resources/images/dog.jpg");
-    auto kernel = px::imrandom(2, 2, image.channels());
-    auto edge = px::immake(image.rows, image.cols, 1);
+    auto json = model.asJson(std::move(detects));
 
-    px::imconvolve(image, kernel, 1, 0, edge);
-
-    showLayers(edge, "Test Convolve");
-
-    cv::waitKey();
-}
-
-void testYolo1()
-{
-    auto model = Model("resources/models/yolov1-tiny.yml");
-
-    std::cout << "Loading weights...";
-    model.loadDarknetWeights("resources/weights/yolov1-tiny.weights");
-    std::cout << "done." << std::endl;
-
-    const auto* filename = "resources/images/dog.jpg";
-    auto image = px::imread(filename);
-    auto sized = px::imletterbox(image, model.width(), model.height());
-    auto input = px::imarray(sized);
-
-    std::string labelsFile("resources/data/voc.names");
-    std::ifstream ifs(labelsFile, std::ios::in | std::ios::binary);
-    PX_CHECK(ifs.good(), "Could not open file \"%s\".", labelsFile.c_str());
-
-    std::vector<std::string> labels;
-    std::copy(std::istream_iterator<std::string>(ifs), std::istream_iterator<std::string>(),
-              std::back_inserter(labels));
-
-    std::cout << "Running network..." << std::endl;
-
-    Timer timer;
-    auto detects = model.predict(std::move(input), image.cols, image.rows, 0.2f);
-
-    std::printf("%s: Predicted in %s.\n", filename, timer.str().c_str());
-
-    for (const auto& det: detects) {
-        for (auto i = 0; i < det.size(); ++i) {
-            if (det[i] >= 0.2f) {
-                printf("class = %s, prob = %.0f%%, box = [%.0f, %.0f, %.0f, %.0f]\n", labels[i].c_str(), det[i] * 100,
-                       det.box().x, det.box().y, det.box().width, det.box().height);
-            }
-        }
-    }
+    std::ofstream ofs("results.geojson", std::ios::out | std::ios::binary);
+    PX_CHECK(ofs.good(), "Could not open file \"%s\".", "results.geojson");
+    ofs << json << std::flush;
+    ofs.close();
 
     std::cout << "done." << std::endl;
 }
 
-void testYolo3()
+int main(int argc, char* argv[])
 {
-    auto model = Model("resources/models/yolov3-tiny.yml");
+    po::options_description desc("options");
+    po::variables_map vm;
+    po::store(po::parse_command_line(argc, argv, desc), vm);
+    po::notify(vm);
 
-    std::cout << "Loading weights...";
-    model.loadDarknetWeights("resources/weights/yolov3-tiny.weights");
-    std::cout << "done." << std::endl;
-
-    const auto* filename = "resources/images/dog.jpg";
-    auto image = px::imread(filename);
-    auto sized = px::imletterbox(image, model.width(), model.height());
-    auto input = px::imarray(sized);
-
-    std::string labelsFile("resources/data/coco.names");
-    std::ifstream ifs(labelsFile, std::ios::in | std::ios::binary);
-    PX_CHECK(ifs.good(), "Could not open file \"%s\".", labelsFile.c_str());
-
-    std::vector<std::string> labels;
-    for (std::string label; std::getline(ifs, label);) {
-        labels.push_back(label);
+    if (argc < 3) {
+        std::cerr << "usage: pixienn metadata-file image-file" << std::endl;
+        exit(1);
     }
 
-    std::cout << "Running network..." << std::endl;
-
-    Timer timer;
-    auto detects = model.predict(std::move(input), image.cols, image.rows, 0.2f);
-
-    std::printf("%s: Predicted in %s.\n", filename, timer.str().c_str());
-
-    for (const auto& det: detects) {
-        const auto& b = det.box();
-
-        int left = (b.x - b.width / 2.0f) * image.cols;
-        int right = (b.x + b.width / 2.0f) * image.cols;
-        int top = (b.y - b.height / 2.0f) * image.rows;
-        int bot = (b.y + b.height / 2.0f) * image.rows;
-
-        if (left < 0) left = 0;
-        if (right > image.cols - 1) right = image.cols - 1;
-        if (top < 0) top = 0;
-        if (bot > image.rows - 1) bot = image.rows - 1;
-
-        for (auto i = 0; i < det.size(); ++i) {
-            if (det[i] >= 0.2f) {
-                printf("class = %s, prob = %.0f%%, box = [%d, %d, %d, %d]\n", labels[i].c_str(), det[i] * 100,
-                       left, top, right, bot);
-            }
-        }
-    }
-
-    std::cout << "done." << std::endl;
-}
-
-int main()
-{
     try {
-        testYolo3();
+        predict(argv[1], argv[2]);
     } catch (const px::Error& e) {
         std::cerr << e.what() << std::endl;
         exit(1);

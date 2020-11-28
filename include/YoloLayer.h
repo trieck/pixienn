@@ -34,13 +34,13 @@ public:
     std::ostream& print(std::ostream& os) override;
     void forward(const xt::xarray<float>& input) override;
 
-    void addDetects(std::vector<Detection>& detections, int width, int height, float threshold) override;
+    void addDetects(Detections& detections, int width, int height, float threshold) override;
 
 private:
     friend LayerFactories;
 
     int entryIndex(int batch, int location, int entry) const noexcept;
-    cv::Rect2f yoloBox(const float* x, int mask, int index, int col, int row, int w, int h);
+    cv::Rect yoloBox(const float* p, int mask, int index, int col, int row, int w, int h);
 
     Activation::Ptr activation_;
     int classes_, total_;

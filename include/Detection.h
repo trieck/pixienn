@@ -24,24 +24,30 @@ namespace px {
 class Detection
 {
 public:
-    Detection(int classes, cv::Rect2f box, float objectness);
+    Detection(int classes, cv::Rect box, float objectness);
 
     float& operator[](int clazz);
     const float& operator[](int clazz) const;
 
+    const std::vector<float>& prob() const noexcept;
+
     int size() const noexcept;
-    const cv::Rect2f& box() const noexcept;
+    const cv::Rect& box() const noexcept;
 
 private:
-    cv::Rect2f box_;
+    cv::Rect box_;
     std::vector<float> prob_;
     float objectness_;
 };
 
+using Detections = std::vector<Detection>;
+
 struct Detector
 {
-    virtual void addDetects(std::vector<Detection>& detections, int width, int height, float threshold) = 0;
+    virtual void addDetects(Detections& detects, int width, int height, float threshold) = 0;
 };
+
+void nms(Detections& detects, float threshold);
 
 }   // px
 

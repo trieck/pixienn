@@ -19,7 +19,7 @@
 
 namespace px {
 
-Detection::Detection(int classes, cv::Rect2f box, float objectness) : box_(std::move(box)), objectness_(objectness)
+Detection::Detection(int classes, cv::Rect box, float objectness) : box_(std::move(box)), objectness_(objectness)
 {
     prob_.resize(classes);
 }
@@ -43,9 +43,46 @@ int Detection::size() const noexcept
     return prob_.size();
 }
 
-const cv::Rect2f& Detection::box() const noexcept
+const cv::Rect& Detection::box() const noexcept
 {
     return box_;
+}
+
+const std::vector<float>& Detection::prob() const noexcept
+{
+    return prob_;
+}
+
+static float boxIntersection(const cv::Rect& a, const cv::Rect& b)
+{
+    return (a & b).area();
+}
+
+static float boxUnion(const cv::Rect& a, const cv::Rect& b)
+{
+    return (a | b).area();
+}
+
+static float boxIou(const cv::Rect& a, const cv::Rect& b)
+{
+    return boxIntersection(a, b) / boxUnion(a, b);
+}
+
+void nms(Detections& detects, float threshold)
+{
+    for (auto i = 0; i < detects.size(); ++i) {
+        for (auto j = i + 1; j < detects.size(); ++j) {
+            if (boxIou(detects[i].box(), detects[j].box()) > threshold) {
+                for (auto k = 0; k < detects[i].size(); ++k) {
+                    if (detects[i][k] < detects[j][k]) {
+                        detects[i][k] = 0;
+                    } else {
+                        detects[j][k] = 0;
+                    }
+                }
+            }
+        }
+    }
 }
 
 }   // px

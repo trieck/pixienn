@@ -64,7 +64,7 @@ void DetectLayer::forward(const xt::xarray<float>& input)
     }
 }
 
-void DetectLayer::addDetects(std::vector<Detection>& detections, int width, int height, float threshold)
+void DetectLayer::addDetects(Detections& detections, int width, int height, float threshold)
 {
     const auto* predictions = output_.data();
 

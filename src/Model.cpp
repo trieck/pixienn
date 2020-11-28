@@ -17,25 +17,57 @@
 #include "Error.h"
 #include "Layer.h"
 #include "Model.h"
+#include "Image.h"
+#include "Timer.h"
+
+#include <boost/filesystem.hpp>
 #include <fstream>
+#include <nlohmann/json.hpp>
 
 using namespace YAML;
+using namespace boost::filesystem;
+using json = nlohmann::json;
 
 namespace px {
 
-Model::Model(const std::string& filename) : filename_(filename)
+Model::Model(const std::string& cfgFile) : cfgFile_(cfgFile)
 {
-    parse();
+    parseConfig();
 }
 
-void Model::parse()
+void Model::parseConfig()
 {
-    auto config = LoadFile(filename_);
+    auto cfgDoc = LoadFile(cfgFile_);
 
-    PX_CHECK(config.IsMap(), "Model config not a map.");
-    PX_CHECK(config["model"], "Config has no model.");
+    PX_CHECK(cfgDoc.IsMap(), "Document not a map.");
+    PX_CHECK(cfgDoc["configuration"], "Document has no configuration.");
 
-    const auto model = config["model"];
+    const auto config = cfgDoc["configuration"];
+    PX_CHECK(config.IsMap(), "Configuration is not a map.");
+
+    auto cfgPath = path(cfgFile_);
+
+    auto model = config["model"].as<std::string>();
+    modelFile_ = canonical(model, cfgPath.parent_path()).string();
+    parseModel();
+
+    auto weights = config["weights"].as<std::string>();
+    weightsFile_ = canonical(weights, cfgPath.parent_path()).string();
+    loadDarknetWeights();
+
+    auto labels = config["labels"].as<std::string>();
+    labelsFile_ = canonical(labels, cfgPath.parent_path()).string();
+    loadLabels();
+}
+
+void Model::parseModel()
+{
+    auto modelDoc = LoadFile(modelFile_);
+
+    PX_CHECK(modelDoc.IsMap(), "Model document not a map.");
+    PX_CHECK(modelDoc["model"], "Document has no model.");
+
+    const auto model = modelDoc["model"];
     PX_CHECK(model.IsMap(), "Model is not a map.");
 
     batch_ = model["batch"].as<int>();
@@ -118,10 +150,10 @@ xt::xarray<float> Model::forward(xt::xarray<float>&& input)
     return in;
 }
 
-void Model::loadDarknetWeights(const std::string& filename)
+void Model::loadDarknetWeights()
 {
-    std::ifstream ifs(filename, std::ios::in | std::ios::binary);
-    PX_CHECK(ifs.good(), "Could not open file \"%s\".", filename.c_str());
+    std::ifstream ifs(weightsFile_, std::ios::in | std::ios::binary);
+    PX_CHECK(ifs.good(), "Could not open file \"%s\".", weightsFile_.c_str());
 
     ifs.seekg(0, ifs.end);
     auto length = ifs.tellg();
@@ -150,8 +182,15 @@ void Model::loadDarknetWeights(const std::string& filename)
     ifs.close();
 }
 
-std::vector<Detection> Model::predict(xt::xarray<float>&& input, int width, int height, float threshold)
+std::vector<Detection> Model::predict(const std::string& imageFile, float threshold)
 {
+    auto image = imread(imageFile.c_str());
+    auto sized = imletterbox(image, width(), height());
+    auto input = imarray(sized);
+
+    std::cout << "Running network..." << std::endl;
+
+    Timer timer;
     auto result = forward(std::forward<xt::xarray<float>>(input));
 
     std::vector<Detection> detections;
@@ -159,9 +198,11 @@ std::vector<Detection> Model::predict(xt::xarray<float>&& input, int width, int 
     for (auto& layer: layers()) {
         auto* detector = dynamic_cast<Detector*>(layer.get());
         if (detector) {
-            detector->addDetects(detections, width, height, threshold);
+            detector->addDetects(detections, image.cols, image.rows, threshold);
         }
     }
+
+    std::printf("%s: Predicted in %s.\n", imageFile.c_str(), timer.str().c_str());
 
     return detections;
 }
@@ -176,6 +217,76 @@ const Layer::Ptr& Model::layerAt(int index) const
     PX_CHECK(index < layers_.size(), "Index out of range.");
 
     return layers_[index];
+}
+
+void Model::loadLabels()
+{
+    std::ifstream ifs(labelsFile_, std::ios::in | std::ios::binary);
+    PX_CHECK(ifs.good(), "Could not open file \"%s\".", labelsFile_.c_str());
+
+    labels_.clear();
+
+    for (std::string label; std::getline(ifs, label);) {
+        labels_.push_back(label);
+    }
+}
+
+const std::vector<std::string>& Model::labels() const noexcept
+{
+    return labels_;
+}
+
+std::string Model::asJson(std::vector<Detection>&& detects) const noexcept
+{
+    auto json = json::object();
+
+    json["type"] = "FeatureCollection";
+
+    auto features = json::array();
+
+    for (const auto& det: detects) {
+        auto it = std::max_element(det.prob().cbegin(), det.prob().cend());
+        if (*it == 0) {
+            continue;   // suppressed
+        }
+
+        auto feature = json::object();
+        auto geometry = json::object();
+        auto props = json::object();
+        auto coords = json::array();
+
+        feature["type"] = "Feature";
+        geometry["type"] = "Polygon";
+
+        const auto& b = det.box();
+
+        auto left = b.x;
+        auto top = -b.y;
+        auto right = b.x + b.width;
+        auto bottom = -(b.y + b.height);
+
+        coords.emplace_back(json::array({ left, top }));
+        coords.emplace_back(json::array({ right, top }));
+        coords.emplace_back(json::array({ right, bottom }));
+        coords.emplace_back(json::array({ left, bottom }));
+        coords.emplace_back(json::array({ left, top }));
+
+        geometry["coordinates"] = json::array({ coords });
+
+        auto index = std::distance(det.prob().cbegin(), it);
+
+        props["top_cat"] = labels_[index];
+        props["top_score"] = *it;
+
+        feature["geometry"] = geometry;
+        feature["properties"] = props;
+
+        features.emplace_back(std::move(feature));
+    }
+
+    json["features"] = features;
+
+    return json.dump(2);
 }
 
 } // px
