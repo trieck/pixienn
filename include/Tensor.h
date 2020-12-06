@@ -14,36 +14,33 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_DETECTLAYER_H
-#define PIXIENN_DETECTLAYER_H
+#ifndef PIXIENN_TENSOR_H
+#define PIXIENN_TENSOR_H
 
-#include "Detection.h"
-#include "Layer.h"
-#include <xtensor/xtensor.hpp>
+#include "Common.h"
 
 namespace px {
 
-class DetectLayer : public Layer, public Detector
+enum class Device
 {
-protected:
-    DetectLayer(const Model& model, const YAML::Node& layerDef);
-
-public:
-    virtual ~DetectLayer() = default;
-
-    std::ostream& print(std::ostream& os) override;
-    void forward(const xt::xarray<float>& input) override;
-
-    void addDetects(Detections& detections, int width, int height, float threshold) override;
-
-private:
-    friend LayerFactories;
-
-    int coords_, classes_, num_, side_, maxBoxes_;
-    bool rescore_, softmax_, sqrt_, forced_, random_, reorg_;
-    float coordScale_, objectScale_, noObjectScale_, classScale, jitter_;
+    CPU, CUDA
 };
 
-} // px
+class TensorImpl;
 
-#endif // PIXIENN_DETECTLAYER_H
+class Tensor final
+{
+public:
+    Tensor(Device dev = Device::CPU);
+    ~Tensor();
+
+    Device device() const noexcept;
+    bool isCuda() const noexcept;
+
+private:
+    std::unique_ptr<TensorImpl> impl_;
+};
+
+}   // px
+
+#endif // PIXIENN_TENSOR_H

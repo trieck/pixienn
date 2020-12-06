@@ -14,8 +14,9 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include "BatchNormLayer.h"
 #include "Common.h"
+
+#include "BatchNormLayer.h"
 #include "ConnLayer.h"
 #include "ConvLayer.h"
 #include "DetectLayer.h"

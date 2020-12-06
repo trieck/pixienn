@@ -14,36 +14,36 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_DETECTLAYER_H
-#define PIXIENN_DETECTLAYER_H
+#ifndef PIXIENN_CUDABUFFER_H
+#define PIXIENN_CUDABUFFER_H
 
-#include "Detection.h"
-#include "Layer.h"
-#include <xtensor/xtensor.hpp>
+#include "Buffer.h"
 
 namespace px {
 
-class DetectLayer : public Layer, public Detector
+class CudaBuffer : public Buffer
 {
-protected:
-    DetectLayer(const Model& model, const YAML::Node& layerDef);
-
 public:
-    virtual ~DetectLayer() = default;
+    CudaBuffer(size_t size);
+    CudaBuffer(const void* p, size_t size);
+    CudaBuffer(const CudaBuffer& rhs) = delete;
+    CudaBuffer(CudaBuffer&& rhs);
 
-    std::ostream& print(std::ostream& os) override;
-    void forward(const xt::xarray<float>& input) override;
+    CudaBuffer& operator=(const CudaBuffer& rhs) = delete;
+    CudaBuffer& operator=(CudaBuffer&& rhs);
 
-    void addDetects(Detections& detections, int width, int height, float threshold) override;
+    template<typename T>
+    CudaBuffer(const T* input, size_t size);
+    ~CudaBuffer();
 
 private:
-    friend LayerFactories;
-
-    int coords_, classes_, num_, side_, maxBoxes_;
-    bool rescore_, softmax_, sqrt_, forced_, random_, reorg_;
-    float coordScale_, objectScale_, noObjectScale_, classScale, jitter_;
+    void release();
 };
 
-} // px
+template<typename T>
+CudaBuffer::CudaBuffer(const T* input, size_t size) : CudaBuffer((const void*) input, sizeof(T) * size)
+{}
 
-#endif // PIXIENN_DETECTLAYER_H
+}   // px
+
+#endif // PIXIENN_CUDABUFFER_H

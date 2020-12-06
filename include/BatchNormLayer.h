@@ -17,9 +17,8 @@
 #ifndef PIXIENN_BATCHNORMLAYER_H
 #define PIXIENN_BATCHNORMLAYER_H
 
-#include <xtensor/xtensor.hpp>
-
 #include "Layer.h"
+#include <xtensor/xtensor.hpp>
 
 namespace px {
 

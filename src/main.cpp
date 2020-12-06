@@ -15,13 +15,13 @@
 ********************************************************************************/
 
 #include "Error.h"
-#include "Image.h"
 #include "Model.h"
 #include "NMS.h"
+#include "Tensor.h"
 
 #include <boost/program_options.hpp>
-#include <iostream>
 #include <fstream>
+#include <iostream>
 
 namespace po = boost::program_options;
 
@@ -46,18 +46,20 @@ void predict(const char* cfgFile, const char* imageFile)
 
 int main(int argc, char* argv[])
 {
-    po::options_description desc("options");
-    po::variables_map vm;
-    po::store(po::parse_command_line(argc, argv, desc), vm);
-    po::notify(vm);
+//    po::options_description desc("options");
+//    po::variables_map vm;
+//    po::store(po::parse_command_line(argc, argv, desc), vm);
+//    po::notify(vm);
 
-    if (argc < 3) {
-        std::cerr << "usage: pixienn metadata-file image-file" << std::endl;
-        exit(1);
-    }
+//    if (argc < 3) {
+//        std::cerr << "usage: pixienn metadata-file image-file" << std::endl;
+//        exit(1);
+//    }
 
     try {
-        predict(argv[1], argv[2]);
+        Tensor a;
+
+        // predict(argv[1], argv[2]);
     } catch (const px::Error& e) {
         std::cerr << e.what() << std::endl;
         exit(1);
@@ -68,3 +70,4 @@ int main(int argc, char* argv[])
 
     return 0;
 }
+

@@ -25,7 +25,7 @@ namespace px {
 class Model
 {
 public:
-    Model(const std::string& cfgFile);
+    Model(std::string  cfgFile);
     Model(const Model& rhs) = default;
     Model(Model&& rhs) = default;
 
@@ -35,10 +35,10 @@ public:
     using LayerVec = std::vector<Layer::Ptr>;
     const LayerVec& layers() const;
 
-    const int batch() const;
-    const int channels() const;
-    const int height() const;
-    const int width() const;
+    int batch() const;
+    int channels() const;
+    int height() const;
+    int width() const;
 
     const int layerSize() const;
     const Layer::Ptr& layerAt(int index) const;

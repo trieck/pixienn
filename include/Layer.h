@@ -24,7 +24,6 @@
 namespace px {
 
 class Model;
-
 class LayerFactories;
 
 class Layer

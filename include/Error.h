@@ -46,7 +46,7 @@ public:
     const std::string& function() const noexcept;
     const std::string& message() const noexcept;
 
-private:
+protected:
     void init() noexcept;
 
     std::string file_;

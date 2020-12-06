@@ -14,36 +14,32 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_DETECTLAYER_H
-#define PIXIENN_DETECTLAYER_H
-
-#include "Detection.h"
-#include "Layer.h"
-#include <xtensor/xtensor.hpp>
+#include "Buffer.h"
 
 namespace px {
 
-class DetectLayer : public Layer, public Detector
+Buffer::Buffer() : size_(0), buffer_(nullptr)
 {
-protected:
-    DetectLayer(const Model& model, const YAML::Node& layerDef);
+}
 
-public:
-    virtual ~DetectLayer() = default;
+Buffer::Buffer(size_t size) : size_(size), buffer_(nullptr)
+{
+}
 
-    std::ostream& print(std::ostream& os) override;
-    void forward(const xt::xarray<float>& input) override;
+Buffer::~Buffer()
+{
+    buffer_ = nullptr;
+    size_ = 0;
+}
 
-    void addDetects(Detections& detections, int width, int height, float threshold) override;
+const void* Buffer::buffer() const noexcept
+{
+    return buffer_;
+}
 
-private:
-    friend LayerFactories;
+size_t Buffer::size() const noexcept
+{
+    return size_;
+}
 
-    int coords_, classes_, num_, side_, maxBoxes_;
-    bool rescore_, softmax_, sqrt_, forced_, random_, reorg_;
-    float coordScale_, objectScale_, noObjectScale_, classScale, jitter_;
-};
-
-} // px
-
-#endif // PIXIENN_DETECTLAYER_H
+}   // px

@@ -15,14 +15,15 @@
 ********************************************************************************/
 
 #include "Error.h"
+#include "Image.h"
 #include "Layer.h"
 #include "Model.h"
-#include "Image.h"
 #include "Timer.h"
 
 #include <boost/filesystem.hpp>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <utility>
 
 using namespace YAML;
 using namespace boost::filesystem;
@@ -30,7 +31,7 @@ using json = nlohmann::json;
 
 namespace px {
 
-Model::Model(const std::string& cfgFile) : cfgFile_(cfgFile)
+Model::Model(std::string cfgFile) : cfgFile_(std::move(cfgFile))
 {
     parseConfig();
 }
@@ -109,7 +110,7 @@ void Model::parseModel()
 
         layer->print(std::cout);
 
-        layers_.emplace_back(std::move(layer));
+        layers_.emplace_back(layer);
     }
 }
 
@@ -118,22 +119,22 @@ const Model::LayerVec& Model::layers() const
     return layers_;
 }
 
-const int Model::batch() const
+int Model::batch() const
 {
     return batch_;
 }
 
-const int Model::channels() const
+int Model::channels() const
 {
     return channels_;
 }
 
-const int Model::height() const
+int Model::height() const
 {
     return height_;
 }
 
-const int Model::width() const
+int Model::width() const
 {
     return width_;
 }
@@ -155,9 +156,9 @@ void Model::loadDarknetWeights()
     std::ifstream ifs(weightsFile_, std::ios::in | std::ios::binary);
     PX_CHECK(ifs.good(), "Could not open file \"%s\".", weightsFile_.c_str());
 
-    ifs.seekg(0, ifs.end);
+    ifs.seekg(0, std::ifstream::end);
     auto length = ifs.tellg();
-    ifs.seekg(0, ifs.beg);
+    ifs.seekg(0, std::ifstream::beg);
 
     ifs.read((char*) &major_, sizeof(int));
     ifs.read((char*) &minor_, sizeof(int));
