@@ -14,35 +14,30 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include "CudaStorage.h"
+#include "CudaVector.h"
 #include "Error.h"
 #include "Tensor.h"
 #include <xtensor/xarray.hpp>
-
-using namespace xt;
+#include <xtensor/xtensor.hpp>
 
 namespace px {
 
-template<typename T=float,
-        layout_type L = XTENSOR_DEFAULT_LAYOUT,
-        class A = CudaAllocator<T>,
-        class SA = CudaAllocator<typename std::vector<T, A>::size_type>,
-        class UV = CudaUVector<T, A>>
-using CudaContainer = xarray_container<UV, L, svector<typename UV::size_type, 4, SA, true>>;
+using namespace xt;
 
-template<class T = float>
-using CudaTensorT = CudaContainer<T>;
+template<typename T>
+using cuda_array = xarray_container<cuda_vector<T>>;
 
-using CudaTensor = CudaTensorT<>;
+template<class T, std::size_t N>
+using cuda_tensor = xtensor_container<cuda_vector<T>, N>;
 
 class TensorImpl
 {
 public:
     TensorImpl(Device device) : dev_(device)
     {
-        CudaTensor a;
-        CudaTensorT<float> b;
+        cuda_array<float> a{ 1, 2, 3 };
 
+        cuda_tensor<float, 2> weights;
     }
 
     ~TensorImpl()
