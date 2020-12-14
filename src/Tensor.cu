@@ -52,11 +52,10 @@ struct random_functor
     }
 };
 
-template<typename T, typename I, std::size_t L>
-auto cuda_random(const I (& shape)[L], T lower = 0, T upper = 1)
+template<typename T, typename I, std::size_t N>
+auto cuda_random(const I (& shape)[N], T lower = 0, T upper = 1)
 {
-    std::vector<std::size_t> s(&shape[0], &shape[L]);   // FIXME: why can't we forward the shape?
-    cuda_array<T> output(std::move(s));
+    auto output = cuda_array<T>::from_shape(shape);
 
     thrust::counting_iterator<int> sequence(0);
     thrust::transform(sequence, sequence + output.size(), output.begin(), random_functor<T>(lower, upper));
