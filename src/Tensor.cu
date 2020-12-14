@@ -14,30 +14,68 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include "CudaVector.h"
 #include "Error.h"
 #include "Tensor.h"
+#include <thrust/device_vector.h>
+#include <thrust/random.h>
 #include <xtensor/xarray.hpp>
 #include <xtensor/xtensor.hpp>
 
 namespace px {
 
 using namespace xt;
+using namespace thrust;
 
 template<typename T>
-using cuda_array = xarray_container<cuda_vector<T>>;
+using cuda_array = xarray_container<device_vector<T>>;
 
-template<class T, std::size_t N>
-using cuda_tensor = xtensor_container<cuda_vector<T>, N>;
+template<typename T, std::size_t N>
+using cuda_tensor = xtensor_container<device_vector<T>, N>;
+
+template<typename T, typename D = random::uniform_real_distribution<T>, typename E = thrust::default_random_engine>
+struct random_functor
+{
+    D dist_;
+    E rng_;
+
+    __host__ __device__
+    random_functor(T lower = 0, T upper = 1)
+    {
+        dist_ = D(lower, upper);
+    };
+
+    __host__ __device__
+    float operator()(const unsigned int n)
+    {
+        rng_.discard(n);
+        return dist_(rng_);
+    }
+};
+
+template<typename T, typename I, std::size_t L>
+auto cuda_random(const I (& shape)[L], T lower = 0, T upper = 1)
+{
+
+    std::vector<std::size_t> s(&shape[0], &shape[L]);   // FIXME: why can't we forward the shape?
+    cuda_array<T> output(std::move(s));
+
+    thrust::counting_iterator<int> sequence(0);
+    thrust::transform(sequence, sequence + output.size(), output.begin(), random_functor<T>(lower, upper));
+
+    return output;
+}
 
 class TensorImpl
 {
 public:
     TensorImpl(Device device) : dev_(device)
     {
-        cuda_array<float> a{ 1, 2, 3 };
+        auto r = cuda_random<float>({1000, 1000, 10});
 
-        cuda_tensor<float, 2> weights;
+        int i = 0;
+        for (const auto& value: r) {
+            std::cout << ++i << "    " << value << std::endl;
+        }
     }
 
     ~TensorImpl()

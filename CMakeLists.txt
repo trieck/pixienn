@@ -51,5 +51,5 @@ target_include_directories(pixienn PRIVATE include)
 target_link_directories(pixienn PRIVATE ${CUDA_TOOLKIT_ROOT_DIR}/lib64)
 
 target_link_libraries(pixienn ${OpenCV_LIBS} yaml-cpp xtensor xtensor::optimize tiff openblas boost_program_options
-        boost_filesystem nlohmann_json::nlohmann_json)
+        boost_filesystem nlohmann_json::nlohmann_json curand)
 

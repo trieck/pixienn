@@ -6,3 +6,4 @@
 *.geojson
 *.qml
 *.aux.xml
+/cmake-build-debugcuda_script
