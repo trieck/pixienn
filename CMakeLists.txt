@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.15)
 project(pixienn)
 
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-
 set(CMAKE_CXX_STANDARD 17)
 set(BLA_VENDOR OpenBLAS)
+
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 find_package(BLAS REQUIRED)
 find_package(Boost REQUIRED)
@@ -40,7 +40,7 @@ else ()
 endif ()
 
 
-file(GLOB SOURCES "src/*.cpp" "src/*.cu" "include/*.h")
+file(GLOB SOURCES "src/*.cpp" "src/*.cu" "include/*.h" "include/*.cuh")
 
 cuda_add_executable(pixienn ${SOURCES})
 

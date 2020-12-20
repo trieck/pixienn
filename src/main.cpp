@@ -17,7 +17,7 @@
 #include "Error.h"
 #include "Model.h"
 #include "NMS.h"
-#include "Tensor.h"
+#include "Tensor.cuh"
 
 #include <boost/program_options.hpp>
 #include <fstream>
@@ -57,7 +57,7 @@ int main(int argc, char* argv[])
 //    }
 
     try {
-        Tensor a;
+        foobar();
 
         // predict(argv[1], argv[2]);
     } catch (const px::Error& e) {
