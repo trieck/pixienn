@@ -19,16 +19,33 @@
 
 namespace px {
 
-void foobar()
+template<typename T, Device D, typename B>
+static void inline print(tensor<T, D, B>&& t)
 {
-    auto R = mycuda_tensor::fill({1000, 1000, 100}, 3.14159f);
-
     int i = 0;
-    for (const auto& v: R) {
+    for (const auto& v: t) {
         std::cout << ++i << "    " << v << std::endl;
     }
 }
 
+void foobar()
+{
+    print(cpu_array::fill({10, 100, 10}, 1));
+    print(cpu_tensor<float, 3>::fill({10, 100, 10}, 2));
+
+    print(cuda_array::fill({10, 100, 10}, 3));
+    print(cuda_tensor<float, 3>::fill({10, 100, 10}, 4));
+
+//    //auto a = cuda_tensor<float, 3>::fill({1000, 1000, 1000}, 2.71828182);
+//
+//    auto a = cuda_tensor<float, 1>::random({100000000});
+//
+//    auto p = a.data();
+//    std::cout << *p << std::endl;
+//
+//    *p = 3.14159;
+//    std::cout << *p << std::endl;
+}
 
 }   // px
 

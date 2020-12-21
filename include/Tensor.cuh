@@ -17,25 +17,59 @@
 #ifndef PIXIENN_TENSOR_CUH
 #define PIXIENN_TENSOR_CUH
 
-#include <xtensor/xlayout.hpp>
 #include "Common.h"
-#include "CudaTensor.cuh"
+#include <thrust/device_vector.h>
+#include <thrust/random.h>
+#include <xtensor/xarray.hpp>
+#include <xtensor/xlayout.hpp>
+#include <xtensor/xtensor.hpp>
 
 namespace px {
+
+template<typename T>
+using xt_cpu_array = xt::xarray<T>;
+
+template<typename T, std::size_t N>
+using xt_cpu_tensor = xt::xtensor<T, N>;
+
+template<typename T>
+using xt_cuda_array = xt::xarray_container<thrust::device_vector<T>>;
+
+template<typename T, std::size_t N>
+using xt_cuda_tensor = xt::xtensor_container<thrust::device_vector<T>, N>;
+
+template<typename T, typename D = thrust::random::uniform_real_distribution<T>, typename E = thrust::default_random_engine>
+struct random_functor
+{
+    D dist_;
+    E rng_;
+
+    __host__ __device__
+    random_functor(T lower = 0, T upper = 1)
+    {
+        dist_ = D(lower, upper);
+    };
+
+    __host__ __device__
+    T operator()(int n)
+    {
+        rng_.discard(n);
+        return dist_(rng_);
+    }
+};
 
 enum class Device
 {
     CPU, CUDA
 };
 
-template<typename T>
-using cpu_array = xt::xarray<T>;
-
-template<typename T = float, Device D = Device::CPU,
-        typename Base = std::conditional_t<D == Device::CPU, cpu_array<T>, cuda_array<T>>>
+template<typename T = float, Device D = Device::CPU, typename Base = xt_cpu_array<T>>
 class tensor : public Base
 {
 public:
+    using pointer = typename Base::pointer;
+    using const_pointer = typename Base::const_pointer;
+
     tensor() = default;
     tensor(const tensor& rhs) = default;
     tensor(tensor&& rhs) = default;
@@ -50,6 +84,9 @@ public:
     Device device() const noexcept;
     bool is_cuda() const noexcept;
 
+    const_pointer data() const noexcept;
+    pointer data() noexcept;
+
     template<typename I, std::size_t N>
     static tensor random(const I (& shape)[N], T lower = 0, T upper = 1);
 
@@ -57,8 +94,6 @@ public:
     static tensor fill(const I (& shape)[N], T value);
 
 private:
-    using this_type = tensor<T, D, Base>;
-
     Device dev_ = D;
 };
 
@@ -125,14 +160,33 @@ auto tensor<T, D, B>::fill(const I (& shape)[N], T value) -> tensor
     return output;
 }
 
-template<typename T = float>
-using mycuda_tensor_t = tensor<T, Device::CUDA>;
-using mycuda_tensor = mycuda_tensor_t<>;
+template<typename T, Device D, typename Base>
+auto tensor<T, D, Base>::data() const noexcept -> const_pointer
+{
+    return Base::storage().data();
+}
+
+template<typename T, Device D, typename Base>
+auto tensor<T, D, Base>::data() noexcept -> pointer
+{
+    return Base::storage().data();
+}
 
 template<typename T = float>
-using mycpu_tensor_t = tensor<T, Device::CPU>;
-using mycpu_tensor = mycpu_tensor_t<>;
+using cpu_array_t = tensor<T, Device::CPU, xt_cpu_array<T>>;
 
+using cpu_array = cpu_array_t<>;
+
+template<typename T = float>
+using cuda_array_t = tensor<T, Device::CUDA, xt_cuda_array<T>>;
+
+using cuda_array = cuda_array_t<>;
+
+template<typename T = float, std::size_t N = 1>
+using cpu_tensor = tensor<T, Device::CPU, xt_cpu_tensor<T, N>>;
+
+template<typename T = float, std::size_t N = 1>
+using cuda_tensor = tensor<T, Device::CUDA, xt_cuda_tensor<T, N>>;
 
 void foobar();
 
