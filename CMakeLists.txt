@@ -14,10 +14,10 @@ find_package(HDF5 REQUIRED)
 find_package(LAPACK REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(TIFF REQUIRED)
+find_package(nlohmann_json REQUIRED)
 find_package(xtensor REQUIRED)
 find_package(xtl REQUIRED)
 find_package(yaml-cpp REQUIRED)
-find_package(nlohmann_json REQUIRED)
 
 set(CMAKE_CUDA_COMPILER ${CUDA_NVCC_EXECUTABLE})
 enable_language("CUDA")
@@ -39,7 +39,6 @@ else ()
     message(FATAL_ERROR "Cannot execute CUDA program.")
 endif ()
 
-
 file(GLOB SOURCES "src/*.cpp" "src/*.cu" "include/*.h" "include/*.cuh")
 
 cuda_add_executable(pixienn ${SOURCES})
@@ -50,6 +49,18 @@ set_target_properties(pixienn PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 target_include_directories(pixienn PRIVATE include)
 target_link_directories(pixienn PRIVATE ${CUDA_TOOLKIT_ROOT_DIR}/lib64)
 
-target_link_libraries(pixienn ${OpenCV_LIBS} yaml-cpp xtensor xtensor::optimize tiff openblas boost_program_options
-        boost_filesystem nlohmann_json::nlohmann_json curand boost_thread boost_chrono)
+target_link_libraries(pixienn
+        ${CUDNN_LIBRARY}
+        ${OpenCV_LIBS}
+        boost_chrono
+        boost_filesystem
+        boost_program_options
+        boost_thread
+        nlohmann_json::nlohmann_json
+        openblas
+        tiff
+        xtensor
+        xtensor::optimize
+        yaml-cpp
+        )
 

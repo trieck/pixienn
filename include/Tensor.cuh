@@ -18,6 +18,7 @@
 #define PIXIENN_TENSOR_CUH
 
 #include "Common.h"
+#include <random>
 #include <thrust/device_vector.h>
 #include <thrust/random.h>
 #include <xtensor/xarray.hpp>
@@ -27,10 +28,10 @@
 namespace px {
 
 template<typename T>
-using xt_cpu_array = xt::xarray<T>;
+using xt_cpu_array = xt::xarray_container<thrust::host_vector<T>>;
 
 template<typename T, std::size_t N>
-using xt_cpu_tensor = xt::xtensor<T, N>;
+using xt_cpu_tensor = xt::xtensor_container<thrust::host_vector<T>, N>;
 
 template<typename T>
 using xt_cuda_array = xt::xarray_container<thrust::device_vector<T>>;
@@ -45,10 +46,10 @@ struct random_functor
     E rng_;
 
     __host__ __device__
-    random_functor(T lower = 0, T upper = 1)
+    random_functor(std::uint32_t seed, T lower = 0, T upper = 1) : rng_(seed)
     {
         dist_ = D(lower, upper);
-    };
+    }
 
     __host__ __device__
     T operator()(int n)
@@ -143,8 +144,14 @@ auto tensor<T, D, B>::random(const I (& shape)[N], T lower, T upper) -> tensor
 {
     auto output = B::from_shape(shape);
 
+    std::random_device r;
+    std::seed_seq seq{r(), r(), r(), r(), r(), r(), r(), r()};
+
+    std::vector<std::uint32_t> seeds(1);
+    seq.generate(seeds.begin(), seeds.end());
+
     thrust::counting_iterator<int> sequence(0);
-    thrust::transform(sequence, sequence + output.size(), output.begin(), random_functor<T>(lower, upper));
+    thrust::transform(sequence, sequence + output.size(), output.begin(), random_functor<T>(seeds[0], lower, upper));
 
     return output;
 }
