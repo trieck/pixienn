@@ -14,47 +14,52 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include "Error.h"
-#include "Tensor.cuh"
-
-#include <Cudnn.h>
+#include "Cudnn.h"
+#include "Tensor.h"
 
 namespace px {
 
-template<typename T, Device D, typename B>
-static void inline print(tensor<T, D, B>&& t)
-{
-    int i = 0;
-    for (const auto& v: t) {
-        std::cout << ++i << "    " << v << std::endl;
-    }
-}
-
-void foobar()
+// FIXME: make use device tensors
+cpu_array convolve_gpu(const cpu_array& input, const cpu_tensor<4>& weights, int padding, int stride,
+                       int dilation)
 {
     CudnnContext context;
 
+    int n = input.shape(0);
+    int c = input.shape(1);
+    int h = input.shape(2);
+    int w = input.shape(3);
+
     CudnnTensorDesc xDesc;
-    auto status = cudnnSetTensor4dDescriptor(xDesc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, 1, 3, 224, 224);
+    auto status = cudnnSetTensor4dDescriptor(xDesc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, n, c, h, w);
     PX_CHECK_CUDNN(status);
 
+    n = weights.shape(0);
+    c = weights.shape(1);
+    h = weights.shape(2);
+    w = weights.shape(3);
+
     CudnnFilterDesc wDesc;
-    status = cudnnSetFilter4dDescriptor(wDesc, CUDNN_DATA_FLOAT, CUDNN_TENSOR_NCHW, 32, 3, 3, 3);
+    status = cudnnSetFilter4dDescriptor(wDesc, CUDNN_DATA_FLOAT, CUDNN_TENSOR_NCHW, n, c, h, w);
     PX_CHECK_CUDNN(status);
 
     CudnnConvDesc convDesc;
-    status = cudnnSetConvolution2dDescriptor(convDesc, 0, 0, 2, 2, 1, 1, CUDNN_CROSS_CORRELATION, CUDNN_DATA_FLOAT);
+    status = cudnnSetConvolution2dDescriptor(convDesc,
+                                             padding,
+                                             padding,
+                                             stride,
+                                             stride,
+                                             dilation,
+                                             dilation,
+                                             CUDNN_CROSS_CORRELATION, CUDNN_DATA_FLOAT);
     PX_CHECK_CUDNN(status);
 
-    int n, c, h, w;
     status = cudnnGetConvolution2dForwardOutputDim(convDesc, xDesc, wDesc, &n, &c, &h, &w);
     PX_CHECK_CUDNN(status);
 
     CudnnTensorDesc yDesc;
     status = cudnnSetTensor4dDescriptor(yDesc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, n, c, h, w);
     PX_CHECK_CUDNN(status);
-
-    std::cout << n << ", " << c << ", " << h << ", " << w << std::endl;
 
     int retCount;
     cudnnConvolutionFwdAlgoPerf_t fwdAlgoPerf;
@@ -63,45 +68,34 @@ void foobar()
     PX_CHECK_CUDNN(status);
     PX_CHECK_CUDNN(fwdAlgoPerf.status);
 
-    std::cout << fwdAlgoPerf.memory << std::endl;
+    using tensor4d = cuda_tensor<4>;
 
-    using tensor4d = cuda_tensor<float, 4>;
-
-    tensor4d X = tensor4d::from_shape({1, 3, 224, 224});
-    tensor4d W = tensor4d::from_shape({32, 3, 3, 3});
-    tensor4d Y = tensor4d::from_shape({ulong(n), ulong(c), ulong(h), ulong(w)});
-    cuda_tensor<uint8_t, 1> workspace = cuda_tensor<uint8_t, 1>::from_shape({fwdAlgoPerf.memory});
-
-    void* x = X.data().get();
-    void* weights = W.data().get();
-    void* wp = workspace.data().get();
-    void* y = Y.data().get();
+    cuda_array X(input);
+    tensor4d W(weights);
+    tensor4d Y = decltype(Y)::from_shape({ ulong(n), ulong(c), ulong(h), ulong(w) });
+    cuda_tensor_t<uint8_t, 1> ws = decltype(ws)::from_shape({ fwdAlgoPerf.memory });
 
     float one = 1;
 
     status = cudnnConvolutionForward(context,
                                      &one,
                                      xDesc,
-                                     x,
+                                     X.data().get(),
                                      wDesc,
-                                     weights,
+                                     W.data().get(),
                                      convDesc,
                                      fwdAlgoPerf.algo,
-                                     wp,
+                                     ws.data().get(),
                                      fwdAlgoPerf.memory,
                                      &one,
                                      yDesc,
-                                     y);
+                                     Y.data().get());
 
     PX_CHECK_CUDNN(status);
 
-    cuda_tensor<float, 1> T = decltype(T)::random({10});
+    cpu_array output(Y);   // weird
 
-    for (const auto& v: T) {
-        std::cout << v << std::endl;
-    }
+    return output;
 }
 
-}   // px
-
-
+}   // namespace px

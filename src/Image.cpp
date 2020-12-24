@@ -104,7 +104,7 @@ Mat imletterbox(const Mat& image, int width, int height)
     }
 
     Mat resized;
-    resize(image, resized, { newWidth, newHeight });
+    resize(image, resized, {newWidth, newHeight});
 
     auto boxed = immake(height, width, image.channels(), 0.5f);
 
@@ -232,7 +232,7 @@ xt::xarray<float> imarray(const cv::Mat& image)
         }
     }
 
-    std::vector<int> shape({ height, width, channels });
+    std::vector<int> shape({1, channels, height, width});
 
     auto array = xt::adapt(pimage.release(), height * width * channels, xt::no_ownership(), shape);
 

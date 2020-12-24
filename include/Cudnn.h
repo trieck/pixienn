@@ -18,6 +18,7 @@
 #define PIXIENN_CUDNN_H
 
 #include <cudnn.h>
+#include "Error.h"
 
 namespace px {
 

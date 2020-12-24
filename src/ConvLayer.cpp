@@ -17,9 +17,10 @@
 #include "Activation.h"
 #include "ConvLayer.h"
 #include "Utility.h"
-#include "xtensor/xadapt.hpp"
-#include "xtensor/xrandom.hpp"
+
 #include <cblas.h>
+#include <xtensor/xio.hpp>
+#include <xtensor/xrandom.hpp>
 
 namespace px {
 
@@ -52,18 +53,18 @@ ConvLayer::ConvLayer(const Model& model, const YAML::Node& layerDef) : Layer(mod
         def["width"] = outWidth();
         batchNormalize_ = Layer::create(model, def);
     } else {
-        biases_ = zeros<float>({ filters_ });
+        biases_ = zeros<float>({filters_});
     }
 
-    weights_ = random::rand<float>({ filters_, channels() / groups_, kernel_, kernel_ });
-    column_ = empty<float>({ kernel_ * kernel_ * channels() / groups_, outHeight() * outWidth() });
-    output_ = empty<float>({ batch(), outChannels(), outHeight(), outWidth() });
+    weights_ = random::rand<float>({filters_, channels() / groups_, kernel_, kernel_});
+    column_ = empty<float>({kernel_ * kernel_ * channels() / groups_, outHeight() * outWidth()});
+    output_ = empty<float>({batch(), outChannels(), outHeight(), outWidth()});
 }
 
 std::ostream& ConvLayer::print(std::ostream& os)
 {
-    Layer::print(os, "conv", { height(), width(), channels() }, { outHeight(), outWidth(), outChannels() },
-                 filters_, std::array<int, 3>{ kernel_, kernel_, stride_ });
+    Layer::print(os, "conv", {height(), width(), channels()}, {outHeight(), outWidth(), outChannels()},
+                 filters_, std::array<int, 3>{kernel_, kernel_, stride_});
 
     return os;
 }

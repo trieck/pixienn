@@ -18,7 +18,7 @@
 #define PIXIENN_MODEL_H
 
 #include "Detection.h"
-#include "Layer.h"
+#include "layer_t.h"
 
 namespace px {
 
@@ -32,7 +32,7 @@ public:
     Model& operator=(const Model& rhs) = default;
     Model& operator=(Model&& rhs) = default;
 
-    using LayerVec = std::vector<Layer::Ptr>;
+    using LayerVec = std::vector<layer_t<>::Ptr>;
     const LayerVec& layers() const;
 
     int batch() const;
@@ -41,7 +41,7 @@ public:
     int width() const;
 
     const int layerSize() const;
-    const Layer::Ptr& layerAt(int index) const;
+    const layer_t<>::Ptr& layerAt(int index) const;
 
     std::vector<Detection> predict(const std::string& imageFile, float threshold);
     std::string asJson(std::vector<Detection>&& detects) const noexcept;
@@ -49,7 +49,7 @@ public:
     const std::vector<std::string>& labels() const noexcept;
 
 private:
-    xt::xarray<float> forward(xt::xarray<float>&& input);
+    tensor<> forward(tensor<>&& input);
 
     void parseConfig();
     void parseModel();

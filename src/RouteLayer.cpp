@@ -51,7 +51,7 @@ RouteLayer::RouteLayer(const Model& model, const YAML::Node& layerDef) : Layer(m
             outWidth = outHeight = outChannels;
         }
 
-        layers_[i++] = layer;
+        // FIXME: layers_[i++] = layer;
     }
 
     setOutChannels(outChannels);
