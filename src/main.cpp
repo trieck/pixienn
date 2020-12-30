@@ -14,50 +14,41 @@
 * limitations under the License.
 ********************************************************************************/
 
+#include "Common.h"
 #include "Error.h"
-#include "Model.h"
-#include "NMS.h"
 
 #include <boost/program_options.hpp>
-#include <fstream>
 #include <iostream>
-#include <Tensor.h>
 
 namespace po = boost::program_options;
 
 using namespace px;
 
-void predict(const char* cfgFile, const char* imageFile)
-{
-    auto model = Model(cfgFile);
-
-    auto detects = model.predict(imageFile, 0.2f);
-    nms(detects, 0.4f);
-
-    auto json = model.asJson(std::move(detects));
-
-    std::ofstream ofs("results.geojson", std::ios::out | std::ios::binary);
-    PX_CHECK(ofs.good(), "Could not open file \"%s\".", "results.geojson");
-    ofs << json << std::flush;
-    ofs.close();
-
-    std::cout << "done." << std::endl;
-}
+namespace px { extern void predict(const char* cfgFile, const char* imageFile, bool useGPU); }
 
 int main(int argc, char* argv[])
 {
-    po::options_description desc("options");
-    po::variables_map vm;
-    po::store(po::parse_command_line(argc, argv, desc), vm);
-    po::notify(vm);
+    std::vector<std::string> extra;
 
-    if (argc < 3) {
-        std::cerr << "usage: pixienn model-file image-file" << std::endl;
-        exit(1);
-    }
+    bool useGPU;
+    po::options_description desc("options");
+    desc.add_options()
+            ("gpu", po::bool_switch(&useGPU), "Run model on GPU.")
+            ("extra", po::value(&extra));
+
+    po::positional_options_description p;
+    p.add("extra", -1);
 
     try {
-        predict(argv[1], argv[2]);
+        po::variables_map vm;
+        po::store(po::command_line_parser(argc, argv).options(desc).positional(p).run(), vm);
+        po::notify(vm);
+
+        if (extra.size() < 2) {
+            PX_ERROR_THROW("usage: pixienn [--gpu] model-file image-file");
+        }
+
+        predict(extra[0].c_str(), extra[1].c_str(), useGPU);
     } catch (const px::Error& e) {
         std::cerr << e.what() << std::endl;
         exit(1);

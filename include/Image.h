@@ -17,10 +17,11 @@
 #ifndef PIXIENN_IMAGE_H
 #define PIXIENN_IMAGE_H
 
+#include "Tensor.h"
+
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/hal/interface.h>
 #include <opencv2/highgui/highgui.hpp>
-#include <xtensor/xarray.hpp>
 
 namespace px {
 
@@ -39,8 +40,7 @@ void imadd(cv::Mat& image, int x, int y, int c, float value);
 void imconvolve(const cv::Mat& image, const cv::Mat& kernel, int stride, int channel, cv::Mat& out);
 void imset(cv::Mat& image, int x, int y, int c, float value);
 void imzero(const cv::Mat& image, int c);
-
-xt::xarray<float> imarray(const cv::Mat& image);
+cpu_array imarray(const cv::Mat& image);
 
 } // px
 

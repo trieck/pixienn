@@ -162,7 +162,7 @@ auto tensor<T, B>::random(const I (& shape)[N], T lower, T upper) -> tensor
     auto output = B::from_shape(shape);
 
     std::random_device r;
-    std::seed_seq seq{r(), r(), r(), r(), r(), r(), r(), r()};
+    std::seed_seq seq{ r(), r(), r(), r(), r(), r(), r(), r() };
 
     std::vector<std::uint32_t> seeds(1);
     seq.generate(seeds.begin(), seeds.end());

@@ -15,8 +15,8 @@
 ********************************************************************************/
 
 #include "Common.h"
-#include "Image.h"
 #include "Error.h"
+#include "Image.h"
 
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
@@ -214,7 +214,7 @@ void imzero(const Mat& image, int c)
     channel.setTo(Scalar::all(0.0f));
 }
 
-xt::xarray<float> imarray(const cv::Mat& image)
+cpu_array imarray(const cv::Mat& image)
 {
     PX_CHECK(image.isContinuous(), "Non-continuous mat not supported.");
 

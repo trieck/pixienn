@@ -17,16 +17,18 @@
 #ifndef PIXIENN_LAYER_T_H
 #define PIXIENN_LAYER_T_H
 
+#include "Cudnn.h"
 #include "Error.h"
 #include "Singleton.h"
 #include "Tensor.h"
-#include <yaml-cpp/yaml.h>
 
 #include <xtensor/xrandom.hpp>
+#include <yaml-cpp/yaml.h>
 
 namespace px {
 
-class Model;
+template<typename T>
+class model_t;
 
 template<typename T=cpu_array>
 class layer_t
@@ -38,7 +40,7 @@ public:
     virtual ~layer_t() = 0;
     using Ptr = std::shared_ptr<self_type>;
 
-    static Ptr create(const Model& model, const YAML::Node& layerDef);
+    static Ptr create(const model_t<T>& model, const YAML::Node& layerDef);
 
     int inputs() const;
     int index() const;
@@ -59,9 +61,9 @@ public:
     const tensor_type& output() const noexcept;
 
 protected:
-    layer_t(const Model& model, const YAML::Node& layerDef);
+    layer_t(const model_t<T>& model, const YAML::Node& layerDef);
 
-    const Model& model() const noexcept;
+    const model_t<T>& model() const noexcept;
 
     template<typename U>
     U property(const std::string& prop) const;
@@ -79,16 +81,16 @@ protected:
     void setOutHeight(int height);
     void setOutWidth(int width);
 
-    void print(std::ostream& os, const std::string& name,
-               std::array<int, 3>&& input,
-               std::array<int, 3>&& output,
-               std::optional<int>&& filters = std::nullopt,
-               std::optional<std::array<int, 3>>&& size = std::nullopt);
+//    void print(std::ostream& os, const std::string& name,
+//               std::array<int, 3>&& input,
+//               std::array<int, 3>&& output,
+//               std::optional<int>&& filters = std::nullopt,
+//               std::optional<std::array<int, 3>>&& size = std::nullopt);
 
     tensor_type output_;
 
 private:
-    const Model& model_;
+    const model_t<T>& model_;
     YAML::Node layerDef_;
     int batch_, channels_, height_, width_;
     int outChannels_, outHeight_, outWidth_, inputs_, index_, outputs_;
@@ -113,10 +115,10 @@ public:
     }
 
     using Ptr = typename layer_t<T>::Ptr;
-    Ptr create(const Model& model, const YAML::Node& layerDef);
+    Ptr create(const model_t<T>& model, const YAML::Node& layerDef);
 
 private:
-    using factory = std::function<Ptr(const Model& model, const YAML::Node& layerDef)>;
+    using factory = std::function<Ptr(const model_t<T>& model, const YAML::Node& layerDef)>;
     std::unordered_map<std::string, factory> factories_;
 };
 
@@ -132,13 +134,13 @@ template<typename T>
 template<typename U>
 void layer_factory<T>::registerFactory(const char* type)
 {
-    factories_[type] = [](const Model& model, const YAML::Node& layerDef) {
+    factories_[type] = [](const model_t<T>& model, const YAML::Node& layerDef) {
         return Ptr(new U(model, layerDef));
     };
 }
 
 template<typename T>
-auto layer_factory<T>::create(const Model& model, const YAML::Node& layerDef) -> Ptr
+auto layer_factory<T>::create(const model_t<T>& model, const YAML::Node& layerDef) -> Ptr
 {
     PX_CHECK(layerDef.IsMap(), "Layer definition is not a map.");
 
@@ -158,7 +160,7 @@ layer_t<T>::~layer_t<T>()
 }
 
 template<typename T>
-auto layer_t<T>::create(const Model& model, const YAML::Node& layerDef) -> Ptr
+auto layer_t<T>::create(const model_t<T>& model, const YAML::Node& layerDef) -> Ptr
 {
     return layer_factory<T>::instance().create(model, layerDef);
 }
@@ -230,7 +232,7 @@ auto layer_t<T>::output() const noexcept -> const tensor_type&
 }
 
 template<typename T>
-layer_t<T>::layer_t(const Model& model, const YAML::Node& layerDef) :  model_(model), layerDef_(layerDef)
+layer_t<T>::layer_t(const model_t<T>& model, const YAML::Node& layerDef) :  model_(model), layerDef_(layerDef)
 {
     batch_ = property<int>("batch");
     channels_ = property<int>("channels");
@@ -243,7 +245,7 @@ layer_t<T>::layer_t(const Model& model, const YAML::Node& layerDef) :  model_(mo
 }
 
 template<typename T>
-const Model& layer_t<T>::model() const noexcept
+const model_t<T>& layer_t<T>::model() const noexcept
 {
     return model_;
 }
@@ -319,13 +321,13 @@ void layer_t<T>::setOutWidth(int width)
     outWidth_ = width;
 }
 
-template<typename T>
-void layer_t<T>::print(std::ostream& os, const std::string& name, std::array<int, 3>&& input,
-                       std::array<int, 3>&& output, std::optional<int>&& filters,
-                       std::optional<std::array<int, 3>>&& size)
-{
-
-}
+//template<typename T>
+//void layer_t<T>::print(std::ostream& os, const std::string& name, std::array<int, 3>&& input,
+//                       std::array<int, 3>&& output, std::optional<int>&& filters,
+//                       std::optional<std::array<int, 3>>&& size)
+//{
+//
+//}
 
 template<typename T>
 std::streamoff layer_t<T>::loadDarknetWeights(std::istream& is)

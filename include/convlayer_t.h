@@ -35,7 +35,7 @@ public:
     void forward(const tensor_type& input) override;
 
 protected:
-    convlayer_t(const Model& model, const YAML::Node& layerDef);
+    convlayer_t(const model_t <T>& model, const YAML::Node& layerDef);
 
 private:
     friend layer_factory<T>;
@@ -56,7 +56,7 @@ private:
 };
 
 template<typename T>
-convlayer_t<T>::convlayer_t(const Model& model, const YAML::Node& layerDef) : layer_t<T>(model, layerDef)
+convlayer_t<T>::convlayer_t(const model_t <T>& model, const YAML::Node& layerDef) : layer_t<T>(model, layerDef)
 {
     activation_ = base_type::template property<std::string>("batch", "logistic");
 //    activationFnc_ = Activation::get(activation_);
@@ -108,23 +108,93 @@ std::streamoff convlayer_t<T>::loadDarknetWeights(std::istream& is)
     if (batchNormalize_) {
         batchNormalize_->loadDarknetWeights(is);
     } else {
-        is.read((char*) biases_.data(), biases_.size() * sizeof(float));
+        cpu_tensor<1> biases = biases_; // device to host
+        is.read((char*) biases.data(), biases.size() * sizeof(float));
         PX_CHECK(is.good(), "Could not read biases");
+        biases_ = biases;   // host to device
     }
 
-    is.read((char*) weights_.data(), sizeof(float) * weights_.size());
+    cpu_tensor<4> weights = weights_;   // device to host
+    is.read((char*) weights.data(), sizeof(float) * weights.size());
     PX_CHECK(is.good(), "Could not read weights");
+    weights_ = weights; // host to device
 
     return is.tellg() - start;
 }
 
 template<typename T>
-void convlayer_t<T>::forward(const tensor_type& input)
+inline void convlayer_t<T>::forward(const tensor_type& input)
 {
-    extern tensor_type convolve_gpu(const tensor_type& input, const tensor_t<4>& weights, int padding,
-                                    int stride, int dilation);
+    abort();
+}
 
-    base_type::output_ = convolve_gpu(input, weights_, padding_, stride_, dilation_);
+template<>
+inline void convlayer_t<cuda_array>::forward(const tensor_type& input)
+{
+    CudnnContext context;
+
+    int n = input.shape(0);
+    int c = input.shape(1);
+    int h = input.shape(2);
+    int w = input.shape(3);
+
+    CudnnTensorDesc xDesc;
+    auto status = cudnnSetTensor4dDescriptor(xDesc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, n, c, h, w);
+    PX_CHECK_CUDNN(status);
+
+    n = weights_.shape(0);
+    c = weights_.shape(1);
+    h = weights_.shape(2);
+    w = weights_.shape(3);
+
+    CudnnFilterDesc wDesc;
+    status = cudnnSetFilter4dDescriptor(wDesc, CUDNN_DATA_FLOAT, CUDNN_TENSOR_NCHW, n, c, h, w);
+    PX_CHECK_CUDNN(status);
+
+    CudnnConvDesc convDesc;
+    status = cudnnSetConvolution2dDescriptor(convDesc,
+                                             padding_,
+                                             padding_,
+                                             stride_,
+                                             stride_,
+                                             dilation_,
+                                             dilation_,
+                                             CUDNN_CROSS_CORRELATION, CUDNN_DATA_FLOAT);
+    PX_CHECK_CUDNN(status);
+
+    status = cudnnGetConvolution2dForwardOutputDim(convDesc, xDesc, wDesc, &n, &c, &h, &w);
+    PX_CHECK_CUDNN(status);
+
+    CudnnTensorDesc yDesc;
+    status = cudnnSetTensor4dDescriptor(yDesc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, n, c, h, w);
+    PX_CHECK_CUDNN(status);
+
+    int retCount;
+    cudnnConvolutionFwdAlgoPerf_t fwdAlgoPerf;
+
+    status = cudnnGetConvolutionForwardAlgorithm_v7(context, xDesc, wDesc, convDesc, yDesc, 1, &retCount, &fwdAlgoPerf);
+    PX_CHECK_CUDNN(status);
+    PX_CHECK_CUDNN(fwdAlgoPerf.status);
+
+    cuda_tensor_t<uint8_t, 1> ws = decltype(ws)::from_shape({ fwdAlgoPerf.memory });
+
+    float one = 1;
+
+    status = cudnnConvolutionForward(context,
+                                     &one,
+                                     xDesc,
+                                     input.data().get(),
+                                     wDesc,
+                                     weights_.data().get(),
+                                     convDesc,
+                                     fwdAlgoPerf.algo,
+                                     ws.data().get(),
+                                     fwdAlgoPerf.memory,
+                                     &one,
+                                     yDesc,
+                                     output_.data().get());
+
+    PX_CHECK_CUDNN(status);
 }
 
 #endif // PIXIENN_CONVLAYER_T_H
