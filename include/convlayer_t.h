@@ -1,4 +1,3 @@
-
 /********************************************************************************
 * Copyright 2020 Thomas A. Rieck, All Rights Reserved
 *
@@ -18,8 +17,6 @@
 #ifndef PIXIENN_CONVLAYER_T_H
 #define PIXIENN_CONVLAYER_T_H
 
-//#include "Activation.h"
-
 template<typename T = cpu_array>
 class convlayer_t : public layer_t<T>
 {
@@ -31,7 +28,9 @@ public:
     virtual ~convlayer_t() = default;
 
     std::ostream& print(std::ostream& os) override;
+
     std::streamoff loadDarknetWeights(std::istream& is) override;
+
     void forward(const tensor_type& input) override;
 
 protected:
@@ -51,15 +50,14 @@ private:
     std::string activation_;
 
     typename layer_t<T>::Ptr batchNormalize_;
-
-    //Activation::Ptr activationFnc_;
+    typename activation_t<T>::Ptr activationFnc_;
 };
 
 template<typename T>
 convlayer_t<T>::convlayer_t(const model_t <T>& model, const YAML::Node& layerDef) : layer_t<T>(model, layerDef)
 {
-    activation_ = base_type::template property<std::string>("batch", "logistic");
-//    activationFnc_ = Activation::get(activation_);
+    activation_ = base_type::template property<std::string>("activation", "logistic");
+    activationFnc_ = activation_t<T>::get(activation_);
 
     auto batchNormalize = base_type::template property<bool>("batch_normalize", false);
     dilation_ = base_type::template property<int>("dilation", 0);
@@ -81,7 +79,7 @@ convlayer_t<T>::convlayer_t(const model_t <T>& model, const YAML::Node& layerDef
         def["channels"] = base_type::outChannels();
         def["height"] = base_type::outHeight();
         def["width"] = base_type::outWidth();
-        //batchNormalize_ = Layer::create(model, def);
+        batchNormalize_ = layer_t<T>::create(model, def);
     } else { ;
         biases_ = xt::zeros<value_type>({ filters_ });    // FIXME: this is an h->d copy...
     }
@@ -109,13 +107,13 @@ std::streamoff convlayer_t<T>::loadDarknetWeights(std::istream& is)
         batchNormalize_->loadDarknetWeights(is);
     } else {
         cpu_tensor<1> biases = biases_; // device to host
-        is.read((char*) biases.data(), biases.size() * sizeof(float));
+        is.read((char *) biases.data(), biases.size() * sizeof(float));
         PX_CHECK(is.good(), "Could not read biases");
         biases_ = biases;   // host to device
     }
 
     cpu_tensor<4> weights = weights_;   // device to host
-    is.read((char*) weights.data(), sizeof(float) * weights.size());
+    is.read((char *) weights.data(), sizeof(float) * weights.size());
     PX_CHECK(is.good(), "Could not read weights");
     weights_ = weights; // host to device
 
@@ -195,6 +193,15 @@ inline void convlayer_t<cuda_array>::forward(const tensor_type& input)
                                      output_.data().get());
 
     PX_CHECK_CUDNN(status);
+
+    if (batchNormalize_) {
+        batchNormalize_->forward(output_);
+        output_ = batchNormalize_->output();
+    } else {
+        // FIXME: add_bias(output_.data(), biases_.data(), batch(), outChannels(), outHeight() * outWidth());
+    }
+
+    activationFnc_->apply(output_);
 }
 
 #endif // PIXIENN_CONVLAYER_T_H

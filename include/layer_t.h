@@ -17,6 +17,7 @@
 #ifndef PIXIENN_LAYER_T_H
 #define PIXIENN_LAYER_T_H
 
+#include "activation_t.h"
 #include "Cudnn.h"
 #include "Error.h"
 #include "Singleton.h"
@@ -108,12 +109,6 @@ public:
     template<typename U>
     void registerFactory(const char* type);
 
-    template<typename U>
-    void foobar()
-    {
-
-    }
-
     using Ptr = typename layer_t<T>::Ptr;
     Ptr create(const model_t<T>& model, const YAML::Node& layerDef);
 
@@ -123,10 +118,12 @@ private:
 };
 
 #include "convlayer_t.h"
+#include "batchnormlayer_t.h"
 
 template<typename T>
 layer_factory<T>::layer_factory()
 {
+    registerFactory<batchnormlayer_t<T>>("batchnorm");
     registerFactory<convlayer_t<T>>("conv");
 }
 
