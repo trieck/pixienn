@@ -17,6 +17,8 @@
 #ifndef PIXIENN_BATCHNORMLAYER_T_H
 #define PIXIENN_BATCHNORMLAYER_T_H
 
+namespace px {
+
 template<typename T = cpu_array>
 class batchnormlayer_t : public layer_t<T>
 {
@@ -40,8 +42,8 @@ private:
     friend layer_factory<T>;
 
     template<std::size_t N = 1>
-    using tensor_t = typename T::
-    template tensor_type<N>;
+
+    using tensor_t = typename T::template tensor_type<N>;
 
     tensor_t<1> biases_, scales_, rollingMean_, rollingVar_;
 };
@@ -161,5 +163,7 @@ inline void batchnormlayer_t<cuda_array>::forward(const tensor_type& input)
 
 
 }
+
+}   // namespace px
 
 #endif // PIXIENN_BATCHNORMLAYER_T_H

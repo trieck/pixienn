@@ -1,4 +1,6 @@
 
+#include <yaml-cpp/yaml.h>
+
 #include "model_t.h"
 #include "NMS.h"
 

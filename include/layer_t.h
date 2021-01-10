@@ -17,14 +17,13 @@
 #ifndef PIXIENN_LAYER_T_H
 #define PIXIENN_LAYER_T_H
 
-#include "activation_t.h"
 #include "Cudnn.h"
 #include "Error.h"
 #include "Singleton.h"
 #include "Tensor.h"
+#include "activation_t.h"
 
 #include <xtensor/xrandom.hpp>
-#include <yaml-cpp/yaml.h>
 
 namespace px {
 
@@ -97,59 +96,11 @@ private:
     int outChannels_, outHeight_, outWidth_, inputs_, index_, outputs_;
 };
 
-template<typename T>
-class convlayer_t;
+}   // namespace px
 
-template<typename T>
-class layer_factory : public Singleton<layer_factory<T>>
-{
-public:
-    layer_factory();
+#include "layerfactory_t.h"
 
-    template<typename U>
-    void registerFactory(const char* type);
-
-    using Ptr = typename layer_t<T>::Ptr;
-    Ptr create(const model_t<T>& model, const YAML::Node& layerDef);
-
-private:
-    using factory = std::function<Ptr(const model_t<T>& model, const YAML::Node& layerDef)>;
-    std::unordered_map<std::string, factory> factories_;
-};
-
-#include "convlayer_t.h"
-#include "batchnormlayer_t.h"
-
-template<typename T>
-layer_factory<T>::layer_factory()
-{
-    registerFactory<batchnormlayer_t<T>>("batchnorm");
-    registerFactory<convlayer_t<T>>("conv");
-}
-
-template<typename T>
-template<typename U>
-void layer_factory<T>::registerFactory(const char* type)
-{
-    factories_[type] = [](const model_t<T>& model, const YAML::Node& layerDef) {
-        return Ptr(new U(model, layerDef));
-    };
-}
-
-template<typename T>
-auto layer_factory<T>::create(const model_t<T>& model, const YAML::Node& layerDef) -> Ptr
-{
-    PX_CHECK(layerDef.IsMap(), "Layer definition is not a map.");
-
-    const auto type = layerDef["type"].as<std::string>();
-
-    const auto it = factories_.find(type);
-    if (it == std::end(factories_)) {
-        PX_ERROR_THROW("Unable to find a layer factory for layer type \"%s\".", type.c_str());
-    }
-
-    return (it->second)(model, layerDef);
-}
+namespace px {
 
 template<typename T>
 layer_t<T>::~layer_t<T>()

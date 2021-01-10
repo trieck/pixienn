@@ -17,6 +17,8 @@
 #ifndef PIXIENN_CONVLAYER_T_H
 #define PIXIENN_CONVLAYER_T_H
 
+namespace px {
+
 template<typename T = cpu_array>
 class convlayer_t : public layer_t<T>
 {
@@ -107,13 +109,13 @@ std::streamoff convlayer_t<T>::loadDarknetWeights(std::istream& is)
         batchNormalize_->loadDarknetWeights(is);
     } else {
         cpu_tensor<1> biases = biases_; // device to host
-        is.read((char *) biases.data(), biases.size() * sizeof(float));
+        is.read((char*) biases.data(), biases.size() * sizeof(float));
         PX_CHECK(is.good(), "Could not read biases");
         biases_ = biases;   // host to device
     }
 
     cpu_tensor<4> weights = weights_;   // device to host
-    is.read((char *) weights.data(), sizeof(float) * weights.size());
+    is.read((char*) weights.data(), sizeof(float) * weights.size());
     PX_CHECK(is.good(), "Could not read weights");
     weights_ = weights; // host to device
 
@@ -203,5 +205,7 @@ inline void convlayer_t<cuda_array>::forward(const tensor_type& input)
 
     activationFnc_->apply(output_);
 }
+
+}   // namespace px
 
 #endif // PIXIENN_CONVLAYER_T_H
