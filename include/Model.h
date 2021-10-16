@@ -25,7 +25,7 @@ namespace px {
 class Model
 {
 public:
-    Model(std::string  cfgFile);
+    Model(std::string cfgFile);
     Model(const Model& rhs) = default;
     Model(Model&& rhs) = default;
 

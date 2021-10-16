@@ -19,6 +19,7 @@
 
 #include "Common.h"
 #include <random>
+#include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
 #include <thrust/random.h>
 #include <xtensor/xarray.hpp>

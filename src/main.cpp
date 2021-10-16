@@ -32,7 +32,7 @@ void predict(const char* cfgFile, const char* imageFile)
     auto model = Model(cfgFile);
 
     auto detects = model.predict(imageFile, 0.2f);
-    nms(detects, 0.4f);
+    nms(detects, 0.2f);
 
     auto json = model.asJson(std::move(detects));
 
@@ -46,20 +46,18 @@ void predict(const char* cfgFile, const char* imageFile)
 
 int main(int argc, char* argv[])
 {
-//    po::options_description desc("options");
-//    po::variables_map vm;
-//    po::store(po::parse_command_line(argc, argv, desc), vm);
-//    po::notify(vm);
+    po::options_description desc("options");
+    po::variables_map vm;
+    po::store(po::parse_command_line(argc, argv, desc), vm);
+    po::notify(vm);
 
-//    if (argc < 3) {
-//        std::cerr << "usage: pixienn metadata-file image-file" << std::endl;
-//        exit(1);
-//    }
+    if (argc < 3) {
+        std::cerr << "usage: pixienn config-file image-file" << std::endl;
+        exit(1);
+    }
 
     try {
-        foobar();
-
-        // predict(argv[1], argv[2]);
+        predict(argv[1], argv[2]);
     } catch (const px::Error& e) {
         std::cerr << e.what() << std::endl;
         exit(1);
