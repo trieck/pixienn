@@ -18,7 +18,7 @@
 #include "Singleton.h"
 #include "Error.h"
 
-#include <math.h>
+#include <cmath>
 
 namespace px {
 
@@ -63,7 +63,7 @@ public:
     void apply(float* begin, float* end) const override
     {
         std::for_each(begin, end, [](float& x) {
-            x = 2.f / (1.f + exp(-x)) - 1;
+            x = 2.f / (1.f + std::exp(-x)) - 1;
         });
     }
 };

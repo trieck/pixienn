@@ -15,7 +15,7 @@
 ********************************************************************************/
 
 #include "DetectLayer.h"
-#include "Math.h"
+#include "pixieMath.h"
 
 using namespace xt;
 

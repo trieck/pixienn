@@ -17,7 +17,6 @@
 #include "Error.h"
 #include "Model.h"
 #include "NMS.h"
-#include "Tensor.cuh"
 
 #include <boost/program_options.hpp>
 #include <fstream>
