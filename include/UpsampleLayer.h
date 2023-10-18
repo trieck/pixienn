@@ -18,7 +18,7 @@
 #ifndef PIXIENN_UPSAMPLELAYER_H
 #define PIXIENN_UPSAMPLELAYER_H
 
-#include <cv.hpp>
+#include <opencv2/imgproc.hpp>
 #include "Layer.h"
 
 namespace px {
@@ -29,7 +29,7 @@ protected:
     UpsampleLayer(const Model& model, const YAML::Node& layerDef);
 
 public:
-    virtual ~UpsampleLayer() = default;
+    ~UpsampleLayer() override = default;
 
     std::ostream& print(std::ostream& os) override;
     void forward(const xt::xarray<float>& input) override;
@@ -40,7 +40,7 @@ private:
 
     float scale_;
     int stride_;
-    cv::InterpolationFlags flags_;
+    cv::InterpolationFlags flags_ = cv::InterpolationFlags::INTER_NEAREST;
 };
 
 } // px

@@ -40,7 +40,7 @@ const float& Detection::operator[](int clazz) const
 
 int Detection::size() const noexcept
 {
-    return prob_.size();
+    return (int)prob_.size();
 }
 
 const cv::Rect& Detection::box() const noexcept

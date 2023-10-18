@@ -11,20 +11,21 @@ endif()
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 find_package(BLAS REQUIRED)
-find_package(Boost 1.69 EXACT REQUIRED)
+find_package(Boost 1.74 REQUIRED)
 find_package(CUDA 10.0 REQUIRED)
 find_package(CUDNN REQUIRED)
 find_package(HDF5 REQUIRED)
 find_package(LAPACK REQUIRED)
-find_package(OpenCV 3.4.10 EXACT REQUIRED)
+find_package(OpenCV 4.5.4 REQUIRED)
 find_package(TIFF REQUIRED)
-find_package(nlohmann_json 3.9.1 EXACT REQUIRED)
-find_package(xtensor 0.21.9 EXACT REQUIRED)
-find_package(xtl 0.6.21 EXACT REQUIRED)
+find_package(nlohmann_json 3.10.5 REQUIRED)
+find_package(xtensor 0.23.10 REQUIRED)
+find_package(xtl 0.7.2 REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 set(CMAKE_CUDA_COMPILER ${CUDA_NVCC_EXECUTABLE})
-enable_language("CUDA")
+
+enable_language(CUDA)
 
 set(OUTPUTFILE ${CMAKE_CURRENT_BINARY_DIR}cuda_script)
 set(CUDAFILE ${CMAKE_CURRENT_SOURCE_DIR}/src/check_cuda/check_cuda.cu)
@@ -66,5 +67,5 @@ target_link_libraries(pixienn
         xtensor
         xtensor::optimize
         yaml-cpp
-        )
+)
 

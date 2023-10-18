@@ -15,7 +15,7 @@
 ********************************************************************************/
 
 #include "UpsampleLayer.h"
-#include <cv.hpp>
+#include <opencv2/imgproc.hpp>
 #include <opencv2/core/mat.hpp>
 #include <xtensor/xtensor.hpp>
 
@@ -54,7 +54,7 @@ void UpsampleLayer::forward(const xt::xarray<float>& input)
         Mat mInput(height(), width(), CV_32FC(channels()), (void*) pinput, cv::Mat::AUTO_STEP);
         Mat mOutput(outHeight(), outWidth(), CV_32FC(outChannels()), (void*) poutput, cv::Mat::AUTO_STEP);
 
-        resize(std::move(mInput), std::move(mOutput), { outWidth(), outHeight() }, scale_, scale_, flags_);
+        resize(mInput, mOutput, { outWidth(), outHeight() }, scale_, scale_, flags_);
     }
 }
 

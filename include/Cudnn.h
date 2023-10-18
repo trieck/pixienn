@@ -44,12 +44,12 @@ public:
         destroy();
     }
 
-    cudnn_descriptor(cudnn_descriptor&& rhs)
+    cudnn_descriptor(cudnn_descriptor&& rhs) noexcept
     {
         *this = std::move(rhs);
     }
 
-    cudnn_descriptor& operator=(cudnn_descriptor&& rhs)
+    cudnn_descriptor& operator=(cudnn_descriptor&& rhs) noexcept
     {
         if (this != &rhs) {
             handle_ = std::move(rhs.handle_);
