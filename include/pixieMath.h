@@ -34,6 +34,7 @@
 #define PIXIENN_MATH_H
 
 #include "xtensor/xmath.hpp"
+#include <cmath>
 
 namespace px {
 

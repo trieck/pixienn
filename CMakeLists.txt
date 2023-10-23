@@ -10,57 +10,51 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
+set(BLAS_LIBRARIES "/opt/homebrew/opt/openblas/lib/libblas.dylib" CACHE STRING "BLAS library path")
+set(BLAS_INCLUDE_DIRS "/opt/homebrew/opt/openblas/include" CACHE PATH "BLAS include directory path")
+set(LAPACK_LIBRARIES "/opt/homebrew/opt/openblas/lib/libopenblas.dylib" CACHE STRING "LAPACK library path")
+set(OpenCV_DIR "/opt/homebrew/opt/opencv/share/OpenCV")
+set(Boost_LIBRARIES "/opt/homebrew/opt/boost/lib")
+set(Boost_INCLUDE_DIR "/opt/homebrew/opt/boost/include")
+set(TIFF_LIBRARY "/opt/homebrew/opt/libtiff/lib")
+set(TIFF_INCLUDE_DIR "/opt/homebrew/opt/libtiff/include")
+set(nlohmann_json_DIR "/opt/homebrew/opt/nlohmann-json/lib/cmake/nlohmann-json")
+set(xtensor_DIR "/opt/homebrew/opt/xtensor/lib/cmake/xtensor")
+set(yaml-cpp_DIR "/opt/homebrew/opt/yaml-cpp/lib/cmake/yaml-cpp")
+
+include_directories("/opt/homebrew/opt/openblas/include")
+
 find_package(BLAS REQUIRED)
-find_package(Boost 1.74 REQUIRED)
-find_package(CUDA 10.0 REQUIRED)
-find_package(CUDNN REQUIRED)
-find_package(HDF5 REQUIRED)
+find_package(Boost REQUIRED COMPONENTS chrono filesystem program_options)
 find_package(LAPACK REQUIRED)
-find_package(OpenCV 4.5.4 REQUIRED)
+find_package(OpenCV REQUIRED)
 find_package(TIFF REQUIRED)
-find_package(nlohmann_json 3.10.5 REQUIRED)
-find_package(xtensor 0.23.10 REQUIRED)
-find_package(xtl 0.7.2 REQUIRED)
+find_package(nlohmann_json REQUIRED)
+find_package(xtensor REQUIRED)
+find_package(xtl REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
-set(CMAKE_CUDA_COMPILER ${CUDA_NVCC_EXECUTABLE})
-
-enable_language(CUDA)
-
-set(OUTPUTFILE ${CMAKE_CURRENT_BINARY_DIR}cuda_script)
-set(CUDAFILE ${CMAKE_CURRENT_SOURCE_DIR}/src/check_cuda/check_cuda.cu)
-
-execute_process(COMMAND ${CMAKE_CUDA_COMPILER} -lcuda ${CUDAFILE} -o ${OUTPUTFILE} RESULT_VARIABLE CUDA_RETURN_CODE)
-
-if (NOT ${CUDA_RETURN_CODE} EQUAL 0)
-    message(FATAL_ERROR "Cannot compile CUDA source file \"${CUDAFILE}\".")
-endif ()
-
-execute_process(COMMAND ${OUTPUTFILE} RESULT_VARIABLE CUDA_RETURN_CODE OUTPUT_VARIABLE ARCH)
-if (${CUDA_RETURN_CODE} EQUAL 0)
-    set(CUDA_NVCC_FLAGS "${ARCH} -std=c++14")
-    message(STATUS "CUDA_NVCC_FLAGS: ${CUDA_NVCC_FLAGS}")
-else ()
-    message(FATAL_ERROR "Cannot execute CUDA program.")
-endif ()
 
 file(GLOB SOURCES "src/*.cpp" "src/*.cu" "include/*.h" "include/*.cuh")
 
-cuda_add_executable(pixienn ${SOURCES})
+link_directories(/opt/homebrew/opt/openblas/lib/)
+link_directories(/opt/homebrew/opt/libtiff/lib/)
+link_directories(/opt/homebrew/opt/yaml-cpp/lib/)
+
+
+add_executable(pixienn ${SOURCES})
+target_link_libraries(pixienn Boost::filesystem Boost::program_options)
 
 set_target_properties(pixienn PROPERTIES POSITION_INDEPENDENT_CODE ON)
-set_target_properties(pixienn PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 target_include_directories(pixienn PRIVATE include)
-target_link_directories(pixienn PRIVATE ${CUDA_TOOLKIT_ROOT_DIR}/lib64)
 
 target_link_libraries(pixienn
-        ${CUDNN_LIBRARY}
         ${OpenCV_LIBS}
-        boost_chrono
-        boost_filesystem
-        boost_program_options
-        boost_thread
+        ${Boost_LIBRARIES}
+        ${BLAS_LIBRARIES}
+        ${TIFF_LIBRARY}
+        ${YAML_CPP_LIBRARIES}
         nlohmann_json::nlohmann_json
         openblas
         tiff
