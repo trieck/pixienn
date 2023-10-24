@@ -15,7 +15,6 @@
 ********************************************************************************/
 
 #include "MaxPoolLayer.h"
-#include "xtensor/xbuilder.hpp"
 
 namespace px {
 
@@ -33,7 +32,11 @@ MaxPoolLayer::MaxPoolLayer(const Model& model, const YAML::Node& layerDef) : Lay
 
     setOutputs(outHeight() * outWidth() * outChannels());
 
+#ifdef USE_CUDA
+    output_ = PxDevVector<float>(batch() * outChannels() * outHeight() * outWidth());
+#else
     output_ = empty<float>({ batch(), outChannels(), outHeight(), outWidth() });
+#endif
 }
 
 std::ostream& MaxPoolLayer::print(std::ostream& os)
@@ -44,9 +47,9 @@ std::ostream& MaxPoolLayer::print(std::ostream& os)
     return os;
 }
 
-void MaxPoolLayer::forward(const xt::xarray<float>& input)
+void MaxPoolLayer::forward(const PxDevVector<float>& input)
 {
-    int wOffset = -padding_ / 2;
+    /*int wOffset = -padding_ / 2;
     int hOffset = -padding_ / 2;
 
     auto ih = height();
@@ -80,7 +83,7 @@ void MaxPoolLayer::forward(const xt::xarray<float>& input)
                 }
             }
         }
-    }
+    }*/
 }
 
 } // px

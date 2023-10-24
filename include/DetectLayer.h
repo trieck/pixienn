@@ -32,7 +32,7 @@ public:
     virtual ~DetectLayer() = default;
 
     std::ostream& print(std::ostream& os) override;
-    void forward(const xt::xarray<float>& input) override;
+    void forward(const PxDevVector<float>& input) override;
 
     void addDetects(Detections& detections, int width, int height, float threshold) override;
 

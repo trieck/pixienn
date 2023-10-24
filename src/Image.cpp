@@ -84,7 +84,7 @@ void imsave(const char* path, const cv::Mat& image)
 
     for (auto y = 0; y < height; ++y) {
         memcpy(buffer, image.ptr(y), scanlineSize);
-        PX_CHECK(TIFFWriteScanline(tif, buffer, y, 0) == 1, "Cannot write scane line.");
+        PX_CHECK(TIFFWriteScanline(tif, buffer, y, 0) == 1, "Cannot write scan line.");
     }
 
     TIFFClose(tif);
@@ -235,7 +235,7 @@ xt::xarray<float> imarray(const cv::Mat& image)
 
     std::vector<int> shape({ height, width, channels });
 
-    auto array = xt::adapt(pimage.release(), height * width * channels, xt::no_ownership(), shape);
+    auto array = xt::adapt(pimage.release(), height * width * channels, xt::acquire_ownership(), shape);
 
     return array;
 }

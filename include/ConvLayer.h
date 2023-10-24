@@ -17,10 +17,14 @@
 #ifndef PIXIENN_CONVLAYER_H
 #define PIXIENN_CONVLAYER_H
 
-#include <xtensor/xtensor.hpp>
-
 #include "Activation.h"
 #include "Layer.h"
+
+#ifdef USE_CUDA
+
+#include "Cudnn.h"
+
+#endif
 
 namespace px {
 
@@ -34,19 +38,30 @@ public:
 
     std::ostream& print(std::ostream& os) override;
     std::streamoff loadDarknetWeights(std::istream& is) override;
-    void forward(const xt::xarray<float>& input) override;
+    void forward(const PxDevVector<float>& input) override;
 
 private:
+#ifdef USE_CUDA
+    void setup_gpu();
+    void forward_gpu(const PxDevVector<float>& input);
+#endif
+
     friend LayerFactories;
 
-    xt::xtensor<float, 4> weights_;
-    xt::xtensor<float, 1> biases_;
-    xt::xtensor<float, 2> column_;
+    PxDevVector<float> weights_, biases_, column_;
 
     int dilation_ = 0, filters_, kernel_, padding_, stride_, groups_;
     std::string activation_;
     Layer::Ptr batchNormalize_;
     Activation::Ptr activationFnc_;
+
+#ifdef USE_CUDA
+    CudnnTensorDesc xDesc_, yDesc_;
+    CudnnConvDesc convDesc_;
+    CudnnFilterDesc wDesc_;
+    cudnnConvolutionFwdAlgo_t bestAlgo_;
+    PxDevVector<float> workspace_;
+#endif
 };
 
 } // px

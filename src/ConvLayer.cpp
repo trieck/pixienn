@@ -16,14 +16,11 @@
 
 #include "Activation.h"
 #include "ConvLayer.h"
-#include "Utility.h"
-#include "xtensor/xadapt.hpp"
-#include "xtensor/xrandom.hpp"
-#include <cblas.h>
+#include "Error.h"
 
 namespace px {
 
-using namespace xt;
+constexpr std::uint32_t MEMORY_LIMIT = (1 << 31);
 
 ConvLayer::ConvLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
@@ -52,12 +49,24 @@ ConvLayer::ConvLayer(const Model& model, const YAML::Node& layerDef) : Layer(mod
         def["width"] = outWidth();
         batchNormalize_ = Layer::create(model, def);
     } else {
+#ifdef USE_CUDA
+        biases_ = PxDevVector<float>(filters_, 0);
+#else
         biases_ = zeros<float>({ filters_ });
+#endif
     }
 
+#ifdef USE_CUDA
+    weights_ = PxDevVector<float>::random(filters_ * channels() / groups_ * kernel_ * kernel_);
+    column_ = PxDevVector<float>(kernel_ * kernel_ * channels() / groups_ * outHeight() * outWidth());
+    output_ = PxDevVector<float>(batch() * outChannels() * outHeight() * outWidth());
+
+    setup_gpu();
+#else
     weights_ = random::rand<float>({ filters_, channels() / groups_, kernel_, kernel_ });
     column_ = empty<float>({ kernel_ * kernel_ * channels() / groups_, outHeight() * outWidth() });
     output_ = empty<float>({ batch(), outChannels(), outHeight(), outWidth() });
+#endif
 }
 
 std::ostream& ConvLayer::print(std::ostream& os)
@@ -75,18 +84,35 @@ std::streamoff ConvLayer::loadDarknetWeights(std::istream& is)
     if (batchNormalize_) {
         batchNormalize_->loadDarknetWeights(is);
     } else {
+#if USE_CUDA
+        std::vector<float> biases(biases_.size());
+        is.read((char*) biases.data(), biases.size() * sizeof(float));
+        PX_CHECK(is.good(), "Could not read biases");
+        biases_.hostCopy(biases);
+#else
         is.read((char*) biases_.data(), biases_.size() * sizeof(float));
         PX_CHECK(is.good(), "Could not read biases");
+#endif
     }
 
+#if USE_CUDA
+    std::vector<float> weights(weights_.size());
+    is.read((char*) weights.data(), sizeof(float) * weights.size());
+    PX_CHECK(is.good(), "Could not read weights");
+    weights_.hostCopy(weights);
+#else
     is.read((char*) weights_.data(), sizeof(float) * weights_.size());
     PX_CHECK(is.good(), "Could not read weights");
+#endif
 
     return is.tellg() - start;
 }
 
-void ConvLayer::forward(const xt::xarray<float>& input)
+void ConvLayer::forward(const PxDevVector<float>& input)
 {
+#ifdef USE_CUDA
+    forward_gpu(input);
+#else
     int m = filters_ / groups_;
     int n = outWidth() * outHeight();
     int k = kernel_ * kernel_ * channels() / groups_;
@@ -120,6 +146,95 @@ void ConvLayer::forward(const xt::xarray<float>& input)
     }
 
     activationFnc_->apply(output_);
+#endif
 }
+
+#if USE_CUDA
+
+void ConvLayer::setup_gpu()
+{
+    auto status = cudnnSetTensor4dDescriptor(xDesc_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, batch(), channels(),
+                                             height(),
+                                             width());
+    PX_CHECK_CUDNN(status);
+
+    status = cudnnSetConvolution2dDescriptor(convDesc_, padding_, padding_, stride_, stride_, dilation_, dilation_,
+                                             CUDNN_CROSS_CORRELATION,
+                                             CUDNN_DATA_FLOAT);
+    PX_CHECK_CUDNN(status);
+
+    status = cudnnSetConvolutionGroupCount(convDesc_, groups_);
+    PX_CHECK_CUDNN(status);
+
+    status = cudnnSetFilter4dDescriptor(wDesc_, CUDNN_DATA_FLOAT, CUDNN_TENSOR_NCHW, filters_, channels() / groups_,
+                                        kernel_, kernel_);
+    PX_CHECK_CUDNN(status);
+
+    int n, c, h, w;
+    status = cudnnGetConvolution2dForwardOutputDim(convDesc_, xDesc_, wDesc_, &n, &c, &h, &w);
+    PX_CHECK_CUDNN(status);
+
+    PX_CHECK(n == batch() && c == outChannels() && h == outHeight() && w == outWidth(),
+             "Output layer dimensions mismatch!");
+
+    status = cudnnSetTensor4dDescriptor(yDesc_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, n, c, h, w);
+    PX_CHECK_CUDNN(status);
+
+    int count = 0;
+    cudnnConvolutionFwdAlgoPerf_t results[2 * CUDNN_CONVOLUTION_FWD_ALGO_COUNT];
+
+    const auto& context = cudnnContext();
+    status = cudnnFindConvolutionForwardAlgorithm(context,
+                                                  xDesc_,
+                                                  wDesc_,
+                                                  convDesc_,
+                                                  yDesc_,
+                                                  CUDNN_CONVOLUTION_FWD_ALGO_COUNT,
+                                                  &count,
+                                                  results);
+    PX_CHECK_CUDNN(status);
+
+    for (auto i = 0; i < count; ++i) {
+        if (results[i].memory < MEMORY_LIMIT) {
+            bestAlgo_ = results[i].algo;
+            break;
+        }
+    }
+
+    size_t workspaceSize = 0;
+    status = cudnnGetConvolutionForwardWorkspaceSize(context,
+                                                     xDesc_,
+                                                     wDesc_,
+                                                     convDesc_,
+                                                     yDesc_,
+                                                     bestAlgo_,
+                                                     &workspaceSize);
+    PX_CHECK_CUDNN(status);
+
+    workspace_ = PxDevVector<float>(workspaceSize);
+}
+
+void ConvLayer::forward_gpu(const PxDevVector<float>& input)
+{
+    float one = 1;
+
+    const auto& context = cudnnContext();
+    auto status = cudnnConvolutionForward(context,
+                                          &one,
+                                          xDesc_,
+                                          input.data(),
+                                          wDesc_,
+                                          weights_.data(),
+                                          convDesc_,
+                                          bestAlgo_,
+                                          workspace_.data(),
+                                          workspace_.size(),
+                                          &one,
+                                          yDesc_,
+                                          output_.data());
+    PX_CHECK_CUDNN(status);
+}
+
+#endif  // USE_CUDA
 
 }   // px

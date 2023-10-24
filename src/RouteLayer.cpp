@@ -59,7 +59,7 @@ RouteLayer::RouteLayer(const Model& model, const YAML::Node& layerDef) : Layer(m
     setOutWidth(outWidth);
     setOutputs(outputs);
 
-    output_ = empty<float>({ batch(), outChannels, outHeight, outWidth });
+    output_ = PxDevVector<float>(batch() * outChannels * outHeight * outWidth);
 }
 
 std::ostream& RouteLayer::print(std::ostream& os)
@@ -69,9 +69,9 @@ std::ostream& RouteLayer::print(std::ostream& os)
     return os;
 }
 
-void RouteLayer::forward(const xt::xarray<float>& /*input*/)
+void RouteLayer::forward(const PxDevVector<float>& /*input*/)
 {
-    auto offset = 0;
+/*    auto offset = 0;
 
     auto* output = output_.data();
 
@@ -84,11 +84,15 @@ void RouteLayer::forward(const xt::xarray<float>& /*input*/)
             const auto* end = start + inputSize + 1;
             auto* out = output + offset + i * outputs();
 
+#ifdef USE_CUDA
+            cudaMemcpy(out, start, end - start, cudaMemcpyDeviceToDevice);
+#else
             std::copy(start, end, out);
+#endif
         }
 
         offset += inputSize;
-    }
+    }*/
 }
 
 } // px

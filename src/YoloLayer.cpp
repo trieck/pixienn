@@ -37,7 +37,11 @@ YoloLayer::YoloLayer(const Model& model, const YAML::Node& layerDef) : Layer(mod
     setOutWidth(width());
     setOutputs(outHeight() * outWidth() * outChannels());
 
+#ifdef USE_CUDA
+    output_ = PxDevVector<float>(batch() * outChannels() * outHeight() * outWidth());
+#else
     output_ = empty<float>({ batch(), outChannels(), outHeight(), outWidth() });
+#endif
 }
 
 std::ostream& YoloLayer::print(std::ostream& os)
@@ -47,25 +51,25 @@ std::ostream& YoloLayer::print(std::ostream& os)
     return os;
 }
 
-void YoloLayer::forward(const xt::xarray<float>& input)
+void YoloLayer::forward(const PxDevVector<float>& input)
 {
-    std::copy(input.begin(), input.end(), output_.begin());
+    /*   std::copy(input.begin(), input.end(), output_.begin());
 
-    auto area = std::max(1, width() * height());
+       auto area = std::max(1, width() * height());
 
-    auto* poutput = output_.data();
-    for (auto b = 0; b < batch(); ++b) {
-        for (auto n = 0; n < mask_.size(); ++n) {
-            auto index = entryIndex(b, n * area, 0);
-            auto* start = poutput + index;
-            auto* end = start + 2 * area + 1;
-            activation_->apply(start, end);
-            index = entryIndex(b, n * area, 4);
-            start = poutput + index;
-            end = start + (1 + classes_) * area + 1;
-            activation_->apply(start, end);
-        }
-    }
+       auto* poutput = output_.data();
+       for (auto b = 0; b < batch(); ++b) {
+           for (auto n = 0; n < mask_.size(); ++n) {
+               auto index = entryIndex(b, n * area, 0);
+               auto* start = poutput + index;
+               auto* end = start + 2 * area + 1;
+               activation_->apply(start, end);
+               index = entryIndex(b, n * area, 4);
+               start = poutput + index;
+               end = start + (1 + classes_) * area + 1;
+               activation_->apply(start, end);
+           }
+       }*/
 }
 
 int YoloLayer::entryIndex(int batch, int location, int entry) const noexcept
@@ -121,7 +125,7 @@ cv::Rect YoloLayer::yoloBox(const float* p, int mask, int index, int col, int ro
 
 void YoloLayer::addDetects(Detections& detections, int width, int height, float threshold)
 {
-    const auto* predictions = output_.data();
+/*    const auto* predictions = output_.data();
     auto area = std::max(1, this->width() * this->height());
 
     for (auto i = 0; i < area; ++i) {
@@ -154,7 +158,7 @@ void YoloLayer::addDetects(Detections& detections, int width, int height, float 
                 detections.emplace_back(std::move(det));
             }
         }
-    }
+    }*/
 }
 
 } // px

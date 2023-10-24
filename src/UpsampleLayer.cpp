@@ -35,7 +35,11 @@ UpsampleLayer::UpsampleLayer(const Model& model, const YAML::Node& layerDef) : L
     setOutWidth(width() * stride_);
     setOutputs(outHeight() * outWidth() * outChannels());
 
+#ifdef USE_CUDA
+    output_ = PxDevVector<float>(batch() * outChannels() * outHeight() * outWidth());
+#else
     output_ = empty<float>({ batch(), outChannels(), outHeight(), outWidth() });
+#endif
 }
 
 std::ostream& UpsampleLayer::print(std::ostream& os)
@@ -45,9 +49,9 @@ std::ostream& UpsampleLayer::print(std::ostream& os)
     return os;
 }
 
-void UpsampleLayer::forward(const xt::xarray<float>& input)
+void UpsampleLayer::forward(const PxDevVector<float>& input)
 {
-    for (auto b = 0; b < batch(); ++b) {
+/*    for (auto b = 0; b < batch(); ++b) {
         auto* pinput = input.data() + b * inputs();
         auto* poutput = output_.data() + b * outputs();
 
@@ -55,7 +59,7 @@ void UpsampleLayer::forward(const xt::xarray<float>& input)
         Mat mOutput(outHeight(), outWidth(), CV_32FC(outChannels()), (void*) poutput, cv::Mat::AUTO_STEP);
 
         resize(mInput, mOutput, { outWidth(), outHeight() }, scale_, scale_, flags_);
-    }
+    }*/
 }
 
 void UpsampleLayer::setInterpolationFlags()

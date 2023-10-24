@@ -19,6 +19,7 @@
 #include "Layer.h"
 #include "Model.h"
 #include "Timer.h"
+#include "Cudnn.h"
 
 #include <boost/filesystem.hpp>
 #include <fstream>
@@ -139,16 +140,16 @@ int Model::width() const
     return width_;
 }
 
-xt::xarray<float> Model::forward(xt::xarray<float>&& input)
+PxDevVector<float> Model::forward(PxDevVector<float>&& input)
 {
-    auto& in = input;
+    const auto* in = &input;
 
     for (auto& layer: layers()) {
-        layer->forward(in);
-        in = layer->output();
+        layer->forward(*in);
+        in = &layer->output();
     }
 
-    return in;
+    return *in;
 }
 
 void Model::loadDarknetWeights()
@@ -188,11 +189,12 @@ std::vector<Detection> Model::predict(const std::string& imageFile, float thresh
     auto image = imread(imageFile.c_str());
     auto sized = imletterbox(image, width(), height());
     auto input = imarray(sized);
+    PxDevVector<float> vinput(input);
 
-    std::cout << "Running network..." << std::endl;
+    std::cout << "Running network...";
 
     Timer timer;
-    auto result = forward(std::forward<xt::xarray<float>>(input));
+    auto result = forward(std::forward<decltype(vinput)>(vinput));
 
     std::vector<Detection> detections;
 
@@ -289,5 +291,19 @@ std::string Model::asJson(std::vector<Detection>&& detects) const noexcept
 
     return json.dump(2);
 }
+
+#ifdef USE_CUDA
+
+const CublasContext& Model::cublasContext() const noexcept
+{
+    return cublasCtxt_;
+}
+
+const CudnnContext& Model::cudnnContext() const noexcept
+{
+    return cudnnCtxt_;
+}
+
+#endif
 
 } // px

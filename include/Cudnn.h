@@ -17,7 +17,11 @@
 #ifndef PIXIENN_CUDNN_H
 #define PIXIENN_CUDNN_H
 
+#if USE_CUDA
+
 #include <cudnn.h>
+
+#include "Error.h"
 
 namespace px {
 
@@ -44,17 +48,18 @@ public:
         destroy();
     }
 
+    cudnn_descriptor(const cudnn_descriptor& rhs) = delete;
+
     cudnn_descriptor(cudnn_descriptor&& rhs) noexcept
     {
         *this = std::move(rhs);
     }
 
+    cudnn_descriptor& operator=(const cudnn_descriptor& rhs) = delete;
     cudnn_descriptor& operator=(cudnn_descriptor&& rhs) noexcept
     {
-        if (this != &rhs) {
-            handle_ = std::move(rhs.handle_);
-            rhs.handle_ = nullptr;
-        }
+        handle_ = std::move(rhs.handle_);
+        rhs.handle_ = nullptr;
 
         return *this;
     }
@@ -63,6 +68,11 @@ public:
     {
         return handle_;
     };
+
+    void release()
+    {
+        destroy();
+    }
 
 private:
     void destroy()
@@ -76,11 +86,27 @@ private:
     T* handle_;
 };
 
-using CudnnContext = cudnn_descriptor<cudnnContext, cudnnCreate, cudnnDestroy>;
+template<typename T>
+cudnnStatus_t cudnnDestroyContext(T* c)
+{
+    auto status = CUDNN_STATUS_SUCCESS;
+
+    try {
+        cudnnDestroy(c);
+    } catch (...) {
+        return CUDNN_STATUS_INTERNAL_ERROR;
+    }
+
+    return status;
+}
+
+using CudnnContext = cudnn_descriptor<cudnnContext, cudnnCreate, cudnnDestroyContext>;
 using CudnnConvDesc = cudnn_descriptor<cudnnConvolutionStruct, cudnnCreateConvolutionDescriptor, cudnnDestroyConvolutionDescriptor>;
 using CudnnFilterDesc = cudnn_descriptor<cudnnFilterStruct, cudnnCreateFilterDescriptor, cudnnDestroyFilterDescriptor>;
 using CudnnTensorDesc = cudnn_descriptor<cudnnTensorStruct, cudnnCreateTensorDescriptor, cudnnDestroyTensorDescriptor>;
 
 }   // px
+
+#endif // USE_CUDA
 
 #endif // PIXIENN_CUDNN_H

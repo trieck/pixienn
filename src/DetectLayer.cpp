@@ -17,8 +17,6 @@
 #include "DetectLayer.h"
 #include "Math.h"
 
-using namespace xt;
-
 namespace px {
 
 DetectLayer::DetectLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
@@ -45,7 +43,11 @@ DetectLayer::DetectLayer(const Model& model, const YAML::Node& layerDef) : Layer
     setOutWidth(width());
     setOutputs(batch() * inputs());
 
+#ifdef USE_CUDA
+    output_ = PxDevVector<float>(outputs());
+#else
     output_ = empty<float>({ outputs() });
+#endif
 }
 
 std::ostream& DetectLayer::print(std::ostream& os)
@@ -55,18 +57,28 @@ std::ostream& DetectLayer::print(std::ostream& os)
     return os;
 }
 
-void DetectLayer::forward(const xt::xarray<float>& input)
+void DetectLayer::forward(const PxDevVector<float>& input)
 {
+#ifdef USE_CUDA
+    // FIXME:  why doesn't darknet perform a softmax?
+    output_.deviceCopy(input);
+#else
     if (softmax_) {
         output_ = softmax(input);
     } else {
         output_ = input;
     }
+#endif
 }
 
 void DetectLayer::addDetects(Detections& detections, int width, int height, float threshold)
 {
+#ifdef USE_CUDA
+    auto predv = output_.asHost();
+    const auto* predictions = predv.data();
+#else
     const auto* predictions = output_.data();
+#endif
 
     const auto area = side_ * side_;
 

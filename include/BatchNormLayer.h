@@ -18,7 +18,12 @@
 #define PIXIENN_BATCHNORMLAYER_H
 
 #include "Layer.h"
-#include <xtensor/xtensor.hpp>
+
+#ifdef USE_CUDA
+
+#include "Cudnn.h"
+
+#endif
 
 namespace px {
 
@@ -28,15 +33,18 @@ protected:
     BatchNormLayer(const Model& model, const YAML::Node& layerDef);
 
 public:
-    virtual ~BatchNormLayer() = default;
-
     std::ostream& print(std::ostream& os) override;
-    void forward(const xt::xarray<float>& input) override;
+    void forward(const PxDevVector<float>& input) override;
     std::streamoff loadDarknetWeights(std::istream& is) override;
 
 private:
     friend LayerFactories;
-    xt::xtensor<float, 1> biases_, scales_, rollingMean_, rollingVar_;
+    PxDevVector<float> biases_, scales_, rollingMean_, rollingVar_;
+
+#ifdef USE_CUDA
+    CudnnTensorDesc normTens_, dstTens_;
+    PxDevVector<float> x_;
+#endif
 };
 
 } // px

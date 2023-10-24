@@ -186,7 +186,7 @@ void Layer::setWidth(int width)
     width_ = width;
 }
 
-const xt::xarray<float>& Layer::output() const noexcept
+const PxDevVector<float>& Layer::output() const noexcept
 {
     return output_;
 }
@@ -230,6 +230,16 @@ void Layer::print(std::ostream& os, const std::string& name, std::array<int, 3>&
             std::to_string(output[0]) + " x " + std::to_string(output[1]) + " x " + std::to_string(output[2]));
 
     os << std::endl << std::flush;
+}
+
+const CublasContext& Layer::cublasContext() const noexcept
+{
+    return model().cublasContext();
+}
+
+const CudnnContext & Layer::cudnnContext() const noexcept
+{
+    return model().cudnnContext();
 }
 
 } // px

@@ -17,6 +17,8 @@
 #ifndef PIXIENN_MODEL_H
 #define PIXIENN_MODEL_H
 
+#include "Cublas.h"
+#include "Cudnn.h"
 #include "Detection.h"
 #include "Layer.h"
 
@@ -26,10 +28,10 @@ class Model
 {
 public:
     Model(std::string cfgFile);
-    Model(const Model& rhs) = default;
+    Model(const Model& rhs) = delete;
     Model(Model&& rhs) = default;
 
-    Model& operator=(const Model& rhs) = default;
+    Model& operator=(const Model& rhs) = delete;
     Model& operator=(Model&& rhs) = default;
 
     using LayerVec = std::vector<Layer::Ptr>;
@@ -48,8 +50,13 @@ public:
 
     const std::vector<std::string>& labels() const noexcept;
 
+#ifdef USE_CUDA
+    const CublasContext& cublasContext() const noexcept;
+    const CudnnContext& cudnnContext() const noexcept;
+#endif
+
 private:
-    xt::xarray<float> forward(xt::xarray<float>&& input);
+    PxDevVector<float> forward(PxDevVector<float>&& input);
 
     void parseConfig();
     void parseModel();
@@ -63,6 +70,11 @@ private:
 
     LayerVec layers_;
     std::vector<std::string> labels_;
+
+#ifdef USE_CUDA
+    CublasContext cublasCtxt_;
+    CudnnContext cudnnCtxt_;
+#endif
 };
 
 }   // px
