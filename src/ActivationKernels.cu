@@ -30,33 +30,88 @@
 * with this legend must also reproduce the markings.
 ********************************************************************************/
 
-#include "BiasKernels.cuh"
+#include "ActivationKernels.cuh"
 #include "CudaUtils.cuh"
 #include "CudaError.h"
-#include <cuda_runtime.h>
 
 namespace px {
 
-__global__ void add_bias_kernel(float* output, float* biases, int batch, int n, int size)
+struct LeakyActivation
 {
-    int index = (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x + threadIdx.x;
-    if (index < n * size * batch) {
-        int i = index % size;
-        index /= size;
-        int j = index % n;
-        index /= n;
-        int k = index;
+    __device__ static float activate(float x)
+    {
+        return (2.f / (1 + expf(-2 * x)) - 1);
+    }
+};
 
-        output[(k * n + j) * size + i] += biases[j];
+struct LinearActivation
+{
+    __device__ static float activate(float x)
+    {
+        return x;
+    }
+};
+
+struct LogisticActivation
+{
+    __device__ static float activate(float x)
+    {
+        return 1.f / (1.f + expf(-x));
+    }
+};
+
+struct LoggyActivation
+{
+    __device__ static float activate(float x)
+    {
+        return 2.f / (1.f + expf(-x)) - 1;
+    }
+};
+
+struct ReluActivation
+{
+    __device__ static float activate(float x)
+    {
+        return x * (x > 0);
+    }
+};
+
+template<typename T>
+__global__ void activate_kernel(float* x, int n)
+{
+    int i = (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x + threadIdx.x;
+    if (i < n) {
+        x[i] = T::activate(x[i]);
     }
 }
 
-void add_bias_gpu(float* output, float* biases, int batch, int n, int size)
+void leaky_activate_gpu(float* x, std::size_t n)
 {
-    auto num = n * size * batch;
+    activate_kernel<LeakyActivation><<<cuda_gridsize(n), CUDA_BLOCK_SIZE>>>(x, n);
+    PX_CUDA_CHECK_LAST();
+}
 
-    add_bias_kernel<<<cuda_gridsize(num), CUDA_BLOCK_SIZE>>>(output, biases, batch, n, size);
+void linear_activate_gpu(float* x, std::size_t n)
+{
+    activate_kernel<LinearActivation><<<cuda_gridsize(n), CUDA_BLOCK_SIZE>>>(x, n);
+    PX_CUDA_CHECK_LAST();
+}
 
+void loggy_activate_gpu(float* x, std::size_t n)
+{
+    activate_kernel<LoggyActivation><<<cuda_gridsize(n), CUDA_BLOCK_SIZE>>>(x, n);
+    PX_CUDA_CHECK_LAST();
+}
+
+void logistic_activate_gpu(float* x, std::size_t n)
+{
+    activate_kernel<LogisticActivation><<<cuda_gridsize(n), CUDA_BLOCK_SIZE>>>(x, n);
+    PX_CUDA_CHECK_LAST();
+}
+
+void relu_activate_gpu(float* x, std::size_t n)
+{
+    activate_kernel<ReluActivation><<<cuda_gridsize(n), CUDA_BLOCK_SIZE>>>(x, n);
     PX_CUDA_CHECK_LAST();
 }
 

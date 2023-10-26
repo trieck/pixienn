@@ -28,18 +28,15 @@ if (USE_CUDA AND CUDA_FOUND)
     set(CMAKE_CUDA_COMPILER ${CUDA_NVCC_EXECUTABLE})
     set(OUTPUTFILE ${CMAKE_CURRENT_BINARY_DIR}cuda_script)
     set(CUDAFILE ${CMAKE_CURRENT_SOURCE_DIR}/src/check_cuda/check_cuda.cu)
-
     enable_language(CUDA)
-
     execute_process(COMMAND ${CMAKE_CUDA_COMPILER} -lcuda ${CUDAFILE} -o ${OUTPUTFILE} RESULT_VARIABLE CUDA_RETURN_CODE)
-
     if (NOT ${CUDA_RETURN_CODE} EQUAL 0)
         message(FATAL_ERROR "Cannot compile CUDA source file \"${CUDAFILE}\".")
     endif ()
 
     execute_process(COMMAND ${OUTPUTFILE} RESULT_VARIABLE CUDA_RETURN_CODE OUTPUT_VARIABLE ARCH)
     if (${CUDA_RETURN_CODE} EQUAL 0)
-        set(CUDA_NVCC_FLAGS "${ARCH} -std=c++17")
+        set(CUDA_NVCC_FLAGS "${ARCH} -std=c++17 $<$<CONFIG:Debug>:-G>")
         message(STATUS "CUDA_NVCC_FLAGS: ${CUDA_NVCC_FLAGS}")
     else ()
         message(FATAL_ERROR "Cannot execute CUDA program.")
@@ -58,6 +55,7 @@ list(APPEND SOURCES ${CPP_SOURCES})
 
 if (USE_CUDA AND CUDA_FOUND)
     cuda_add_executable(pixienn ${SOURCES})
+    cuda_add_cublas_to_target(pixienn)
     target_compile_definitions(pixienn PRIVATE -DUSE_CUDA)
     set_target_properties(pixienn PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
     target_link_directories(pixienn PRIVATE ${CUDA_TOOLKIT_ROOT_DIR}/lib64)
@@ -69,7 +67,6 @@ set_target_properties(pixienn PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(pixienn PRIVATE include)
 
 target_link_libraries(pixienn
-        ${CUDA_cublas_LIBRARY}
         ${CUDNN_LIBRARY}
         ${OpenCV_LIBS}
         boost_chrono

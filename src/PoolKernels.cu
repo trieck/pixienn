@@ -30,34 +30,57 @@
 * with this legend must also reproduce the markings.
 ********************************************************************************/
 
-#include "BiasKernels.cuh"
+#include "PoolKernels.cuh"
 #include "CudaUtils.cuh"
 #include "CudaError.h"
-#include <cuda_runtime.h>
 
 namespace px {
 
-__global__ void add_bias_kernel(float* output, float* biases, int batch, int n, int size)
+__global__ void maxpool_kernel(int n, int in_h, int in_w, int in_c, int stride, int kernel, int pad, const float* input,
+                               float* output)
 {
-    int index = (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x + threadIdx.x;
-    if (index < n * size * batch) {
-        int i = index % size;
-        index /= size;
-        int j = index % n;
-        index /= n;
-        int k = index;
+    int h = (in_h + pad - kernel) / stride + 1;
+    int w = (in_w + pad - kernel) / stride + 1;
+    int c = in_c;
 
-        output[(k * n + j) * size + i] += biases[j];
+    int id = (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x + threadIdx.x;
+    if (id >= n) return;
+
+    int j = id % w;
+    id /= w;
+    int i = id % h;
+    id /= h;
+    int k = id % c;
+    id /= c;
+    int b = id;
+
+    int w_offset = -pad / 2;
+    int h_offset = -pad / 2;
+
+    int out_index = j + w * (i + h * (k + c * b));
+    float max = -INFINITY;
+
+    int l, m;
+    for (l = 0; l < kernel; ++l) {
+        for (m = 0; m < kernel; ++m) {
+            int cur_h = h_offset + i * stride + l;
+            int cur_w = w_offset + j * stride + m;
+            int index = cur_w + in_w * (cur_h + in_h * (k + b * in_c));
+            int valid = (cur_h >= 0 && cur_h < in_h &&
+                         cur_w >= 0 && cur_w < in_w);
+            float val = (valid != 0) ? input[index] : -INFINITY;
+            max = (val > max) ? val : max;
+        }
     }
+    output[out_index] = max;
 }
 
-void add_bias_gpu(float* output, float* biases, int batch, int n, int size)
+void maxpool_gpu(int n, int h, int w, int c, int stride, int kernel, int pad, const float* input, float* output)
 {
-    auto num = n * size * batch;
-
-    add_bias_kernel<<<cuda_gridsize(num), CUDA_BLOCK_SIZE>>>(output, biases, batch, n, size);
+    maxpool_kernel<<<cuda_gridsize(n), CUDA_BLOCK_SIZE>>>(n, h, w, c, stride, kernel, pad, input, output);
 
     PX_CUDA_CHECK_LAST();
+
 }
 
-}   // px
+}

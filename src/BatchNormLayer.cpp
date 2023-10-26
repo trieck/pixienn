@@ -26,7 +26,7 @@ BatchNormLayer::BatchNormLayer(const Model& model, const YAML::Node& layerDef) :
     setOutChannels(channels());
     setOutHeight(height());
     setOutWidth(width());
-    setOutputs(outHeight() * outWidth() * outChannels());
+    setOutputs(outHeight() * outWidth() * outChannels() * batch());
 
 #ifdef USE_CUDA
     biases_ = PxDevVector<float>(channels(), 0.f);
@@ -56,7 +56,7 @@ std::ostream& BatchNormLayer::print(std::ostream& os)
 
 void BatchNormLayer::forward(const PxDevVector<float>& input)
 {
-    output_ = input;
+    output_.deviceCopy(input);
 
 #ifdef USE_CUDA
     float alpha = 1;
@@ -79,7 +79,6 @@ void BatchNormLayer::forward(const PxDevVector<float>& input)
                                                           rollingVar_.get(),
                                                           0.00001);
     PX_CHECK_CUDNN(status);
-
 #else
     auto b = batch();
     auto c = outChannels();

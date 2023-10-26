@@ -30,34 +30,17 @@
 * with this legend must also reproduce the markings.
 ********************************************************************************/
 
-#include "BiasKernels.cuh"
-#include "CudaUtils.cuh"
-#include "CudaError.h"
-#include <cuda_runtime.h>
+#ifndef PIXIENN_ACTKERNELS_CUH
+#define PIXIENN_ACTKERNELS_CUH
 
 namespace px {
 
-__global__ void add_bias_kernel(float* output, float* biases, int batch, int n, int size)
-{
-    int index = (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x + threadIdx.x;
-    if (index < n * size * batch) {
-        int i = index % size;
-        index /= size;
-        int j = index % n;
-        index /= n;
-        int k = index;
-
-        output[(k * n + j) * size + i] += biases[j];
-    }
-}
-
-void add_bias_gpu(float* output, float* biases, int batch, int n, int size)
-{
-    auto num = n * size * batch;
-
-    add_bias_kernel<<<cuda_gridsize(num), CUDA_BLOCK_SIZE>>>(output, biases, batch, n, size);
-
-    PX_CUDA_CHECK_LAST();
-}
+void leaky_activate_gpu(float *x, std::size_t n);
+void loggy_activate_gpu(float *x, std::size_t n);
+void logistic_activate_gpu(float *x, std::size_t n);
+void linear_activate_gpu(float *x, std::size_t n);
+void relu_activate_gpu(float *x, std::size_t n);
 
 }   // px
+
+#endif // PIXIENN_ACTKERNELS_CUH

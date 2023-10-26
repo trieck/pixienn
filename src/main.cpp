@@ -39,8 +39,6 @@ void predict(const char* cfgFile, const char* imageFile)
     PX_CHECK(ofs.good(), "Could not open file \"%s\".", "results.geojson");
     ofs << json << std::flush;
     ofs.close();
-
-    std::cout << "done." << std::endl;
 }
 
 int main(int argc, char* argv[])

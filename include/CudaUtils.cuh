@@ -33,8 +33,14 @@
 #ifndef PIXIENN_CUDAUTILS_H
 #define PIXIENN_CUDAUTILS_H
 
+#include "Common.h"
+#include <vector_types.h>
+
 namespace px {
 
+constexpr auto CUDA_BLOCK_SIZE = 512;
+
+dim3 cuda_gridsize(std::uint32_t n);
 void fill_gpu(float* ptr, std::size_t N, float value);
 void random_generate(float* ptr, std::size_t N, float a = 0.f, float b = 1.f);
 void add_bias_gpu(float* output, float* biases, int batch, int n, int size);

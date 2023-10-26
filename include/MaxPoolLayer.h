@@ -34,6 +34,10 @@ public:
     void forward(const PxDevVector<float>& input) override;
 
 private:
+#ifdef USE_CUDA
+    void forward_gpu(const PxDevVector<float>& input);
+#endif // USE_CUDA
+
     friend LayerFactories;
     int kernel_ = 0, stride_ = 0, padding_;
 };

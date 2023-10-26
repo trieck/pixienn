@@ -233,6 +233,15 @@ void ConvLayer::forward_gpu(const PxDevVector<float>& input)
                                           yDesc_,
                                           output_.data());
     PX_CHECK_CUDNN(status);
+
+    if (batchNormalize_) {
+        batchNormalize_->forward(output_);
+        output_ = batchNormalize_->output();
+    } else {
+        add_bias_gpu(output_.data(), biases_.data(), batch(), outChannels(), outHeight() * outWidth());
+    }
+
+    activationFnc_->apply(output_);
 }
 
 #endif  // USE_CUDA

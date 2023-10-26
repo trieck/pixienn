@@ -34,6 +34,7 @@
 #define PIXIENN_PXVECTOR_H
 
 #include "CudaUtils.cuh"
+#include "Error.h"
 
 #include <cuda_runtime.h>
 #include <xtensor/xarray.hpp>
@@ -63,7 +64,7 @@ public:
         fill(value);
     }
 
-    PxDevVector(const xt::xarray<T>& array) : PxDevVector(array.data(), array.size())
+    PxDevVector(const xt::xarray<T>& xarray) : PxDevVector(xarray.data(), xarray.size())
     {
     }
 

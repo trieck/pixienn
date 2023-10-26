@@ -16,13 +16,23 @@
 
 #include "UpsampleLayer.h"
 #include <opencv2/imgproc.hpp>
-#include <opencv2/core/mat.hpp>
 #include <xtensor/xtensor.hpp>
+
+#ifdef USE_CUDA
+
+#include <opencv2/core/cuda.hpp>
+
+using namespace cv::cuda;
+#else
+#include <opencv2/core/mat.hpp>
+using namespace cv;
+#endif
+
+using namespace cv;
+using namespace xt;
 
 namespace px {
 
-using namespace xt;
-using namespace cv;
 
 UpsampleLayer::UpsampleLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
@@ -51,7 +61,10 @@ std::ostream& UpsampleLayer::print(std::ostream& os)
 
 void UpsampleLayer::forward(const PxDevVector<float>& input)
 {
-/*    for (auto b = 0; b < batch(); ++b) {
+#ifdef USE_CUDA
+    forward_gpu(input);
+#else
+    for (auto b = 0; b < batch(); ++b) {
         auto* pinput = input.data() + b * inputs();
         auto* poutput = output_.data() + b * outputs();
 
@@ -59,8 +72,26 @@ void UpsampleLayer::forward(const PxDevVector<float>& input)
         Mat mOutput(outHeight(), outWidth(), CV_32FC(outChannels()), (void*) poutput, cv::Mat::AUTO_STEP);
 
         resize(mInput, mOutput, { outWidth(), outHeight() }, scale_, scale_, flags_);
-    }*/
+    }
+#endif // USE_CUDA
 }
+
+#ifdef USE_CUDA
+
+void UpsampleLayer::forward_gpu(const PxDevVector<float>& input)
+{
+    for (auto b = 0; b < batch(); ++b) {
+        auto* pinput = input.data() + b * inputs();
+        auto* poutput = output_.data() + b * outputs();
+
+        cv::cuda::GpuMat mInput(height(), width(), CV_32FC(channels()), (void*) pinput, cv::Mat::AUTO_STEP);
+        cv::cuda::GpuMat mOutput(outHeight(), outWidth(), CV_32FC(outChannels()), (void*) poutput, cv::Mat::AUTO_STEP);
+
+        resize(mInput, mOutput, { outWidth(), outHeight() }, scale_, scale_, flags_);
+    }
+}
+
+#endif  // USE_CUDA
 
 void UpsampleLayer::setInterpolationFlags()
 {

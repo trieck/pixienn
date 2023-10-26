@@ -197,7 +197,6 @@ std::vector<Detection> Model::predict(const std::string& imageFile, float thresh
     auto result = forward(std::forward<decltype(vinput)>(vinput));
 
     std::vector<Detection> detections;
-
     for (auto& layer: layers()) {
         auto* detector = dynamic_cast<Detector*>(layer.get());
         if (detector) {

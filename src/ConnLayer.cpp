@@ -179,7 +179,7 @@ void ConnLayer::forward_gpu(const PxDevVector<float>& input)
         add_bias_gpu(c, biases_.data(), n, m, 1);
     }
 
-    // FIXME: activationFnc_->apply(output_);
+    activationFnc_->apply(output_);
 }
 
 #endif  // USE_CUDA

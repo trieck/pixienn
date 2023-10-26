@@ -30,12 +30,30 @@
 * with this legend must also reproduce the markings.
 ********************************************************************************/
 
+#include "CudaUtils.cuh"
+
 #include <thrust/device_vector.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/random.h>
 #include <thrust/transform.h>
 
 namespace px {
+
+dim3 cuda_gridsize(std::uint32_t n)
+{
+    std::uint32_t k = (n - 1) / CUDA_BLOCK_SIZE + 1;
+    std::uint32_t x = k;
+    std::uint32_t y = 1;
+
+    if (x > 65535) {
+        x = ceil(sqrt(k));
+        y = (n - 1) / (x * CUDA_BLOCK_SIZE) + 1;
+    }
+
+    dim3 d = { x, y, 1 };
+
+    return d;
+}
 
 struct random_generator
 {

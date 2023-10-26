@@ -35,6 +35,9 @@ public:
     void forward(const PxDevVector<float>& input) override;
 
 private:
+#ifdef USE_CUDA
+    void forward_gpu(const PxDevVector<float>& input);
+#endif
     friend LayerFactories;
     void setInterpolationFlags();
 
