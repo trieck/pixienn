@@ -59,7 +59,11 @@ RouteLayer::RouteLayer(const Model& model, const YAML::Node& layerDef) : Layer(m
     setOutWidth(outWidth);
     setOutputs(outputs);
 
-    output_ = PxDevVector<float>(batch() * outChannels * outHeight * outWidth);
+    output_ = empty<float>({ batch(), outChannels, outHeight, outWidth });
+
+#ifdef USE_CUDA
+    outputGpu_ = PxDevVector<float>(batch() * outChannels * outHeight * outWidth);
+#endif // USE_CUDA
 }
 
 std::ostream& RouteLayer::print(std::ostream& os)
@@ -69,9 +73,9 @@ std::ostream& RouteLayer::print(std::ostream& os)
     return os;
 }
 
-void RouteLayer::forward(const PxDevVector<float>& /*input*/)
+void RouteLayer::forward(const xt::xarray<float>& /*input*/)
 {
-/*    auto offset = 0;
+    auto offset = 0;
 
     auto* output = output_.data();
 
@@ -84,15 +88,20 @@ void RouteLayer::forward(const PxDevVector<float>& /*input*/)
             const auto* end = start + inputSize + 1;
             auto* out = output + offset + i * outputs();
 
-#ifdef USE_CUDA
-            cudaMemcpy(out, start, end - start, cudaMemcpyDeviceToDevice);
-#else
             std::copy(start, end, out);
-#endif
         }
 
         offset += inputSize;
-    }*/
+    }
 }
+
+#ifdef USE_CUDA
+void RouteLayer::forwardGpu(const PxDevVector<float>& /*input*/)
+{
+    // FIXME: implement
+    //cudaMemcpy(out, start, end - start, cudaMemcpyDeviceToDevice);
+}
+
+#endif // USE_CUDA
 
 } // px

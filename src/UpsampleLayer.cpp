@@ -45,10 +45,10 @@ UpsampleLayer::UpsampleLayer(const Model& model, const YAML::Node& layerDef) : L
     setOutWidth(width() * stride_);
     setOutputs(outHeight() * outWidth() * outChannels());
 
-#ifdef USE_CUDA
-    output_ = PxDevVector<float>(batch() * outChannels() * outHeight() * outWidth());
-#else
     output_ = empty<float>({ batch(), outChannels(), outHeight(), outWidth() });
+
+#ifdef USE_CUDA
+    outputGpu_ = PxDevVector<float>(batch() * outChannels() * outHeight() * outWidth());
 #endif
 }
 
@@ -59,11 +59,8 @@ std::ostream& UpsampleLayer::print(std::ostream& os)
     return os;
 }
 
-void UpsampleLayer::forward(const PxDevVector<float>& input)
+void UpsampleLayer::forward(const xarray<float>& input)
 {
-#ifdef USE_CUDA
-    forward_gpu(input);
-#else
     for (auto b = 0; b < batch(); ++b) {
         auto* pinput = input.data() + b * inputs();
         auto* poutput = output_.data() + b * outputs();
@@ -73,16 +70,15 @@ void UpsampleLayer::forward(const PxDevVector<float>& input)
 
         resize(mInput, mOutput, { outWidth(), outHeight() }, scale_, scale_, flags_);
     }
-#endif // USE_CUDA
 }
 
 #ifdef USE_CUDA
 
-void UpsampleLayer::forward_gpu(const PxDevVector<float>& input)
+void UpsampleLayer::forwardGpu(const PxDevVector<float>& input)
 {
     for (auto b = 0; b < batch(); ++b) {
         auto* pinput = input.data() + b * inputs();
-        auto* poutput = output_.data() + b * outputs();
+        auto* poutput = outputGpu_.data() + b * outputs();
 
         cv::cuda::GpuMat mInput(height(), width(), CV_32FC(channels()), (void*) pinput, cv::Mat::AUTO_STEP);
         cv::cuda::GpuMat mOutput(outHeight(), outWidth(), CV_32FC(outChannels()), (void*) poutput, cv::Mat::AUTO_STEP);

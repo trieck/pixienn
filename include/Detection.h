@@ -50,6 +50,9 @@ using Detections = std::vector<Detection>;
 struct Detector
 {
     virtual void addDetects(Detections& detects, int width, int height, float threshold) = 0;
+#ifdef USE_CUDA
+    virtual void addDetectsGpu(Detections& detects, int width, int height, float threshold) = 0;
+#endif // USE_CUDA
 };
 
 }   // px

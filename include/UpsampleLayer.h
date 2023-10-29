@@ -32,12 +32,13 @@ public:
     ~UpsampleLayer() override = default;
 
     std::ostream& print(std::ostream& os) override;
-    void forward(const PxDevVector<float>& input) override;
+    virtual void forward(const xt::xarray<float>& input) override;
+
+#ifdef USE_CUDA
+    virtual void forwardGpu(const PxDevVector<float>& input) override;
+#endif
 
 private:
-#ifdef USE_CUDA
-    void forward_gpu(const PxDevVector<float>& input);
-#endif
     friend LayerFactories;
     void setInterpolationFlags();
 

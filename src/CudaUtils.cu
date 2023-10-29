@@ -31,6 +31,8 @@
 ********************************************************************************/
 
 #include "CudaUtils.cuh"
+#include "CudaError.h"
+#include <cuda_runtime.h>
 
 #include <thrust/device_vector.h>
 #include <thrust/iterator/counting_iterator.h>
@@ -76,19 +78,19 @@ __host__ __device__ float random_generator::operator()(const unsigned int n) con
     return dist(rng);
 }
 
-void fill_gpu(float* ptr, std::size_t N, float value)
+void fill_gpu(float* ptr, int n, float value)
 {
     thrust::device_ptr<float> dev_ptr = thrust::device_pointer_cast(ptr);
-    thrust::fill(dev_ptr, dev_ptr + N, value);
+    thrust::fill(dev_ptr, dev_ptr + n, value);
 }
 
-void random_generate(float* ptr, std::size_t N, float a, float b)
+void random_generate(float* ptr, int n, float a, float b)
 {
     thrust::device_ptr<float> dev_ptr = thrust::device_pointer_cast(ptr);
 
     thrust::counting_iterator<unsigned int> index_sequence_begin(0);
     thrust::transform(index_sequence_begin,
-                      index_sequence_begin + N,
+                      index_sequence_begin + n,
                       dev_ptr,
                       random_generator(a, b));
 }

@@ -28,22 +28,23 @@ BatchNormLayer::BatchNormLayer(const Model& model, const YAML::Node& layerDef) :
     setOutWidth(width());
     setOutputs(outHeight() * outWidth() * outChannels() * batch());
 
-#ifdef USE_CUDA
-    biases_ = PxDevVector<float>(channels(), 0.f);
-    scales_ = PxDevVector<float>(channels(), 1.f);
-    rollingMean_ = PxDevVector<float>(channels(), 0.f);
-    rollingVar_ = PxDevVector<float>(channels(), 0.f);
-    output_ = PxDevVector<float>(batch() * outChannels() * outHeight() * outWidth(), 0.f);
-    x_ = PxDevVector<float>(batch() * outputs());
-
-    cudnnSetTensor4dDescriptor(dstTens_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, batch(), outChannels(), outHeight(),
-                               outWidth());
-    cudnnSetTensor4dDescriptor(normTens_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, 1, outChannels(), 1, 1);
-#else
     biases_ = zeros<float>({ channels() });
     scales_ = ones<float>({ channels() });
     rollingMean_ = zeros<float>({ channels() });
     rollingVar_ = zeros<float>({ channels() });
+    output_ = empty<float>({ batch(), outChannels(), outHeight(), outWidth() });
+
+#ifdef USE_CUDA
+    biasesGpu_ = PxDevVector<float>(channels(), 0.f);
+    scalesGpu_ = PxDevVector<float>(channels(), 1.f);
+    rollingMeanGpu_ = PxDevVector<float>(channels(), 0.f);
+    rollingVarGpu_ = PxDevVector<float>(channels(), 0.f);
+    outputGpu_ = PxDevVector<float>(batch() * outChannels() * outHeight() * outWidth(), 0.f);
+    xGpu_ = PxDevVector<float>(batch() * outputs());
+
+    cudnnSetTensor4dDescriptor(dstTens_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, batch(), outChannels(), outHeight(),
+                               outWidth());
+    cudnnSetTensor4dDescriptor(normTens_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, 1, outChannels(), 1, 1);
 #endif
 }
 
@@ -54,11 +55,27 @@ std::ostream& BatchNormLayer::print(std::ostream& os)
     return os;
 }
 
-void BatchNormLayer::forward(const PxDevVector<float>& input)
+
+void BatchNormLayer::forward(const xarray<float>& input)
 {
-    output_.deviceCopy(input);
+    output_ = input;
+
+    auto b = batch();
+    auto c = outChannels();
+    auto size = outHeight() * outWidth();
+
+    normalize_cpu(output_.data(), rollingMean_.data(), rollingVar_.data(), b, c, size);
+
+    scale_bias(output_.data(), scales_.data(), b, c, size);
+    add_bias(output_.data(), biases_.data(), b, c, size);
+}
 
 #ifdef USE_CUDA
+
+void BatchNormLayer::forwardGpu(const PxDevVector<float>& input)
+{
+    outputGpu_.fromDevice(input);
+
     float alpha = 1;
     float beta = 0;
 
@@ -69,53 +86,34 @@ void BatchNormLayer::forward(const PxDevVector<float>& input)
                                                           &alpha,
                                                           &beta,
                                                           dstTens_,
-                                                          x_.get(),
+                                                          xGpu_.get(),
                                                           dstTens_,
-                                                          output_.get(),
+                                                          outputGpu_.get(),
                                                           normTens_,
-                                                          scales_.get(),
-                                                          biases_.get(),
-                                                          rollingMean_.get(),
-                                                          rollingVar_.get(),
+                                                          scalesGpu_.get(),
+                                                          biasesGpu_.get(),
+                                                          rollingMeanGpu_.get(),
+                                                          rollingVarGpu_.get(),
                                                           0.00001);
     PX_CHECK_CUDNN(status);
-#else
-    auto b = batch();
-    auto c = outChannels();
-    auto size = outHeight() * outWidth();
-
-    normalize_cpu(output_.data(), rollingMean_.data(), rollingVar_.data(), b, c, size);
-
-    scale_bias(output_.data(), scales_.data(), b, c, size);
-    add_bias(output_.data(), biases_.data(), b, c, size);
-#endif // USE_CUDA
 }
+
+#endif // USE_CUDA
 
 std::streamoff BatchNormLayer::loadDarknetWeights(std::istream& is)
 {
     auto start = is.tellg();
 
+    is.read((char*) biases_.data(), sizeof(float) * biases_.size());
+    is.read((char*) scales_.data(), sizeof(float) * scales_.size());
+    is.read((char*) rollingMean_.data(), sizeof(float) * rollingMean_.size());
+    is.read((char*) rollingVar_.data(), sizeof(float) * rollingVar_.size());
+
 #if USE_CUDA
-    std::vector<float> biases(biases_.size());
-    std::vector<float> scales(scales_.size());
-    std::vector<float> rollingMean(rollingMean_.size());
-    std::vector<float> rollingVar(rollingVar_.size());
-
-    is.read((char*) biases.data(), sizeof(float) * biases_.size());
-    is.read((char*) scales.data(), sizeof(float) * scales_.size());
-    is.read((char*) rollingMean.data(), sizeof(float) * rollingMean_.size());
-    is.read((char*) rollingVar.data(), sizeof(float) * rollingVar_.size());
-
-    biases_.hostCopy(biases);
-    scales_.hostCopy(scales);
-    rollingMean_.hostCopy(rollingMean);
-    rollingVar_.hostCopy(rollingVar);
-
-#else
-    is.read((char*) biases_.get(), sizeof(float) * biases_.size());
-    is.read((char*) scales_.get(), sizeof(float) * scales_.size());
-    is.read((char*) rollingMean_.get(), sizeof(float) * rollingMean_.size());
-    is.read((char*) rollingVar_.get(), sizeof(float) * rollingVar_.size());
+    biasesGpu_.fromHost(biases_);
+    scalesGpu_.fromHost(scales_);
+    rollingMeanGpu_.fromHost(rollingMean_);
+    rollingVarGpu_.fromHost(rollingVar_);
 #endif
 
     PX_CHECK(is.good(), "Could not read batch_normalize parameters");

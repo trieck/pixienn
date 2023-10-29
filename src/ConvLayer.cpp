@@ -14,13 +14,19 @@
 * limitations under the License.
 ********************************************************************************/
 
+#include <cblas.h>
+#include <xtensor/xadapt.hpp>
+#include <xtensor/xrandom.hpp>
+
 #include "Activation.h"
 #include "ConvLayer.h"
 #include "Error.h"
+#include "Utility.h"
+#include "SHA1.h"
+
+using namespace xt;
 
 namespace px {
-
-constexpr std::uint32_t MEMORY_LIMIT = (1 << 31);
 
 ConvLayer::ConvLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
@@ -49,23 +55,21 @@ ConvLayer::ConvLayer(const Model& model, const YAML::Node& layerDef) : Layer(mod
         def["width"] = outWidth();
         batchNormalize_ = Layer::create(model, def);
     } else {
-#ifdef USE_CUDA
-        biases_ = PxDevVector<float>(filters_, 0);
-#else
         biases_ = zeros<float>({ filters_ });
+#ifdef USE_CUDA
+        biasesGpu_ = PxDevVector<float>(filters_, 0);
 #endif
     }
 
-#ifdef USE_CUDA
-    weights_ = PxDevVector<float>::random(filters_ * channels() / groups_ * kernel_ * kernel_);
-    column_ = PxDevVector<float>(kernel_ * kernel_ * channels() / groups_ * outHeight() * outWidth());
-    output_ = PxDevVector<float>(batch() * outChannels() * outHeight() * outWidth());
-
-    setup_gpu();
-#else
     weights_ = random::rand<float>({ filters_, channels() / groups_, kernel_, kernel_ });
     column_ = empty<float>({ kernel_ * kernel_ * channels() / groups_, outHeight() * outWidth() });
     output_ = empty<float>({ batch(), outChannels(), outHeight(), outWidth() });
+
+#ifdef USE_CUDA
+    weightsGpu_ = PxDevVector<float>::random(filters_ * channels() / groups_ * kernel_ * kernel_);
+    columnGpu_ = PxDevVector<float>(kernel_ * kernel_ * channels() / groups_ * outHeight() * outWidth());
+    outputGpu_ = PxDevVector<float>(batch() * outChannels() * outHeight() * outWidth());
+    setup_gpu();
 #endif
 }
 
@@ -84,35 +88,28 @@ std::streamoff ConvLayer::loadDarknetWeights(std::istream& is)
     if (batchNormalize_) {
         batchNormalize_->loadDarknetWeights(is);
     } else {
-#if USE_CUDA
-        std::vector<float> biases(biases_.size());
-        is.read((char*) biases.data(), biases.size() * sizeof(float));
-        PX_CHECK(is.good(), "Could not read biases");
-        biases_.hostCopy(biases);
-#else
         is.read((char*) biases_.data(), biases_.size() * sizeof(float));
         PX_CHECK(is.good(), "Could not read biases");
+#if USE_CUDA
+        biasesGpu_.fromHost(biases_);
 #endif
     }
 
-#if USE_CUDA
-    std::vector<float> weights(weights_.size());
-    is.read((char*) weights.data(), sizeof(float) * weights.size());
-    PX_CHECK(is.good(), "Could not read weights");
-    weights_.hostCopy(weights);
-#else
     is.read((char*) weights_.data(), sizeof(float) * weights_.size());
     PX_CHECK(is.good(), "Could not read weights");
+
+#if USE_CUDA
+    weightsGpu_.fromHost(weights_);
 #endif
 
     return is.tellg() - start;
 }
 
-void ConvLayer::forward(const PxDevVector<float>& input)
+void ConvLayer::forward(const xt::xarray<float>& input)
 {
-#ifdef USE_CUDA
-    forward_gpu(input);
-#else
+    auto result = sha1(input.data(), input.size());
+    std::cout << "sha1[conv](cpu input):  " << result << std::endl;
+
     int m = filters_ / groups_;
     int n = outWidth() * outHeight();
     int k = kernel_ * kernel_ * channels() / groups_;
@@ -122,6 +119,9 @@ void ConvLayer::forward(const PxDevVector<float>& input)
 
     const auto* pin = input.data();
     auto* pout = output_.data();
+
+    auto alpha = 1.0f;
+    auto beta = 1.0f;
 
     for (auto i = 0; i < batch(); ++i) {
         for (auto j = 0; j < groups_; ++j) {
@@ -134,7 +134,7 @@ void ConvLayer::forward(const PxDevVector<float>& input)
                 im2col_cpu(im, channels() / groups_, height(), width(), kernel_, stride_, padding_, column_.data());
             }
 
-            cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, 1.0f, a, k, b, n, 1.0f, c, n);
+            cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, alpha, a, k, b, n, beta, c, n);
         }
     }
 
@@ -146,10 +146,16 @@ void ConvLayer::forward(const PxDevVector<float>& input)
     }
 
     activationFnc_->apply(output_);
-#endif
+
+    result = sha1(output_.data(), outputs());
+    std::cout << "sha1[conv](cpu output): " << result << std::endl;
 }
 
 #if USE_CUDA
+
+#include <CudaUtils.cuh>
+
+constexpr std::uint32_t MEMORY_LIMIT = (1 << 31);
 
 void ConvLayer::setup_gpu()
 {
@@ -214,34 +220,45 @@ void ConvLayer::setup_gpu()
     workspace_ = PxDevVector<float>(workspaceSize);
 }
 
-void ConvLayer::forward_gpu(const PxDevVector<float>& input)
+void ConvLayer::forwardGpu(const PxDevVector<float>& input)
 {
-    float one = 1;
+    auto inputCpu = input.asHost();
+
+    assert(inputCpu.size() == inputs());
+    auto result = sha1(inputCpu.data(), inputCpu.size());
+    std::cout << "sha1[conv](gpu input):  " << result << std::endl;
+
+    float alpha = 1.f;
+    float beta = 1.f;
 
     const auto& context = cudnnContext();
     auto status = cudnnConvolutionForward(context,
-                                          &one,
+                                          &alpha,
                                           xDesc_,
                                           input.data(),
                                           wDesc_,
-                                          weights_.data(),
+                                          weightsGpu_.data(),
                                           convDesc_,
                                           bestAlgo_,
                                           workspace_.data(),
                                           workspace_.size(),
-                                          &one,
+                                          &beta,
                                           yDesc_,
-                                          output_.data());
+                                          outputGpu_.data());
     PX_CHECK_CUDNN(status);
 
     if (batchNormalize_) {
-        batchNormalize_->forward(output_);
-        output_ = batchNormalize_->output();
+        batchNormalize_->forwardGpu(outputGpu_);
+        outputGpu_ = batchNormalize_->outputGpu();
     } else {
-        add_bias_gpu(output_.data(), biases_.data(), batch(), outChannels(), outHeight() * outWidth());
+        add_bias_gpu(outputGpu_.data(), biasesGpu_.data(), batch(), outChannels(), outHeight() * outWidth());
     }
 
-    activationFnc_->apply(output_);
+    activationFnc_->applyGpu(outputGpu_);
+
+    auto output = outputGpu_.asHost();
+    result = sha1(output.data(), outputs());
+    std::cout << "sha1[conv](gpu output): " << result << std::endl;
 }
 
 #endif  // USE_CUDA

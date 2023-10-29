@@ -17,6 +17,8 @@
 #ifndef PIXIENN_CONVLAYER_H
 #define PIXIENN_CONVLAYER_H
 
+#include <xtensor/xtensor.hpp>
+
 #include "Activation.h"
 #include "Layer.h"
 
@@ -38,17 +40,21 @@ public:
 
     std::ostream& print(std::ostream& os) override;
     std::streamoff loadDarknetWeights(std::istream& is) override;
-    void forward(const PxDevVector<float>& input) override;
+    virtual void forward(const xt::xarray<float>& input) override;
+
+#ifdef USE_CUDA
+    virtual void forwardGpu(const PxDevVector<float>& input) override;
+#endif
 
 private:
 #ifdef USE_CUDA
     void setup_gpu();
-    void forward_gpu(const PxDevVector<float>& input);
 #endif
-
     friend LayerFactories;
 
-    PxDevVector<float> weights_, biases_, column_;
+    xt::xtensor<float, 4> weights_;
+    xt::xtensor<float, 1> biases_;
+    xt::xtensor<float, 2> column_;
 
     int dilation_ = 0, filters_, kernel_, padding_, stride_, groups_;
     std::string activation_;
@@ -56,11 +62,12 @@ private:
     Activation::Ptr activationFnc_;
 
 #ifdef USE_CUDA
+    PxDevVector<float> weightsGpu_, biasesGpu_, columnGpu_, workspace_;
+
     CudnnTensorDesc xDesc_, yDesc_;
     CudnnConvDesc convDesc_;
     CudnnFilterDesc wDesc_;
     cudnnConvolutionFwdAlgo_t bestAlgo_;
-    PxDevVector<float> workspace_;
 #endif
 };
 

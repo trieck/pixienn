@@ -17,8 +17,9 @@
 #include "Error.h"
 #include "Model.h"
 #include "NMS.h"
+#include "SHA1.h"
+#include "Utility.h"
 
-#include <boost/program_options.hpp>
 #include <fstream>
 #include <iostream>
 
@@ -26,11 +27,12 @@ namespace po = boost::program_options;
 
 using namespace px;
 
-void predict(const char* cfgFile, const char* imageFile)
+void predict(const std::string& cfgFile, const std::string& imageFile,
+             const po::variables_map& options)
 {
     auto model = Model(cfgFile);
 
-    auto detects = model.predict(imageFile, 0.2f);
+    auto detects = model.predict(imageFile, 0.2f, options);
     nms(detects, 0.2f);
 
     auto json = model.asJson(std::move(detects));
@@ -43,18 +45,34 @@ void predict(const char* cfgFile, const char* imageFile)
 
 int main(int argc, char* argv[])
 {
-    po::options_description desc("options");
-    po::variables_map vm;
-    po::store(po::parse_command_line(argc, argv, desc), vm);
-    po::notify(vm);
-
     if (argc < 3) {
-        std::cerr << "usage: pixienn config-file image-file" << std::endl;
+        std::cerr << "usage: pixienn [options] config-file image-file" << std::endl;
         exit(1);
     }
 
+    std::string v = "The quick brown fox jumps over the lazy dog";
+    auto output = sha1(v.data(), v.size());
+    assert(output == "2fd4e1c67a2d28fced849ee1bb76e7391b93eb12");
+
+    po::options_description desc("options");
+    po::positional_options_description pod;
+    pod.add("config-file", 1);
+    pod.add("image-file", 1);
+
+    desc.add_options()
+            ("no-gpu", "Use CPU for processing")
+            ("config-file", po::value<std::string>()->required(), "Configuration file")
+            ("image-file", po::value<std::string>()->required(), "Image file");
+
     try {
-        predict(argv[1], argv[2]);
+        po::variables_map vm;
+        po::store(po::command_line_parser(argc, argv).options(desc).positional(pod).run(), vm);
+        po::notify(vm);
+
+        auto config = vm["config-file"].as<std::string>();
+        auto image = vm["image-file"].as<std::string>();
+
+        predict(config, image, vm);
     } catch (const px::Error& e) {
         std::cerr << e.what() << std::endl;
         exit(1);

@@ -14,12 +14,14 @@
 * limitations under the License.
 ********************************************************************************/
 
+#include "Cudnn.h"
 #include "Error.h"
 #include "Image.h"
 #include "Layer.h"
 #include "Model.h"
+#include "SHA1.h"
 #include "Timer.h"
-#include "Cudnn.h"
+#include "Utility.h"
 
 #include <boost/filesystem.hpp>
 #include <fstream>
@@ -29,6 +31,8 @@
 using namespace YAML;
 using namespace boost::filesystem;
 using json = nlohmann::json;
+
+namespace po = boost::program_options;
 
 namespace px {
 
@@ -76,7 +80,7 @@ void Model::parseModel()
     channels_ = model["channels"].as<int>();
     height_ = model["height"].as<int>();
     width_ = model["width"].as<int>();
-    int inputs = height_ * width_ * channels_;
+    int inputs = batch_ * height_ * width_ * channels_;
 
     const auto layers = model["layers"];
     PX_CHECK(layers.IsSequence(), "Model has no layers.");
@@ -140,7 +144,7 @@ int Model::width() const
     return width_;
 }
 
-PxDevVector<float> Model::forward(PxDevVector<float>&& input)
+xt::xarray<float> Model::forward(const xt::xarray<float>& input)
 {
     const auto* in = &input;
 
@@ -151,6 +155,20 @@ PxDevVector<float> Model::forward(PxDevVector<float>&& input)
 
     return *in;
 }
+
+#ifdef USE_CUDA
+PxDevVector<float> Model::forwardGpu(const PxDevVector<float>& input)
+{
+    const auto* in = &input;
+
+    for (auto& layer: layers()) {
+        layer->forwardGpu(*in);
+        in = &layer->outputGpu();
+    }
+
+    return *in;
+}
+#endif // USE_CUDA
 
 void Model::loadDarknetWeights()
 {
@@ -184,23 +202,56 @@ void Model::loadDarknetWeights()
     ifs.close();
 }
 
-std::vector<Detection> Model::predict(const std::string& imageFile, float threshold)
+std::vector<Detection> Model::predict(const std::string& imageFile, float threshold, const po::variables_map& options)
 {
-    auto image = imread(imageFile.c_str());
+    //auto image = imread(imageFile.c_str());
+    auto image = imread_stb(imageFile.c_str());
+    imsave("stb_image.tif", image);
+
+    auto RAW = imarray(image);
+    auto result = sha1(RAW.data(), RAW.size() * sizeof(float));
+    std::cout << "imread_stb as darknet image:  " << result << std::endl;
+
     auto sized = imletterbox(image, width(), height());
+
+    imsave("letterbox.tif", sized);
+
     auto input = imarray(sized);
     PxDevVector<float> vinput(input);
 
-    std::cout << "Running network...";
+    auto input2 = vinput.asHost();
+    result = sha1(input2.data(), input2.size());
+    std::cout << "letterbox image (device->host):  " << result << std::endl;
+
+    std::cout << "Running network...\n";
 
     Timer timer;
-    auto result = forward(std::forward<decltype(vinput)>(vinput));
+
+#ifdef USE_CUDA
+    auto noGpu = options.count("no-gpu");
+    if (noGpu) {
+        forward(input);
+    } else {
+        PxDevVector<float> vinput(input);
+        forwardGpu(vinput);
+    }
+#else
+    forward(std::forward<decltype(input)>(input));
+#endif
 
     std::vector<Detection> detections;
     for (auto& layer: layers()) {
         auto* detector = dynamic_cast<Detector*>(layer.get());
         if (detector) {
+#ifdef USE_CUDA
+            if (noGpu) {
+                detector->addDetects(detections, image.cols, image.rows, threshold);
+            } else {
+                detector->addDetectsGpu(detections, image.cols, image.rows, threshold);
+            }
+#else
             detector->addDetects(detections, image.cols, image.rows, threshold);
+#endif // USE_CUDA
         }
     }
 

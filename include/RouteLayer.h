@@ -30,7 +30,11 @@ public:
     virtual ~RouteLayer() = default;
 
     std::ostream& print(std::ostream& os) override;
-    void forward(const PxDevVector<float>& input) override;
+    virtual void forward(const xt::xarray<float>& input) override;
+
+#ifdef USE_CUDA
+    virtual void forwardGpu(const PxDevVector<float>& input) override;
+#endif
 
 private:
     friend LayerFactories;

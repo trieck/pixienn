@@ -14,7 +14,11 @@
 * limitations under the License.
 ********************************************************************************/
 
+#include <cblas.h>
+
 #include "ConnLayer.h"
+#include "Utility.h"
+#include "xtensor/xrandom.hpp"
 
 #if USE_CUDA
 
@@ -23,6 +27,8 @@
 #endif
 
 namespace px {
+
+using namespace xt;
 
 ConnLayer::ConnLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
@@ -48,19 +54,19 @@ ConnLayer::ConnLayer(const Model& model, const YAML::Node& layerDef) : Layer(mod
         def["width"] = outWidth();
         batchNormalize_ = Layer::create(model, def);
     } else {
-#ifdef USE_CUDA
-        biases_ = PxDevVector<float>(outputs(), 0.f);
-#else
         biases_ = zeros<float>({ outputs() });
+
+#ifdef USE_CUDA
+        biasesGpu_ = PxDevVector<float>(outputs(), 0.f);
 #endif
     }
 
-#ifdef USE_CUDA
-    weights_ = PxDevVector<float>::random(inputs() * outputs(), -1.f, 1.f);
-    output_ = PxDevVector<float>(batch() * outputs(), 0.f);
-#else
     weights_ = random::rand<float>({ inputs(), outputs() });
     output_ = zeros<float>({ batch() * outputs() });
+
+#ifdef USE_CUDA
+    weightsGpu_ = PxDevVector<float>::random(inputs() * outputs(), -1.f, 1.f);
+    outputGpu_ = PxDevVector<float>(batch() * outputs(), 0.f);
 #endif
 }
 
@@ -75,23 +81,15 @@ std::streamoff ConnLayer::loadDarknetWeights(std::istream& is)
 {
     auto start = is.tellg();
 
-#ifdef USE_CUDA
-    std::vector<float> biases(biases_.size());
-    std::vector<float> weights(weights_.size());
-
-    is.read((char*) biases.data(), biases_.size() * sizeof(float));
-    PX_CHECK(is.good(), "Could not read biases");
-    biases_.hostCopy(biases);
-
-    is.read((char*) weights.data(), weights_.size() * sizeof(float));
-    PX_CHECK(is.good(), "Could not read weights");
-    weights_.hostCopy(weights);
-#else
     is.read((char*) biases_.data(), biases_.size() * sizeof(float));
     PX_CHECK(is.good(), "Could not read biases");
 
     is.read((char*) weights_.data(), sizeof(float) * weights_.size());
     PX_CHECK(is.good(), "Could not read weights");
+
+#ifdef USE_CUDA
+    biasesGpu_.fromHost(biases_);
+    weightsGpu_.fromHost(weights_);
 #endif
 
     if (batchNormalize_) {
@@ -104,11 +102,8 @@ std::streamoff ConnLayer::loadDarknetWeights(std::istream& is)
     return is.tellg() - start;
 }
 
-void ConnLayer::forward(const PxDevVector<float>& input)
+void ConnLayer::forward(const xt::xarray<float>& input)
 {
-#ifdef USE_CUDA
-    forward_gpu(input);
-#else
     output_.fill(0);
 
     auto m = batch();
@@ -125,30 +120,27 @@ void ConnLayer::forward(const PxDevVector<float>& input)
         output_ = batchNormalize_->output();
     } else {
         add_bias(c, biases_.data(), m, outChannels(), outHeight() * outWidth());
-
-
     }
 
     activationFnc_->apply(output_);
-#endif
 }
 
 #if USE_CUDA
 
-void ConnLayer::forward_gpu(const PxDevVector<float>& input)
+void ConnLayer::forwardGpu(const PxDevVector<float>& input)
 {
-    output_.fill(0);
+    outputGpu_.fill(0);
 
     auto m = outputs();
     auto n = batch();
     auto k = inputs();
-    auto* a = weights_.data();
+    auto* a = weightsGpu_.data();
     auto* b = input.data();
-    auto* c = output_.data();
+    auto* c = outputGpu_.data();
 
     assert(input.size() == k * n);
-    assert(weights_.size() == k * m);
-    assert(output_.size() == m * n);
+    assert(weightsGpu_.size() == k * m);
+    assert(outputGpu_.size() == m * n);
 
     float alpha = 1.0f, beta = 1.0f;
 
@@ -173,13 +165,13 @@ void ConnLayer::forward_gpu(const PxDevVector<float>& input)
     PX_CHECK_CUBLAS(status);
 
     if (batchNormalize_) {
-        batchNormalize_->forward(output_);
-        output_ = batchNormalize_->output();
+        batchNormalize_->forwardGpu(outputGpu_);
+        outputGpu_ = batchNormalize_->outputGpu();
     } else {
-        add_bias_gpu(c, biases_.data(), n, m, 1);
+        add_bias_gpu(c, biasesGpu_.data(), n, m, 1);
     }
 
-    activationFnc_->apply(output_);
+    activationFnc_->applyGpu(outputGpu_);
 }
 
 #endif  // USE_CUDA

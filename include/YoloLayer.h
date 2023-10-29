@@ -32,10 +32,12 @@ public:
     virtual ~YoloLayer() = default;
 
     std::ostream& print(std::ostream& os) override;
-    void forward(const PxDevVector<float>& input) override;
-
-    void addDetects(Detections& detections, int width, int height, float threshold) override;
-
+    virtual void forward(const xt::xarray<float>& input) override;
+    virtual void addDetects(Detections& detections, int width, int height, float threshold) override;
+#ifdef USE_CUDA
+    virtual void forwardGpu(const PxDevVector<float>& input) override;
+    virtual void addDetectsGpu(Detections& detections, int width, int height, float threshold) override;
+#endif
 private:
     friend LayerFactories;
 

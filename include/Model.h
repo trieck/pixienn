@@ -17,6 +17,8 @@
 #ifndef PIXIENN_MODEL_H
 #define PIXIENN_MODEL_H
 
+#include <boost/program_options.hpp>
+
 #include "Cublas.h"
 #include "Cudnn.h"
 #include "Detection.h"
@@ -45,7 +47,8 @@ public:
     const int layerSize() const;
     const Layer::Ptr& layerAt(int index) const;
 
-    std::vector<Detection> predict(const std::string& imageFile, float threshold);
+    std::vector<Detection> predict(const std::string& imageFile, float threshold,
+                                   const boost::program_options::variables_map& options);
     std::string asJson(std::vector<Detection>&& detects) const noexcept;
 
     const std::vector<std::string>& labels() const noexcept;
@@ -56,7 +59,11 @@ public:
 #endif
 
 private:
-    PxDevVector<float> forward(PxDevVector<float>&& input);
+    xt::xarray<float> forward(const xt::xarray<float>& input);
+
+#ifdef USE_CUDA
+    PxDevVector<float> forwardGpu(const PxDevVector<float>& input);
+#endif
 
     void parseConfig();
     void parseModel();

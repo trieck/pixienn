@@ -33,8 +33,8 @@
 #ifndef PIXIENN_PXVECTOR_H
 #define PIXIENN_PXVECTOR_H
 
+#include "CudaError.h"
 #include "CudaUtils.cuh"
-#include "Error.h"
 
 #include <cuda_runtime.h>
 #include <xtensor/xarray.hpp>
@@ -51,12 +51,13 @@ public:
 
     PxDevVector(std::size_t N) : N_(N)
     {
-        cudaMalloc(&ptr_, N * sizeof(T));
+        auto result = cudaMalloc(&ptr_, N * sizeof(T));
+        PX_CUDA_CHECK_ERR(result);
     }
 
     PxDevVector(const T* phost, std::size_t N) : PxDevVector(N)
     {
-        hostCopy(phost, N);
+        fromHost(phost, N);
     }
 
     PxDevVector(std::size_t N, T value) : PxDevVector(N)
@@ -94,8 +95,11 @@ public:
             release();
             N_ = rhs.N_;
 
-            cudaMalloc(&ptr_, N_ * sizeof(T));
-            cudaMemcpy(ptr_, rhs.ptr_, N_ * sizeof(T), cudaMemcpyDeviceToDevice);
+            auto result = cudaMalloc(&ptr_, N_ * sizeof(T));
+            PX_CUDA_CHECK_ERR(result);
+
+            result = cudaMemcpy(ptr_, rhs.ptr_, N_ * sizeof(T), cudaMemcpyDeviceToDevice);
+            PX_CUDA_CHECK_ERR(result);
         }
 
         return *this;
@@ -142,33 +146,44 @@ public:
         N_ = 0;
     }
 
-    void deviceCopy(const T* host, std::size_t N) const
+    void fromDevice(const T* devp, std::size_t N) const
     {
         PX_CHECK(N <= N_, "Element size out of range");
-        cudaMemcpy(ptr_, host, N * sizeof(T), cudaMemcpyDeviceToDevice);
+        auto result = cudaMemcpy(ptr_, devp, N * sizeof(T), cudaMemcpyDeviceToDevice);
+        PX_CUDA_CHECK_ERR(result);
     }
 
-    void deviceCopy(const PxDevVector<T>& rhs) const
+    void fromDevice(const PxDevVector<T>& rhs) const
     {
-        deviceCopy(rhs.get(), rhs.size());
+        fromDevice(rhs.get(), rhs.size());
     }
 
-    void hostCopy(const T* host, std::size_t N) const
+    void fromHost(const T* host, std::size_t N) const
     {
         PX_CHECK(N <= N_, "Element size out of range");
-        cudaMemcpy(ptr_, host, N * sizeof(T), cudaMemcpyHostToDevice);
+        auto result = cudaMemcpy(ptr_, host, N * sizeof(T), cudaMemcpyHostToDevice);
+        PX_CUDA_CHECK_ERR(result);
     }
 
-    void hostCopy(const std::vector<T>& source) const
+    void fromHost(const std::vector<T>& source) const
     {
-        hostCopy(source.data(), source.size());
+        fromHost(source.data(), source.size());
     }
 
-    std::vector<T> asHost() const
+    void fromHost(const xt::xarray<float>& source) const
     {
-        std::vector<T> v(N_);
-        hostCopy(v);
-        return v;
+        fromHost(source.data(), source.size());
+    }
+
+    template<typename U=std::vector<T>>
+    U asHost() const
+    {
+        U u(N_);
+
+        auto result = cudaMemcpy(u.data(), ptr_, N_ * sizeof(T), cudaMemcpyDeviceToHost);
+        PX_CUDA_CHECK_ERR(result);
+
+        return u;
     }
 
     void fill(T value)

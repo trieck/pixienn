@@ -37,10 +37,10 @@ YoloLayer::YoloLayer(const Model& model, const YAML::Node& layerDef) : Layer(mod
     setOutWidth(width());
     setOutputs(outHeight() * outWidth() * outChannels() * (classes_ + 4 + 1));
 
-#ifdef USE_CUDA
-    output_ = PxDevVector<float>(batch() * outChannels() * outHeight() * outWidth());
-#else
     output_ = empty<float>({ batch(), outChannels(), outHeight(), outWidth() });
+
+#ifdef USE_CUDA
+    outputGpu_ = PxDevVector<float>(batch() * outChannels() * outHeight() * outWidth());
 #endif
 }
 
@@ -51,11 +51,8 @@ std::ostream& YoloLayer::print(std::ostream& os)
     return os;
 }
 
-void YoloLayer::forward(const PxDevVector<float>& input)
+void YoloLayer::forward(const xarray<float>& input)
 {
-#ifdef USE_CUDA
-    output_.deviceCopy(input);
-#else
     std::copy(input.begin(), input.end(), output_.begin());
 
     auto area = std::max(1, width() * height());
@@ -73,8 +70,16 @@ void YoloLayer::forward(const PxDevVector<float>& input)
             activation_->apply(start, end);
         }
     }
-#endif
 }
+
+
+#ifdef USE_CUDA
+void YoloLayer::forwardGpu(const PxDevVector<float>& input)
+{
+    outputGpu_.fromDevice(input);
+}
+#endif // USE_CUDA
+
 
 int YoloLayer::entryIndex(int batch, int location, int entry) const noexcept
 {
@@ -129,12 +134,7 @@ cv::Rect YoloLayer::yoloBox(const float* p, int mask, int index, int col, int ro
 
 void YoloLayer::addDetects(Detections& detections, int width, int height, float threshold)
 {
-#ifdef USE_CUDA
-    auto predv = output_.asHost();
-    const auto* predictions = predv.data();
-#else
     const auto* predictions = output_.data();
-#endif
 
     auto area = std::max(1, this->width() * this->height());
 
@@ -170,5 +170,49 @@ void YoloLayer::addDetects(Detections& detections, int width, int height, float 
         }
     }
 }
+
+#ifdef USE_CUDA
+void YoloLayer::addDetectsGpu(Detections& detections, int width, int height, float threshold)
+{
+    // FIXME: this is ridiculous
+
+    auto predv = outputGpu_.asHost();
+    const auto* predictions = predv.data();
+
+    auto area = std::max(1, this->width() * this->height());
+
+    for (auto i = 0; i < area; ++i) {
+        auto row = i / this->width();
+        auto col = i % this->width();
+
+        for (auto n = 0; n < mask_.size(); ++n) {
+            auto objIndex = entryIndex(0, n * area + i, 4);
+            auto objectness = predictions[objIndex];
+            if (objectness < threshold) {
+                continue;
+            }
+
+            auto boxIndex = entryIndex(0, n * area + i, 0);
+            auto box = yoloBox(predictions, mask_[n], boxIndex, col, row, width, height);
+
+            Detection det(classes_, box, objectness);
+
+            int max = 0;
+            for (auto j = 0; j < classes_; ++j) {
+                int clsIndex = entryIndex(0, n * area + i, 5 + j);
+                det[j] = objectness * predictions[clsIndex];
+                if (det[j] > det[max]) {
+                    max = j;
+                }
+            }
+
+            if (det[max] >= threshold) {
+                det.setMaxClass(max);
+                detections.emplace_back(std::move(det));
+            }
+        }
+    }
+}
+#endif // USE_CUDA
 
 } // px

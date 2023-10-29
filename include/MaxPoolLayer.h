@@ -31,13 +31,13 @@ public:
     virtual ~MaxPoolLayer() = default;
 
     std::ostream& print(std::ostream& os) override;
-    void forward(const PxDevVector<float>& input) override;
+    void forward(const xt::xarray<float>& input) override;
+
+#ifdef USE_CUDA
+    void forwardGpu(const PxDevVector<float>& input) override;
+#endif
 
 private:
-#ifdef USE_CUDA
-    void forward_gpu(const PxDevVector<float>& input);
-#endif // USE_CUDA
-
     friend LayerFactories;
     int kernel_ = 0, stride_ = 0, padding_;
 };

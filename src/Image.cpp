@@ -15,8 +15,13 @@
 ********************************************************************************/
 
 #include "Common.h"
-#include "Image.h"
 #include "Error.h"
+#include "Image.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+
+#include "stb_image.h"
+#include "SHA1.h"
 
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
@@ -49,6 +54,34 @@ Mat imread(const char* path)
     return out;
 }
 
+cv::Mat imread_stb(const char* path)
+{
+    int w, h, c;
+    unsigned char* data = stbi_load(path, &w, &h, &c, 3);
+    if (!data) {
+        fprintf(stderr, "Cannot load image \"%s\"\nSTB Reason: %s\n", path, stbi_failure_reason());
+        exit(0);
+    }
+
+    cv::Mat mat(h, w, CV_32FC3);
+    for (auto i = 0; i < w; ++i) {
+        for (auto j = 0; j < h; ++j) {
+            for (auto k = 0; k < c; ++k) {
+                int src_index = k + c * i + c * w * j;
+                auto value = (float) data[src_index] / 255.0f;
+                imset(mat, i, j, k, value);
+            }
+        }
+    }
+
+    free(data);
+
+    auto result = sha1(mat.data, h * w * c * sizeof(float));
+    std::cout << "imread_stb RAW image:  " << result << std::endl;
+
+    return mat;
+}
+
 void imsave(const char* path, const cv::Mat& image)
 {
     auto* tif = TIFFOpen(path, "w");
@@ -77,7 +110,7 @@ void imsave(const char* path, const cv::Mat& image)
     TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, rowsPerStrip);
 
     TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, depth >= CV_32F ? SAMPLEFORMAT_IEEEFP : SAMPLEFORMAT_UINT);
-    TIFFSetField(tif, TIFFTAG_PREDICTOR, PREDICTOR_HORIZONTAL);
+    //TIFFSetField(tif, TIFFTAG_PREDICTOR, PREDICTOR_HORIZONTAL);
 
     auto scanlineSize = TIFFScanlineSize(tif);
     AutoBuffer<uchar> buffer(scanlineSize + 32);

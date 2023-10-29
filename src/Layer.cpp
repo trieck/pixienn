@@ -186,10 +186,17 @@ void Layer::setWidth(int width)
     width_ = width;
 }
 
-const PxDevVector<float>& Layer::output() const noexcept
+const xt::xarray<float>& Layer::output() const noexcept
 {
     return output_;
 }
+
+#ifdef USE_CUDA
+const PxDevVector<float>& Layer::outputGpu() const noexcept
+{
+    return outputGpu_;
+}
+#endif // USE_CUDA
 
 const Model& Layer::model() const noexcept
 {
@@ -237,7 +244,7 @@ const CublasContext& Layer::cublasContext() const noexcept
     return model().cublasContext();
 }
 
-const CudnnContext & Layer::cudnnContext() const noexcept
+const CudnnContext& Layer::cudnnContext() const noexcept
 {
     return model().cudnnContext();
 }

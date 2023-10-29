@@ -23,9 +23,10 @@
 
 #include "PxVector.h"
 
-#else
+#endif  // USE_CUDA
+
 #include <xtensor/xcontainer.hpp>
-#endif
+
 namespace px {
 
 class Activation
@@ -35,33 +36,30 @@ public:
 
     static Activation::Ptr get(const std::string& s);
 
-#ifdef USE_CUDA
-    virtual void apply_gpu(float* begin, std::size_t n) const = 0;
-#else
     virtual void apply(float* begin, float* end) const = 0;
-#endif
 
     template<typename T>
-#ifdef USE_CUDA
-    void apply(PxDevVector<T>&) const;
-#else
-    template<typename T>
     void apply(xt::xcontainer<T>&) const;
+
+#ifdef USE_CUDA
+    virtual void applyGpu(float* begin, std::size_t n) const = 0;
+
+    template<typename T>
+    void applyGpu(PxDevVector<T>&) const;
 #endif
 };
 
-#ifdef USE_CUDA
-template<typename T>
-void Activation::apply(PxDevVector<T>& vec) const
-{
-    apply_gpu(vec.data(), vec.size());
-}
-
-#else
 template<typename T>
 void Activation::apply(xt::xcontainer<T>& container) const
 {
     apply(container.begin(), container.end());
+}
+
+#ifdef USE_CUDA
+template<typename T>
+void Activation::applyGpu(PxDevVector<T>& vec) const
+{
+    applyGpu(vec.data(), vec.size());
 }
 #endif // USE_CUDA
 

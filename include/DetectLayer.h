@@ -32,9 +32,13 @@ public:
     virtual ~DetectLayer() = default;
 
     std::ostream& print(std::ostream& os) override;
-    void forward(const PxDevVector<float>& input) override;
+    void forward(const xt::xarray<float>& input) override;
+    virtual void addDetects(Detections& detections, int width, int height, float threshold) override;
 
-    void addDetects(Detections& detections, int width, int height, float threshold) override;
+#ifdef USE_CUDA
+    void forwardGpu(const PxDevVector<float>& input) override;
+    void addDetectsGpu(Detections& detections, int width, int height, float threshold) override;
+#endif
 
 private:
     friend LayerFactories;
