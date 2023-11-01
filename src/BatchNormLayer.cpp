@@ -39,7 +39,7 @@ BatchNormLayer::BatchNormLayer(const Model& model, const YAML::Node& layerDef) :
     scalesGpu_ = PxDevVector<float>(channels(), 1.f);
     rollingMeanGpu_ = PxDevVector<float>(channels(), 0.f);
     rollingVarGpu_ = PxDevVector<float>(channels(), 0.f);
-    outputGpu_ = PxDevVector<float>(batch() * outChannels() * outHeight() * outWidth(), 0.f);
+    outputGpu_ = PxDevVector<float>(batch() * outputs(), 0.f);
     xGpu_ = PxDevVector<float>(batch() * outputs());
 
     cudnnSetTensor4dDescriptor(dstTens_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, batch(), outChannels(), outHeight(),
@@ -54,7 +54,6 @@ std::ostream& BatchNormLayer::print(std::ostream& os)
 
     return os;
 }
-
 
 void BatchNormLayer::forward(const xarray<float>& input)
 {
@@ -75,6 +74,7 @@ void BatchNormLayer::forward(const xarray<float>& input)
 void BatchNormLayer::forwardGpu(const PxDevVector<float>& input)
 {
     outputGpu_.fromDevice(input);
+    xGpu_.fromDevice(outputGpu_);
 
     float alpha = 1;
     float beta = 0;

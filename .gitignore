@@ -7,3 +7,4 @@
 *.qml
 *.aux.xml
 /cmake-build-debugcuda_script
+/cmake-build-releasecuda_script

@@ -17,7 +17,6 @@
 #include "Error.h"
 #include "Model.h"
 #include "NMS.h"
-#include "SHA1.h"
 #include "Utility.h"
 
 #include <fstream>
@@ -49,10 +48,6 @@ int main(int argc, char* argv[])
         std::cerr << "usage: pixienn [options] config-file image-file" << std::endl;
         exit(1);
     }
-
-    std::string v = "The quick brown fox jumps over the lazy dog";
-    auto output = sha1(v.data(), v.size());
-    assert(output == "2fd4e1c67a2d28fced849ee1bb76e7391b93eb12");
 
     po::options_description desc("options");
     po::positional_options_description pod;

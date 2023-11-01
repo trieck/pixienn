@@ -23,7 +23,7 @@
 namespace px {
 
 template<typename T>
-std::string sha1(const T* x, int n)
+std::string sha1(const T* x, std::size_t n)
 {
     uint32_t digest[5];
     boost::uuids::detail::sha1 sha1;

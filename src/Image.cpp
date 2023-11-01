@@ -14,20 +14,15 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include "Common.h"
-#include "Error.h"
-#include "Image.h"
-
-#define STB_IMAGE_IMPLEMENTATION
-
-#include "stb_image.h"
-#include "SHA1.h"
-
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/imgproc/types_c.h>
 #include <tiffio.h>
 #include <xtensor/xadapt.hpp>
+
+#include "Common.h"
+#include "Error.h"
+#include "Image.h"
 
 using namespace cv;
 
@@ -52,34 +47,6 @@ Mat imread(const char* path)
     out /= 255.0f;
 
     return out;
-}
-
-cv::Mat imread_stb(const char* path)
-{
-    int w, h, c;
-    unsigned char* data = stbi_load(path, &w, &h, &c, 3);
-    if (!data) {
-        fprintf(stderr, "Cannot load image \"%s\"\nSTB Reason: %s\n", path, stbi_failure_reason());
-        exit(0);
-    }
-
-    cv::Mat mat(h, w, CV_32FC3);
-    for (auto i = 0; i < w; ++i) {
-        for (auto j = 0; j < h; ++j) {
-            for (auto k = 0; k < c; ++k) {
-                int src_index = k + c * i + c * w * j;
-                auto value = (float) data[src_index] / 255.0f;
-                imset(mat, i, j, k, value);
-            }
-        }
-    }
-
-    free(data);
-
-    auto result = sha1(mat.data, h * w * c * sizeof(float));
-    std::cout << "imread_stb RAW image:  " << result << std::endl;
-
-    return mat;
 }
 
 void imsave(const char* path, const cv::Mat& image)

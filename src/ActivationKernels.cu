@@ -40,7 +40,7 @@ struct LeakyActivation
 {
     __device__ static float activate(float x)
     {
-        return (2.f / (1 + expf(-2 * x)) - 1);
+        return (x > 0) ? x : .1f * x;
     }
 };
 

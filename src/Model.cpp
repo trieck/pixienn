@@ -19,9 +19,7 @@
 #include "Image.h"
 #include "Layer.h"
 #include "Model.h"
-#include "SHA1.h"
 #include "Timer.h"
-#include "Utility.h"
 
 #include <boost/filesystem.hpp>
 #include <fstream>
@@ -204,26 +202,11 @@ void Model::loadDarknetWeights()
 
 std::vector<Detection> Model::predict(const std::string& imageFile, float threshold, const po::variables_map& options)
 {
-    //auto image = imread(imageFile.c_str());
-    auto image = imread_stb(imageFile.c_str());
-    imsave("stb_image.tif", image);
-
-    auto RAW = imarray(image);
-    auto result = sha1(RAW.data(), RAW.size() * sizeof(float));
-    std::cout << "imread_stb as darknet image:  " << result << std::endl;
-
+    auto image = imread(imageFile.c_str());
     auto sized = imletterbox(image, width(), height());
-
-    imsave("letterbox.tif", sized);
-
     auto input = imarray(sized);
-    PxDevVector<float> vinput(input);
 
-    auto input2 = vinput.asHost();
-    result = sha1(input2.data(), input2.size());
-    std::cout << "letterbox image (device->host):  " << result << std::endl;
-
-    std::cout << "Running network...\n";
+    std::cout << "Running network..." << std::endl;
 
     Timer timer;
 

@@ -22,7 +22,6 @@
 #include "ConvLayer.h"
 #include "Error.h"
 #include "Utility.h"
-#include "SHA1.h"
 
 using namespace xt;
 
@@ -50,6 +49,7 @@ ConvLayer::ConvLayer(const Model& model, const YAML::Node& layerDef) : Layer(mod
     if (batchNormalize) {
         auto def = layerDef;
         def["type"] = "batchnorm";
+        def["inputs"] = outputs();
         def["channels"] = outChannels();
         def["height"] = outHeight();
         def["width"] = outWidth();
@@ -107,9 +107,6 @@ std::streamoff ConvLayer::loadDarknetWeights(std::istream& is)
 
 void ConvLayer::forward(const xt::xarray<float>& input)
 {
-    auto result = sha1(input.data(), input.size());
-    std::cout << "sha1[conv](cpu input):  " << result << std::endl;
-
     int m = filters_ / groups_;
     int n = outWidth() * outHeight();
     int k = kernel_ * kernel_ * channels() / groups_;
@@ -146,9 +143,6 @@ void ConvLayer::forward(const xt::xarray<float>& input)
     }
 
     activationFnc_->apply(output_);
-
-    result = sha1(output_.data(), outputs());
-    std::cout << "sha1[conv](cpu output): " << result << std::endl;
 }
 
 #if USE_CUDA
@@ -222,12 +216,6 @@ void ConvLayer::setup_gpu()
 
 void ConvLayer::forwardGpu(const PxDevVector<float>& input)
 {
-    auto inputCpu = input.asHost();
-
-    assert(inputCpu.size() == inputs());
-    auto result = sha1(inputCpu.data(), inputCpu.size());
-    std::cout << "sha1[conv](gpu input):  " << result << std::endl;
-
     float alpha = 1.f;
     float beta = 1.f;
 
@@ -255,10 +243,6 @@ void ConvLayer::forwardGpu(const PxDevVector<float>& input)
     }
 
     activationFnc_->applyGpu(outputGpu_);
-
-    auto output = outputGpu_.asHost();
-    result = sha1(output.data(), outputs());
-    std::cout << "sha1[conv](gpu output): " << result << std::endl;
 }
 
 #endif  // USE_CUDA
