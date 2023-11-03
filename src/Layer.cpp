@@ -239,6 +239,8 @@ void Layer::print(std::ostream& os, const std::string& name, std::array<int, 3>&
     os << std::endl << std::flush;
 }
 
+#ifdef USE_CUDA
+
 const CublasContext& Layer::cublasContext() const noexcept
 {
     return model().cublasContext();
@@ -248,5 +250,7 @@ const CudnnContext& Layer::cudnnContext() const noexcept
 {
     return model().cudnnContext();
 }
+
+#endif // USE_CUDA
 
 } // px
