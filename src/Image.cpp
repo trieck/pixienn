@@ -75,9 +75,7 @@ void imsave(const char* path, const cv::Mat& image)
     TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, channels);
     TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
     TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, rowsPerStrip);
-
     TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, depth >= CV_32F ? SAMPLEFORMAT_IEEEFP : SAMPLEFORMAT_UINT);
-    //TIFFSetField(tif, TIFFTAG_PREDICTOR, PREDICTOR_HORIZONTAL);
 
     auto scanlineSize = TIFFScanlineSize(tif);
     AutoBuffer<uchar> buffer(scanlineSize + 32);

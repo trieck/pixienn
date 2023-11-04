@@ -29,11 +29,11 @@ protected:
     DetectLayer(const Model& model, const YAML::Node& layerDef);
 
 public:
-    virtual ~DetectLayer() = default;
+    ~DetectLayer() override = default;
 
     std::ostream& print(std::ostream& os) override;
     void forward(const xt::xarray<float>& input) override;
-    virtual void addDetects(Detections& detections, int width, int height, float threshold) override;
+    void addDetects(Detections& detections, int width, int height, float threshold) override;
 
 #ifdef USE_CUDA
     void forwardGpu(const PxDevVector<float>& input) override;
@@ -41,6 +41,8 @@ public:
 #endif
 
 private:
+    void addDetects(Detections& detections, int width, int height, float threshold, float* predictions);
+
     friend LayerFactories;
 
     int coords_, classes_, num_, side_, maxBoxes_;
