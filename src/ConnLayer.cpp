@@ -30,7 +30,12 @@ namespace px {
 
 using namespace xt;
 
-ConnLayer::ConnLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
+ConnLayer::ConnLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef), scales_(0),
+                                                                       rollingMean_(0), rollingVar_(0)
+{
+}
+
+void ConnLayer::setup()
 {
     activation_ = property<std::string>("activation", "logistic");
     activationFnc_ = Activation::get(activation_);
@@ -47,28 +52,39 @@ ConnLayer::ConnLayer(const Model& model, const YAML::Node& layerDef) : Layer(mod
     setOutChannels(outputs());
 
     if (batchNormalize) {
-        auto def = layerDef;
+        auto def = layerDef();
         def["type"] = "batchnorm";
         def["channels"] = outChannels();
         def["height"] = outHeight();
         def["width"] = outWidth();
-        batchNormalize_ = Layer::create(model, def);
+        batchNormalize_ = Layer::create(model(), def);
     } else {
         biases_ = zeros<float>({ outputs() });
-
-#ifdef USE_CUDA
-        biasesGpu_ = PxDevVector<float>(outputs(), 0.f);
-#endif
     }
 
     weights_ = random::rand<float>({ inputs(), outputs() });
     output_ = zeros<float>({ batch() * outputs() });
 
 #ifdef USE_CUDA
-    weightsGpu_ = PxDevVector<float>::random(inputs() * outputs(), -1.f, 1.f);
-    outputGpu_ = PxDevVector<float>(batch() * outputs(), 0.f);
+    setupGpu();
 #endif
 }
+
+#ifdef USE_CUDA // USE_CUDA
+
+void ConnLayer::setupGpu()
+{
+    if (useGpu()) {
+        if (batchNormalize_) {
+            biasesGpu_ = PxDevVector<float>(outputs(), 0.f);
+        }
+
+        weightsGpu_ = PxDevVector<float>::random(inputs() * outputs(), -1.f, 1.f);
+        outputGpu_ = PxDevVector<float>(batch() * outputs(), 0.f);
+    }
+}
+
+#endif // USE_CUDA
 
 std::ostream& ConnLayer::print(std::ostream& os)
 {
@@ -88,8 +104,10 @@ std::streamoff ConnLayer::loadDarknetWeights(std::istream& is)
     PX_CHECK(is.good(), "Could not read weights");
 
 #ifdef USE_CUDA
-    biasesGpu_.fromHost(biases_);
-    weightsGpu_.fromHost(weights_);
+    if (useGpu()) {
+        biasesGpu_.fromHost(biases_);
+        weightsGpu_.fromHost(weights_);
+    }
 #endif
 
     if (batchNormalize_) {

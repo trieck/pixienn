@@ -17,7 +17,6 @@
 #include "Error.h"
 #include "Model.h"
 #include "NMS.h"
-#include "Utility.h"
 
 #include <fstream>
 #include <iostream>
@@ -29,10 +28,11 @@ using namespace px;
 void predict(const std::string& cfgFile, const std::string& imageFile,
              const po::variables_map& options)
 {
-    auto model = Model(cfgFile);
+    auto model = Model(cfgFile, options);
+    auto detects = model.predict(imageFile);
 
-    auto detects = model.predict(imageFile, 0.2f, options);
-    nms(detects, 0.2f);
+    auto nmsThreshold = options["nms"].as<float>();
+    nms(detects, nmsThreshold);
 
     auto json = model.asJson(std::move(detects));
 
@@ -56,6 +56,8 @@ int main(int argc, char* argv[])
 
     desc.add_options()
             ("no-gpu", "Use CPU for processing")
+            ("confidence", po::value<float>()->default_value(0.2f))
+            ("nms", po::value<float>()->default_value(0.3f))
             ("config-file", po::value<std::string>()->required(), "Configuration file")
             ("image-file", po::value<std::string>()->required(), "Image file");
 

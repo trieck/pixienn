@@ -36,17 +36,19 @@ protected:
     ConvLayer(const Model& model, const YAML::Node& layerDef);
 
 public:
-    virtual ~ConvLayer() = default;
+    ~ConvLayer() override = default;
 
     std::ostream& print(std::ostream& os) override;
     std::streamoff loadDarknetWeights(std::istream& is) override;
-    virtual void forward(const xt::xarray<float>& input) override;
+    void forward(const xt::xarray<float>& input) override;
 
 #ifdef USE_CUDA
-    virtual void forwardGpu(const PxDevVector<float>& input) override;
+    void forwardGpu(const PxDevVector<float>& input) override;
 #endif
 
 private:
+    void setup() override;
+
 #ifdef USE_CUDA
     void setup_gpu();
 #endif
@@ -62,12 +64,11 @@ private:
     Activation::Ptr activationFnc_;
 
 #ifdef USE_CUDA
-    PxDevVector<float> weightsGpu_, biasesGpu_, columnGpu_, workspace_;
-
-    CudnnTensorDesc xDesc_, yDesc_;
-    CudnnConvDesc convDesc_;
-    CudnnFilterDesc wDesc_;
-    cudnnConvolutionFwdAlgo_t bestAlgo_;
+    PxDevVector<float> weightsGpu_, biasesGpu_, workspace_;
+    CudnnTensorDesc::Ptr xDesc_, yDesc_;
+    CudnnConvDesc::Ptr convDesc_;
+    CudnnFilterDesc::Ptr wDesc_;
+    cudnnConvolutionFwdAlgo_t bestAlgo_ = CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM;
 #endif
 };
 

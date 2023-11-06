@@ -54,10 +54,10 @@ void imsave(const char* path, const cv::Mat& image)
     auto* tif = TIFFOpen(path, "w");
     PX_CHECK(tif != nullptr, "Cannot open image \"%s\".", path);
 
-    int channels = image.channels();
-    int width = image.cols, height = image.rows;
-    int type = image.type();
-    int depth = CV_MAT_DEPTH(type);
+    auto channels = image.channels();
+    auto width = image.cols, height = image.rows;
+    auto type = image.type();
+    auto depth = CV_MAT_DEPTH(type);
 
     TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, width);
     TIFFSetField(tif, TIFFTAG_IMAGELENGTH, height);
@@ -91,8 +91,8 @@ void imsave(const char* path, const cv::Mat& image)
 Mat imletterbox(const Mat& image, int width, int height)
 {
     int newWidth, newHeight;
-    int imageWidth = image.cols;
-    int imageHeight = image.rows;
+    auto imageWidth = image.cols;
+    auto imageHeight = image.rows;
 
     if (((float) width / imageWidth) < ((float) height / imageHeight)) {
         newWidth = width;
@@ -170,7 +170,7 @@ Mat imrandom(int height, int width, int channels)
 
 Mat immake(int height, int width, int channels, float value)
 {
-    return Mat(height, width, CV_32FC(channels), Scalar_<float>::all(value));
+    return { height, width, CV_32FC(channels), Scalar_<float>::all(value) };
 }
 
 void imconvolve(const Mat& image, const Mat& kernel, int stride, int channel, Mat& out)

@@ -39,30 +39,29 @@ namespace px {
 __global__ void maxpool_kernel(int n, int in_h, int in_w, int in_c, int stride, int kernel, int pad, const float* input,
                                float* output)
 {
-    int h = (in_h + pad - kernel) / stride + 1;
-    int w = (in_w + pad - kernel) / stride + 1;
-    int c = in_c;
+    auto h = (in_h + pad - kernel) / stride + 1;
+    auto w = (in_w + pad - kernel) / stride + 1;
+    auto c = in_c;
 
-    int id = (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x + threadIdx.x;
+    auto id = (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x + threadIdx.x;
     if (id >= n) return;
 
-    int j = id % w;
+    auto j = id % w;
     id /= w;
-    int i = id % h;
+    auto i = id % h;
     id /= h;
-    int k = id % c;
+    auto k = id % c;
     id /= c;
-    int b = id;
+    auto b = id;
 
-    int w_offset = -pad / 2;
-    int h_offset = -pad / 2;
+    auto w_offset = -pad / 2;
+    auto h_offset = -pad / 2;
 
-    int out_index = j + w * (i + h * (k + c * b));
+    auto out_index = j + w * (i + h * (k + c * b));
     float max = -INFINITY;
 
-    int l, m;
-    for (l = 0; l < kernel; ++l) {
-        for (m = 0; m < kernel; ++m) {
+    for (auto l = 0; l < kernel; ++l) {
+        for (auto m = 0; m < kernel; ++m) {
             int cur_h = h_offset + i * stride + l;
             int cur_w = w_offset + j * stride + m;
             int index = cur_w + in_w * (cur_h + in_h * (k + b * in_c));

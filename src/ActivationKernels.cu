@@ -72,14 +72,14 @@ struct ReluActivation
 {
     __device__ static float activate(float x)
     {
-        return x * (x > 0);
+        return x * float(x > 0);
     }
 };
 
 template<typename T>
-__global__ void activate_kernel(float* x, int n)
+__global__ void activate_kernel(float* x, std::size_t n)
 {
-    int i = (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x + threadIdx.x;
+    std::size_t i = (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x + threadIdx.x;
     if (i < n) {
         x[i] = T::activate(x[i]);
     }

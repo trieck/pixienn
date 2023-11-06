@@ -14,15 +14,20 @@
 * limitations under the License.
 ********************************************************************************/
 
+#include <xtensor/xtensor.hpp>
+
 #include "Model.h"
 #include "RouteLayer.h"
-#include <xtensor/xtensor.hpp>
 
 namespace px {
 
 using namespace xt;
 
 RouteLayer::RouteLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
+{
+}
+
+void RouteLayer::setup()
 {
     auto layers = property<std::vector<int>>("layers");
 
@@ -34,10 +39,10 @@ RouteLayer::RouteLayer(const Model& model, const YAML::Node& layerDef) : Layer(m
             index = this->index() + index;
         }
 
-        PX_CHECK(index < model.layerSize(), "Layer index out of range.");
+        PX_CHECK(index < model().layerSize(), "Layer index out of range.");
         PX_CHECK(index < this->index(), "Layer index ahead of current layer.");
 
-        const auto& layer = model.layerAt(index);
+        const auto& layer = model().layerAt(index);
 
         outputs += layer->outputs();
 
@@ -62,7 +67,9 @@ RouteLayer::RouteLayer(const Model& model, const YAML::Node& layerDef) : Layer(m
     output_ = empty<float>({ batch(), outChannels, outHeight, outWidth });
 
 #ifdef USE_CUDA
-    outputGpu_ = PxDevVector<float>(batch() * outChannels * outHeight * outWidth);
+    if (useGpu()) {
+        outputGpu_ = PxDevVector<float>(batch() * outChannels * outHeight * outWidth);
+    }
 #endif // USE_CUDA
 }
 
@@ -79,7 +86,7 @@ void RouteLayer::forward(const xt::xarray<float>& /*input*/)
 
     auto* output = output_.data();
 
-    for (auto layer: layers_) {
+    for (const auto& layer: layers_) {
         const auto* input = layer->output().data();
         auto inputSize = layer->outputs();
 

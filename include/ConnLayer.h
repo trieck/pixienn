@@ -36,18 +36,23 @@ protected:
     ConnLayer(const Model& model, const YAML::Node& layerDef);
 
 public:
-    virtual ~ConnLayer() = default;
+    ~ConnLayer() override = default;
 
     std::ostream& print(std::ostream& os) override;
     std::streamoff loadDarknetWeights(std::istream& is) override;
 
-    virtual void forward(const xt::xarray<float>& input) override;
+    void forward(const xt::xarray<float>& input) override;
 
 #ifdef USE_CUDA
-    virtual void forwardGpu(const PxDevVector<float>& input) override;
+    void forwardGpu(const PxDevVector<float>& input) override;
 #endif
 
 private:
+    void setup() override;
+#ifdef USE_CUDA
+    void setupGpu();
+#endif // USE_CUDA
+
     friend LayerFactories;
 
     xt::xtensor<float, 2> weights_;
@@ -60,7 +65,7 @@ private:
     float scales_, rollingMean_, rollingVar_;
 
 #ifdef USE_CUDA
-    CudnnTensorDesc normDesc_, destDesc_;
+    CudnnTensorDesc::Ptr normDesc_, destDesc_;
     PxDevVector<float> weightsGpu_, biasesGpu_;
 #endif
 };

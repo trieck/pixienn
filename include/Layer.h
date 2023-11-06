@@ -17,6 +17,9 @@
 #ifndef PIXIENN_LAYER_H
 #define PIXIENN_LAYER_H
 
+#include <xtensor/xarray.hpp>
+#include <yaml-cpp/yaml.h>
+
 #ifdef USE_CUDA
 
 #include "Cublas.h"
@@ -26,8 +29,6 @@
 #endif
 
 #include "Error.h"
-#include <xtensor/xarray.hpp>
-#include <yaml-cpp/yaml.h>
 
 namespace px {
 
@@ -70,13 +71,14 @@ public:
 #ifdef USE_CUDA
     virtual void forwardGpu(const PxDevVector<float>& input) = 0;
     const PxDevVector<float>& outputGpu() const noexcept;
-
     const CublasContext& cublasContext() const noexcept;
     const CudnnContext& cudnnContext() const noexcept;
+    bool useGpu() const;
 #endif
 
 protected:
     const Model& model() const noexcept;
+    const YAML::Node& layerDef() const noexcept;
 
     template<typename T>
     T property(const std::string& prop) const;
@@ -107,6 +109,10 @@ protected:
 #endif
 
 private:
+    friend LayerFactories;
+
+    virtual void setup() = 0;
+
     const Model& model_;
     YAML::Node layerDef_;
     int batch_, channels_, height_, width_;

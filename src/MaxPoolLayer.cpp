@@ -27,9 +27,13 @@ using namespace xt;
 
 MaxPoolLayer::MaxPoolLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
+}
+
+void MaxPoolLayer::setup()
+{
     kernel_ = property<int>("kernel", 1);
     stride_ = property<int>("stride", 1);
-    padding_ = property<int>("padding", std::max(0, kernel_ - 1));
+    padding_ = property<int>("padding", std::max<int>(0, kernel_ - 1));
 
     setOutChannels(channels());
     setOutHeight((height() + padding_ - kernel_) / stride_ + 1);
@@ -40,7 +44,9 @@ MaxPoolLayer::MaxPoolLayer(const Model& model, const YAML::Node& layerDef) : Lay
     output_ = empty<float>({ batch(), outChannels(), outHeight(), outWidth() });
 
 #ifdef USE_CUDA
-    outputGpu_ = PxDevVector<float>(batch() * outChannels() * outHeight() * outWidth());
+    if (useGpu()) {
+        outputGpu_ = PxDevVector<float>(batch() * outChannels() * outHeight() * outWidth());
+    }
 #endif
 }
 
@@ -98,6 +104,5 @@ void MaxPoolLayer::forwardGpu(const PxDevVector<float>& input)
 }
 
 #endif  // USE_CUDA
-
 
 } // px

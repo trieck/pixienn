@@ -41,7 +41,9 @@ public:
 #endif
 
 private:
-    void addDetects(Detections& detections, int width, int height, float threshold, float* predictions);
+    void setup() override;
+    void addDetects(Detections& detections, int width, int height, float threshold,
+                    const float* predictions) const;
 
     friend LayerFactories;
 

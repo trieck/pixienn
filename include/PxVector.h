@@ -49,7 +49,7 @@ public:
     {
     }
 
-    PxDevVector(std::size_t N) : N_(N)
+    explicit PxDevVector(std::size_t N) : N_(N)
     {
         auto result = cudaMalloc(&ptr_, N * sizeof(T));
         PX_CUDA_CHECK_ERR(result);
@@ -69,7 +69,7 @@ public:
     {
     }
 
-    PxDevVector(PxDevVector&& rhs)
+    PxDevVector(PxDevVector&& rhs) noexcept
     {
         *this = std::move(rhs);
     };
@@ -79,7 +79,7 @@ public:
         *this = rhs;
     };
 
-    PxDevVector& operator=(PxDevVector&& rhs)
+    PxDevVector& operator=(PxDevVector&& rhs) noexcept
     {
         ptr_ = std::move(rhs.ptr_);
         N_ = rhs.N_;
@@ -105,7 +105,7 @@ public:
         return *this;
     }
 
-    std::size_t size() const noexcept
+    [[nodiscard]] std::size_t size() const noexcept
     {
         return N_;
     }
@@ -194,7 +194,7 @@ public:
     static PxDevVector<T> random(std::size_t N, T a = 0.f, T b = 1.f)
     {
         PxDevVector<T> vec(N);
-        random_generate(vec.ptr_, N);
+        random_generate(vec.ptr_, N, a, b);
         return vec;
     }
 

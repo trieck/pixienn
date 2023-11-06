@@ -14,17 +14,16 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include "Cudnn.h"
+#include <boost/filesystem.hpp>
+#include <fstream>
+#include <nlohmann/json.hpp>
+#include <utility>
+
 #include "Error.h"
 #include "Image.h"
 #include "Layer.h"
 #include "Model.h"
 #include "Timer.h"
-
-#include <boost/filesystem.hpp>
-#include <fstream>
-#include <nlohmann/json.hpp>
-#include <utility>
 
 using namespace YAML;
 using namespace boost::filesystem;
@@ -34,8 +33,16 @@ namespace po = boost::program_options;
 
 namespace px {
 
-Model::Model(std::string cfgFile) : cfgFile_(std::move(cfgFile))
+Model::Model(std::string cfgFile, const boost::program_options::variables_map& options)
+        : cfgFile_(std::move(cfgFile))
 {
+#ifdef USE_CUDA
+    gpu_ = options.count("no-gpu") == 0;
+    if (gpu_) {
+        setupGpu();
+    }
+#endif
+    threshold_ = options["confidence"].as<float>();
     parseConfig();
 }
 
@@ -78,7 +85,7 @@ void Model::parseModel()
     channels_ = model["channels"].as<int>();
     height_ = model["height"].as<int>();
     width_ = model["width"].as<int>();
-    int inputs = batch_ * height_ * width_ * channels_;
+    auto inputs = batch_ * height_ * width_ * channels_;
 
     const auto layers = model["layers"];
     PX_CHECK(layers.IsSequence(), "Model has no layers.");
@@ -142,7 +149,7 @@ int Model::width() const
     return width_;
 }
 
-xt::xarray<float> Model::forward(const xt::xarray<float>& input)
+void Model::forward(const xt::xarray<float>& input) const
 {
     const auto* in = &input;
 
@@ -150,21 +157,18 @@ xt::xarray<float> Model::forward(const xt::xarray<float>& input)
         layer->forward(*in);
         in = &layer->output();
     }
-
-    return *in;
 }
 
 #ifdef USE_CUDA
-PxDevVector<float> Model::forwardGpu(const PxDevVector<float>& input)
+void Model::forwardGpu(const xt::xarray<float>& input) const
 {
-    const auto* in = &input;
+    PxDevVector<float> vinput(input);
+    const auto* in = &vinput;
 
     for (auto& layer: layers()) {
         layer->forwardGpu(*in);
         in = &layer->outputGpu();
     }
-
-    return *in;
 }
 #endif // USE_CUDA
 
@@ -200,7 +204,7 @@ void Model::loadDarknetWeights()
     ifs.close();
 }
 
-std::vector<Detection> Model::predict(const std::string& imageFile, float threshold, const po::variables_map& options)
+std::vector<Detection> Model::predict(const std::string& imageFile)
 {
     auto image = imread(imageFile.c_str());
     auto sized = imletterbox(image, width(), height());
@@ -211,26 +215,24 @@ std::vector<Detection> Model::predict(const std::string& imageFile, float thresh
     Timer timer;
 
 #ifdef USE_CUDA
-    auto noGpu = options.count("no-gpu");
-    if (noGpu) {
-        forward(input);
+    if (useGpu()) {
+        forwardGpu(std::forward<decltype(input)>(input));
     } else {
-        PxDevVector<float> vinput(input);
-        forwardGpu(vinput);
+        forward(std::forward<decltype(input)>(input));
     }
 #else
     forward(std::forward<decltype(input)>(input));
-#endif
+#endif  // USE_CUDA
 
     std::vector<Detection> detections;
     for (auto& layer: layers()) {
         auto* detector = dynamic_cast<Detector*>(layer.get());
         if (detector) {
 #ifdef USE_CUDA
-            if (noGpu) {
-                detector->addDetects(detections, image.cols, image.rows, threshold);
+            if (useGpu()) {
+                detector->addDetectsGpu(detections, image.cols, image.rows, threshold_);
             } else {
-                detector->addDetectsGpu(detections, image.cols, image.rows, threshold);
+                detector->addDetects(detections, image.cols, image.rows, threshold_);
             }
 #else
             detector->addDetects(detections, image.cols, image.rows, threshold);
@@ -243,7 +245,7 @@ std::vector<Detection> Model::predict(const std::string& imageFile, float thresh
     return detections;
 }
 
-const int Model::layerSize() const
+int Model::layerSize() const
 {
     return layers_.size();
 }
@@ -329,12 +331,23 @@ std::string Model::asJson(std::vector<Detection>&& detects) const noexcept
 
 const CublasContext& Model::cublasContext() const noexcept
 {
-    return cublasCtxt_;
+    return *cublasCtxt_;
 }
 
 const CudnnContext& Model::cudnnContext() const noexcept
 {
-    return cudnnCtxt_;
+    return *cudnnCtxt_;
+}
+
+void Model::setupGpu()
+{
+    cublasCtxt_ = std::make_unique<CublasContext>();
+    cudnnCtxt_ = std::make_unique<CudnnContext>();
+}
+
+bool Model::useGpu() const noexcept
+{
+    return gpu_;
 }
 
 #endif

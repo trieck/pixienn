@@ -37,15 +37,15 @@
 
 namespace px {
 
-__global__ void add_bias_kernel(float* output, float* biases, int batch, int n, int size)
+__global__ void add_bias_kernel(float* output, const float* biases, int batch, int n, int size)
 {
-    int index = (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x + threadIdx.x;
+    auto index = (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x + threadIdx.x;
     if (index < n * size * batch) {
-        int i = index % size;
+        auto i = index % size;
         index /= size;
-        int j = index % n;
+        auto j = index % n;
         index /= n;
-        int k = index;
+        auto k = index;
 
         output[(k * n + j) * size + i] += biases[j];
     }

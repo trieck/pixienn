@@ -31,7 +31,6 @@
 ********************************************************************************/
 
 #include "CudaUtils.cuh"
-#include "CudaError.h"
 #include <cuda_runtime.h>
 
 #include <thrust/device_vector.h>
@@ -59,8 +58,8 @@ dim3 cuda_gridsize(std::uint32_t n)
 
 struct random_generator
 {
-    __host__ __device__ random_generator(float a = 0.f, float b = 1.f);
-    __host__ __device__ float operator()(const unsigned int n) const;
+    __host__ __device__ explicit random_generator(float a = 0.f, float b = 1.f);
+    __host__ __device__ float operator()(std::size_t n) const;
 
     float a_, b_;
 };
@@ -69,7 +68,7 @@ __host__ __device__ random_generator::random_generator(float a, float b) : a_(a)
 {
 }
 
-__host__ __device__ float random_generator::operator()(const unsigned int n) const
+__host__ __device__ float random_generator::operator()(std::size_t n) const
 {
     thrust::default_random_engine rng;
     thrust::uniform_real_distribution<float> dist(a_, b_);
@@ -78,13 +77,13 @@ __host__ __device__ float random_generator::operator()(const unsigned int n) con
     return dist(rng);
 }
 
-void fill_gpu(float* ptr, int n, float value)
+void fill_gpu(float* ptr, std::size_t n, float value)
 {
     thrust::device_ptr<float> dev_ptr = thrust::device_pointer_cast(ptr);
     thrust::fill(dev_ptr, dev_ptr + n, value);
 }
 
-void random_generate(float* ptr, int n, float a, float b)
+void random_generate(float* ptr, std::size_t n, float a, float b)
 {
     thrust::device_ptr<float> dev_ptr = thrust::device_pointer_cast(ptr);
 

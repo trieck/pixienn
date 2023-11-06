@@ -114,7 +114,7 @@ public:
     void apply(float* begin, float* end) const override
     {
         std::for_each(begin, end, [](float& x) {
-            x = x * (x > 0);
+            x = x * float(x > 0);
         });
     }
 #ifdef USE_CUDA

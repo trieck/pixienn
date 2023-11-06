@@ -38,6 +38,9 @@ template<typename T, cudnn_create<T> ctor, cudnn_destroy<T> dtor>
 class cudnn_descriptor
 {
 public:
+    using Type = cudnn_descriptor<T, ctor, dtor>;
+    using Ptr = std::unique_ptr<Type>;
+
     cudnn_descriptor() : handle_(nullptr)
     {
         PX_CHECK_CUDNN(ctor(&handle_));

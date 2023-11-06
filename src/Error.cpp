@@ -14,8 +14,10 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include "Error.h"
 #include <cstdarg>
+#include <utility>
+
+#include "Error.h"
 
 #define PX_ERROR_MAX_LEN (2048)
 
@@ -26,11 +28,11 @@ Error::Error() noexcept: line_(0)
     init();
 }
 
-Error::Error(const Error& error, const std::string& message) noexcept:
+Error::Error(const Error& error, std::string message) noexcept:
         file_(error.file_),
         line_(error.line_),
         function_(error.function_),
-        message_(message)
+        message_(std::move(message))
 {
     init();
 }
@@ -44,21 +46,20 @@ Error::Error(const char* file, unsigned int line, const char* function, const ch
     init();
 }
 
-Error::Error(const std::string& file, unsigned int line, const std::string& function,
-             const std::string& message) noexcept:
-        file_(file),
+Error::Error(std::string file, unsigned int line, std::string function, std::string message) noexcept:
+        file_(std::move(file)),
         line_(line),
-        function_(function),
-        message_(message)
+        function_(std::move(function)),
+        message_(std::move(message))
 {
     init();
 }
 
-Error::Error(const char* file, unsigned int line, const char* function, const std::string& message) noexcept:
+Error::Error(const char* file, unsigned int line, const char* function, std::string  message) noexcept:
         file_(file ? file : ""),
         line_(line),
         function_(function ? function : ""),
-        message_(message)
+        message_(std::move(message))
 {
     init();
 }
@@ -116,7 +117,7 @@ Error Error::fromFormat(const char* file, unsigned int line, const char* functio
     vsnprintf(buf, PX_ERROR_MAX_LEN, format, args);
     va_end(args);
 
-    return Error(file, line, function, buf);
+    return { file, line, function, buf };
 }
 
 const char* Error::what() const noexcept

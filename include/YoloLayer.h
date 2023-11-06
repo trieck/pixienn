@@ -29,23 +29,29 @@ protected:
     YoloLayer(const Model& model, const YAML::Node& layerDef);
 
 public:
-    virtual ~YoloLayer() = default;
+    ~YoloLayer() override = default;
 
     std::ostream& print(std::ostream& os) override;
-    virtual void forward(const xt::xarray<float>& input) override;
-    virtual void addDetects(Detections& detections, int width, int height, float threshold) override;
+    void forward(const xt::xarray<float>& input) override;
+    void addDetects(Detections& detections, int width, int height, float threshold) override;
 #ifdef USE_CUDA
-    virtual void forwardGpu(const PxDevVector<float>& input) override;
-    virtual void addDetectsGpu(Detections& detections, int width, int height, float threshold) override;
+    void forwardGpu(const PxDevVector<float>& input) override;
+    void addDetectsGpu(Detections& detections, int width, int height, float threshold) override;
 #endif
 private:
+    void setup() override;
+
+    void addDetects(Detections& detections, int width, int height, float threshold,
+                    const float* predictions) const;
     friend LayerFactories;
 
     int entryIndex(int batch, int location, int entry) const noexcept;
-    cv::Rect yoloBox(const float* p, int mask, int index, int col, int row, int w, int h);
+    cv::Rect
+    yoloBox(const float* p, int mask, int index, int col, int row, int w,
+            int h) const;
 
     Activation::Ptr activation_;
-    int classes_, total_;
+    int classes_{}, total_{};
     std::vector<int> mask_, anchors_;
 };
 

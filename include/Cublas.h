@@ -20,6 +20,7 @@
 #if USE_CUDA
 
 #include <cublas_v2.h>
+#include "Common.h"
 #include "Error.h"
 
 #define PX_CHECK_CUBLAS(x) \
@@ -35,6 +36,9 @@ template<typename T, cublas_create<T> ctor, cublas_destroy<T> dtor>
 class cublas_descriptor
 {
 public:
+    using Type = cublas_descriptor<T, ctor, dtor>;
+    using Ptr = std::unique_ptr<Type>;
+
     cublas_descriptor() : handle_(nullptr)
     {
         auto status = ctor(&handle_);

@@ -27,7 +27,13 @@ using namespace xt;
 
 namespace px {
 
-ConvLayer::ConvLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
+ConvLayer::ConvLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef),
+                                                                       filters_(0), kernel_(0), padding_(0), stride_(0),
+                                                                       groups_(0)
+{
+}
+
+void ConvLayer::setup()
 {
     activation_ = property<std::string>("activation", "logistic");
     activationFnc_ = Activation::get(activation_);
@@ -47,18 +53,15 @@ ConvLayer::ConvLayer(const Model& model, const YAML::Node& layerDef) : Layer(mod
     setOutputs(outHeight() * outWidth() * outChannels());
 
     if (batchNormalize) {
-        auto def = layerDef;
+        auto def = layerDef();
         def["type"] = "batchnorm";
         def["inputs"] = outputs();
         def["channels"] = outChannels();
         def["height"] = outHeight();
         def["width"] = outWidth();
-        batchNormalize_ = Layer::create(model, def);
+        batchNormalize_ = Layer::create(model(), def);
     } else {
         biases_ = zeros<float>({ filters_ });
-#ifdef USE_CUDA
-        biasesGpu_ = PxDevVector<float>(filters_, 0);
-#endif
     }
 
     weights_ = random::rand<float>({ filters_, channels() / groups_, kernel_, kernel_ });
@@ -66,9 +69,6 @@ ConvLayer::ConvLayer(const Model& model, const YAML::Node& layerDef) : Layer(mod
     output_ = empty<float>({ batch(), outChannels(), outHeight(), outWidth() });
 
 #ifdef USE_CUDA
-    weightsGpu_ = PxDevVector<float>::random(filters_ * channels() / groups_ * kernel_ * kernel_);
-    columnGpu_ = PxDevVector<float>(kernel_ * kernel_ * channels() / groups_ * outHeight() * outWidth());
-    outputGpu_ = PxDevVector<float>(batch() * outChannels() * outHeight() * outWidth());
     setup_gpu();
 #endif
 }
@@ -88,18 +88,22 @@ std::streamoff ConvLayer::loadDarknetWeights(std::istream& is)
     if (batchNormalize_) {
         batchNormalize_->loadDarknetWeights(is);
     } else {
-        is.read((char*) biases_.data(), biases_.size() * sizeof(float));
+        is.read((char*) biases_.data(), int(biases_.size() * sizeof(float)));
         PX_CHECK(is.good(), "Could not read biases");
 #if USE_CUDA
-        biasesGpu_.fromHost(biases_);
+        if (useGpu()) {
+            biasesGpu_.fromHost(biases_);
+        }
 #endif
     }
 
-    is.read((char*) weights_.data(), sizeof(float) * weights_.size());
+    is.read((char*) weights_.data(), int(sizeof(float) * weights_.size()));
     PX_CHECK(is.good(), "Could not read weights");
 
 #if USE_CUDA
-    weightsGpu_.fromHost(weights_);
+    if (useGpu()) {
+        weightsGpu_.fromHost(weights_);
+    }
 #endif
 
     return is.tellg() - start;
@@ -149,69 +153,76 @@ void ConvLayer::forward(const xt::xarray<float>& input)
 
 #include <CudaUtils.cuh>
 
-constexpr std::uint32_t MEMORY_LIMIT = (1 << 31);
-
 void ConvLayer::setup_gpu()
 {
-    auto status = cudnnSetTensor4dDescriptor(xDesc_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, batch(), channels(),
-                                             height(),
-                                             width());
-    PX_CHECK_CUDNN(status);
-
-    status = cudnnSetConvolution2dDescriptor(convDesc_, padding_, padding_, stride_, stride_, dilation_, dilation_,
-                                             CUDNN_CROSS_CORRELATION,
-                                             CUDNN_DATA_FLOAT);
-    PX_CHECK_CUDNN(status);
-
-    status = cudnnSetConvolutionGroupCount(convDesc_, groups_);
-    PX_CHECK_CUDNN(status);
-
-    status = cudnnSetFilter4dDescriptor(wDesc_, CUDNN_DATA_FLOAT, CUDNN_TENSOR_NCHW, filters_, channels() / groups_,
-                                        kernel_, kernel_);
-    PX_CHECK_CUDNN(status);
-
-    int n, c, h, w;
-    status = cudnnGetConvolution2dForwardOutputDim(convDesc_, xDesc_, wDesc_, &n, &c, &h, &w);
-    PX_CHECK_CUDNN(status);
-
-    PX_CHECK(n == batch() && c == outChannels() && h == outHeight() && w == outWidth(),
-             "Output layer dimensions mismatch!");
-
-    status = cudnnSetTensor4dDescriptor(yDesc_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, n, c, h, w);
-    PX_CHECK_CUDNN(status);
-
-    int count = 0;
-    cudnnConvolutionFwdAlgoPerf_t results[2 * CUDNN_CONVOLUTION_FWD_ALGO_COUNT];
-
-    const auto& context = cudnnContext();
-    status = cudnnFindConvolutionForwardAlgorithm(context,
-                                                  xDesc_,
-                                                  wDesc_,
-                                                  convDesc_,
-                                                  yDesc_,
-                                                  CUDNN_CONVOLUTION_FWD_ALGO_COUNT,
-                                                  &count,
-                                                  results);
-    PX_CHECK_CUDNN(status);
-
-    for (auto i = 0; i < count; ++i) {
-        if (results[i].memory < MEMORY_LIMIT) {
-            bestAlgo_ = results[i].algo;
-            break;
+    if (useGpu()) {
+        if (!batchNormalize_) {
+            biasesGpu_ = PxDevVector<float>(filters_, 0);
         }
+
+        weightsGpu_ = PxDevVector<float>::random(filters_ * channels() / groups_ * kernel_ * kernel_);
+        outputGpu_ = PxDevVector<float>(batch() * outChannels() * outHeight() * outWidth());
+        xDesc_ = std::make_unique<CudnnTensorDesc>();
+        yDesc_ = std::make_unique<CudnnTensorDesc>();
+        wDesc_ = std::make_unique<CudnnFilterDesc>();
+        convDesc_ = std::make_unique<CudnnConvDesc>();
+
+        auto status = cudnnSetTensor4dDescriptor(*xDesc_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, batch(), channels(),
+                                                 height(),
+                                                 width());
+        PX_CHECK_CUDNN(status);
+
+        status = cudnnSetConvolution2dDescriptor(*convDesc_, padding_, padding_, stride_, stride_, dilation_, dilation_,
+                                                 CUDNN_CROSS_CORRELATION,
+                                                 CUDNN_DATA_FLOAT);
+        PX_CHECK_CUDNN(status);
+
+        status = cudnnSetConvolutionGroupCount(*convDesc_, groups_);
+        PX_CHECK_CUDNN(status);
+
+        status = cudnnSetFilter4dDescriptor(*wDesc_, CUDNN_DATA_FLOAT, CUDNN_TENSOR_NCHW, filters_,
+                                            channels() / groups_,
+                                            kernel_, kernel_);
+        PX_CHECK_CUDNN(status);
+
+        int n, c, h, w;
+        status = cudnnGetConvolution2dForwardOutputDim(*convDesc_, *xDesc_, *wDesc_, &n, &c, &h, &w);
+        PX_CHECK_CUDNN(status);
+
+        PX_CHECK(n == batch() && c == outChannels() && h == outHeight() && w == outWidth(),
+                 "Output layer dimensions mismatch!");
+
+        status = cudnnSetTensor4dDescriptor(*yDesc_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, n, c, h, w);
+        PX_CHECK_CUDNN(status);
+
+        const auto& context = cudnnContext();
+
+        int requestCount = 1, resultCount = 0;
+        status = cudnnGetConvolutionForwardAlgorithmMaxCount(context, &requestCount);
+        PX_CHECK_CUDNN(status);
+
+        auto results = std::make_unique<cudnnConvolutionFwdAlgoPerf_t[]>(requestCount);
+
+        status = cudnnFindConvolutionForwardAlgorithm(context,
+                                                      *xDesc_,
+                                                      *wDesc_,
+                                                      *convDesc_,
+                                                      *yDesc_,
+                                                      requestCount,
+                                                      &resultCount,
+                                                      results.get());
+        PX_CHECK_CUDNN(status);
+
+        size_t workspaceSize = std::numeric_limits<size_t>::max();
+        for (auto i = 0; i < resultCount; ++i) {
+            if (results[i].status == CUDNN_STATUS_SUCCESS && results[i].memory < workspaceSize) {
+                workspaceSize = results[i].memory;
+                bestAlgo_ = results[i].algo;
+            }
+        }
+
+        workspace_ = PxDevVector<float>(workspaceSize / sizeof(float));
     }
-
-    size_t workspaceSize = 0;
-    status = cudnnGetConvolutionForwardWorkspaceSize(context,
-                                                     xDesc_,
-                                                     wDesc_,
-                                                     convDesc_,
-                                                     yDesc_,
-                                                     bestAlgo_,
-                                                     &workspaceSize);
-    PX_CHECK_CUDNN(status);
-
-    workspace_ = PxDevVector<float>(workspaceSize);
 }
 
 void ConvLayer::forwardGpu(const PxDevVector<float>& input)
@@ -222,16 +233,16 @@ void ConvLayer::forwardGpu(const PxDevVector<float>& input)
     const auto& context = cudnnContext();
     auto status = cudnnConvolutionForward(context,
                                           &alpha,
-                                          xDesc_,
+                                          *xDesc_,
                                           input.data(),
-                                          wDesc_,
+                                          *wDesc_,
                                           weightsGpu_.data(),
-                                          convDesc_,
+                                          *convDesc_,
                                           bestAlgo_,
                                           workspace_.data(),
-                                          workspace_.size(),
+                                          workspace_.size() * sizeof(float),
                                           &beta,
-                                          yDesc_,
+                                          *yDesc_,
                                           outputGpu_.data());
     PX_CHECK_CUDNN(status);
 

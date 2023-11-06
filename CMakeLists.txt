@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 project(pixienn)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(BLA_VENDOR OpenBLAS)
 
 set(USE_CUDA 1)

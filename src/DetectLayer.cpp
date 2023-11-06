@@ -23,6 +23,10 @@ namespace px {
 
 DetectLayer::DetectLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
+}
+
+void DetectLayer::setup()
+{
     classScale = property<float>("class_scale", 1.0f);
     classes_ = property<int>("classes", 1);
     coordScale_ = property<float>("coord_scale", 1.0f);
@@ -48,7 +52,9 @@ DetectLayer::DetectLayer(const Model& model, const YAML::Node& layerDef) : Layer
     output_ = empty<float>({ outputs() });
 
 #ifdef USE_CUDA
-    outputGpu_ = PxDevVector<float>(outputs());
+    if (useGpu()) {
+        outputGpu_ = PxDevVector<float>(outputs());
+    }
 #endif
 }
 
@@ -88,7 +94,9 @@ void DetectLayer::addDetectsGpu(Detections& detections, int width, int height, f
 }
 #endif // USE_CUDA
 
-void DetectLayer::addDetects(Detections& detections, int width, int height, float threshold, float* predictions)
+void
+DetectLayer::addDetects(Detections& detections, int width, int height, float threshold,
+                        const float* predictions) const
 {
     const auto area = side_ * side_;
 

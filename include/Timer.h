@@ -17,8 +17,8 @@
 #ifndef PIXIENN_TIMER_H
 #define PIXIENN_TIMER_H
 
-#include "Common.h"
 #include <chrono>
+#include "Common.h"
 
 namespace px {
 
@@ -28,7 +28,7 @@ public:
     Timer();
     ~Timer();
 
-    std::string str() const;
+    [[nodiscard]] std::string str() const;
     void restart();
 private:
     using Clock = std::chrono::high_resolution_clock;
