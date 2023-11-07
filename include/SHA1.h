@@ -18,10 +18,28 @@
 #define PIXIENN_SHA1_H
 
 #include "Common.h"
+#include <boost/uuid/detail/sha1.hpp>
 
 namespace px {
 
-std::string sha1(const void* pin, size_t size);
+template<typename T>
+std::string sha1(const T* x, std::size_t n)
+{
+    uint32_t digest[5];
+    boost::uuids::detail::sha1 sha1;
+
+    sha1.process_bytes(reinterpret_cast<const char*>(x), n * sizeof(T));
+    sha1.get_digest(digest);
+
+    std::ostringstream ss;
+    ss << std::setfill('0') << std::hex;
+
+    for (unsigned int i: digest) {
+        ss << i;
+    }
+
+    return ss.str();
+}
 
 }   // px
 

@@ -14,25 +14,35 @@
 * limitations under the License.
 ********************************************************************************/
 
+#include <boost/filesystem.hpp>
+#include <fstream>
+#include <nlohmann/json.hpp>
+#include <utility>
+
 #include "Error.h"
 #include "Image.h"
 #include "Layer.h"
 #include "Model.h"
 #include "Timer.h"
 
-#include <boost/filesystem.hpp>
-#include <fstream>
-#include <nlohmann/json.hpp>
-#include <utility>
-
 using namespace YAML;
 using namespace boost::filesystem;
 using json = nlohmann::json;
 
+namespace po = boost::program_options;
+
 namespace px {
 
-Model::Model(std::string cfgFile) : cfgFile_(std::move(cfgFile))
+Model::Model(std::string cfgFile, const boost::program_options::variables_map& options)
+        : cfgFile_(std::move(cfgFile))
 {
+#ifdef USE_CUDA
+    gpu_ = options.count("no-gpu") == 0;
+    if (gpu_) {
+        setupGpu();
+    }
+#endif
+    threshold_ = options["confidence"].as<float>();
     parseConfig();
 }
 
@@ -75,7 +85,7 @@ void Model::parseModel()
     channels_ = model["channels"].as<int>();
     height_ = model["height"].as<int>();
     width_ = model["width"].as<int>();
-    int inputs = height_ * width_ * channels_;
+    auto inputs = batch_ * height_ * width_ * channels_;
 
     const auto layers = model["layers"];
     PX_CHECK(layers.IsSequence(), "Model has no layers.");
@@ -139,17 +149,28 @@ int Model::width() const
     return width_;
 }
 
-xt::xarray<float> Model::forward(xt::xarray<float>&& input)
+void Model::forward(const xt::xarray<float>& input) const
 {
-    auto& in = input;
+    const auto* in = &input;
 
     for (auto& layer: layers()) {
-        layer->forward(in);
-        in = layer->output();
+        layer->forward(*in);
+        in = &layer->output();
     }
-
-    return in;
 }
+
+#ifdef USE_CUDA
+void Model::forwardGpu(const xt::xarray<float>& input) const
+{
+    PxDevVector<float> vinput(input);
+    const auto* in = &vinput;
+
+    for (auto& layer: layers()) {
+        layer->forwardGpu(*in);
+        in = &layer->outputGpu();
+    }
+}
+#endif // USE_CUDA
 
 void Model::loadDarknetWeights()
 {
@@ -183,7 +204,7 @@ void Model::loadDarknetWeights()
     ifs.close();
 }
 
-std::vector<Detection> Model::predict(const std::string& imageFile, float threshold)
+std::vector<Detection> Model::predict(const std::string& imageFile)
 {
     auto image = imread(imageFile.c_str());
     auto sized = imletterbox(image, width(), height());
@@ -192,14 +213,30 @@ std::vector<Detection> Model::predict(const std::string& imageFile, float thresh
     std::cout << "Running network..." << std::endl;
 
     Timer timer;
-    auto result = forward(std::forward<xt::xarray<float>>(input));
+
+#ifdef USE_CUDA
+    if (useGpu()) {
+        forwardGpu(std::forward<decltype(input)>(input));
+    } else {
+        forward(std::forward<decltype(input)>(input));
+    }
+#else
+    forward(std::forward<decltype(input)>(input));
+#endif  // USE_CUDA
 
     std::vector<Detection> detections;
-
     for (auto& layer: layers()) {
         auto* detector = dynamic_cast<Detector*>(layer.get());
         if (detector) {
-            detector->addDetects(detections, image.cols, image.rows, threshold);
+#ifdef USE_CUDA
+            if (useGpu()) {
+                detector->addDetectsGpu(detections, image.cols, image.rows, threshold_);
+            } else {
+                detector->addDetects(detections, image.cols, image.rows, threshold_);
+            }
+#else
+            detector->addDetects(detections, image.cols, image.rows, threshold_);
+#endif // USE_CUDA
         }
     }
 
@@ -208,7 +245,7 @@ std::vector<Detection> Model::predict(const std::string& imageFile, float thresh
     return detections;
 }
 
-const int Model::layerSize() const
+int Model::layerSize() const
 {
     return layers_.size();
 }
@@ -289,5 +326,30 @@ std::string Model::asJson(std::vector<Detection>&& detects) const noexcept
 
     return json.dump(2);
 }
+
+#ifdef USE_CUDA
+
+const CublasContext& Model::cublasContext() const noexcept
+{
+    return *cublasCtxt_;
+}
+
+const CudnnContext& Model::cudnnContext() const noexcept
+{
+    return *cudnnCtxt_;
+}
+
+void Model::setupGpu()
+{
+    cublasCtxt_ = std::make_unique<CublasContext>();
+    cudnnCtxt_ = std::make_unique<CudnnContext>();
+}
+
+bool Model::useGpu() const noexcept
+{
+    return gpu_;
+}
+
+#endif
 
 } // px

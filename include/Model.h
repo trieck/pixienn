@@ -17,39 +17,59 @@
 #ifndef PIXIENN_MODEL_H
 #define PIXIENN_MODEL_H
 
+#include <boost/program_options.hpp>
+#include <boost/program_options/variables_map.hpp>
+
 #include "Detection.h"
 #include "Layer.h"
+
+#ifdef USE_CUDA
+
+#include "Cublas.h"
+#include "Cudnn.h"
+
+#endif  // USE_CUDA
 
 namespace px {
 
 class Model
 {
 public:
-    Model(std::string cfgFile);
-    Model(const Model& rhs) = default;
-    Model(Model&& rhs) = default;
+    explicit Model(std::string cfgFile, const boost::program_options::variables_map& options = {});
+    Model(const Model& rhs) = delete;
+    Model(Model&& rhs) noexcept = delete;
 
-    Model& operator=(const Model& rhs) = default;
-    Model& operator=(Model&& rhs) = default;
+    Model& operator=(const Model& rhs) = delete;
+    Model& operator=(Model&& rhs) = delete;
 
     using LayerVec = std::vector<Layer::Ptr>;
-    const LayerVec& layers() const;
+    [[nodiscard]] const LayerVec& layers() const;
 
-    int batch() const;
-    int channels() const;
-    int height() const;
-    int width() const;
+    [[nodiscard]] int batch() const;
+    [[nodiscard]] int channels() const;
+    [[nodiscard]] int height() const;
+    [[nodiscard]] int width() const;
 
-    const int layerSize() const;
-    const Layer::Ptr& layerAt(int index) const;
+    int layerSize() const;
+    [[nodiscard]] const Layer::Ptr& layerAt(int index) const;
 
-    std::vector<Detection> predict(const std::string& imageFile, float threshold);
+    std::vector<Detection> predict(const std::string& imageFile);
     std::string asJson(std::vector<Detection>&& detects) const noexcept;
 
-    const std::vector<std::string>& labels() const noexcept;
+    [[nodiscard]] const std::vector<std::string>& labels() const noexcept;
+
+#ifdef USE_CUDA
+    [[nodiscard]] const CublasContext& cublasContext() const noexcept;
+    [[nodiscard]] const CudnnContext& cudnnContext() const noexcept;
+    [[nodiscard]] bool useGpu() const noexcept;
+#endif
 
 private:
-    xt::xarray<float> forward(xt::xarray<float>&& input);
+    void forward(const xt::xarray<float>& input) const;
+#ifdef USE_CUDA
+    void forwardGpu(const xt::xarray<float>& input) const;
+    void setupGpu();
+#endif
 
     void parseConfig();
     void parseModel();
@@ -57,12 +77,18 @@ private:
     void loadLabels();
 
     std::string cfgFile_, modelFile_, weightsFile_, labelsFile_;
-
     int batch_ = 0, channels_ = 0, height_ = 0, width_ = 0;
     int major_ = 0, minor_ = 0, revision_ = 0;
+    float threshold_;
 
     LayerVec layers_;
     std::vector<std::string> labels_;
+
+#ifdef USE_CUDA
+    CublasContext::Ptr cublasCtxt_;
+    CudnnContext::Ptr cudnnCtxt_;
+    bool gpu_;
+#endif
 };
 
 }   // px

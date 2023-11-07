@@ -22,6 +22,12 @@
 #include "Activation.h"
 #include "Layer.h"
 
+#ifdef USE_CUDA
+
+#include "Cudnn.h"
+
+#endif
+
 namespace px {
 
 class ConvLayer : public Layer
@@ -30,13 +36,22 @@ protected:
     ConvLayer(const Model& model, const YAML::Node& layerDef);
 
 public:
-    virtual ~ConvLayer() = default;
+    ~ConvLayer() override = default;
 
     std::ostream& print(std::ostream& os) override;
     std::streamoff loadDarknetWeights(std::istream& is) override;
     void forward(const xt::xarray<float>& input) override;
 
+#ifdef USE_CUDA
+    void forwardGpu(const PxDevVector<float>& input) override;
+#endif
+
 private:
+    void setup() override;
+
+#ifdef USE_CUDA
+    void setup_gpu();
+#endif
     friend LayerFactories;
 
     xt::xtensor<float, 4> weights_;
@@ -47,6 +62,14 @@ private:
     std::string activation_;
     Layer::Ptr batchNormalize_;
     Activation::Ptr activationFnc_;
+
+#ifdef USE_CUDA
+    PxDevVector<float> weightsGpu_, biasesGpu_, workspace_;
+    CudnnTensorDesc::Ptr xDesc_, yDesc_;
+    CudnnConvDesc::Ptr convDesc_;
+    CudnnFilterDesc::Ptr wDesc_;
+    cudnnConvolutionFwdAlgo_t bestAlgo_ = CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM;
+#endif
 };
 
 } // px

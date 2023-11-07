@@ -15,25 +15,39 @@
 ********************************************************************************/
 
 #include "MaxPoolLayer.h"
-#include "xtensor/xbuilder.hpp"
 
+#ifdef USE_CUDA
+
+#include "PoolKernels.cuh"
+
+#endif // USE_CUDA
 namespace px {
 
 using namespace xt;
 
 MaxPoolLayer::MaxPoolLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
+}
+
+void MaxPoolLayer::setup()
+{
     kernel_ = property<int>("kernel", 1);
     stride_ = property<int>("stride", 1);
-    padding_ = property<int>("padding", std::max(0, kernel_ - 1));
+    padding_ = property<int>("padding", std::max<int>(0, kernel_ - 1));
 
     setOutChannels(channels());
     setOutHeight((height() + padding_ - kernel_) / stride_ + 1);
     setOutWidth((width() + padding_ - kernel_) / stride_ + 1);
 
-    setOutputs(outHeight() * outWidth() * outChannels());
+    setOutputs(outHeight() * outWidth() * outChannels() * batch());
 
     output_ = empty<float>({ batch(), outChannels(), outHeight(), outWidth() });
+
+#ifdef USE_CUDA
+    if (useGpu()) {
+        outputGpu_ = PxDevVector<float>(batch() * outChannels() * outHeight() * outWidth());
+    }
+#endif
 }
 
 std::ostream& MaxPoolLayer::print(std::ostream& os)
@@ -44,7 +58,7 @@ std::ostream& MaxPoolLayer::print(std::ostream& os)
     return os;
 }
 
-void MaxPoolLayer::forward(const xt::xarray<float>& input)
+void MaxPoolLayer::forward(const xarray<float>& input)
 {
     int wOffset = -padding_ / 2;
     int hOffset = -padding_ / 2;
@@ -82,5 +96,13 @@ void MaxPoolLayer::forward(const xt::xarray<float>& input)
         }
     }
 }
+
+#ifdef USE_CUDA
+void MaxPoolLayer::forwardGpu(const PxDevVector<float>& input)
+{
+    maxpool_gpu(outputs(), height(), width(), channels(), stride_, kernel_, padding_, input.data(), outputGpu_.data());
+}
+
+#endif  // USE_CUDA
 
 } // px

@@ -20,12 +20,12 @@ namespace px {
 
 static float boxIntersection(const cv::Rect& a, const cv::Rect& b)
 {
-    return (a & b).area();
+    return float((a & b).area());
 }
 
 static float boxUnion(const cv::Rect& a, const cv::Rect& b)
 {
-    return (a | b).area();
+    return float((a | b).area());
 }
 
 static float boxIou(const cv::Rect& a, const cv::Rect& b)

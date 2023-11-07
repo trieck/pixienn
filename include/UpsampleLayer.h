@@ -34,7 +34,13 @@ public:
     std::ostream& print(std::ostream& os) override;
     void forward(const xt::xarray<float>& input) override;
 
+#ifdef USE_CUDA
+    void forwardGpu(const PxDevVector<float>& input) override;
+#endif
+
 private:
+    void setup() override;
+
     friend LayerFactories;
     void setInterpolationFlags();
 

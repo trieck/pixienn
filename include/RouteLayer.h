@@ -27,12 +27,18 @@ protected:
     RouteLayer(const Model& model, const YAML::Node& layerDef);
 
 public:
-    virtual ~RouteLayer() = default;
+    ~RouteLayer() override = default;
 
     std::ostream& print(std::ostream& os) override;
     void forward(const xt::xarray<float>& input) override;
 
+#ifdef USE_CUDA
+    void forwardGpu(const PxDevVector<float>& input) override;
+#endif
+
 private:
+    void setup() override;
+
     friend LayerFactories;
     std::vector<Layer::Ptr> layers_;
 };

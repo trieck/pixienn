@@ -17,6 +17,7 @@
 #ifndef PIXIENN_COMMON_H
 #define PIXIENN_COMMON_H
 
+#include <cstdint>
 #include <cstring>
 #include <exception>
 #include <functional>

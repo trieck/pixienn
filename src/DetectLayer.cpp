@@ -23,6 +23,10 @@ namespace px {
 
 DetectLayer::DetectLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
+}
+
+void DetectLayer::setup()
+{
     classScale = property<float>("class_scale", 1.0f);
     classes_ = property<int>("classes", 1);
     coordScale_ = property<float>("coord_scale", 1.0f);
@@ -46,6 +50,12 @@ DetectLayer::DetectLayer(const Model& model, const YAML::Node& layerDef) : Layer
     setOutputs(batch() * inputs());
 
     output_ = empty<float>({ outputs() });
+
+#ifdef USE_CUDA
+    if (useGpu()) {
+        outputGpu_ = PxDevVector<float>(outputs());
+    }
+#endif
 }
 
 std::ostream& DetectLayer::print(std::ostream& os)
@@ -64,10 +74,30 @@ void DetectLayer::forward(const xt::xarray<float>& input)
     }
 }
 
+#ifdef USE_CUDA
+void DetectLayer::forwardGpu(const PxDevVector<float>& input)
+{
+    outputGpu_.fromDevice(input);
+}
+#endif  // USE_CUDA
+
 void DetectLayer::addDetects(Detections& detections, int width, int height, float threshold)
 {
-    const auto* predictions = output_.data();
+    addDetects(detections, width, height, threshold, output_.data());
+}
 
+#ifdef USE_CUDA
+void DetectLayer::addDetectsGpu(Detections& detections, int width, int height, float threshold)
+{
+    auto predv = outputGpu_.asHost();
+    addDetects(detections, width, height, threshold, predv.data());
+}
+#endif // USE_CUDA
+
+void
+DetectLayer::addDetects(Detections& detections, int width, int height, float threshold,
+                        const float* predictions) const
+{
     const auto area = side_ * side_;
 
     for (auto i = 0; i < area; ++i) {
