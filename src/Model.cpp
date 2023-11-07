@@ -235,7 +235,7 @@ std::vector<Detection> Model::predict(const std::string& imageFile)
                 detector->addDetects(detections, image.cols, image.rows, threshold_);
             }
 #else
-            detector->addDetects(detections, image.cols, image.rows, threshold);
+            detector->addDetects(detections, image.cols, image.rows, threshold_);
 #endif // USE_CUDA
         }
     }

@@ -105,8 +105,24 @@ void RouteLayer::forward(const xt::xarray<float>& /*input*/)
 #ifdef USE_CUDA
 void RouteLayer::forwardGpu(const PxDevVector<float>& /*input*/)
 {
-    // FIXME: implement
-    //cudaMemcpy(out, start, end - start, cudaMemcpyDeviceToDevice);
+    auto offset = 0;
+
+    auto* output = outputGpu_.data();
+
+    for (const auto& layer: layers_) {
+        const auto* input = layer->outputGpu().data();
+        auto inputSize = layer->outputs();
+
+        for (auto i = 0; i < batch(); ++i) {
+            const auto* start = input + i * inputSize;
+            auto* out = output + offset + i * outputs();
+
+            auto result = cudaMemcpy(out, start, inputSize * sizeof(float), cudaMemcpyDeviceToDevice);
+            PX_CUDA_CHECK_ERR(result);
+        }
+
+        offset += inputSize;
+    }
 }
 
 #endif // USE_CUDA

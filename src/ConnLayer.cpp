@@ -75,7 +75,7 @@ void ConnLayer::setup()
 void ConnLayer::setupGpu()
 {
     if (useGpu()) {
-        if (batchNormalize_) {
+        if (!batchNormalize_) {
             biasesGpu_ = PxDevVector<float>(outputs(), 0.f);
         }
 

@@ -16,11 +16,10 @@
 
 #include "UpsampleLayer.h"
 #include <opencv2/imgproc.hpp>
-#include <xtensor/xadapt.hpp>
 #include <xtensor/xtensor.hpp>
-
-
 #include <opencv2/core/mat.hpp>
+
+#include "UpsampleKernels.cuh"
 
 using namespace cv;
 
@@ -78,58 +77,7 @@ void UpsampleLayer::forward(const xarray<float>& input)
 
 void UpsampleLayer::forwardGpu(const PxDevVector<float>& input)
 {
-    // FIXME: not implemented on device
-
-    xarray<float> hostInput = adapt(input.asHost());
-    forward(hostInput);
-    outputGpu_.fromHost(output_);
-
-
-    /*
-     *
-     *
-     * fill_gpu(l.outputs*l.batch, 0, l.output_gpu, 1);
-
-     * __global__ void upsample_kernel(size_t N, float *x, int w, int h, int c, int batch, int stride, int forward, float scale, float *out)
-{
-    size_t i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
-    if(i >= N) return;
-    int out_index = i;
-    int out_w = i%(w*stride);
-    i = i/(w*stride);
-    int out_h = i%(h*stride);
-    i = i/(h*stride);
-    int out_c = i%c;
-    i = i/c;
-    int b = i%batch;
-
-    int in_w = out_w / stride;
-    int in_h = out_h / stride;
-    int in_c = out_c;
-
-    int in_index = b*w*h*c + in_c*w*h + in_h*w + in_w;
-
-
-    if(forward) out[out_index] += scale * x[in_index];
-    else atomicAdd(x+in_index, scale * out[out_index]);
-}
-extern "C" void upsample_gpu(float *in, int w, int h, int c, int batch, int stride, int forward, float scale, float *out)
-{
-    size_t size = w*h*c*batch*stride*stride;
-    upsample_kernel<<<cuda_gridsize(size), BLOCK>>>(size, in, w, h, c, batch, stride, forward, scale, out);
-    check_error(cudaPeekAtLastError());
-}
-
-     */
-    /*for (auto b = 0; b < batch(); ++b) {
-        auto* pinput = input.data() + b * inputs();
-        auto* poutput = outputGpu_.data() + b * outputs();
-
-        cv::cuda::GpuMat mInput(height(), width(), CV_32FC(channels()), (void*) pinput, cv::Mat::AUTO_STEP);
-        cv::cuda::GpuMat mOutput(outHeight(), outWidth(), CV_32FC(outChannels()), (void*) poutput, cv::Mat::AUTO_STEP);
-
-        resize(mInput, mOutput, { (int)outWidth(), (int)outHeight() }, scale_, scale_, flags_);
-    }*/
+    upsample_gpu(input.data(), width(), height(), channels(), batch(), stride_, 1, scale_, outputGpu_.data());
 }
 
 #endif  // USE_CUDA

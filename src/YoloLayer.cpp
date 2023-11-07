@@ -82,8 +82,21 @@ void YoloLayer::forward(const xarray<float>& input)
 #ifdef USE_CUDA
 void YoloLayer::forwardGpu(const PxDevVector<float>& input)
 {
-    // FIXME: why is this not implemented
     outputGpu_.fromDevice(input);
+
+    auto area = std::max(1, width() * height());
+
+    auto* poutput = outputGpu_.data();
+    for (auto b = 0; b < batch(); ++b) {
+        for (auto n = 0; n < mask_.size(); ++n) {
+            auto index = entryIndex(b, n * area, 0);
+            auto* start = poutput + index;
+            activation_->applyGpu(start, 2 * area);
+            index = entryIndex(b, n * area, 4);
+            start = poutput + index;
+            activation_->applyGpu(start, (1 + classes_) * area + 1);
+        }
+    }
 }
 #endif // USE_CUDA
 
