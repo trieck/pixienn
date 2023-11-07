@@ -14,15 +14,20 @@
 * limitations under the License.
 ********************************************************************************/
 
+#include <xtensor/xtensor.hpp>
+
 #include "Model.h"
 #include "YoloLayer.h"
-#include <xtensor/xtensor.hpp>
 
 namespace px {
 
 using namespace xt;
 
 YoloLayer::YoloLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
+{
+}
+
+void YoloLayer::setup()
 {
     activation_ = Activation::get("logistic");
     anchors_ = property<std::vector<int>>("anchors");
@@ -35,9 +40,15 @@ YoloLayer::YoloLayer(const Model& model, const YAML::Node& layerDef) : Layer(mod
     setOutChannels(mask_.size() * (classes_ + 5));
     setOutHeight(height());
     setOutWidth(width());
-    setOutputs(outHeight() * outWidth() * outChannels());
+    setOutputs(outHeight() * outWidth() * outChannels() * (classes_ + 4 + 1));
 
     output_ = empty<float>({ batch(), outChannels(), outHeight(), outWidth() });
+
+#ifdef USE_CUDA
+    if (useGpu()) {
+        outputGpu_ = PxDevVector<float>(batch() * outChannels() * outHeight() * outWidth());
+    }
+#endif
 }
 
 std::ostream& YoloLayer::print(std::ostream& os)
@@ -47,7 +58,7 @@ std::ostream& YoloLayer::print(std::ostream& os)
     return os;
 }
 
-void YoloLayer::forward(const xt::xarray<float>& input)
+void YoloLayer::forward(const xarray<float>& input)
 {
     std::copy(input.begin(), input.end(), output_.begin());
 
@@ -68,6 +79,27 @@ void YoloLayer::forward(const xt::xarray<float>& input)
     }
 }
 
+#ifdef USE_CUDA
+void YoloLayer::forwardGpu(const PxDevVector<float>& input)
+{
+    outputGpu_.fromDevice(input);
+
+    auto area = std::max(1, width() * height());
+
+    auto* poutput = outputGpu_.data();
+    for (auto b = 0; b < batch(); ++b) {
+        for (auto n = 0; n < mask_.size(); ++n) {
+            auto index = entryIndex(b, n * area, 0);
+            auto* start = poutput + index;
+            activation_->applyGpu(start, 2 * area);
+            index = entryIndex(b, n * area, 4);
+            start = poutput + index;
+            activation_->applyGpu(start, (1 + classes_) * area + 1);
+        }
+    }
+}
+#endif // USE_CUDA
+
 int YoloLayer::entryIndex(int batch, int location, int entry) const noexcept
 {
     auto area = std::max(1, width() * height());
@@ -78,7 +110,9 @@ int YoloLayer::entryIndex(int batch, int location, int entry) const noexcept
     return batch * outputs() + n * area * (classes_ + 5) + entry * area + loc;
 }
 
-cv::Rect YoloLayer::yoloBox(const float* p, int mask, int index, int col, int row, int w, int h)
+cv::Rect
+YoloLayer::yoloBox(const float* p, int mask, int index, int col, int row, int w,
+                   int h) const
 {
     const auto stride = width() * height();
     const auto netW = model().width();
@@ -122,6 +156,13 @@ cv::Rect YoloLayer::yoloBox(const float* p, int mask, int index, int col, int ro
 void YoloLayer::addDetects(Detections& detections, int width, int height, float threshold)
 {
     const auto* predictions = output_.data();
+    addDetects(detections, width, height, threshold, predictions);
+}
+
+void
+YoloLayer::addDetects(Detections& detections, int width, int height, float threshold,
+                      const float* predictions) const
+{
     auto area = std::max(1, this->width() * this->height());
 
     for (auto i = 0; i < area; ++i) {
@@ -156,5 +197,15 @@ void YoloLayer::addDetects(Detections& detections, int width, int height, float 
         }
     }
 }
+
+#ifdef USE_CUDA
+
+void YoloLayer::addDetectsGpu(Detections& detections, int width, int height, float threshold)
+{
+    auto predv = outputGpu_.asHost();
+    addDetects(detections, width, height, threshold, predv.data());
+}
+
+#endif // USE_CUDA
 
 } // px

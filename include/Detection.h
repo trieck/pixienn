@@ -29,13 +29,12 @@ public:
     float& operator[](int clazz);
     const float& operator[](int clazz) const;
 
-    const std::vector<float>& prob() const noexcept;
+    [[nodiscard]] const std::vector<float>& prob() const noexcept;
+    [[nodiscard]] int size() const noexcept;
+    [[nodiscard]] const cv::Rect& box() const noexcept;
+    [[nodiscard]] float max() const noexcept;
+    [[nodiscard]] int maxClass() const noexcept;
 
-    int size() const noexcept;
-    const cv::Rect& box() const noexcept;
-
-    float max() const noexcept;
-    int maxClass() const noexcept;
     void setMaxClass(int max);
 
 private:
@@ -50,6 +49,9 @@ using Detections = std::vector<Detection>;
 struct Detector
 {
     virtual void addDetects(Detections& detects, int width, int height, float threshold) = 0;
+#ifdef USE_CUDA
+    virtual void addDetectsGpu(Detections& detects, int width, int height, float threshold) = 0;
+#endif // USE_CUDA
 };
 
 }   // px

@@ -19,6 +19,12 @@
 
 #include <xtensor/xtensor.hpp>
 
+#ifdef USE_CUDA
+
+#include "Cudnn.h"
+
+#endif
+
 #include "Activation.h"
 #include "Layer.h"
 
@@ -30,13 +36,23 @@ protected:
     ConnLayer(const Model& model, const YAML::Node& layerDef);
 
 public:
-    virtual ~ConnLayer() = default;
+    ~ConnLayer() override = default;
 
     std::ostream& print(std::ostream& os) override;
     std::streamoff loadDarknetWeights(std::istream& is) override;
+
     void forward(const xt::xarray<float>& input) override;
 
+#ifdef USE_CUDA
+    void forwardGpu(const PxDevVector<float>& input) override;
+#endif
+
 private:
+    void setup() override;
+#ifdef USE_CUDA
+    void setupGpu();
+#endif // USE_CUDA
+
     friend LayerFactories;
 
     xt::xtensor<float, 2> weights_;
@@ -47,6 +63,11 @@ private:
     Layer::Ptr batchNormalize_;
     std::string activation_;
     float scales_, rollingMean_, rollingVar_;
+
+#ifdef USE_CUDA
+    CudnnTensorDesc::Ptr normDesc_, destDesc_;
+    PxDevVector<float> weightsGpu_, biasesGpu_;
+#endif
 };
 
 } // px

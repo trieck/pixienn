@@ -16,15 +16,24 @@
 
 #include "UpsampleLayer.h"
 #include <opencv2/imgproc.hpp>
-#include <opencv2/core/mat.hpp>
 #include <xtensor/xtensor.hpp>
+#include <opencv2/core/mat.hpp>
+
+#include "UpsampleKernels.cuh"
+
+using namespace cv;
+
+using namespace cv;
+using namespace xt;
 
 namespace px {
 
-using namespace xt;
-using namespace cv;
+UpsampleLayer::UpsampleLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef),
+                                                                               stride_(0), scale_(0)
+{
+}
 
-UpsampleLayer::UpsampleLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
+void UpsampleLayer::setup()
 {
     scale_ = property("scale", 1.0f);
     stride_ = property("stride", 2);    // FIXME: does not support negative stride (reverse upsample)
@@ -36,6 +45,12 @@ UpsampleLayer::UpsampleLayer(const Model& model, const YAML::Node& layerDef) : L
     setOutputs(outHeight() * outWidth() * outChannels());
 
     output_ = empty<float>({ batch(), outChannels(), outHeight(), outWidth() });
+
+#ifdef USE_CUDA
+    if (useGpu()) {
+        outputGpu_ = PxDevVector<float>(batch() * outChannels() * outHeight() * outWidth());
+    }
+#endif
 }
 
 std::ostream& UpsampleLayer::print(std::ostream& os)
@@ -45,7 +60,7 @@ std::ostream& UpsampleLayer::print(std::ostream& os)
     return os;
 }
 
-void UpsampleLayer::forward(const xt::xarray<float>& input)
+void UpsampleLayer::forward(const xarray<float>& input)
 {
     for (auto b = 0; b < batch(); ++b) {
         auto* pinput = input.data() + b * inputs();
@@ -54,9 +69,18 @@ void UpsampleLayer::forward(const xt::xarray<float>& input)
         Mat mInput(height(), width(), CV_32FC(channels()), (void*) pinput, cv::Mat::AUTO_STEP);
         Mat mOutput(outHeight(), outWidth(), CV_32FC(outChannels()), (void*) poutput, cv::Mat::AUTO_STEP);
 
-        resize(mInput, mOutput, { outWidth(), outHeight() }, scale_, scale_, flags_);
+        resize(mInput, mOutput, { (int) outWidth(), (int) outHeight() }, scale_, scale_, flags_);
     }
 }
+
+#ifdef USE_CUDA
+
+void UpsampleLayer::forwardGpu(const PxDevVector<float>& input)
+{
+    upsample_gpu(input.data(), width(), height(), channels(), batch(), stride_, 1, scale_, outputGpu_.data());
+}
+
+#endif  // USE_CUDA
 
 void UpsampleLayer::setInterpolationFlags()
 {

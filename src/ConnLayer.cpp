@@ -14,16 +14,28 @@
 * limitations under the License.
 ********************************************************************************/
 
+#include <cblas.h>
+
 #include "ConnLayer.h"
 #include "Utility.h"
 #include "xtensor/xrandom.hpp"
-#include <cblas.h>
+
+#if USE_CUDA
+
+#include "BiasKernels.cuh"
+
+#endif
 
 namespace px {
 
 using namespace xt;
 
-ConnLayer::ConnLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
+ConnLayer::ConnLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef), scales_(0),
+                                                                       rollingMean_(0), rollingVar_(0)
+{
+}
+
+void ConnLayer::setup()
 {
     activation_ = property<std::string>("activation", "logistic");
     activationFnc_ = Activation::get(activation_);
@@ -40,19 +52,39 @@ ConnLayer::ConnLayer(const Model& model, const YAML::Node& layerDef) : Layer(mod
     setOutChannels(outputs());
 
     if (batchNormalize) {
-        auto def = layerDef;
+        auto def = layerDef();
         def["type"] = "batchnorm";
         def["channels"] = outChannels();
         def["height"] = outHeight();
         def["width"] = outWidth();
-        batchNormalize_ = Layer::create(model, def);
+        batchNormalize_ = Layer::create(model(), def);
     } else {
         biases_ = zeros<float>({ outputs() });
     }
 
     weights_ = random::rand<float>({ inputs(), outputs() });
     output_ = zeros<float>({ batch() * outputs() });
+
+#ifdef USE_CUDA
+    setupGpu();
+#endif
 }
+
+#ifdef USE_CUDA // USE_CUDA
+
+void ConnLayer::setupGpu()
+{
+    if (useGpu()) {
+        if (!batchNormalize_) {
+            biasesGpu_ = PxDevVector<float>(outputs(), 0.f);
+        }
+
+        weightsGpu_ = PxDevVector<float>::random(inputs() * outputs(), -1.f, 1.f);
+        outputGpu_ = PxDevVector<float>(batch() * outputs(), 0.f);
+    }
+}
+
+#endif // USE_CUDA
 
 std::ostream& ConnLayer::print(std::ostream& os)
 {
@@ -70,6 +102,13 @@ std::streamoff ConnLayer::loadDarknetWeights(std::istream& is)
 
     is.read((char*) weights_.data(), sizeof(float) * weights_.size());
     PX_CHECK(is.good(), "Could not read weights");
+
+#ifdef USE_CUDA
+    if (useGpu()) {
+        biasesGpu_.fromHost(biases_);
+        weightsGpu_.fromHost(weights_);
+    }
+#endif
 
     if (batchNormalize_) {
         is.read((char*) &scales_, sizeof(float));
@@ -103,5 +142,56 @@ void ConnLayer::forward(const xt::xarray<float>& input)
 
     activationFnc_->apply(output_);
 }
+
+#if USE_CUDA
+
+void ConnLayer::forwardGpu(const PxDevVector<float>& input)
+{
+    outputGpu_.fill(0);
+
+    auto m = outputs();
+    auto n = batch();
+    auto k = inputs();
+    auto* a = weightsGpu_.data();
+    auto* b = input.data();
+    auto* c = outputGpu_.data();
+
+    assert(input.size() == k * n);
+    assert(weightsGpu_.size() == k * m);
+    assert(outputGpu_.size() == m * n);
+
+    float alpha = 1.0f, beta = 1.0f;
+
+    const auto& context = cublasContext();
+
+    auto status = cublasSgemm(context,
+                              CUBLAS_OP_T,  /* transpose A */
+                              CUBLAS_OP_N,  /* transpose B */
+                              m,            /* M */
+                              n,            /* N */
+                              k,            /* K */
+                              &alpha,       /* alpha */
+                              a,            /* A */
+                              k,            /* lda */
+                              b,            /* B */
+                              k,            /* ldb */
+                              &beta,        /* beta */
+                              c,            /* C */
+                              m             /* ldc */
+    );
+
+    PX_CHECK_CUBLAS(status);
+
+    if (batchNormalize_) {
+        batchNormalize_->forwardGpu(outputGpu_);
+        outputGpu_ = batchNormalize_->outputGpu();
+    } else {
+        add_bias_gpu(c, biasesGpu_.data(), n, m, 1);
+    }
+
+    activationFnc_->applyGpu(outputGpu_);
+}
+
+#endif  // USE_CUDA
 
 } // px

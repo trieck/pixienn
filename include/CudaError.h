@@ -26,7 +26,7 @@ class CudaError : public Error
 {
 public:
     CudaError() noexcept;
-    CudaError(cudaError_t error) noexcept;
+    explicit CudaError(cudaError_t error) noexcept;
     CudaError(cudaError_t error, const char* file, unsigned int line, const char* function,
               const std::string& message) noexcept;
 
@@ -38,9 +38,6 @@ public:
 private:
     cudaError_t error_;
 };
-
-#define PX_CUDA_CHECK(format, ...) \
-    px::CudaError::check(__FILENAME__, __LINE__, __FUNCTION__, format, ##__VA_ARGS__)
 
 #define PX_CUDA_CHECK_ERR(error) \
     px::CudaError::check(error, __FILENAME__, __LINE__, __FUNCTION__)

@@ -28,12 +28,18 @@ protected:
     MaxPoolLayer(const Model& model, const YAML::Node& layerDef);
 
 public:
-    virtual ~MaxPoolLayer() = default;
+    ~MaxPoolLayer() override = default;
 
     std::ostream& print(std::ostream& os) override;
     void forward(const xt::xarray<float>& input) override;
 
+#ifdef USE_CUDA
+    void forwardGpu(const PxDevVector<float>& input) override;
+#endif
+
 private:
+    void setup() override;
+
     friend LayerFactories;
     int kernel_ = 0, stride_ = 0, padding_;
 };

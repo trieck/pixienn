@@ -77,7 +77,11 @@ Layer::Ptr LayerFactories::create(const Model& model, const YAML::Node& layerDef
         PX_ERROR_THROW("Unable to find a layer factory for layer type \"%s\".", type.c_str());
     }
 
-    return (it->second)(model, layerDef);
+    auto ptr = (it->second)(model, layerDef);
+
+    ptr->setup();
+
+    return ptr;
 }
 
 Layer::Layer(const Model& model, const YAML::Node& layerDef) : model_(model), layerDef_(layerDef)
@@ -92,9 +96,7 @@ Layer::Layer(const Model& model, const YAML::Node& layerDef) : model_(model), la
     outChannels_ = outHeight_ = outWidth_ = outputs_ = 0;
 }
 
-Layer::~Layer()
-{
-}
+Layer::~Layer() = default;
 
 Layer::Ptr Layer::create(const Model& model, const YAML::Node& layerDef)
 {
@@ -191,9 +193,21 @@ const xt::xarray<float>& Layer::output() const noexcept
     return output_;
 }
 
+#ifdef USE_CUDA
+const PxDevVector<float>& Layer::outputGpu() const noexcept
+{
+    return outputGpu_;
+}
+#endif // USE_CUDA
+
 const Model& Layer::model() const noexcept
 {
     return model_;
+}
+
+const YAML::Node& Layer::layerDef() const noexcept
+{
+    return layerDef_;
 }
 
 int Layer::index() const
@@ -201,8 +215,9 @@ int Layer::index() const
     return index_;
 }
 
-void Layer::print(std::ostream& os, const std::string& name, std::array<int, 3>&& input, std::array<int, 3>&& output,
-                  std::optional<int>&& filters, std::optional<std::array<int, 3>>&& size)
+void Layer::print(std::ostream& os, const std::string& name, std::array<int, 3>&& input,
+                  std::array<int, 3>&& output, std::optional<int>&& filters,
+                  std::optional<std::array<int, 3>>&& size)
 {
     std::cout << std::setfill(' ') << std::setw(5) << std::right << index() << ' ';
 
@@ -231,5 +246,24 @@ void Layer::print(std::ostream& os, const std::string& name, std::array<int, 3>&
 
     os << std::endl << std::flush;
 }
+
+#ifdef USE_CUDA
+
+const CublasContext& Layer::cublasContext() const noexcept
+{
+    return model_.cublasContext();
+}
+
+const CudnnContext& Layer::cudnnContext() const noexcept
+{
+    return model_.cudnnContext();
+}
+
+bool Layer::useGpu() const
+{
+    return model_.useGpu();
+}
+
+#endif // USE_CUDA
 
 } // px

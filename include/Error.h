@@ -25,10 +25,10 @@ class Error : public std::exception
 {
 public:
     Error() noexcept;
-    Error(const Error& error, const std::string& message) noexcept;
+    Error(const Error& error, std::string message) noexcept;
     Error(const char* file, unsigned int line, const char* function, const char* message) noexcept;
-    Error(const char* file, unsigned int line, const char* function, const std::string& message) noexcept;
-    Error(const std::string& file, unsigned int line, const std::string& function, const std::string& message) noexcept;
+    Error(const char* file, unsigned int line, const char* function, std::string  message) noexcept;
+    Error(std::string file, unsigned int line, std::string function, std::string message) noexcept;
     Error(const char* file, unsigned int line, const char* function, const std::exception_ptr& ptr, const char* format,
           ...) noexcept;
 
@@ -39,12 +39,12 @@ public:
     fromFormat(const char* file, unsigned int line, const char* function, const char* format, ...) noexcept;
 
     // std::exception
-    virtual const char* what() const noexcept override;
+    [[nodiscard]] const char* what() const noexcept override;
 
-    const std::string& file() const noexcept;
-    unsigned int line() const noexcept;
-    const std::string& function() const noexcept;
-    const std::string& message() const noexcept;
+    [[nodiscard]] const std::string& file() const noexcept;
+    [[nodiscard]] unsigned int line() const noexcept;
+    [[nodiscard]] const std::string& function() const noexcept;
+    [[nodiscard]] const std::string& message() const noexcept;
 
 protected:
     void init() noexcept;

@@ -22,6 +22,7 @@
 #include <utility>
 
 namespace px {
+
 template<class T>
 class Singleton
 {

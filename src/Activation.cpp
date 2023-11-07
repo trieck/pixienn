@@ -14,11 +14,17 @@
 * limitations under the License.
 ********************************************************************************/
 
+#include <cmath>
+
 #include "Activation.h"
 #include "Singleton.h"
 #include "Error.h"
 
-#include <math.h>
+#ifdef USE_CUDA
+
+#include "ActivationKernels.cuh"
+
+#endif // USE_CUDA
 
 namespace px {
 
@@ -28,7 +34,6 @@ class Activations : public Singleton<Activations>
 {
 public:
     Activations();
-
 
     bool hasActivation(const std::string& s) const;
     Activation::Ptr at(const std::string& s) const;
@@ -44,6 +49,12 @@ public:
     {
         std::for_each(begin, end, [](float& x) {});
     }
+#ifdef USE_CUDA
+    void applyGpu(float* x, std::size_t n) const override
+    {
+        linear_activate_gpu(x, n);
+    }
+#endif
 };
 
 class LeakyActivation : public Activation
@@ -55,6 +66,12 @@ public:
             x = (x > 0) ? x : .1f * x;
         });
     }
+#ifdef USE_CUDA
+    void applyGpu(float* x, std::size_t n) const override
+    {
+        leaky_activate_gpu(x, n);
+    }
+#endif // USE_CUDA
 };
 
 class LoggyActivation : public Activation
@@ -63,9 +80,15 @@ public:
     void apply(float* begin, float* end) const override
     {
         std::for_each(begin, end, [](float& x) {
-            x = 2.f / (1.f + exp(-x)) - 1;
+            x = 2.f / (1.f + std::exp(-x)) - 1;
         });
     }
+#ifdef USE_CUDA
+    void applyGpu(float* x, std::size_t n) const override
+    {
+        loggy_activate_gpu(x, n);
+    }
+#endif // USE_CUDA
 };
 
 class LogisticActivation : public Activation
@@ -77,6 +100,12 @@ public:
             x = 1.f / (1.f + std::exp(-x));
         });
     }
+#ifdef USE_CUDA
+    void applyGpu(float* x, std::size_t n) const override
+    {
+        logistic_activate_gpu(x, n);
+    }
+#endif // USE_CUDA
 };
 
 class ReluActivation : public Activation
@@ -85,9 +114,15 @@ public:
     void apply(float* begin, float* end) const override
     {
         std::for_each(begin, end, [](float& x) {
-            x = x * (x > 0);
+            x = x * float(x > 0);
         });
     }
+#ifdef USE_CUDA
+    void applyGpu(float* x, std::size_t n) const override
+    {
+        relu_activate_gpu(x, n);
+    }
+#endif
 };
 
 Activations::Activations()

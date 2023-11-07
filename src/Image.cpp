@@ -14,15 +14,15 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include "Common.h"
-#include "Image.h"
-#include "Error.h"
-
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/imgproc/types_c.h>
 #include <tiffio.h>
 #include <xtensor/xadapt.hpp>
+
+#include "Common.h"
+#include "Error.h"
+#include "Image.h"
 
 using namespace cv;
 
@@ -54,10 +54,10 @@ void imsave(const char* path, const cv::Mat& image)
     auto* tif = TIFFOpen(path, "w");
     PX_CHECK(tif != nullptr, "Cannot open image \"%s\".", path);
 
-    int channels = image.channels();
-    int width = image.cols, height = image.rows;
-    int type = image.type();
-    int depth = CV_MAT_DEPTH(type);
+    auto channels = image.channels();
+    auto width = image.cols, height = image.rows;
+    auto type = image.type();
+    auto depth = CV_MAT_DEPTH(type);
 
     TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, width);
     TIFFSetField(tif, TIFFTAG_IMAGELENGTH, height);
@@ -75,16 +75,14 @@ void imsave(const char* path, const cv::Mat& image)
     TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, channels);
     TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
     TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, rowsPerStrip);
-
     TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, depth >= CV_32F ? SAMPLEFORMAT_IEEEFP : SAMPLEFORMAT_UINT);
-    TIFFSetField(tif, TIFFTAG_PREDICTOR, PREDICTOR_HORIZONTAL);
 
     auto scanlineSize = TIFFScanlineSize(tif);
     AutoBuffer<uchar> buffer(scanlineSize + 32);
 
     for (auto y = 0; y < height; ++y) {
         memcpy(buffer, image.ptr(y), scanlineSize);
-        PX_CHECK(TIFFWriteScanline(tif, buffer, y, 0) == 1, "Cannot write scane line.");
+        PX_CHECK(TIFFWriteScanline(tif, buffer, y, 0) == 1, "Cannot write scan line.");
     }
 
     TIFFClose(tif);
@@ -93,8 +91,8 @@ void imsave(const char* path, const cv::Mat& image)
 Mat imletterbox(const Mat& image, int width, int height)
 {
     int newWidth, newHeight;
-    int imageWidth = image.cols;
-    int imageHeight = image.rows;
+    auto imageWidth = image.cols;
+    auto imageHeight = image.rows;
 
     if (((float) width / imageWidth) < ((float) height / imageHeight)) {
         newWidth = width;
@@ -172,7 +170,7 @@ Mat imrandom(int height, int width, int channels)
 
 Mat immake(int height, int width, int channels, float value)
 {
-    return Mat(height, width, CV_32FC(channels), Scalar_<float>::all(value));
+    return { height, width, CV_32FC(channels), Scalar_<float>::all(value) };
 }
 
 void imconvolve(const Mat& image, const Mat& kernel, int stride, int channel, Mat& out)
@@ -235,7 +233,7 @@ xt::xarray<float> imarray(const cv::Mat& image)
 
     std::vector<int> shape({ height, width, channels });
 
-    auto array = xt::adapt(pimage.release(), height * width * channels, xt::no_ownership(), shape);
+    auto array = xt::adapt(pimage.release(), height * width * channels, xt::acquire_ownership(), shape);
 
     return array;
 }

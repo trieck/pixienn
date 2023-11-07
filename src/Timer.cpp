@@ -24,9 +24,7 @@ Timer::Timer()
     start_ = Clock::now();
 }
 
-Timer::~Timer()
-{
-}
+Timer::~Timer() = default;
 
 std::string Timer::str() const
 {
