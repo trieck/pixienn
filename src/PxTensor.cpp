@@ -14,48 +14,39 @@
 * limitations under the License.
 ********************************************************************************/
 
+#include <xtensor/xarray.hpp>
+#include <xtensor/xtensor.hpp>
 #include "PxTensor.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 using namespace px;
 
+template<typename T=float, std::size_t N = 1>
+using xt_cpu_tensor_t = xt::xtensor_container<xt::uvector<T>, N>;
+
+template<typename T=float, std::size_t N = 1>
+using xt_cuda_tensor_t = xt::xtensor_container<cuda_vector_t<T>, N>;
+
+template<std::size_t N = 1>
+using cpu_tensor = xt_cpu_tensor_t<float, N>;
+
+template<std::size_t N = 1>
+using cuda_tensor = xt_cuda_tensor_t<float, N>;
+
 void foobar()
 {
-    cuda_vector u{ 1.0f, 2.0f, 3.0f };
-    assert(u.size() == 3);
+    xt::xtensor<float, 4>::shape_type shape{1, 2, 2, 2 };
 
-    for (auto x: u) {
+    cpu_tensor<4> image = xt::ones<float>(shape);
+    for (auto x: image) {
         printf("%.2f\n", x);
     }
 
     printf("\n");
 
-    cuda_vector v(100);
-    assert(v.size() == 100);
-
-    v.randomize();
-
-    for (auto x: v) {
+    cuda_tensor<4> cuda_image(shape);
+    for (auto x: cuda_image) {
         printf("%.2f\n", x);
     }
-
-    printf("\n");
-
-    v.randomize();
-
-    for (auto i = 0; i < v.size(); ++i) {
-        auto x = v[i];
-        printf("%.2f\n", x);
-    }
-
-    cuda_vector w(v);
-    assert(w.size() == 100);
-
-    for (auto x: w) {
-        printf("%.2f\n", x);
-    }
-
-    v.resize(0);
-    assert(v.empty());
 }
 
