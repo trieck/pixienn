@@ -115,9 +115,14 @@ template<typename T>
 class cuda_allocator_t
 {
 public:
-    using pointer = cuda_ptr_t<T>;
-    using size_type = std::size_t;
     using value_type = T;
+    using pointer = cuda_ptr_t<T>;
+    using const_pointer = const cuda_ptr_t<T>;
+    using reference = value_type&;
+    using const_reference = const value_type&;
+
+    using size_type = std::size_t;
+    using difference_type = typename pointer::difference_type;
 
     cuda_allocator_t() = default;
     explicit cuda_allocator_t(size_type n);
@@ -161,13 +166,22 @@ class cuda_vector_t
 public:
     using allocator_type = A;
     using value_type = typename A::value_type;
+    using difference_type = typename A::difference_type;
+
     using pointer = typename A::pointer;
+    using const_pointer = typename A::const_pointer;
+    using reference = typename A::reference;
+    using const_reference = typename A::const_reference;
+
     using size_type = typename A::size_type;
 
-    cuda_vector_t() noexcept = default;
-    explicit cuda_vector_t(size_type count);
-    explicit cuda_vector_t(std::initializer_list<T> init);
+    cuda_vector_t(const allocator_type& alloc = allocator_type()) noexcept;
+    explicit cuda_vector_t(size_type count, const allocator_type& alloc = allocator_type());
+    cuda_vector_t(size_type count, const_reference value, const allocator_type& alloc = allocator_type());
+
+    explicit cuda_vector_t(std::initializer_list<T> init, const allocator_type& alloc = allocator_type());
     cuda_vector_t(const cuda_vector_t& rhs);
+    cuda_vector_t(const cuda_vector_t& rhs, const allocator_type& alloc);
     ~cuda_vector_t();
 
     cuda_vector_t& operator=(const cuda_vector_t& rhs);
@@ -179,8 +193,22 @@ public:
     void randomize(T a = 0.f, T b = 1.f);
 
     using iterator = pointer;
-    [[nodiscard]] iterator begin() const noexcept;
-    [[nodiscard]] iterator end() const noexcept;
+    using const_iterator = const_pointer;
+    using reverse_iterator = std::reverse_iterator<iterator>;
+    using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+
+    iterator begin() noexcept;
+    iterator end() noexcept;
+    [[nodiscard]] const_iterator begin() const noexcept;
+    [[nodiscard]] const_iterator end() const noexcept;
+
+    iterator rbegin() noexcept;
+    iterator rend() noexcept;
+    [[nodiscard]] const_iterator rbegin() const noexcept;
+    [[nodiscard]] const_iterator rend() const noexcept;
+
+    [[nodiscard]] const_iterator cbegin() const noexcept;
+    [[nodiscard]] const_iterator cend() const noexcept;
 
     value_type operator[](size_type i);
     pointer data() noexcept;
@@ -195,6 +223,12 @@ private:
     iterator begin_, end_;
     allocator_type a_;
 };
+
+template<typename T, typename A>
+cuda_vector_t<T, A>::cuda_vector_t(const allocator_type& alloc) noexcept
+        : a_(alloc)
+{
+}
 
 template<typename T, typename A>
 void cuda_vector_t<T, A>::randomize(T a, T b)
@@ -231,21 +265,69 @@ void cuda_vector_t<T, A>::to_device(const T& value, iterator iterator)
 }
 
 template<typename T, typename A>
-cuda_vector_t<T, A>::cuda_vector_t(std::initializer_list<T> init)
+cuda_vector_t<T, A>::cuda_vector_t(std::initializer_list<T> init, const allocator_type& alloc) : a_(alloc)
 {
     init_data(init.begin(), init.end());
 }
 
 template<typename T, typename A>
-cuda_vector_t<T, A>::iterator cuda_vector_t<T, A>::begin() const noexcept
+cuda_vector_t<T, A>::iterator cuda_vector_t<T, A>::begin() noexcept
 {
     return begin_;
 }
 
 template<typename T, typename A>
-cuda_vector_t<T, A>::iterator cuda_vector_t<T, A>::end() const noexcept
+cuda_vector_t<T, A>::iterator cuda_vector_t<T, A>::end() noexcept
 {
     return end_;
+}
+
+template<typename T, typename A>
+cuda_vector_t<T, A>::const_iterator cuda_vector_t<T, A>::begin() const noexcept
+{
+    return begin_;
+}
+
+template<typename T, typename A>
+cuda_vector_t<T, A>::const_iterator cuda_vector_t<T, A>::end() const noexcept
+{
+    return end_;
+}
+
+template<typename T, typename A>
+cuda_vector_t<T, A>::const_iterator cuda_vector_t<T, A>::cbegin() const noexcept
+{
+    return begin_;
+}
+
+template<typename T, typename A>
+cuda_vector_t<T, A>::const_iterator cuda_vector_t<T, A>::cend() const noexcept
+{
+    return end_;
+}
+
+template<typename T, typename A>
+cuda_vector_t<T, A>::iterator cuda_vector_t<T, A>::rbegin() noexcept
+{
+    return reverse_iterator(begin);
+}
+
+template<typename T, typename A>
+cuda_vector_t<T, A>::iterator cuda_vector_t<T, A>::rend() noexcept
+{
+    return reverse_iterator(end);
+}
+
+template<typename T, typename A>
+cuda_vector_t<T, A>::const_iterator cuda_vector_t<T, A>::rbegin() const noexcept
+{
+    return const_reverse_iterator(begin);
+}
+
+template<typename T, typename A>
+cuda_vector_t<T, A>::const_iterator cuda_vector_t<T, A>::rend() const noexcept
+{
+    return const_reverse_iterator(end);
 }
 
 template<typename T, typename A>
@@ -266,7 +348,7 @@ void cuda_vector_t<T, A>::resize(size_type new_size)
 }
 
 template<typename T, typename A>
-cuda_vector_t<T, A>::cuda_vector_t(size_type count)
+cuda_vector_t<T, A>::cuda_vector_t(size_type count, const allocator_type& alloc) : a_(alloc)
 {
     if (count != 0) {
         begin_ = a_.alloc(count);
@@ -274,8 +356,24 @@ cuda_vector_t<T, A>::cuda_vector_t(size_type count)
     }
 }
 
+
+template<typename T, typename A>
+cuda_vector_t<T, A>::cuda_vector_t(size_type count, const_reference value, const allocator_type& alloc)
+        : cuda_vector_t<T, A>(count, alloc)
+{
+    if (count != 0) {
+        fill_gpu(begin_.get(), size(), value);
+    }
+}
+
 template<typename T, typename A>
 cuda_vector_t<T, A>::cuda_vector_t(const cuda_vector_t& rhs)
+{
+    *this = rhs;
+}
+
+template<typename T, typename A>
+cuda_vector_t<T, A>::cuda_vector_t(const cuda_vector_t& rhs, const allocator_type& alloc) : a_(alloc)
 {
     *this = rhs;
 }
@@ -329,7 +427,7 @@ void cuda_vector_t<T, A>::to_host(T* out, size_type n, size_type offset)
 template<typename T, typename A>
 cuda_vector_t<T, A>::value_type cuda_vector_t<T, A>::operator[](size_type i)
 {
-    T x = std::numeric_limits<T>::infinity();
+    T x;
     to_host(&x, 1, i);
     return x;
 }
