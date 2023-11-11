@@ -14,34 +14,48 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include "BiasKernels.cuh"
-#include "CudaUtils.cuh"
-#include "CudaError.h"
-#include <cuda_runtime.h>
+#include "PxTensor.h"
 
-namespace px {
+///////////////////////////////////////////////////////////////////////////////
+using namespace px;
 
-__global__ void add_bias_kernel(float* output, const float* biases, int batch, int n, int size)
+void foobar()
 {
-    auto index = (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x + threadIdx.x;
-    if (index < n * size * batch) {
-        auto i = index % size;
-        index /= size;
-        auto j = index % n;
-        index /= n;
-        auto k = index;
+    cuda_vector u{ 1.0f, 2.0f, 3.0f };
+    assert(u.size() == 3);
 
-        output[(k * n + j) * size + i] += biases[j];
+    for (auto x: u) {
+        printf("%.2f\n", x);
     }
+
+    printf("\n");
+
+    cuda_vector v(100);
+    assert(v.size() == 100);
+
+    v.randomize();
+
+    for (auto x: v) {
+        printf("%.2f\n", x);
+    }
+
+    printf("\n");
+
+    v.randomize();
+
+    for (auto i = 0; i < v.size(); ++i) {
+        auto x = v[i];
+        printf("%.2f\n", x);
+    }
+
+    cuda_vector w(v);
+    assert(w.size() == 100);
+
+    for (auto x: w) {
+        printf("%.2f\n", x);
+    }
+
+    v.resize(0);
+    assert(v.empty());
 }
 
-void add_bias_gpu(float* output, float* biases, int batch, int n, int size)
-{
-    auto num = n * size * batch;
-
-    add_bias_kernel<<<cuda_gridsize(num), CUDA_BLOCK_SIZE>>>(output, biases, batch, n, size);
-
-    PX_CUDA_CHECK_LAST();
-}
-
-}   // px

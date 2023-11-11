@@ -44,39 +44,42 @@ void predict(const std::string& cfgFile, const std::string& imageFile,
 
 int main(int argc, char* argv[])
 {
-    if (argc < 3) {
-        std::cerr << "usage: pixienn [options] config-file image-file" << std::endl;
-        exit(1);
-    }
+    extern void foobar();
+    foobar();
 
-    po::options_description desc("options");
-    po::positional_options_description pod;
-    pod.add("config-file", 1);
-    pod.add("image-file", 1);
-
-    desc.add_options()
-            ("no-gpu", "Use CPU for processing")
-            ("confidence", po::value<float>()->default_value(0.2f))
-            ("nms", po::value<float>()->default_value(0.3f))
-            ("config-file", po::value<std::string>()->required(), "Configuration file")
-            ("image-file", po::value<std::string>()->required(), "Image file");
-
-    try {
-        po::variables_map vm;
-        po::store(po::command_line_parser(argc, argv).options(desc).positional(pod).run(), vm);
-        po::notify(vm);
-
-        auto config = vm["config-file"].as<std::string>();
-        auto image = vm["image-file"].as<std::string>();
-
-        predict(config, image, vm);
-    } catch (const px::Error& e) {
-        std::cerr << e.what() << std::endl;
-        exit(1);
-    } catch (const std::exception& e) {
-        std::cerr << e.what() << std::endl;
-        exit(1);
-    }
+    // if (argc < 3) {
+    //     std::cerr << "usage: pixienn [options] config-file image-file" << std::endl;
+    //     exit(1);
+    // }
+    //
+    // po::options_description desc("options");
+    // po::positional_options_description pod;
+    // pod.add("config-file", 1);
+    // pod.add("image-file", 1);
+    //
+    // desc.add_options()
+    //         ("no-gpu", "Use CPU for processing")
+    //         ("confidence", po::value<float>()->default_value(0.2f))
+    //         ("nms", po::value<float>()->default_value(0.3f))
+    //         ("config-file", po::value<std::string>()->required(), "Configuration file")
+    //         ("image-file", po::value<std::string>()->required(), "Image file");
+    //
+    // try {
+    //     po::variables_map vm;
+    //     po::store(po::command_line_parser(argc, argv).options(desc).positional(pod).run(), vm);
+    //     po::notify(vm);
+    //
+    //     auto config = vm["config-file"].as<std::string>();
+    //     auto image = vm["image-file"].as<std::string>();
+    //
+    //     predict(config, image, vm);
+    // } catch (const px::Error& e) {
+    //     std::cerr << e.what() << std::endl;
+    //     exit(1);
+    // } catch (const std::exception& e) {
+    //     std::cerr << e.what() << std::endl;
+    //     exit(1);
+    // }
 
     return 0;
 }
