@@ -121,22 +121,15 @@ public:
 
     cuda_allocator_t() = default;
     explicit cuda_allocator_t(size_type n);
-    cuda_allocator_t(const cuda_allocator_t& rhs);
-    cuda_allocator_t(cuda_allocator_t&& rhs) noexcept;
-    ~cuda_allocator_t();
+    cuda_allocator_t(const cuda_allocator_t& rhs) = default;
+    cuda_allocator_t(cuda_allocator_t&& rhs) noexcept = default;
+    ~cuda_allocator_t() = default;
 
-    cuda_allocator_t& operator=(const cuda_allocator_t& rhs);
-    cuda_allocator_t& operator=(cuda_allocator_t&& rhs) noexcept;
+    cuda_allocator_t& operator=(const cuda_allocator_t& rhs) = default;
+    cuda_allocator_t& operator=(cuda_allocator_t&& rhs) noexcept = default;
 
     pointer alloc(size_type n);
-    void dealloc();
-
-    pointer get();
-    [[nodiscard]] size_type size() const;
-
-private:
-    T* ptr_ = nullptr;
-    size_t n_ = 0;
+    void dealloc(pointer ptr);
 };
 
 template<typename T>
@@ -146,80 +139,19 @@ cuda_allocator_t<T>::cuda_allocator_t(size_type n)
 }
 
 template<typename T>
-cuda_allocator_t<T>::cuda_allocator_t(const cuda_allocator_t& rhs)
-{
-    *this = rhs;
-}
-
-template<typename T>
-cuda_allocator_t<T>::cuda_allocator_t(cuda_allocator_t&& rhs) noexcept
-{
-    *this = std::move(rhs);
-}
-
-template<typename T>
-cuda_allocator_t<T>& cuda_allocator_t<T>::operator=(const cuda_allocator_t<T>& rhs)
-{
-    if (this != &rhs) {
-        alloc(rhs.size());
-        auto result = cudaMemcpy(ptr_, rhs.ptr_, n_ * sizeof(T), cudaMemcpyDeviceToDevice);
-        PX_CUDA_CHECK_ERR(result);
-    }
-
-    return *this;
-}
-
-template<typename T>
-cuda_allocator_t<T>& cuda_allocator_t<T>::operator=(cuda_allocator_t<T>&& rhs) noexcept
-{
-    ptr_ = std::move(rhs.ptr_);
-    n_ = rhs.n_;
-
-    rhs.ptr_ = nullptr;
-    rhs.n_ = 0;
-
-    return *this;
-}
-
-template<typename T>
-cuda_allocator_t<T>::~cuda_allocator_t()
-{
-    dealloc();
-}
-
-template<typename T>
-cuda_allocator_t<T>::size_type cuda_allocator_t<T>::size() const
-{
-    return n_;
-}
-
-template<typename T>
 cuda_allocator_t<T>::pointer cuda_allocator_t<T>::alloc(cuda_allocator_t<T>::size_type n)
 {
-    dealloc();
-    auto result = cudaMalloc(&ptr_, n * sizeof(T));
+    T* ptr;
+    auto result = cudaMalloc(&ptr, n * sizeof(T));
     PX_CUDA_CHECK_ERR(result);
 
-    n_ = n;
-
-    return cuda_ptr_t<T>(ptr_);
+    return cuda_ptr_t<T>(ptr);
 }
 
 template<typename T>
-void cuda_allocator_t<T>::dealloc()
+void cuda_allocator_t<T>::dealloc(pointer ptr)
 {
-    if (ptr_ != nullptr) {
-        cudaFree(ptr_);
-        ptr_ = nullptr;
-    }
-
-    n_ = 0;
-}
-
-template<typename T>
-cuda_allocator_t<T>::pointer cuda_allocator_t<T>::get()
-{
-    return cuda_ptr_t<T>(ptr_);
+    cudaFree(ptr.get());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -326,7 +258,8 @@ template<typename T, typename A>
 void cuda_vector_t<T, A>::resize(size_type new_size)
 {
     if (new_size != size()) {
-        a_.dealloc();
+        // does not preserve elements
+        a_.dealloc(begin_);
         begin_ = a_.alloc(new_size);
         end_ = begin_ + new_size;
     }
@@ -351,23 +284,29 @@ template<typename T, typename A>
 cuda_vector_t<T, A>& cuda_vector_t<T, A>::operator=(const cuda_vector_t& rhs)
 {
     if (this != &rhs) {
+        a_.dealloc(begin_);
         a_ = rhs.a_;
-        begin_ = a_.get();
-        end_ = begin_ + size();
+        auto n = rhs.size();
+        begin_ = a_.alloc(n);
+        end_ = begin_ + n;
+
+        auto result = cudaMemcpy(begin_.get(), rhs.begin_.get(), n * sizeof(T), cudaMemcpyDeviceToDevice);
+        PX_CUDA_CHECK_ERR(result);
     }
+
     return *this;
 }
 
 template<typename T, typename A>
 cuda_vector_t<T, A>::~cuda_vector_t()
 {
-    a_.dealloc();
+    a_.dealloc(begin_);
 }
 
 template<typename T, typename A>
 typename cuda_vector_t<T, A>::size_type cuda_vector_t<T, A>::size() const noexcept
 {
-    return a_.size();
+    return (end_ - begin_);
 }
 
 template<typename T, typename A>
@@ -398,7 +337,7 @@ cuda_vector_t<T, A>::value_type cuda_vector_t<T, A>::operator[](size_type i)
 template<typename T, typename A>
 cuda_vector_t<T, A>::pointer cuda_vector_t<T, A>::data() noexcept
 {
-    return a_.get();
+    return begin_.get();
 }
 
 using cuda_vector = cuda_vector_t<float>;
