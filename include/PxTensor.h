@@ -26,6 +26,47 @@
 
 namespace px {
 
+////////////////////////////////////////////////////////////////////////////
+template<typename T>
+class cuda_ptr_t;
+
+template<typename T>
+class cuda_ref_t
+{
+public:
+    cuda_ref_t(const cuda_ptr_t<T>& p);
+
+    cuda_ref_t& operator=(T value);
+    operator T();
+private:
+    cuda_ptr_t<T> ptr_;
+};
+
+template<typename T>
+cuda_ref_t<T>::cuda_ref_t(const cuda_ptr_t<T>& p) : ptr_(p)
+{
+}
+
+template<typename T>
+cuda_ref_t<T>& cuda_ref_t<T>::operator=(T value)
+{
+    auto result = cudaMemcpy(ptr_.get(), &value, sizeof(T), cudaMemcpyHostToDevice);
+    PX_CUDA_CHECK_ERR(result);
+
+    return *this;
+}
+
+template<typename T>
+cuda_ref_t<T>::operator T()
+{
+    T value;
+
+    auto result = cudaMemcpy(&value, ptr_.get(), sizeof(T), cudaMemcpyDeviceToHost);
+    PX_CUDA_CHECK_ERR(result);
+
+    return value;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 template<typename T>
 class cuda_ptr_t
@@ -48,8 +89,12 @@ public:
     [[nodiscard]] const_pointer get() const noexcept;
     pointer get() noexcept;
 
-    T operator*() const;
+    cuda_ref_t<T> operator*() const;
+    cuda_ref_t<T> operator*();
+
     cuda_ptr_t& operator++();
+    cuda_ptr_t operator++(int);
+
     cuda_ptr_t operator+(size_type n) const;
 
 private:
@@ -76,19 +121,28 @@ cuda_ptr_t<T>::const_pointer cuda_ptr_t<T>::get() const noexcept
 template<typename T>
 cuda_ptr_t<T>& cuda_ptr_t<T>::operator++()
 {
-    ptr_++;
+    ++ptr_;
     return *this;
 }
 
 template<typename T>
-T cuda_ptr_t<T>::operator*() const
+cuda_ptr_t<T> cuda_ptr_t<T>::operator++(int)
 {
-    T value;
+    cuda_ptr_t<T> postfix(*this);
+    ++(*this);
+    return postfix;
+}
 
-    auto result = cudaMemcpy(&value, ptr_, sizeof(T), cudaMemcpyDeviceToHost);
-    PX_CUDA_CHECK_ERR(result);
+template<typename T>
+cuda_ref_t<T> cuda_ptr_t<T>::operator*() const
+{
+    return cuda_ref_t<T>(*this);
+}
 
-    return value;
+template<typename T>
+cuda_ref_t<T> cuda_ptr_t<T>::operator*()
+{
+    return cuda_ref_t<T>(*this);
 }
 
 template<typename T>
@@ -118,8 +172,8 @@ public:
     using value_type = T;
     using pointer = cuda_ptr_t<T>;
     using const_pointer = const cuda_ptr_t<T>;
-    using reference = value_type&;
-    using const_reference = const value_type&;
+    using reference = cuda_ref_t<T>;
+    using const_reference = const cuda_ref_t<T>;
 
     using size_type = std::size_t;
     using difference_type = typename pointer::difference_type;
@@ -225,8 +279,7 @@ private:
 };
 
 template<typename T, typename A>
-cuda_vector_t<T, A>::cuda_vector_t(const allocator_type& alloc) noexcept
-        : a_(alloc)
+cuda_vector_t<T, A>::cuda_vector_t(const allocator_type& alloc) noexcept : a_(alloc)
 {
 }
 
@@ -249,8 +302,7 @@ void cuda_vector_t<T, A>::init_data(cuda_vector_t::init_iter first,
 }
 
 template<typename T, typename A>
-void cuda_vector_t<T, A>::to_device(cuda_vector_t::init_iter first,
-                                    cuda_vector_t::init_iter last, iterator out)
+void cuda_vector_t<T, A>::to_device(cuda_vector_t::init_iter first, cuda_vector_t::init_iter last, iterator out)
 {
     for (; first != last; ++first, (void) ++out) {
         to_device(*first, out);
