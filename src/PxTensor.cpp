@@ -14,39 +14,40 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include <xtensor/xarray.hpp>
 #include <xtensor/xtensor.hpp>
 #include "PxTensor.h"
 
-///////////////////////////////////////////////////////////////////////////////
 using namespace px;
 
 template<typename T=float, std::size_t N = 1>
-using xt_cpu_tensor_t = xt::xtensor_container<xt::uvector<T>, N>;
+using cpu_tensor_t = xt::xtensor_container<xt::uvector<T>, N>;
 
 template<typename T=float, std::size_t N = 1>
-using xt_cuda_tensor_t = xt::xtensor_container<cuda_vector_t<T>, N>;
+using cuda_tensor_t = xt::xtensor_container<cuda_vector_t<T>, N>;
 
 template<std::size_t N = 1>
-using cpu_tensor = xt_cpu_tensor_t<float, N>;
+using cpu_tensor = cpu_tensor_t<float, N>;
 
 template<std::size_t N = 1>
-using cuda_tensor = xt_cuda_tensor_t<float, N>;
+using cuda_tensor = cuda_tensor_t<float, N>;
 
+///////////////////////////////////////////////////////////////////////////////
 void foobar()
 {
-    xt::xtensor<float, 4>::shape_type shape{1, 2, 2, 2 };
+    xt::xtensor<float, 4>::shape_type shape{ 1, 2, 2, 2 };
 
-    cpu_tensor<4> image = xt::ones<float>(shape);
-    for (auto x: image) {
+    using cpu_1d = cpu_tensor<1>;
+    auto S = xtl::make_sequence<cpu_1d>({1, 2, 3});
+    for (auto x: S) {
         printf("%.2f\n", x);
     }
 
     printf("\n");
 
-    cuda_tensor<4> cuda_image(shape);
-    for (auto x: cuda_image) {
-        printf("%.2f\n", x);
+    using cuda_1d = cuda_tensor<1>;
+    auto T = xtl::make_sequence<cuda_1d>({1, 2, 3});
+    for (auto x: T) {
+        printf("%.2f\n", (float)x);
     }
 }
 
