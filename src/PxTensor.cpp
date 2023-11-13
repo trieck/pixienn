@@ -14,40 +14,34 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include <xtensor/xtensor.hpp>
 #include "PxTensor.h"
 
 using namespace px;
 
-template<typename T=float, std::size_t N = 1>
-using cpu_tensor_t = xt::xtensor_container<xt::uvector<T>, N>;
-
-template<typename T=float, std::size_t N = 1>
-using cuda_tensor_t = xt::xtensor_container<cuda_vector_t<T>, N>;
-
-template<std::size_t N = 1>
-using cpu_tensor = cpu_tensor_t<float, N>;
-
-template<std::size_t N = 1>
-using cuda_tensor = cuda_tensor_t<float, N>;
+using CudaVector = PxCudaVectorT<float>;
 
 ///////////////////////////////////////////////////////////////////////////////
 void foobar()
 {
-    xt::xtensor<float, 4>::shape_type shape{ 1, 2, 2, 2 };
+    CudaVector u(100, 7.0f);
+    assert(u.size() == 100);
 
-    using cpu_1d = cpu_tensor<1>;
-    auto S = xtl::make_sequence<cpu_1d>({1, 2, 3});
-    for (auto x: S) {
-        printf("%.2f\n", x);
-    }
+    CudaVector v(u);
+    assert(v.size() == 100);
 
-    printf("\n");
+    CudaVector w(std::move(v));
+    assert(w.size() == 100);
+    assert(v.size() == 0);
 
-    using cuda_1d = cuda_tensor<1>;
-    auto T = xtl::make_sequence<cuda_1d>({1, 2, 3});
-    for (auto x: T) {
-        printf("%.2f\n", (float)x);
-    }
+    CudaVector x{ 1.0f, 2.0f, 3.0f };
+    assert(x.size() == 3);
+
+    auto y = x.toHost();
+    std::copy(y.begin(), y.end(), std::ostream_iterator<float>(std::cout, ", "));
+    std::cout << std::endl;
+
+    PxCudaTensor Z{ 23.0f, 91.0f, 113.7f };
+
+    auto q = Z.toHost();
+    std::copy(q.begin(), q.end(), std::ostream_iterator<float>(std::cout, ", "));
 }
-
