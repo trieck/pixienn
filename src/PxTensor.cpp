@@ -18,11 +18,24 @@
 
 using namespace px;
 
+using CpuVector = PxCpuVectorT<float>;
 using CudaVector = PxCudaVectorT<float>;
 
 ///////////////////////////////////////////////////////////////////////////////
 void foobar()
 {
+    PxCudaTensor Z0{ 23.0f, 91.0f, 113.7f };
+    auto q = Z0.asVector();
+    std::copy(q.begin(), q.end(), std::ostream_iterator<float>(std::cout, ", "));
+    std::cout << std::endl;
+
+    PxCpuTensor Z1{ 23.0f, 91.0f, 113.7f };
+    std::copy(Z1.begin(), Z1.end(), std::ostream_iterator<float>(std::cout, ", "));
+    std::cout << std::endl;
+
+    CpuVector s(100, 7.0f);
+    assert(s.size() == 100);
+
     CudaVector u(100, 7.0f);
     assert(u.size() == 100);
 
@@ -36,12 +49,30 @@ void foobar()
     CudaVector x{ 1.0f, 2.0f, 3.0f };
     assert(x.size() == 3);
 
-    auto y = x.toHost();
+    auto y = x.asVector();
     std::copy(y.begin(), y.end(), std::ostream_iterator<float>(std::cout, ", "));
     std::cout << std::endl;
 
-    PxCudaTensor Z{ 23.0f, 91.0f, 113.7f };
+    auto z0 = cpuTensor(std::initializer_list<float>{ 1, 2, 3 });
 
-    auto q = Z.toHost();
-    std::copy(q.begin(), q.end(), std::ostream_iterator<float>(std::cout, ", "));
+    printf("CPU tensor has size: %zu, data is %p.\n", z0->size(), z0->data());
+    auto V = z0->asVector();
+    std::copy(V.begin(), V.end(), std::ostream_iterator<float>(std::cout, ", "));
+    std::cout << std::endl;
+
+    auto z1 = cudaTensor(std::initializer_list<float>{ 4, 5, 6 });
+
+    printf("CUDA tensor has size: %zu, data is %p.\n", z1->size(), z1->data());
+    V = z1->asVector();
+    std::copy(V.begin(), V.end(), std::ostream_iterator<float>(std::cout, ", "));
+    std::cout << std::endl;
+
+    auto z2 = cudaTensor(100);
+    printf("CUDA tensor has size: %zu, data is %p.\n", z2->size(), z2->data());
+
+    auto z3 = cpuTensor(100);
+    printf("CPU tensor has size: %zu, data is %p.\n", z3->size(), z3->data());
+
+
 }
+

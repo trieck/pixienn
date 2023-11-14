@@ -76,53 +76,133 @@ PxCudaAllocator<T>::pointer PxCudaAllocator<T>::alloc(PxCudaAllocator::size_type
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-template<typename T, Device D, typename Base>
-class PxTensor : public Base
+template<typename T, typename A = std::allocator<T>>
+class PxCpuVectorT
 {
 public:
-    using pointer = typename Base::pointer;
-    using const_pointer = typename Base::const_pointer;
-    using size_type = typename Base::size_type;
+    using C = std::vector<T>;
+    using allocator_type = A;
+    using pointer = typename C::pointer;
+    using const_pointer = typename C::const_pointer ;
+    using reference = typename C::reference;
+    using const_reference = typename C::const_reference;
+    using size_type = typename C::size_type;
+    using iterator = typename C::iterator;
+    using const_iterator = typename C::const_iterator;
 
-    PxTensor();
-    PxTensor(std::initializer_list<T> init);
+    PxCpuVectorT() = default;
+    explicit PxCpuVectorT(size_type count, const allocator_type& alloc = allocator_type());
+    PxCpuVectorT(size_type count, const_reference value, const allocator_type& alloc = allocator_type());
+    explicit PxCpuVectorT(std::initializer_list<T> init, const allocator_type& alloc = allocator_type());
 
-    const_pointer data() const noexcept;
+    PxCpuVectorT(const PxCpuVectorT& rhs);
+    PxCpuVectorT(PxCpuVectorT&& rhs);
+
+    PxCpuVectorT& operator=(const PxCpuVectorT& rhs);
+    PxCpuVectorT& operator=(PxCpuVectorT&& rhs);
+    ~PxCpuVectorT() = default;
+
+    const_iterator begin() const;
+    const_iterator end() const;
+
+    std::vector<T> asVector() const;
     pointer data() noexcept;
-
-    Device device() const;
+    const_pointer data() const noexcept;
+    size_type size() const;
+    bool empty() const;
 
 private:
-    Device dev_ = D;
+    C container_;
 };
 
-template<typename T, Device D, typename Base>
-PxTensor<T, D, Base>::PxTensor(std::initializer_list<T> init)
- : Base(init)
+template<typename T, typename A>
+std::vector<T> PxCpuVectorT<T, A>::asVector() const
+{
+    return container_;
+}
+
+template<typename T, typename A>
+PxCpuVectorT<T, A>::const_iterator PxCpuVectorT<T, A>::begin() const
+{
+    return container_.begin();
+}
+
+template<typename T, typename A>
+PxCpuVectorT<T, A>::const_iterator PxCpuVectorT<T, A>::end() const
+{
+    return container_.end();
+}
+
+template<typename T, typename A>
+bool PxCpuVectorT<T, A>::empty() const
+{
+    return container_.empty();
+}
+
+template<typename T, typename A>
+PxCpuVectorT<T, A>::size_type PxCpuVectorT<T, A>::size() const
+{
+    return container_.size();
+}
+
+template<typename T, typename A>
+PxCpuVectorT<T, A>::const_pointer PxCpuVectorT<T, A>::data() const noexcept
+{
+    return container_.data();
+}
+
+template<typename T, typename A>
+PxCpuVectorT<T, A>::pointer PxCpuVectorT<T, A>::data() noexcept
+{
+    return container_.data();
+}
+
+template<typename T, typename A>
+PxCpuVectorT<T, A>& PxCpuVectorT<T, A>::operator=(PxCpuVectorT&& rhs)
+{
+    container_ = std::move(rhs.vec_);
+
+    return *this;
+}
+
+template<typename T, typename A>
+PxCpuVectorT<T, A>& PxCpuVectorT<T, A>::operator=(const PxCpuVectorT& rhs)
+{
+    if (this != &rhs) {
+        container_ = rhs.vec_;
+    }
+
+    return *this;
+}
+
+template<typename T, typename A>
+PxCpuVectorT<T, A>::PxCpuVectorT(PxCpuVectorT&& rhs)
+{
+    *this = std::move(rhs);
+}
+
+template<typename T, typename A>
+PxCpuVectorT<T, A>::PxCpuVectorT(const PxCpuVectorT& rhs)
+{
+    *this = rhs;
+}
+
+template<typename T, typename A>
+PxCpuVectorT<T, A>::PxCpuVectorT(std::initializer_list<T> init, const allocator_type& alloc)
+        : container_(init, alloc)
 {
 }
 
-template<typename T, Device D, typename Base>
-PxTensor<T, D, Base>::pointer PxTensor<T, D, Base>::data() noexcept
+template<typename T, typename A>
+PxCpuVectorT<T, A>::PxCpuVectorT(size_type count, const_reference value, const allocator_type& alloc)
+        : container_(count, value, alloc)
 {
-    return nullptr;
-}
-template<typename T, Device D, typename Base>
-PxTensor<T, D, Base>::const_pointer PxTensor<T, D, Base>::data() const noexcept
-{
-    return nullptr;
 }
 
-template<typename T, Device D, typename Base>
-PxTensor<T, D, Base>::PxTensor()
+template<typename T, typename A>
+PxCpuVectorT<T, A>::PxCpuVectorT(size_type count, const allocator_type& alloc)
+        : container_(count, alloc)
 {
-
-}
-
-template<typename T, Device D, typename Base>
-Device PxTensor<T, D, Base>::device() const
-{
-    return dev_;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -155,8 +235,7 @@ public:
     bool empty() const;
     void release();
 
-    template<typename U = std::vector<T>>
-    U toHost() const;
+    std::vector<T> asVector() const;
 
 private:
     pointer ptr_ = nullptr;
@@ -165,15 +244,14 @@ private:
 };
 
 template<typename T, typename A>
-template<typename U>
-U PxCudaVectorT<T, A>::toHost() const
+std::vector<T> PxCudaVectorT<T, A>::asVector() const
 {
-    U u(size_);
+    std::vector<T> v(size_);
 
-    auto result = cudaMemcpy(u.data(), ptr_, size_ * sizeof(T), cudaMemcpyDeviceToHost);
+    auto result = cudaMemcpy(v.data(), ptr_, size_ * sizeof(T), cudaMemcpyDeviceToHost);
     PX_CUDA_CHECK_ERR(result);
 
-    return u;
+    return v;
 }
 
 template<typename T, typename A>
@@ -274,7 +352,7 @@ PxCudaVectorT<T, A>::PxCudaVectorT(size_type count, const allocator_type& alloc)
 
 template<typename T, typename A>
 PxCudaVectorT<T, A>::PxCudaVectorT(size_type count, const_reference value, const allocator_type& alloc)
-        : PxCudaVectorT(count)
+        : PxCudaVectorT(count, alloc)
 {
     if (count != 0) {
         fill_gpu(ptr_, count, value);
@@ -282,10 +360,140 @@ PxCudaVectorT<T, A>::PxCudaVectorT(size_type count, const_reference value, const
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+template<typename T>
+class PxTensor
+{
+public:
+    virtual ~PxTensor() = default;
+    using Ptr = std::unique_ptr<PxTensor>;
+
+    using pointer = T*;
+    using const_pointer = const T*;
+    using size_type = std::size_t;
+
+    Device device() const;
+
+    virtual size_type size() const noexcept = 0;
+    virtual const_pointer data() const noexcept = 0;
+    virtual pointer data() noexcept = 0;
+    virtual std::vector<T> asVector() const = 0;
+
+protected:
+    PxTensor(Device dev);
+
+private:
+    Device dev_;
+};
+
+template<typename T>
+PxTensor<T>::PxTensor(Device dev) : dev_(dev)
+{
+}
+
+template<typename T>
+Device PxTensor<T>::device() const
+{
+    return dev_;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+template<typename T, Device D, typename C>
+class PxTensorImpl : public PxTensor<T>, public C
+{
+public:
+    using pointer = typename C::pointer;
+    using const_pointer = typename C::const_pointer;
+    using size_type = typename C::size_type;
+
+    PxTensorImpl();
+    PxTensorImpl(size_type count);
+    PxTensorImpl(std::initializer_list<T> init);
+
+    std::size_t size() const noexcept override;
+    const_pointer data() const noexcept override;
+    pointer data() noexcept override;
+    std::vector<T> asVector() const override;
+};
+
+template<typename T, Device D, typename C>
+PxTensorImpl<T, D, C>::PxTensorImpl(size_type count)
+ : C(count), PxTensor<T>(D)
+{
+
+}
+
+template<typename T, Device D, typename C>
+PxTensorImpl<T, D, C>::PxTensorImpl(std::initializer_list<T> init)
+        : C(init), PxTensor<T>(D)
+{
+}
+
+template<typename T, Device D, typename C>
+std::vector<T> PxTensorImpl<T, D, C>::asVector() const
+{
+    return C::asVector();
+}
+
+template<typename T, Device D, typename C>
+std::size_t PxTensorImpl<T, D, C>::size() const noexcept
+{
+    return C::size();
+}
+
+template<typename T, Device D, typename C>
+PxTensorImpl<T, D, C>::pointer PxTensorImpl<T, D, C>::data() noexcept
+{
+    return C::data();
+}
+
+template<typename T, Device D, typename C>
+PxTensorImpl<T, D, C>::const_pointer PxTensorImpl<T, D, C>::data() const noexcept
+{
+    return C::data();
+}
+
+template<typename T, Device D, typename C>
+PxTensorImpl<T, D, C>::PxTensorImpl() : PxTensor<T>(D)
+{
+}
+
+///////////////////////////////////////////////////////////////////////////////
 template<typename T = float>
-using PxCudaTensorT = PxTensor<T, Device::CUDA, PxCudaVectorT<T>>;
+using PxCpuTensorT = PxTensorImpl<T, Device::CPU, PxCpuVectorT<T>>;
+
+using PxCpuTensor = PxCpuTensorT<>;
+
+template<typename T = float>
+using PxCudaTensorT = PxTensorImpl<T, Device::CUDA, PxCudaVectorT<T>>;
 
 using PxCudaTensor = PxCudaTensorT<>;
+
+///////////////////////////////////////////////////////////////////////////////
+template<typename T = float, typename... Args>
+PxTensor<T>::Ptr makeTensor(Device dev, Args&& ...args)
+{
+    typename PxTensor<T>::Ptr p;
+
+    if (dev == Device::CUDA) {
+        p = std::make_unique<PxCudaTensor>(std::forward<Args>(args)...);
+    } else {
+        p = std::make_unique<PxCpuTensor>(std::forward<Args>(args)...);
+    }
+
+    return p;
+}
+
+template<typename T = float, typename... Args>
+PxTensor<T>::Ptr cpuTensor(Args&& ...args)
+{
+    return makeTensor<T>(Device::CPU, std::forward<Args>(args)...);
+}
+
+template<typename T = float, typename... Args>
+PxTensor<T>::Ptr cudaTensor(Args&& ...args)
+{
+    return makeTensor<T>(Device::CUDA, std::forward<Args>(args)...);
+}
 
 } // px
 
