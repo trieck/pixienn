@@ -34,7 +34,7 @@ enum class Device
 
 ///////////////////////////////////////////////////////////////////////////////
 template<typename T>
-class PxCudaAllocator
+class PxCudaAllocatorT
 {
 public:
     using pointer = T*;
@@ -44,29 +44,29 @@ public:
 
     using size_type = std::size_t;
 
-    PxCudaAllocator() = default;
-    PxCudaAllocator(size_type n);
-    ~PxCudaAllocator() = default;
+    PxCudaAllocatorT() = default;
+    PxCudaAllocatorT(size_type n);
+    ~PxCudaAllocatorT() = default;
 
     pointer alloc(size_type n);
     void dealloc(pointer ptr, size_type n);
 };
 
 template<typename T>
-void PxCudaAllocator<T>::dealloc(PxCudaAllocator::pointer ptr, PxCudaAllocator::size_type /*n*/)
+void PxCudaAllocatorT<T>::dealloc(PxCudaAllocatorT::pointer ptr, PxCudaAllocatorT::size_type /*n*/)
 {
     auto result = cudaFree(ptr);
     PX_CUDA_CHECK_ERR(result);
 }
 
 template<typename T>
-PxCudaAllocator<T>::PxCudaAllocator(PxCudaAllocator::size_type n)
+PxCudaAllocatorT<T>::PxCudaAllocatorT(PxCudaAllocatorT::size_type n)
 {
     alloc(n);
 }
 
 template<typename T>
-PxCudaAllocator<T>::pointer PxCudaAllocator<T>::alloc(PxCudaAllocator::size_type n)
+PxCudaAllocatorT<T>::pointer PxCudaAllocatorT<T>::alloc(PxCudaAllocatorT::size_type n)
 {
     pointer ptr;
     auto result = cudaMalloc(&ptr, n * sizeof(T));
@@ -83,7 +83,7 @@ public:
     using C = std::vector<T>;
     using allocator_type = A;
     using pointer = typename C::pointer;
-    using const_pointer = typename C::const_pointer ;
+    using const_pointer = typename C::const_pointer;
     using reference = typename C::reference;
     using const_reference = typename C::const_reference;
     using size_type = typename C::size_type;
@@ -206,7 +206,7 @@ PxCpuVectorT<T, A>::PxCpuVectorT(size_type count, const allocator_type& alloc)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-template<typename T, typename A = PxCudaAllocator<T>>
+template<typename T, typename A = PxCudaAllocatorT<T>>
 class PxCudaVectorT
 {
 public:
@@ -373,6 +373,9 @@ public:
 
     Device device() const;
 
+    virtual std::vector<size_type> shape() const noexcept = 0;
+    virtual std::vector<size_type> strides() const noexcept = 0;
+
     virtual size_type size() const noexcept = 0;
     virtual const_pointer data() const noexcept = 0;
     virtual pointer data() noexcept = 0;
@@ -409,6 +412,9 @@ public:
     PxTensorImpl(size_type count);
     PxTensorImpl(std::initializer_list<T> init);
 
+    std::vector<size_type> shape() const noexcept override;
+    std::vector<size_type> strides() const noexcept override;
+
     std::size_t size() const noexcept override;
     const_pointer data() const noexcept override;
     pointer data() noexcept override;
@@ -416,10 +422,21 @@ public:
 };
 
 template<typename T, Device D, typename C>
-PxTensorImpl<T, D, C>::PxTensorImpl(size_type count)
- : C(count), PxTensor<T>(D)
+std::vector<typename PxTensorImpl<T, D, C>::size_type> PxTensorImpl<T, D, C>::shape() const noexcept
 {
+    return std::vector<size_type>();
+}
 
+template<typename T, Device D, typename C>
+std::vector<typename PxTensorImpl<T, D, C>::size_type> PxTensorImpl<T, D, C>::strides() const noexcept
+{
+    return std::vector<size_type>();
+}
+
+template<typename T, Device D, typename C>
+PxTensorImpl<T, D, C>::PxTensorImpl(size_type count)
+        : C(count), PxTensor<T>(D)
+{
 }
 
 template<typename T, Device D, typename C>
@@ -458,14 +475,16 @@ PxTensorImpl<T, D, C>::PxTensorImpl() : PxTensor<T>(D)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+using PxCudaAllocator = PxCudaAllocatorT<float>;
+using PxCpuVector = PxCpuVectorT<float>;
+using PxCudaVector = PxCudaVectorT<float>;
+
 template<typename T = float>
 using PxCpuTensorT = PxTensorImpl<T, Device::CPU, PxCpuVectorT<T>>;
-
 using PxCpuTensor = PxCpuTensorT<>;
 
 template<typename T = float>
 using PxCudaTensorT = PxTensorImpl<T, Device::CUDA, PxCudaVectorT<T>>;
-
 using PxCudaTensor = PxCudaTensorT<>;
 
 ///////////////////////////////////////////////////////////////////////////////

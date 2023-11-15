@@ -17,7 +17,7 @@
 #ifndef PIXIENN_DETECTION_H
 #define PIXIENN_DETECTION_H
 
-#include "opencv2/core/types.hpp"
+#include <opencv2/core/types.hpp>
 
 namespace px {
 

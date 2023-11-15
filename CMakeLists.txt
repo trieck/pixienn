@@ -38,38 +38,78 @@ if (USE_CUDA)
     find_library(CUDART_LIBRARY cudart ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
     find_library(CUBLAS_LIBRARY cublas ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
 
-    file(GLOB CUDA_SOURCES "src/*.cu" "include/*.cuh")
-    list(APPEND SOURCES ${CUDA_SOURCES})
+    list(APPEND SOURCES
+            src/ActivationKernels.cu
+            src/BiasKernels.cu
+            src/CudaError.cpp
+            src/CudaUtils.cu
+            src/PoolKernels.cu
+            src/UpsampleKernels.cu
+    )
     message(STATUS "CUDA FOUND AND ENABLED")
 else ()
     message(STATUS "CUDA WILL BE DISABLED")
 endif (USE_CUDA)
 
-file(GLOB CPP_SOURCES "src/*.cpp" "include/*.h")
-list(APPEND SOURCES ${CPP_SOURCES})
+list(APPEND SOURCES
+        src/Activation.cpp
+        src/BatchNormLayer.cpp
+        src/ConnLayer.cpp
+        src/ConvLayer.cpp
+        src/Detection.cpp
+        src/DetectLayer.cpp
+        src/Error.cpp
+        src/Image.cpp
+        src/Layer.cpp
+        src/DetectLayer.cpp
+        src/MaxPoolLayer.cpp
+        src/Model.cpp
+        src/NMS.cpp
+        src/RouteLayer.cpp
+        src/Timer.cpp
+        src/UpsampleLayer.cpp
+        src/Utility.cpp
+        src/YoloLayer.cpp
+)
 
-add_executable(pixienn ${SOURCES})
+add_library(pixienn STATIC ${SOURCES})
+set_target_properties(pixienn PROPERTIES OUTPUT_NAME "pixienn")
+
+target_include_directories(pixienn PRIVATE ${OpenCV_INCLUDE_DIRS} include)
 
 if (USE_CUDA)
+    target_include_directories(pixienn PRIVATE ${CUDNN_INCLUDE_DIR} ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
     target_compile_definitions(pixienn PRIVATE -DUSE_CUDA)
-    target_include_directories(pixienn PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
-    target_link_libraries(pixienn ${CUDART_LIBRARY} ${CUBLAS_LIBRARY})
-    set_target_properties(pixienn PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-    set_target_properties(pixienn PROPERTIES CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
 endif ()
 
-set_target_properties(pixienn PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_include_directories(pixienn PRIVATE include)
+add_executable(pixienn-bin src/main.cpp)
 
-target_link_libraries(pixienn
-        ${BLAS_openblas_LIBRARY}
-        ${CUDNN_LIBRARY}
+if (USE_CUDA)
+    target_compile_definitions(pixienn-bin PRIVATE -DUSE_CUDA)
+    target_include_directories(pixienn-bin PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+    set_target_properties(pixienn-bin PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+    set_target_properties(pixienn-bin PROPERTIES CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
+endif ()
+
+set_target_properties(pixienn-bin PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties(pixienn-bin PROPERTIES OUTPUT_NAME "pixienn")
+
+target_include_directories(pixienn-bin PRIVATE include)
+
+target_link_libraries(pixienn-bin
         ${OpenCV_LIBS}
+        nlohmann_json::nlohmann_json
+        pixienn
+        tiff
+        yaml-cpp
+        ${BLAS_openblas_LIBRARY}
         boost_chrono
         boost_filesystem
         boost_program_options
-        boost_thread
-        nlohmann_json::nlohmann_json
-        tiff
-        yaml-cpp
+        ${CUDART_LIBRARY}
+        ${CUBLAS_LIBRARY}
+        ${CUDNN_LIBRARY}
 )
+
+add_subdirectory(tests)
+

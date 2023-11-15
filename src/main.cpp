@@ -14,12 +14,12 @@
 * limitations under the License.
 ********************************************************************************/
 
+#include <fstream>
+#include <iostream>
+
 #include "Error.h"
 #include "Model.h"
 #include "NMS.h"
-
-#include <fstream>
-#include <iostream>
 
 namespace po = boost::program_options;
 
@@ -44,10 +44,6 @@ void predict(const std::string& cfgFile, const std::string& imageFile,
 
 int main(int argc, char* argv[])
 {
-    extern void foobar();
-    foobar();
-    exit(0);
-
      if (argc < 3) {
          std::cerr << "usage: pixienn [options] config-file image-file" << std::endl;
          exit(1);
