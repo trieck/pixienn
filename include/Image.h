@@ -18,8 +18,6 @@
 #define PIXIENN_IMAGE_H
 
 #include <opencv2/core/mat.hpp>
-#include <opencv2/core/hal/interface.h>
-#include <opencv2/highgui/highgui.hpp>
 #include <xtensor/xarray.hpp>
 
 namespace px {

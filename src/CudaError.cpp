@@ -14,8 +14,6 @@
 * limitations under the License.
 ********************************************************************************/
 
-#if USE_CUDA
-
 #include "CudaError.h"
 
 #include <cstdarg>
@@ -81,5 +79,3 @@ void CudaError::check(const char* file, unsigned int line, const char* function)
 }
 
 }   // px
-
-#endif // USE_CUDA
