@@ -84,6 +84,7 @@ public:
     using allocator_type = A;
     using pointer = typename C::pointer;
     using const_pointer = typename C::const_pointer;
+    using value_type = typename C::value_type;
     using reference = typename C::reference;
     using const_reference = typename C::const_reference;
     using size_type = typename C::size_type;
