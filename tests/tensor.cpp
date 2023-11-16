@@ -52,10 +52,11 @@ GTEST_TEST(TensorSuite, CpuTensor)
 {
     constexpr std::size_t size(100);
 
-    PxCpuTensor u(size, 7.0f);
-    ASSERT_EQ(u.size(), size);
+    PxCpuTensor<1> tensor({ size }, 7.0f);
+    ASSERT_EQ(tensor.size(), size);
 
-    for (auto value: u) {
+    auto vec = tensor.asVector();
+    for (auto value: vec) {
         ASSERT_FLOAT_EQ(value, 7.0f);
     }
 }
@@ -64,11 +65,11 @@ GTEST_TEST(TensorSuite, CudaTensor)
 {
     constexpr std::size_t size(100);
 
-    PxCudaTensor u(size, 7.0f);
-    ASSERT_EQ(u.size(), size);
+    PxCudaTensor<1> tensor({ size }, 7.0f);
+    ASSERT_EQ(tensor.size(), size);
 
-    auto v = u.asVector();
-    for (auto value: v) {
+    auto vec = tensor.asVector();
+    for (auto value: vec) {
         ASSERT_FLOAT_EQ(value, 7.0f);
     }
 }
@@ -76,15 +77,19 @@ GTEST_TEST(TensorSuite, CudaTensor)
 GTEST_TEST(TensorSuite, MakeCpuTensor)
 {
     constexpr std::size_t size(100);
-    auto u = cpuTensor(size, 7.0f);
+    std::array<std::size_t, 1> shape{ size };
 
-    ASSERT_EQ(u->size(), size);
+    auto tensor = cpuTensor<1>(shape);
+
+    ASSERT_EQ(tensor->size(), size);
 }
 
 GTEST_TEST(TensorSuite, MakeCudaTensor)
 {
     constexpr std::size_t size(100);
-    auto u = cudaTensor(size, 7.0f);
+    std::array<std::size_t, 1> shape{ size };
+
+    auto u = cudaTensor<1>(shape);
 
     ASSERT_EQ(u->size(), size);
 }
@@ -96,7 +101,7 @@ GTEST_TEST(TensorSuite, Strides2D)
     std::array<std::size_t, NDIMS> shape{ 3, 4 };
     std::array<std::size_t, NDIMS> strides;
 
-    px::compute_strides(shape, strides);
+    compute_strides(shape, strides);
 
     ASSERT_THAT(strides, ElementsAre(4, 1));
 }
@@ -108,7 +113,7 @@ GTEST_TEST(TensorSuite, Strides3D)
     std::array<std::size_t, NDIMS> shape{ 1, 2, 3 };
     std::array<std::size_t, NDIMS> strides;
 
-    px::compute_strides(shape, strides);
+    compute_strides(shape, strides);
 
     ASSERT_THAT(strides, ElementsAre(0, 3, 1));
 }
@@ -120,7 +125,8 @@ GTEST_TEST(TensorSuite, Strides4D)
     std::array<std::size_t, NDIMS> shape{ 1, 3, 224, 224 };
     std::array<std::size_t, NDIMS> strides;
 
-    px::compute_strides(shape, strides);
+    compute_strides(shape, strides);
 
     ASSERT_THAT(strides, ElementsAre(0, 50176, 224, 1));
 }
+
