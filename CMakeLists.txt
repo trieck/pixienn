@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 project(pixienn)
 
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(BLA_VENDOR OpenBLAS)
 
 if (NOT DEFINED USE_CUDA OR USE_CUDA STREQUAL "")
@@ -38,7 +39,9 @@ if (USE_CUDA)
     find_library(CUDART_LIBRARY cudart ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
     find_library(CUBLAS_LIBRARY cublas ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
 
+    file(GLOB CUDA_HEADERS "include/*.cuh")
     list(APPEND SOURCES
+            ${CUDA_HEADERS}
             src/ActivationKernels.cu
             src/BiasKernels.cu
             src/CudaError.cpp
@@ -51,7 +54,9 @@ else ()
     message(STATUS "CUDA WILL BE DISABLED")
 endif (USE_CUDA)
 
+file(GLOB HEADERS "include/*.h")
 list(APPEND SOURCES
+        ${HEADERS}
         src/Activation.cpp
         src/BatchNormLayer.cpp
         src/ConnLayer.cpp
@@ -98,12 +103,10 @@ target_include_directories(pixienn-bin PRIVATE include)
 
 target_link_libraries(pixienn-bin
         ${OpenCV_LIBS}
-        nlohmann_json::nlohmann_json
         pixienn
         tiff
         yaml-cpp
         ${BLAS_openblas_LIBRARY}
-        boost_chrono
         boost_filesystem
         boost_program_options
         ${CUDART_LIBRARY}

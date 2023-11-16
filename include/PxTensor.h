@@ -18,7 +18,6 @@
 #define PXTENSOR_H
 
 #include <cuda_runtime.h>
-#include <xtensor/xarray.hpp>
 
 #include "Common.h"
 #include "CudaUtils.cuh"
@@ -410,6 +409,7 @@ public:
 
     PxTensorImpl();
     PxTensorImpl(size_type count);
+    PxTensorImpl(size_type count, T value);
     PxTensorImpl(std::initializer_list<T> init);
 
     std::vector<size_type> shape() const noexcept override;
@@ -436,6 +436,12 @@ std::vector<typename PxTensorImpl<T, D, C>::size_type> PxTensorImpl<T, D, C>::st
 template<typename T, Device D, typename C>
 PxTensorImpl<T, D, C>::PxTensorImpl(size_type count)
         : C(count), PxTensor<T>(D)
+{
+}
+
+template<typename T, Device D, typename C>
+PxTensorImpl<T, D, C>::PxTensorImpl(size_type count, T value)
+        : C(count, value), PxTensor<T>(D)
 {
 }
 

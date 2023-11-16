@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.15)
 project(pixienn_tests)
 
 find_package(GTest REQUIRED)
+find_package(GMock REQUIRED)
 
 add_executable(tensor_test main.cpp tensor.cpp)
 target_include_directories(tensor_test PRIVATE "${pixienn_SOURCE_DIR}/include")
@@ -18,15 +19,14 @@ set_target_properties(tensor_test PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 target_link_libraries(tensor_test
         ${OpenCV_LIBS}
-        nlohmann_json::nlohmann_json
         pixienn
         tiff
         yaml-cpp
         ${BLAS_openblas_LIBRARY}
-        boost_chrono
         boost_filesystem
         boost_program_options
         GTest::gtest_main
+        GTest::gmock_main
         ${CUDART_LIBRARY}
         ${CUBLAS_LIBRARY}
         ${CUDNN_LIBRARY}
@@ -34,4 +34,8 @@ target_link_libraries(tensor_test
 
 enable_testing()
 include(GoogleTest)
+
 gtest_discover_tests(tensor_test)
+
+add_custom_target(test COMMAND ${CMAKE_CTEST_COMMAND})
+add_dependencies(test tensor_test)
