@@ -18,7 +18,7 @@
 #define PIXIENN_IMAGE_H
 
 #include <opencv2/core/mat.hpp>
-#include <xtensor/xarray.hpp>
+#include "PxTensor.h"
 
 namespace px {
 
@@ -38,7 +38,7 @@ void imconvolve(const cv::Mat& image, const cv::Mat& kernel, int stride, int cha
 void imset(cv::Mat& image, int x, int y, int c, float value);
 void imzero(const cv::Mat& image, int c);
 
-xt::xarray<float> imarray(const cv::Mat& image);
+PxCpuVector imvector(const cv::Mat& image);
 
 } // px
 

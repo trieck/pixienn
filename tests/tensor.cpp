@@ -17,29 +17,10 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
-#include "Strides.h"
 #include "PxTensor.h"
 
 using namespace px;
 using namespace testing;
-
-GTEST_TEST(TensorSuite, CpuVector)
-{
-    constexpr std::size_t size(100);
-
-    PxCpuVector u(size, 7.0f);
-    ASSERT_EQ(u.size(), size);
-    EXPECT_THAT(u, Each(FloatEq(7.0f)));
-}
-
-GTEST_TEST(TensorSuite, CudaVector)
-{
-    constexpr std::size_t size(100);
-
-    PxCudaVector u(size, 7.0f);
-    ASSERT_EQ(u.size(), size);
-    EXPECT_THAT(u.asVector(), Each(FloatEq(7.0f)));
-}
 
 GTEST_TEST(TensorSuite, CpuTensor)
 {
@@ -49,6 +30,7 @@ GTEST_TEST(TensorSuite, CpuTensor)
     ASSERT_EQ(tensor.size(), size);
     EXPECT_THAT(tensor.asVector(), Each(FloatEq(7.0f)));
     EXPECT_THAT(tensor.shape(), ElementsAre(100));
+    EXPECT_THAT(tensor.strides(), ElementsAre(1));
 }
 
 GTEST_TEST(TensorSuite, CpuTensor3D)
@@ -58,7 +40,23 @@ GTEST_TEST(TensorSuite, CpuTensor3D)
     ASSERT_EQ(tensor.size(), 8);
     EXPECT_THAT(tensor.asVector(), Each(FloatEq(7.0f)));
     EXPECT_THAT(tensor.shape(), ElementsAre(2, 2, 2));
+    EXPECT_THAT(tensor.strides(), ElementsAre(4, 2, 1));
 }
+
+GTEST_TEST(TensorSuite, MakeCpuTensor3D)
+{
+    std::array<std::size_t, 3> shape{ 2, 2, 2 };
+
+    auto tensor = cpuTensor<3>(shape);
+
+    ASSERT_EQ(tensor->device(), Device::CPU);
+    ASSERT_EQ(tensor->size(), 8);
+    EXPECT_THAT(tensor->asVector(), Each(FloatEq(0.0f)));
+    EXPECT_THAT(tensor->shape(), ElementsAre(2, 2, 2));
+    EXPECT_THAT(tensor->strides(), ElementsAre(4, 2, 1));
+}
+
+#ifdef USE_CUDA
 
 GTEST_TEST(TensorSuite, CudaTensor)
 {
@@ -68,6 +66,7 @@ GTEST_TEST(TensorSuite, CudaTensor)
     ASSERT_EQ(tensor.size(), size);
     EXPECT_THAT(tensor.asVector(), Each(FloatEq(7.0f)));
     EXPECT_THAT(tensor.shape(), ElementsAre(100));
+    EXPECT_THAT(tensor.strides(), ElementsAre(1));
 }
 
 GTEST_TEST(TensorSuite, CudaTensor3D)
@@ -76,17 +75,7 @@ GTEST_TEST(TensorSuite, CudaTensor3D)
     ASSERT_EQ(tensor.size(), 8);
     EXPECT_THAT(tensor.asVector(), Each(FloatEq(7.0f)));
     EXPECT_THAT(tensor.shape(), ElementsAre(2, 2, 2));
-}
-
-GTEST_TEST(TensorSuite, MakeCpuTensor3D)
-{
-    std::array<std::size_t, 3> shape{ 2, 2, 2 };
-
-    auto tensor = cpuTensor<3>(shape);
-
-    ASSERT_EQ(tensor->size(), 8);
-    EXPECT_THAT(tensor->asVector(), Each(FloatEq(0.0f)));
-    EXPECT_THAT(tensor->shape(), ElementsAre(2, 2, 2));
+    EXPECT_THAT(tensor.strides(), ElementsAre(4, 2, 1));
 }
 
 GTEST_TEST(TensorSuite, MakeCudaTensor3D)
@@ -95,10 +84,14 @@ GTEST_TEST(TensorSuite, MakeCudaTensor3D)
 
     auto tensor = cudaTensor<3>(shape);
 
+    ASSERT_EQ(tensor->device(), Device::CUDA);
     ASSERT_EQ(tensor->size(), 8);
     EXPECT_THAT(tensor->asVector(), Each(FloatEq(0.0f)));
     EXPECT_THAT(tensor->shape(), ElementsAre(2, 2, 2));
+    EXPECT_THAT(tensor->strides(), ElementsAre(4, 2, 1));
 }
+
+#endif // USE_CUDA
 
 GTEST_TEST(TensorSuite, Strides2D)
 {

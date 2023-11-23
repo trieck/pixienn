@@ -21,9 +21,8 @@
 #include "PoolKernels.cuh"
 
 #endif // USE_CUDA
-namespace px {
 
-using namespace xt;
+namespace px {
 
 MaxPoolLayer::MaxPoolLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
@@ -41,11 +40,11 @@ void MaxPoolLayer::setup()
 
     setOutputs(outHeight() * outWidth() * outChannels() * batch());
 
-    output_ = empty<float>({ batch(), outChannels(), outHeight(), outWidth() });
+    output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
 
 #ifdef USE_CUDA
     if (useGpu()) {
-        outputGpu_ = PxDevVector<float>(batch() * outChannels() * outHeight() * outWidth());
+        outputGpu_ = PxCudaVector(batch() * outChannels() * outHeight() * outWidth());
     }
 #endif
 }
@@ -58,7 +57,7 @@ std::ostream& MaxPoolLayer::print(std::ostream& os)
     return os;
 }
 
-void MaxPoolLayer::forward(const xarray<float>& input)
+void MaxPoolLayer::forward(const PxCpuVector& input)
 {
     int wOffset = -padding_ / 2;
     int hOffset = -padding_ / 2;
@@ -98,7 +97,7 @@ void MaxPoolLayer::forward(const xarray<float>& input)
 }
 
 #ifdef USE_CUDA
-void MaxPoolLayer::forwardGpu(const PxDevVector<float>& input)
+void MaxPoolLayer::forwardGpu(const PxCudaVector& input)
 {
     maxpool_gpu(outputs(), height(), width(), channels(), stride_, kernel_, padding_, input.data(), outputGpu_.data());
 }

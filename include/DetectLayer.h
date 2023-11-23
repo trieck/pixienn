@@ -19,7 +19,6 @@
 
 #include "Detection.h"
 #include "Layer.h"
-#include <xtensor/xtensor.hpp>
 
 namespace px {
 
@@ -32,18 +31,17 @@ public:
     ~DetectLayer() override = default;
 
     std::ostream& print(std::ostream& os) override;
-    void forward(const xt::xarray<float>& input) override;
+    void forward(const PxCpuVector& input) override;
     void addDetects(Detections& detections, int width, int height, float threshold) override;
 
 #ifdef USE_CUDA
-    void forwardGpu(const PxDevVector<float>& input) override;
+    void forwardGpu(const PxCudaVector& input) override;
     void addDetectsGpu(Detections& detections, int width, int height, float threshold) override;
 #endif
 
 private:
     void setup() override;
-    void addDetects(Detections& detections, int width, int height, float threshold,
-                    const float* predictions) const;
+    void addDetects(Detections& detections, int width, int height, float threshold, const float* predictions) const;
 
     friend LayerFactories;
 

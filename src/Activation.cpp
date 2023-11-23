@@ -155,4 +155,18 @@ Activation::Ptr Activation::get(const std::string& s)
     return activations.at(s);
 }
 
+void Activation::apply(PxCpuVector& container) const
+{
+    apply(container.begin().base(), container.end().base());
+}
+
+#ifdef USE_CUDA
+
+void Activation::applyGpu(PxCudaVector& container) const
+{
+    applyGpu(container.data(), container.size());
+}
+
+#endif
+
 }   // px

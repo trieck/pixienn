@@ -19,8 +19,6 @@
 
 namespace px {
 
-using namespace xt;
-
 BatchNormLayer::BatchNormLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
 }
@@ -32,11 +30,12 @@ void BatchNormLayer::setup()
     setOutWidth(width());
     setOutputs(outHeight() * outWidth() * outChannels() * batch());
 
-    biases_ = zeros<float>({ channels() });
-    scales_ = ones<float>({ channels() });
-    rollingMean_ = zeros<float>({ channels() });
-    rollingVar_ = zeros<float>({ channels() });
-    output_ = empty<float>({ batch(), outChannels(), outHeight(), outWidth() });
+    biases_ = PxCpuTensor<1>({ (size_t) channels() }, 0.f);
+    scales_ = PxCpuTensor<1>({ (size_t) channels() }, 1.f);
+    rollingMean_ = PxCpuTensor<1>({ (size_t) channels() }, 0.f);
+    rollingVar_ = PxCpuTensor<1>({ (size_t) channels() }, 0.f);
+
+    output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
 
 #ifdef USE_CUDA
     setupGpu();
@@ -50,7 +49,7 @@ std::ostream& BatchNormLayer::print(std::ostream& os)
     return os;
 }
 
-void BatchNormLayer::forward(const xarray<float>& input)
+void BatchNormLayer::forward(const PxCpuVector& input)
 {
     output_ = input;
 
@@ -69,12 +68,12 @@ void BatchNormLayer::forward(const xarray<float>& input)
 void BatchNormLayer::setupGpu()
 {
     if (useGpu()) {
-        biasesGpu_ = PxDevVector<float>(channels(), 0.f);
-        scalesGpu_ = PxDevVector<float>(channels(), 1.f);
-        rollingMeanGpu_ = PxDevVector<float>(channels(), 0.f);
-        rollingVarGpu_ = PxDevVector<float>(channels(), 0.f);
-        outputGpu_ = PxDevVector<float>(batch() * outputs(), 0.f);
-        xGpu_ = PxDevVector<float>(batch() * outputs());
+        biasesGpu_ = PxCudaTensor<1>({ (size_t) channels() }, 0.f);
+        scalesGpu_ = PxCudaTensor<1>({ (size_t) channels() }, 1.f);
+        rollingMeanGpu_ = PxCudaTensor<1>({ (size_t) channels() }, 0.f);
+        rollingVarGpu_ = PxCudaTensor<1>({ (size_t) channels() }, 0.f);
+        outputGpu_ = PxCudaVector((size_t) batch() * outputs(), 0.f);
+        xGpu_ = PxCudaTensor<1>({(size_t)batch() * outputs()});
 
         dstTens_ = std::make_unique<CudnnTensorDesc>();
         normTens_ = std::make_unique<CudnnTensorDesc>();
@@ -85,11 +84,8 @@ void BatchNormLayer::setupGpu()
     }
 }
 
-void BatchNormLayer::forwardGpu(const PxDevVector<float>& input)
+void BatchNormLayer::forwardGpu(const PxCudaVector& input)
 {
-    outputGpu_.fromDevice(input);
-    xGpu_.fromDevice(outputGpu_);
-
     float alpha = 1;
     float beta = 0;
 
@@ -100,14 +96,14 @@ void BatchNormLayer::forwardGpu(const PxDevVector<float>& input)
                                                           &alpha,
                                                           &beta,
                                                           *dstTens_,
-                                                          xGpu_.get(),
+                                                          input.data(),
                                                           *dstTens_,
-                                                          outputGpu_.get(),
+                                                          outputGpu_.data(),
                                                           *normTens_,
-                                                          scalesGpu_.get(),
-                                                          biasesGpu_.get(),
-                                                          rollingMeanGpu_.get(),
-                                                          rollingVarGpu_.get(),
+                                                          scalesGpu_.data(),
+                                                          biasesGpu_.data(),
+                                                          rollingMeanGpu_.data(),
+                                                          rollingVarGpu_.data(),
                                                           0.00001);
     PX_CHECK_CUDNN(status);
 }
@@ -125,10 +121,10 @@ std::streamoff BatchNormLayer::loadDarknetWeights(std::istream& is)
 
 #if USE_CUDA
     if (useGpu()) {
-        biasesGpu_.fromHost(biases_);
-        scalesGpu_.fromHost(scales_);
-        rollingMeanGpu_.fromHost(rollingMean_);
-        rollingVarGpu_.fromHost(rollingVar_);
+        biasesGpu_.copy(biases_);
+        scalesGpu_.copy(scales_);
+        rollingMeanGpu_.copy(rollingMean_);
+        rollingVarGpu_.copy(rollingVar_);
     }
 #endif
 

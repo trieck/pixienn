@@ -32,10 +32,10 @@ public:
     ~UpsampleLayer() override = default;
 
     std::ostream& print(std::ostream& os) override;
-    void forward(const xt::xarray<float>& input) override;
+    void forward(const PxCpuVector& input) override;
 
 #ifdef USE_CUDA
-    void forwardGpu(const PxDevVector<float>& input) override;
+    void forwardGpu(const PxCudaVector& input) override;
 #endif
 
 private:

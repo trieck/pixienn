@@ -14,17 +14,27 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_MATH_H
-#define PIXIENN_MATH_H
+#include <gtest/gtest.h>
+#include <gmock/gmock.h>
 
+#include "Math.h"
 #include "PxTensor.h"
 
-namespace px {
+using namespace px;
+using namespace testing;
 
-PxCpuVector exp(const PxCpuVector& input);
-PxCpuVector log(const PxCpuVector& input);
-PxCpuVector softmax(const PxCpuVector& input);
+TEST(MathSuite, Softmax)
+{
+    PxCpuVector input = { 1.0f, 2.0f, 3.0f };
+    PxCpuVector result = softmax(input);
 
-}   // px
+    PxCpuVector expected = {
+            std::exp(1.0f - 3.0f) / (std::exp(1.0f - 3.0f) + std::exp(2.0f - 3.0f) + 1.0f),
+            std::exp(2.0f - 3.0f) / (std::exp(1.0f - 3.0f) + std::exp(2.0f - 3.0f) + 1.0f),
+            std::exp(3.0f - 3.0f) / (std::exp(1.0f - 3.0f) + std::exp(2.0f - 3.0f) + 1.0f)
+    };
 
-#endif // PIXIENN_MATH_H
+    EXPECT_THAT(result, ElementsAre(FloatNear(expected[0], 1e-6),
+                                    FloatNear(expected[1], 1e-6),
+                                    FloatNear(expected[2], 1e-6)));
+}

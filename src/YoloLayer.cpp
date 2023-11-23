@@ -14,14 +14,10 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include <xtensor/xtensor.hpp>
-
 #include "Model.h"
 #include "YoloLayer.h"
 
 namespace px {
-
-using namespace xt;
 
 YoloLayer::YoloLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
@@ -42,11 +38,11 @@ void YoloLayer::setup()
     setOutWidth(width());
     setOutputs(outHeight() * outWidth() * outChannels() * (classes_ + 4 + 1));
 
-    output_ = empty<float>({ batch(), outChannels(), outHeight(), outWidth() });
+    output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
 
 #ifdef USE_CUDA
     if (useGpu()) {
-        outputGpu_ = PxDevVector<float>(batch() * outChannels() * outHeight() * outWidth());
+        outputGpu_ = PxCudaVector(batch() * outChannels() * outHeight() * outWidth());
     }
 #endif
 }
@@ -58,7 +54,7 @@ std::ostream& YoloLayer::print(std::ostream& os)
     return os;
 }
 
-void YoloLayer::forward(const xarray<float>& input)
+void YoloLayer::forward(const PxCpuVector& input)
 {
     std::copy(input.begin(), input.end(), output_.begin());
 
@@ -80,9 +76,9 @@ void YoloLayer::forward(const xarray<float>& input)
 }
 
 #ifdef USE_CUDA
-void YoloLayer::forwardGpu(const PxDevVector<float>& input)
+void YoloLayer::forwardGpu(const PxCudaVector& input)
 {
-    outputGpu_.fromDevice(input);
+    outputGpu_.copy(input);
 
     auto area = std::max(1, width() * height());
 
@@ -202,7 +198,7 @@ YoloLayer::addDetects(Detections& detections, int width, int height, float thres
 
 void YoloLayer::addDetectsGpu(Detections& detections, int width, int height, float threshold)
 {
-    auto predv = outputGpu_.asHost();
+    auto predv = outputGpu_.asVector();
     addDetects(detections, width, height, threshold, predv.data());
 }
 

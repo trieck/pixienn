@@ -65,9 +65,9 @@ public:
 #endif
 
 private:
-    void forward(const xt::xarray<float>& input) const;
+    void forward(const PxCpuVector& input) const;
 #ifdef USE_CUDA
-    void forwardGpu(const xt::xarray<float>& input) const;
+    void forwardGpu(const PxCpuVector& input) const;
     void setupGpu();
 #endif
 

@@ -17,8 +17,6 @@
 #ifndef PIXIENN_BATCHNORMLAYER_H
 #define PIXIENN_BATCHNORMLAYER_H
 
-#include <xtensor/xtensor.hpp>
-
 #include "Layer.h"
 
 #ifdef USE_CUDA
@@ -35,10 +33,10 @@ protected:
     BatchNormLayer(const Model& model, const YAML::Node& layerDef);
 
 public:
-    void forward(const xt::xarray<float>& input) override;
+    void forward(const PxCpuVector& input) override;
 
 #ifdef USE_CUDA
-    void forwardGpu(const PxDevVector<float>& input) override;
+    void forwardGpu(const PxCudaVector& input) override;
 #endif
 
     std::ostream& print(std::ostream& os) override;
@@ -48,12 +46,12 @@ private:
     void setup() override;
 
     friend LayerFactories;
-    xt::xtensor<float, 1> biases_, scales_, rollingMean_, rollingVar_;
+    PxCpuTensor<1> biases_, scales_, rollingMean_, rollingVar_;
 
 #ifdef USE_CUDA
     void setupGpu();
 
-    PxDevVector<float> xGpu_, biasesGpu_, scalesGpu_, rollingMeanGpu_, rollingVarGpu_;
+    PxCudaTensor<1> xGpu_, biasesGpu_, scalesGpu_, rollingMeanGpu_, rollingVarGpu_;
     CudnnTensorDesc::Ptr normTens_, dstTens_;
 #endif
 };

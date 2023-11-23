@@ -18,7 +18,6 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/imgproc/types_c.h>
 #include <tiffio.h>
-#include <xtensor/xadapt.hpp>
 
 #include "Common.h"
 #include "Error.h"
@@ -213,14 +212,16 @@ void imzero(const Mat& image, int c)
     channel.setTo(Scalar::all(0.0f));
 }
 
-xt::xarray<float> imarray(const cv::Mat& image)
+PxCpuVector imvector(const cv::Mat& image)
 {
     PX_CHECK(image.isContinuous(), "Non-continuous mat not supported.");
 
     int channels = image.channels();
     int width = image.cols;
     int height = image.rows;
-    auto pimage = std::make_unique<float[]>(height * width * channels);
+
+    PxCpuVector vector(height * width * channels);
+    auto* pimage = vector.data();
 
     // convert interleaved mat to planar image
     for (auto i = 0; i < height; ++i) {
@@ -231,11 +232,7 @@ xt::xarray<float> imarray(const cv::Mat& image)
         }
     }
 
-    std::vector<int> shape({ height, width, channels });
-
-    auto array = xt::adapt(pimage.release(), height * width * channels, xt::acquire_ownership(), shape);
-
-    return array;
+    return vector;
 }
 
 } // px

@@ -18,7 +18,6 @@
 
 #include "ConnLayer.h"
 #include "Utility.h"
-#include "xtensor/xrandom.hpp"
 
 #if USE_CUDA
 
@@ -27,8 +26,6 @@
 #endif
 
 namespace px {
-
-using namespace xt;
 
 ConnLayer::ConnLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef), scales_(0),
                                                                        rollingMean_(0), rollingVar_(0)
@@ -59,11 +56,11 @@ void ConnLayer::setup()
         def["width"] = outWidth();
         batchNormalize_ = Layer::create(model(), def);
     } else {
-        biases_ = zeros<float>({ outputs() });
+        biases_ = PxCpuTensor<1>({ (size_t) outputs() });
     }
 
-    weights_ = random::rand<float>({ inputs(), outputs() });
-    output_ = zeros<float>({ batch() * outputs() });
+    weights_ = random<decltype(weights_)>({ (size_t) inputs(), (size_t) outputs() });
+    output_ = PxCpuVector(batch() * outputs());
 
 #ifdef USE_CUDA
     setupGpu();
@@ -76,11 +73,11 @@ void ConnLayer::setupGpu()
 {
     if (useGpu()) {
         if (!batchNormalize_) {
-            biasesGpu_ = PxDevVector<float>(outputs(), 0.f);
+            biasesGpu_ = PxCudaTensor<1>({ (size_t) outputs() }, 0.f);
         }
 
-        weightsGpu_ = PxDevVector<float>::random(inputs() * outputs(), -1.f, 1.f);
-        outputGpu_ = PxDevVector<float>(batch() * outputs(), 0.f);
+        weightsGpu_ = random<decltype(weightsGpu_)>({ (size_t) inputs(), (size_t) outputs() });
+        outputGpu_ = PxCudaVector(batch() * outputs(), 0.f);
     }
 }
 
@@ -105,8 +102,8 @@ std::streamoff ConnLayer::loadDarknetWeights(std::istream& is)
 
 #ifdef USE_CUDA
     if (useGpu()) {
-        biasesGpu_.fromHost(biases_);
-        weightsGpu_.fromHost(weights_);
+        biasesGpu_.copy(biases_);
+        weightsGpu_.copy(weights_);
     }
 #endif
 
@@ -120,10 +117,8 @@ std::streamoff ConnLayer::loadDarknetWeights(std::istream& is)
     return is.tellg() - start;
 }
 
-void ConnLayer::forward(const xt::xarray<float>& input)
+void ConnLayer::forward(const PxCpuVector& input)
 {
-    output_.fill(0);
-
     auto m = batch();
     auto n = outputs();
     auto k = inputs();
@@ -145,20 +140,14 @@ void ConnLayer::forward(const xt::xarray<float>& input)
 
 #if USE_CUDA
 
-void ConnLayer::forwardGpu(const PxDevVector<float>& input)
+void ConnLayer::forwardGpu(const PxCudaVector& input)
 {
-    outputGpu_.fill(0);
-
     auto m = outputs();
     auto n = batch();
     auto k = inputs();
     auto* a = weightsGpu_.data();
     auto* b = input.data();
     auto* c = outputGpu_.data();
-
-    assert(input.size() == k * n);
-    assert(weightsGpu_.size() == k * m);
-    assert(outputGpu_.size() == m * n);
 
     float alpha = 1.0f, beta = 1.0f;
 

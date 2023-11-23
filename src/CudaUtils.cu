@@ -67,7 +67,7 @@ void fill_gpu(float* ptr, std::size_t n, float value)
     thrust::fill(dev_ptr, dev_ptr + n, value);
 }
 
-void random_generate(float* ptr, std::size_t n, float a, float b)
+void random_generate_gpu(float* ptr, std::size_t n, float a, float b)
 {
     thrust::device_ptr<float> dev_ptr = thrust::device_pointer_cast(ptr);
 

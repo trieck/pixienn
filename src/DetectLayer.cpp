@@ -17,8 +17,6 @@
 #include "DetectLayer.h"
 #include "Math.h"
 
-using namespace xt;
-
 namespace px {
 
 DetectLayer::DetectLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
@@ -49,11 +47,11 @@ void DetectLayer::setup()
     setOutWidth(width());
     setOutputs(batch() * inputs());
 
-    output_ = empty<float>({ outputs() });
+    output_ = PxCpuVector(outputs());
 
 #ifdef USE_CUDA
     if (useGpu()) {
-        outputGpu_ = PxDevVector<float>(outputs());
+        outputGpu_ = PxCudaVector(outputs());
     }
 #endif
 }
@@ -65,7 +63,7 @@ std::ostream& DetectLayer::print(std::ostream& os)
     return os;
 }
 
-void DetectLayer::forward(const xt::xarray<float>& input)
+void DetectLayer::forward(const PxCpuVector& input)
 {
     if (softmax_) {
         output_ = softmax(input);
@@ -75,9 +73,9 @@ void DetectLayer::forward(const xt::xarray<float>& input)
 }
 
 #ifdef USE_CUDA
-void DetectLayer::forwardGpu(const PxDevVector<float>& input)
+void DetectLayer::forwardGpu(const PxCudaVector& input)
 {
-    outputGpu_.fromDevice(input);
+    outputGpu_.copy(input);
 }
 #endif  // USE_CUDA
 
@@ -89,14 +87,13 @@ void DetectLayer::addDetects(Detections& detections, int width, int height, floa
 #ifdef USE_CUDA
 void DetectLayer::addDetectsGpu(Detections& detections, int width, int height, float threshold)
 {
-    auto predv = outputGpu_.asHost();
+    auto predv = outputGpu_.asVector();
     addDetects(detections, width, height, threshold, predv.data());
 }
 #endif // USE_CUDA
 
 void
-DetectLayer::addDetects(Detections& detections, int width, int height, float threshold,
-                        const float* predictions) const
+DetectLayer::addDetects(Detections& detections, int width, int height, float threshold, const float* predictions) const
 {
     const auto area = side_ * side_;
 

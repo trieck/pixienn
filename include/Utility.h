@@ -25,6 +25,7 @@ void im2col_cpu(const float* im, int channels, int height, int width, int ksize,
 void normalize_cpu(float* x, const float* mean, float* variance, int batch, int filters, int spatial);
 void scale_bias(float* output, const float* scales, int batch, int n, int size);
 void add_bias(float* output, const float* biases, int batch, int n, int size);
+void random_generate_cpu(float* ptr, std::size_t n, float a = 0.f, float b = 1.f);
 
 }   // px
 
