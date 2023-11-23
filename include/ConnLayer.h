@@ -17,8 +17,6 @@
 #ifndef PIXIENN_CONNLAYER_H
 #define PIXIENN_CONNLAYER_H
 
-#include <xtensor/xtensor.hpp>
-
 #ifdef USE_CUDA
 
 #include "Cudnn.h"
@@ -41,10 +39,10 @@ public:
     std::ostream& print(std::ostream& os) override;
     std::streamoff loadDarknetWeights(std::istream& is) override;
 
-    void forward(const xt::xarray<float>& input) override;
+    void forward(const PxCpuVector& input) override;
 
 #ifdef USE_CUDA
-    void forwardGpu(const PxDevVector<float>& input) override;
+    void forwardGpu(const PxCudaVector& input) override;
 #endif
 
 private:
@@ -55,8 +53,8 @@ private:
 
     friend LayerFactories;
 
-    xt::xtensor<float, 2> weights_;
-    xt::xtensor<float, 1> biases_;
+    PxCpuTensor<2> weights_;
+    PxCpuTensor<1> biases_;
 
     Activation::Ptr activationFnc_;
 
@@ -66,7 +64,8 @@ private:
 
 #ifdef USE_CUDA
     CudnnTensorDesc::Ptr normDesc_, destDesc_;
-    PxDevVector<float> weightsGpu_, biasesGpu_;
+    PxCudaTensor<2> weightsGpu_;
+    PxCudaTensor<1> biasesGpu_;
 #endif
 };
 

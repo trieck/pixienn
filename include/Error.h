@@ -27,7 +27,7 @@ public:
     Error() noexcept;
     Error(const Error& error, std::string message) noexcept;
     Error(const char* file, unsigned int line, const char* function, const char* message) noexcept;
-    Error(const char* file, unsigned int line, const char* function, std::string  message) noexcept;
+    Error(const char* file, unsigned int line, const char* function, std::string message) noexcept;
     Error(std::string file, unsigned int line, std::string function, std::string message) noexcept;
     Error(const char* file, unsigned int line, const char* function, const std::exception_ptr& ptr, const char* format,
           ...) noexcept;

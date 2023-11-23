@@ -91,4 +91,17 @@ void add_bias(float* output, const float* biases, int batch, int n, int size)
     }
 }
 
+void random_generate_cpu(float* ptr, std::size_t n, float a, float b)
+{
+    std::random_device device;
+    std::mt19937 engine{ device() };
+    std::uniform_real_distribution<float> dist{ a, b };
+
+    auto gen = [&dist, &engine]() {
+        return dist(engine);
+    };
+
+    std::generate(ptr, ptr + n, gen);
+}
+
 }   // px

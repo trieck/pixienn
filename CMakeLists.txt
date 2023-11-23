@@ -16,8 +16,6 @@ find_package(Boost 1.74 REQUIRED)
 find_package(OpenCV 4.5.4 REQUIRED)
 find_package(TIFF REQUIRED)
 find_package(nlohmann_json 3.10.5 REQUIRED)
-find_package(xtensor 0.23.10 REQUIRED)
-find_package(xtl 0.7.2 REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 if (USE_CUDA)
@@ -61,12 +59,12 @@ list(APPEND SOURCES
         src/BatchNormLayer.cpp
         src/ConnLayer.cpp
         src/ConvLayer.cpp
-        src/Detection.cpp
         src/DetectLayer.cpp
+        src/Detection.cpp
         src/Error.cpp
         src/Image.cpp
         src/Layer.cpp
-        src/DetectLayer.cpp
+        src/Math.cpp
         src/MaxPoolLayer.cpp
         src/Model.cpp
         src/NMS.cpp

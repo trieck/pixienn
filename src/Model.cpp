@@ -33,8 +33,7 @@ namespace po = boost::program_options;
 
 namespace px {
 
-Model::Model(std::string cfgFile, const boost::program_options::variables_map& options)
-        : cfgFile_(std::move(cfgFile))
+Model::Model(std::string cfgFile, const boost::program_options::variables_map& options) : cfgFile_(std::move(cfgFile))
 {
 #ifdef USE_CUDA
     gpu_ = options.count("no-gpu") == 0;
@@ -149,7 +148,7 @@ int Model::width() const
     return width_;
 }
 
-void Model::forward(const xt::xarray<float>& input) const
+void Model::forward(const PxCpuVector& input) const
 {
     const auto* in = &input;
 
@@ -160,9 +159,10 @@ void Model::forward(const xt::xarray<float>& input) const
 }
 
 #ifdef USE_CUDA
-void Model::forwardGpu(const xt::xarray<float>& input) const
+void Model::forwardGpu(const PxCpuVector& input) const
 {
-    PxDevVector<float> vinput(input);
+    PxCudaVector vinput(input.begin().base(), input.end().base());
+
     const auto* in = &vinput;
 
     for (auto& layer: layers()) {
@@ -208,7 +208,7 @@ std::vector<Detection> Model::predict(const std::string& imageFile)
 {
     auto image = imread(imageFile.c_str());
     auto sized = imletterbox(image, width(), height());
-    auto input = imarray(sized);
+    auto input = imvector(sized);
 
     std::cout << "Running network..." << std::endl;
 

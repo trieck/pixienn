@@ -188,13 +188,13 @@ void Layer::setWidth(int width)
     width_ = width;
 }
 
-const xt::xarray<float>& Layer::output() const noexcept
+const PxCpuVector& Layer::output() const noexcept
 {
     return output_;
 }
 
 #ifdef USE_CUDA
-const PxDevVector<float>& Layer::outputGpu() const noexcept
+const PxCudaVector& Layer::outputGpu() const noexcept
 {
     return outputGpu_;
 }

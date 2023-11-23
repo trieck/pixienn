@@ -14,17 +14,18 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include "UpsampleLayer.h"
 #include <opencv2/imgproc.hpp>
-#include <xtensor/xtensor.hpp>
 #include <opencv2/core/mat.hpp>
+
+#include "UpsampleLayer.h"
+
+#ifdef USE_CUDA
 
 #include "UpsampleKernels.cuh"
 
-using namespace cv;
+#endif
 
 using namespace cv;
-using namespace xt;
 
 namespace px {
 
@@ -44,11 +45,11 @@ void UpsampleLayer::setup()
     setOutWidth(width() * stride_);
     setOutputs(outHeight() * outWidth() * outChannels());
 
-    output_ = empty<float>({ batch(), outChannels(), outHeight(), outWidth() });
+    output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
 
 #ifdef USE_CUDA
     if (useGpu()) {
-        outputGpu_ = PxDevVector<float>(batch() * outChannels() * outHeight() * outWidth());
+        outputGpu_ = PxCudaVector(batch() * outChannels() * outHeight() * outWidth());
     }
 #endif
 }
@@ -60,7 +61,7 @@ std::ostream& UpsampleLayer::print(std::ostream& os)
     return os;
 }
 
-void UpsampleLayer::forward(const xarray<float>& input)
+void UpsampleLayer::forward(const PxCpuVector& input)
 {
     for (auto b = 0; b < batch(); ++b) {
         auto* pinput = input.data() + b * inputs();
@@ -75,7 +76,7 @@ void UpsampleLayer::forward(const xarray<float>& input)
 
 #ifdef USE_CUDA
 
-void UpsampleLayer::forwardGpu(const PxDevVector<float>& input)
+void UpsampleLayer::forwardGpu(const PxCudaVector& input)
 {
     upsample_gpu(input.data(), width(), height(), channels(), batch(), stride_, 1, scale_, outputGpu_.data());
 }

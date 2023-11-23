@@ -32,23 +32,19 @@ public:
     ~YoloLayer() override = default;
 
     std::ostream& print(std::ostream& os) override;
-    void forward(const xt::xarray<float>& input) override;
+    void forward(const PxCpuVector& input) override;
     void addDetects(Detections& detections, int width, int height, float threshold) override;
 #ifdef USE_CUDA
-    void forwardGpu(const PxDevVector<float>& input) override;
+    void forwardGpu(const PxCudaVector& input) override;
     void addDetectsGpu(Detections& detections, int width, int height, float threshold) override;
 #endif
 private:
-    void setup() override;
-
-    void addDetects(Detections& detections, int width, int height, float threshold,
-                    const float* predictions) const;
     friend LayerFactories;
 
+    void setup() override;
+    void addDetects(Detections& detections, int width, int height, float threshold, const float* predictions) const;
     int entryIndex(int batch, int location, int entry) const noexcept;
-    cv::Rect
-    yoloBox(const float* p, int mask, int index, int col, int row, int w,
-            int h) const;
+    cv::Rect yoloBox(const float* p, int mask, int index, int col, int row, int w, int h) const;
 
     Activation::Ptr activation_;
     int classes_{}, total_{};

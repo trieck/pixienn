@@ -15,15 +15,11 @@
 ********************************************************************************/
 
 #include <cblas.h>
-#include <xtensor/xadapt.hpp>
-#include <xtensor/xrandom.hpp>
 
 #include "Activation.h"
 #include "ConvLayer.h"
 #include "Error.h"
 #include "Utility.h"
-
-using namespace xt;
 
 namespace px {
 
@@ -61,12 +57,13 @@ void ConvLayer::setup()
         def["width"] = outWidth();
         batchNormalize_ = Layer::create(model(), def);
     } else {
-        biases_ = zeros<float>({ filters_ });
+        biases_ = PxCpuTensor<1>({ (size_t) filters_ }, 0.f);
     }
 
-    weights_ = random::rand<float>({ filters_, channels() / groups_, kernel_, kernel_ });
-    column_ = empty<float>({ kernel_ * kernel_ * channels() / groups_, outHeight() * outWidth() });
-    output_ = empty<float>({ batch(), outChannels(), outHeight(), outWidth() });
+    weights_ = random<decltype(weights_)>(
+            { (size_t) filters_, (size_t) (channels() / groups_), (size_t) kernel_, (size_t) kernel_ });
+    column_ = PxCpuTensor<2>({ (size_t) kernel_ * kernel_ * channels() / groups_, (size_t) outHeight() * outWidth() });
+    output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
 
 #ifdef USE_CUDA
     setup_gpu();
@@ -92,7 +89,7 @@ std::streamoff ConvLayer::loadDarknetWeights(std::istream& is)
         PX_CHECK(is.good(), "Could not read biases");
 #if USE_CUDA
         if (useGpu()) {
-            biasesGpu_.fromHost(biases_);
+            biasesGpu_.copy(biases_);
         }
 #endif
     }
@@ -101,15 +98,15 @@ std::streamoff ConvLayer::loadDarknetWeights(std::istream& is)
     PX_CHECK(is.good(), "Could not read weights");
 
 #if USE_CUDA
-    if (useGpu()) {
-        weightsGpu_.fromHost(weights_);
+    if (useGpu()) { ;
+        weightsGpu_.copy(weights_);
     }
 #endif
 
     return is.tellg() - start;
 }
 
-void ConvLayer::forward(const xt::xarray<float>& input)
+void ConvLayer::forward(const PxCpuVector& input)
 {
     int m = filters_ / groups_;
     int n = outWidth() * outHeight();
@@ -157,11 +154,13 @@ void ConvLayer::setup_gpu()
 {
     if (useGpu()) {
         if (!batchNormalize_) {
-            biasesGpu_ = PxDevVector<float>(filters_, 0);
+            biasesGpu_ = PxCudaTensor<1>({ (size_t) filters_ }, 0);
         }
 
-        weightsGpu_ = PxDevVector<float>::random(filters_ * channels() / groups_ * kernel_ * kernel_);
-        outputGpu_ = PxDevVector<float>(batch() * outChannels() * outHeight() * outWidth());
+        weightsGpu_ = random<decltype(weightsGpu_)>(
+                { (size_t) filters_, (size_t) (channels() / groups_), (size_t) kernel_, (size_t) kernel_ });
+
+        outputGpu_ = PxCudaVector(batch() * outChannels() * outHeight() * outWidth());
         xDesc_ = std::make_unique<CudnnTensorDesc>();
         yDesc_ = std::make_unique<CudnnTensorDesc>();
         wDesc_ = std::make_unique<CudnnFilterDesc>();
@@ -221,11 +220,11 @@ void ConvLayer::setup_gpu()
             }
         }
 
-        workspace_ = PxDevVector<float>(workspaceSize / sizeof(float));
+        workspace_ = PxCudaTensor<1>({ workspaceSize / sizeof(float) });
     }
 }
 
-void ConvLayer::forwardGpu(const PxDevVector<float>& input)
+void ConvLayer::forwardGpu(const PxCudaVector& input)
 {
     float alpha = 1.f;
     float beta = 1.f;

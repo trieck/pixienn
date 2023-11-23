@@ -5,7 +5,7 @@ project(pixienn_tests)
 find_package(GTest REQUIRED)
 find_package(GMock REQUIRED)
 
-add_executable(tensor_test main.cpp tensor.cpp)
+add_executable(tensor_test main.cpp math.cpp tensor.cpp vector.cpp)
 target_include_directories(tensor_test PRIVATE "${pixienn_SOURCE_DIR}/include")
 
 if (USE_CUDA)

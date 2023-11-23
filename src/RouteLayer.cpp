@@ -14,14 +14,10 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include <xtensor/xtensor.hpp>
-
 #include "Model.h"
 #include "RouteLayer.h"
 
 namespace px {
-
-using namespace xt;
 
 RouteLayer::RouteLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
@@ -64,11 +60,11 @@ void RouteLayer::setup()
     setOutWidth(outWidth);
     setOutputs(outputs);
 
-    output_ = empty<float>({ batch(), outChannels, outHeight, outWidth });
+    output_ = PxCpuVector(batch() * outChannels * outHeight * outWidth);
 
 #ifdef USE_CUDA
     if (useGpu()) {
-        outputGpu_ = PxDevVector<float>(batch() * outChannels * outHeight * outWidth);
+        outputGpu_ = PxCudaVector(batch() * outChannels * outHeight * outWidth);
     }
 #endif // USE_CUDA
 }
@@ -80,7 +76,7 @@ std::ostream& RouteLayer::print(std::ostream& os)
     return os;
 }
 
-void RouteLayer::forward(const xt::xarray<float>& /*input*/)
+void RouteLayer::forward(const PxCpuVector& /*input*/)
 {
     auto offset = 0;
 
@@ -103,7 +99,7 @@ void RouteLayer::forward(const xt::xarray<float>& /*input*/)
 }
 
 #ifdef USE_CUDA
-void RouteLayer::forwardGpu(const PxDevVector<float>& /*input*/)
+void RouteLayer::forwardGpu(const PxCudaVector& /*input*/)
 {
     auto offset = 0;
 

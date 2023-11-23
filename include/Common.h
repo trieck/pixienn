@@ -17,15 +17,18 @@
 #ifndef PIXIENN_COMMON_H
 #define PIXIENN_COMMON_H
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <exception>
 #include <functional>
 #include <iomanip>
 #include <iostream>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <optional>
+#include <random>
 #include <string>
 #include <unordered_map>
 #include <vector>

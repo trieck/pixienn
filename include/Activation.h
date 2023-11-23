@@ -18,14 +18,7 @@
 #define PIXIENN_ACTIVATION_H
 
 #include "Common.h"
-
-#ifdef USE_CUDA
-
-#include "PxVector.h"
-
-#endif  // USE_CUDA
-
-#include <xtensor/xcontainer.hpp>
+#include "PxTensor.h"
 
 namespace px {
 
@@ -37,31 +30,13 @@ public:
     static Activation::Ptr get(const std::string& s);
 
     virtual void apply(float* begin, float* end) const = 0;
-
-    template<typename T>
-    void apply(xt::xcontainer<T>&) const;
+    void apply(PxCpuVector&) const;
 
 #ifdef USE_CUDA
     virtual void applyGpu(float* begin, std::size_t n) const = 0;
-
-    template<typename T>
-    void applyGpu(PxDevVector<T>&) const;
-#endif
-};
-
-template<typename T>
-void Activation::apply(xt::xcontainer<T>& container) const
-{
-    apply(container.begin(), container.end());
-}
-
-#ifdef USE_CUDA
-template<typename T>
-void Activation::applyGpu(PxDevVector<T>& vec) const
-{
-    applyGpu(vec.data(), vec.size());
-}
+    void applyGpu(PxCudaVector&) const;
 #endif // USE_CUDA
+};
 
 }   // px
 

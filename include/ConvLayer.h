@@ -17,8 +17,6 @@
 #ifndef PIXIENN_CONVLAYER_H
 #define PIXIENN_CONVLAYER_H
 
-#include <xtensor/xtensor.hpp>
-
 #include "Activation.h"
 #include "Layer.h"
 
@@ -40,10 +38,10 @@ public:
 
     std::ostream& print(std::ostream& os) override;
     std::streamoff loadDarknetWeights(std::istream& is) override;
-    void forward(const xt::xarray<float>& input) override;
+    void forward(const PxCpuVector& input) override;
 
 #ifdef USE_CUDA
-    void forwardGpu(const PxDevVector<float>& input) override;
+    void forwardGpu(const PxCudaVector& input) override;
 #endif
 
 private:
@@ -54,9 +52,9 @@ private:
 #endif
     friend LayerFactories;
 
-    xt::xtensor<float, 4> weights_;
-    xt::xtensor<float, 1> biases_;
-    xt::xtensor<float, 2> column_;
+    PxCpuTensor<4> weights_;
+    PxCpuTensor<1> biases_;
+    PxCpuTensor<2> column_;
 
     int dilation_ = 0, filters_, kernel_, padding_, stride_, groups_;
     std::string activation_;
@@ -64,7 +62,8 @@ private:
     Activation::Ptr activationFnc_;
 
 #ifdef USE_CUDA
-    PxDevVector<float> weightsGpu_, biasesGpu_, workspace_;
+    PxCudaTensor<4> weightsGpu_;
+    PxCudaTensor<1> biasesGpu_, workspace_;
     CudnnTensorDesc::Ptr xDesc_, yDesc_;
     CudnnConvDesc::Ptr convDesc_;
     CudnnFilterDesc::Ptr wDesc_;

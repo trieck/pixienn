@@ -17,18 +17,17 @@
 #ifndef PIXIENN_LAYER_H
 #define PIXIENN_LAYER_H
 
-#include <xtensor/xarray.hpp>
 #include <yaml-cpp/yaml.h>
 
 #ifdef USE_CUDA
 
 #include "Cublas.h"
 #include "Cudnn.h"
-#include "PxVector.h"
 
 #endif
 
 #include "Error.h"
+#include "PxTensor.h"
 
 namespace px {
 
@@ -65,12 +64,12 @@ public:
         return 0;
     }
 
-    virtual void forward(const xt::xarray<float>& input) = 0;
-    const xt::xarray<float>& output() const noexcept;
+    virtual void forward(const PxCpuVector& input) = 0;
+    const PxCpuVector& output() const noexcept;
 
 #ifdef USE_CUDA
-    virtual void forwardGpu(const PxDevVector<float>& input) = 0;
-    const PxDevVector<float>& outputGpu() const noexcept;
+    virtual void forwardGpu(const PxCudaVector& input) = 0;
+    const PxCudaVector& outputGpu() const noexcept;
     const CublasContext& cublasContext() const noexcept;
     const CudnnContext& cudnnContext() const noexcept;
     bool useGpu() const;
@@ -102,10 +101,10 @@ protected:
                std::optional<int>&& filters = std::nullopt,
                std::optional<std::array<int, 3>>&& size = std::nullopt);
 
-    xt::xarray<float> output_;
+    PxCpuVector output_;
 
 #ifdef USE_CUDA
-    PxDevVector<float> outputGpu_;
+    PxCudaVector outputGpu_;
 #endif
 
 private:
