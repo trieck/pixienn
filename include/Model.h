@@ -54,7 +54,8 @@ public:
     [[nodiscard]] const Layer::Ptr& layerAt(int index) const;
 
     std::vector<Detection> predict(const std::string& imageFile);
-    std::string asJson(std::vector<Detection>&& detects) const noexcept;
+    void overlay(const std::string& imageFile, const Detections& detects) const;
+    std::string asJson(const Detections& detects) const noexcept;
 
     [[nodiscard]] const std::vector<std::string>& labels() const noexcept;
 

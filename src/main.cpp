@@ -17,7 +17,9 @@
 #include <fstream>
 #include <iostream>
 
+#include "Common.h"
 #include "Error.h"
+#include "Image.h"
 #include "Model.h"
 #include "NMS.h"
 
@@ -34,9 +36,10 @@ void predict(const std::string& cfgFile, const std::string& imageFile,
     auto nmsThreshold = options["nms"].as<float>();
     nms(detects, nmsThreshold);
 
-    auto json = model.asJson(std::move(detects));
+    model.overlay(imageFile, detects);
+    auto json = model.asJson(detects);
 
-    std::ofstream ofs("results.geojson", std::ios::out | std::ios::binary);
+    std::ofstream ofs("predictions.geojson", std::ios::out | std::ios::binary);
     PX_CHECK(ofs.good(), "Could not open file \"%s\".", "results.geojson");
     ofs << json << std::flush;
     ofs.close();
@@ -44,39 +47,39 @@ void predict(const std::string& cfgFile, const std::string& imageFile,
 
 int main(int argc, char* argv[])
 {
-     if (argc < 3) {
-         std::cerr << "usage: pixienn [options] config-file image-file" << std::endl;
-         exit(1);
-     }
+    if (argc < 3) {
+        std::cerr << "usage: pixienn [options] config-file image-file" << std::endl;
+        exit(1);
+    }
 
-     po::options_description desc("options");
-     po::positional_options_description pod;
-     pod.add("config-file", 1);
-     pod.add("image-file", 1);
+    po::options_description desc("options");
+    po::positional_options_description pod;
+    pod.add("config-file", 1);
+    pod.add("image-file", 1);
 
-     desc.add_options()
-             ("no-gpu", "Use CPU for processing")
-             ("confidence", po::value<float>()->default_value(0.2f))
-             ("nms", po::value<float>()->default_value(0.3f))
-             ("config-file", po::value<std::string>()->required(), "Configuration file")
-             ("image-file", po::value<std::string>()->required(), "Image file");
+    desc.add_options()
+            ("no-gpu", "Use CPU for processing")
+            ("confidence", po::value<float>()->default_value(0.2f))
+            ("nms", po::value<float>()->default_value(0.3f))
+            ("config-file", po::value<std::string>()->required(), "Configuration file")
+            ("image-file", po::value<std::string>()->required(), "Image file");
 
-     try {
-         po::variables_map vm;
-         po::store(po::command_line_parser(argc, argv).options(desc).positional(pod).run(), vm);
-         po::notify(vm);
+    try {
+        po::variables_map vm;
+        po::store(po::command_line_parser(argc, argv).options(desc).positional(pod).run(), vm);
+        po::notify(vm);
 
-         auto config = vm["config-file"].as<std::string>();
-         auto image = vm["image-file"].as<std::string>();
+        auto config = vm["config-file"].as<std::string>();
+        auto image = vm["image-file"].as<std::string>();
 
-         predict(config, image, vm);
-     } catch (const px::Error& e) {
-         std::cerr << e.what() << std::endl;
-         exit(1);
-     } catch (const std::exception& e) {
-         std::cerr << e.what() << std::endl;
-         exit(1);
-     }
+        predict(config, image, vm);
+    } catch (const px::Error& e) {
+        std::cerr << e.what() << std::endl;
+        exit(1);
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << std::endl;
+        exit(1);
+    }
 
     return 0;
 }
