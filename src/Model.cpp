@@ -279,22 +279,27 @@ void Model::overlay(const std::string& imageFile, const Detections& detects) con
 {
     auto img = imread(imageFile.c_str());
 
+    constexpr auto thickness = 2;
+
     for (const auto& detect: detects) {
         auto max = detect.max();
         if (max == 0) {
             continue;   // suppressed
         }
 
-        const auto& box = detect.box();
-        imrect(img, box, 0xFFA500, 2);
-
         auto index = detect.maxClass();
         const auto& label = labels_[index];
+
+        auto bgColor = imgetcolor(index);
+        auto textColor = imtextcolor(bgColor);
+
+        const auto& box = detect.box();
+        imrect(img, box, bgColor, thickness);
 
         auto text = boost::format("%1%: %2$.2f%%") % label % (max * 100);
         std::cout << text << std::endl;
 
-        imtext(img, text.str().c_str(), box.tl(), 0x000000, 0xFFA500, 2);
+        imtext(img, text.str().c_str(), box.tl(), textColor, bgColor, thickness);
     }
 
     imsave("predictions.jpg", img);

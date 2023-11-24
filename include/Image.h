@@ -42,6 +42,8 @@ PxCpuVector imvector(const cv::Mat& image);
 void imrect(cv::Mat& image, const cv::Rect& rect, uint32_t color, int thickness = 1);
 void imtext(cv::Mat& image, const char* text, const cv::Point& ptOrg, uint32_t textColor, uint32_t bgColor,
             int thickness = 1);
+uint32_t imgetcolor(uint32_t index);
+uint32_t imtextcolor(uint32_t color);
 
 } // px
 
