@@ -17,6 +17,7 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/imgproc/types_c.h>
+
 #include <tiffio.h>
 
 #include "Common.h"
@@ -26,12 +27,129 @@
 #define COLOR_RED(c)        ((uint8_t)(((c) & 0xFF0000) >> 16))
 #define COLOR_GREEN(c)      ((uint8_t)(((c) & 0xFF00) >> 8))
 #define COLOR_BLUE(c)       ((uint8_t)(((c) & 0xFF)))
-
 #define MAKE_CV_COLOR(c)    CV_RGB(COLOR_RED(c), COLOR_GREEN(c), COLOR_BLUE(c))
 
 using namespace cv;
 
 namespace px {
+
+static constexpr uint32_t tab20c[] = {
+        0x3182bd,
+        0x6baed6,
+        0x9ecae1,
+        0xc6dbef,
+        0xe6550d,
+        0xfd8d3c,
+        0xfdae6b,
+        0xfdd0a2,
+        0x31a354,
+        0x74c476,
+        0xa1d99b,
+        0xc7e9c0,
+        0x756bb1,
+        0x9e9ac8,
+        0xbcbddc,
+        0xdadaeb,
+        0x636363,
+        0x969696,
+        0xbdbdbd,
+        0xd9d9d9
+};
+
+static constexpr uint32_t Set1[] = {
+        0xe41a1c,
+        0x377eb8,
+        0x4daf4a,
+        0x984ea3,
+        0xff7f00,
+        0xffff33,
+        0xa65628,
+        0xf781bf,
+        0x999999
+};
+
+static constexpr uint32_t Paired[] = {
+        0xa6cee3,
+        0x1f78b4,
+        0xb2df8a,
+        0x33a02c,
+        0xfb9a99,
+        0xe31a1c,
+        0xfdbf6f,
+        0xff7f00,
+        0xcab2d6,
+        0x6a3d9a,
+        0xffff99,
+        0xb15928
+};
+
+static constexpr uint32_t Accent[] = {
+        0x7fc97f,
+        0xbeaed4,
+        0xfdc086,
+        0xffff99,
+        0x386cb0,
+        0xf0027f,
+        0xbf5b17,
+        0x666666
+};
+
+static constexpr uint32_t tab10[] = {
+        0x1f77b4,
+        0xff7f0e,
+        0x2ca02c,
+        0xd62728,
+        0x9467bd,
+        0x8c564b,
+        0xe377c2,
+        0x7f7f7f,
+        0xbcbd22,
+        0x17becf
+};
+
+static constexpr uint32_t tab20[] = {
+        0x1f77b4,
+        0xaec7e8,
+        0xff7f0e,
+        0xffbb78,
+        0x2ca02c,
+        0x98df8a,
+        0xd62728,
+        0xff9896,
+        0x9467bd,
+        0xc5b0d5,
+        0x8c564b,
+        0xc49c94,
+        0xe377c2,
+        0xf7b6d2,
+        0x7f7f7f,
+        0xc7c7c7,
+        0xbcbd22,
+        0xdbdb8d,
+        0x17becf,
+        0x9edae5
+};
+
+static constexpr uint32_t crayola16[] = {
+        0xed0a3f,
+        0xff681f,
+        0xff8833,
+        0xffae42,
+        0xfbe870,
+        0xc5e17a,
+        0x3aa655,
+        0x0095b7,
+        0x0066ff,
+        0x6456b7,
+        0x8359a3,
+        0xbb3385,
+        0xffa6c9,
+        0xaf593e,
+        0x000000,
+        0xffffff
+};
+
+#define COLOR_ENTRY(i, cmap) cmap[i % (sizeof(cmap) / sizeof(cmap[0]))]
 
 Mat imread(const char* path)
 {
@@ -258,27 +376,49 @@ PxCpuVector imvector(const cv::Mat& image)
 
 void imrect(cv::Mat& image, const cv::Rect& rect, uint32_t rgb, int thickness)
 {
-    rectangle(image, rect, MAKE_CV_COLOR(rgb), thickness, FILLED, 0);
+    rectangle(image, rect, MAKE_CV_COLOR(rgb), thickness, LINE_8, 0);
 }
 
 void imtext(Mat& image, const char* text, const cv::Point& ptOrg, uint32_t textColor, uint32_t bgColor, int thickness)
 {
-    int fontFace = FONT_HERSHEY_SIMPLEX;
-    auto fontScale = 0.618f;
+    constexpr auto fontFace = FONT_HERSHEY_SIMPLEX;
+    constexpr auto fontScale = 0.618f;
+    constexpr auto xbuffer = 4;
+    constexpr auto ybuffer = 2;
 
-    int baseline = 0;
-    int xbuffer = 4;
+    auto baseline = 0;
     auto textSize = getTextSize(text, fontFace, fontScale, thickness, &baseline);
+
     baseline += thickness;
     textSize.width += xbuffer;
     textSize.height += baseline;
 
     Point ptStart(ptOrg.x - (thickness / 2), ptOrg.y - (thickness / 2));
     Point ptEnd(ptStart.x + textSize.width, ptStart.y - textSize.height);
-    Point ptText(ptStart.x + xbuffer, ptStart.y - baseline + thickness + 1);
+    Point ptText(ptStart.x + xbuffer, ptStart.y - baseline + thickness + ybuffer);
 
     rectangle(image, ptStart, ptEnd, MAKE_CV_COLOR(bgColor), FILLED);
     putText(image, text, ptText, fontFace, fontScale, MAKE_CV_COLOR(textColor), 1, LINE_AA);
+}
+
+uint32_t imgetcolor(uint32_t index)
+{
+    return COLOR_ENTRY(index, crayola16);
+}
+
+uint32_t imtextcolor(uint32_t bgColor)
+{
+    constexpr auto black = 0x000000;
+    constexpr auto white = 0xFFFFFF;
+    constexpr auto gamma = 2.2f;
+
+    auto r = COLOR_RED(bgColor) / 255.0f;
+    auto g = COLOR_GREEN(bgColor) / 255.0f;
+    auto b = COLOR_BLUE(bgColor) / 255.0f;
+
+    const auto luma = 0.2126f * std::pow(r, gamma) + 0.7152f * std::pow(g, gamma) + 0.0722f * std::pow(b, gamma);
+
+    return luma > 0.314f ? black : white;
 }
 
 } // px
