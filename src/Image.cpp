@@ -23,6 +23,12 @@
 #include "Error.h"
 #include "Image.h"
 
+#define COLOR_RED(c)        ((uint8_t)(((c) & 0xFF0000) >> 16))
+#define COLOR_GREEN(c)      ((uint8_t)(((c) & 0xFF00) >> 8))
+#define COLOR_BLUE(c)       ((uint8_t)(((c) & 0xFF)))
+
+#define MAKE_CV_COLOR(c)    CV_RGB(COLOR_RED(c), COLOR_GREEN(c), COLOR_BLUE(c))
+
 using namespace cv;
 
 namespace px {
@@ -31,6 +37,14 @@ Mat imread(const char* path)
 {
     Mat image = imread(path, IMREAD_UNCHANGED);
     PX_CHECK(!image.empty(), "Could not open image \"%s\".", path);
+
+    return image;
+}
+
+// read an image, normalize bands and convert to float
+Mat imread_normalize(const char* path)
+{
+    Mat image = imread(path);
 
     Mat swapped;
     if (image.channels() == 3) {
@@ -49,6 +63,13 @@ Mat imread(const char* path)
 }
 
 void imsave(const char* path, const cv::Mat& image)
+{
+    auto result = imwrite(path, image);
+    PX_CHECK(result, "Could not save image \"%s\".", path);
+}
+
+// save an image loaded and normalized through imread(), as TIFF
+void imsave_normalize(const char* path, const cv::Mat& image)
 {
     auto* tif = TIFFOpen(path, "w");
     PX_CHECK(tif != nullptr, "Cannot open image \"%s\".", path);
@@ -233,6 +254,31 @@ PxCpuVector imvector(const cv::Mat& image)
     }
 
     return vector;
+}
+
+void imrect(cv::Mat& image, const cv::Rect& rect, uint32_t rgb, int thickness)
+{
+    rectangle(image, rect, MAKE_CV_COLOR(rgb), thickness, FILLED, 0);
+}
+
+void imtext(Mat& image, const char* text, const cv::Point& ptOrg, uint32_t textColor, uint32_t bgColor, int thickness)
+{
+    int fontFace = FONT_HERSHEY_SIMPLEX;
+    auto fontScale = 0.618f;
+
+    int baseline = 0;
+    int xbuffer = 4;
+    auto textSize = getTextSize(text, fontFace, fontScale, thickness, &baseline);
+    baseline += thickness;
+    textSize.width += xbuffer;
+    textSize.height += baseline;
+
+    Point ptStart(ptOrg.x - (thickness / 2), ptOrg.y - (thickness / 2));
+    Point ptEnd(ptStart.x + textSize.width, ptStart.y - textSize.height);
+    Point ptText(ptStart.x + xbuffer, ptStart.y - baseline + thickness + 1);
+
+    rectangle(image, ptStart, ptEnd, MAKE_CV_COLOR(bgColor), FILLED);
+    putText(image, text, ptText, fontFace, fontScale, MAKE_CV_COLOR(textColor), 1, LINE_AA);
 }
 
 } // px

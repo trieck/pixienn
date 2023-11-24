@@ -14,6 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
+#include <boost/format.hpp>
 #include <boost/filesystem.hpp>
 #include <fstream>
 #include <nlohmann/json.hpp>
@@ -206,11 +207,11 @@ void Model::loadDarknetWeights()
 
 std::vector<Detection> Model::predict(const std::string& imageFile)
 {
-    auto image = imread(imageFile.c_str());
+    auto image = imread_normalize(imageFile.c_str());
     auto sized = imletterbox(image, width(), height());
     auto input = imvector(sized);
 
-    std::cout << "Running network..." << std::endl;
+    std::cout << std::endl << "Running network...";
 
     Timer timer;
 
@@ -240,7 +241,7 @@ std::vector<Detection> Model::predict(const std::string& imageFile)
         }
     }
 
-    std::printf("%s: Predicted in %s.\n", imageFile.c_str(), timer.str().c_str());
+    std::printf("predicted in %s.\n", timer.str().c_str());
 
     return detections;
 }
@@ -274,7 +275,32 @@ const std::vector<std::string>& Model::labels() const noexcept
     return labels_;
 }
 
-std::string Model::asJson(std::vector<Detection>&& detects) const noexcept
+void Model::overlay(const std::string& imageFile, const Detections& detects) const
+{
+    auto img = imread(imageFile.c_str());
+
+    for (const auto& detect: detects) {
+        auto max = detect.max();
+        if (max == 0) {
+            continue;   // suppressed
+        }
+
+        const auto& box = detect.box();
+        imrect(img, box, 0xFFA500, 2);
+
+        auto index = detect.maxClass();
+        const auto& label = labels_[index];
+
+        auto text = boost::format("%1%: %2$.2f%%") % label % (max * 100);
+        std::cout << text << std::endl;
+
+        imtext(img, text.str().c_str(), box.tl(), 0x000000, 0xFFA500, 2);
+    }
+
+    imsave("predictions.jpg", img);
+}
+
+std::string Model::asJson(const Detections& detects) const noexcept
 {
     auto json = json::object();
 
@@ -282,13 +308,13 @@ std::string Model::asJson(std::vector<Detection>&& detects) const noexcept
 
     auto features = json::array();
 
-    for (const auto& det: detects) {
-        auto max = det.max();
+    for (const auto& detect: detects) {
+        auto max = detect.max();
         if (max == 0) {
             continue;   // suppressed
         }
 
-        auto index = det.maxClass();
+        auto index = detect.maxClass();
 
         auto feature = json::object();
         auto geometry = json::object();
@@ -298,7 +324,7 @@ std::string Model::asJson(std::vector<Detection>&& detects) const noexcept
         feature["type"] = "Feature";
         geometry["type"] = "Polygon";
 
-        const auto& b = det.box();
+        const auto& b = detect.box();
 
         auto left = b.x;
         auto top = -b.y;
