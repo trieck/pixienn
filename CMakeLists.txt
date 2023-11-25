@@ -58,6 +58,7 @@ list(APPEND SOURCES
         src/Activation.cpp
         src/BatchNormLayer.cpp
         src/ConnLayer.cpp
+        src/ConvAlgo.cpp
         src/ConvLayer.cpp
         src/DetectLayer.cpp
         src/Detection.cpp

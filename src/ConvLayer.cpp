@@ -1,5 +1,5 @@
 /********************************************************************************
-* Copyright 2020 Thomas A. Rieck, All Rights Reserved
+* Copyright 2020-2023 Thomas A. Rieck, All Rights Reserved
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -14,12 +14,17 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include <cblas.h>
 
 #include "Activation.h"
+#include "ConvAlgo.h"
 #include "ConvLayer.h"
 #include "Error.h"
-#include "Utility.h"
+
+#ifdef USE_CUDA
+
+#include <CudaUtils.cuh>
+
+#endif
 
 namespace px {
 
@@ -108,33 +113,9 @@ std::streamoff ConvLayer::loadDarknetWeights(std::istream& is)
 
 void ConvLayer::forward(const PxCpuVector& input)
 {
-    int m = filters_ / groups_;
-    int n = outWidth() * outHeight();
-    int k = kernel_ * kernel_ * channels() / groups_;
+    ConvContext ctxt = makeContext(input);
 
-    int nweights = weights_.size();
-    const auto* pweights = weights_.data();
-
-    const auto* pin = input.data();
-    auto* pout = output_.data();
-
-    auto alpha = 1.0f;
-    auto beta = 1.0f;
-
-    for (auto i = 0; i < batch(); ++i) {
-        for (auto j = 0; j < groups_; ++j) {
-            const auto* im = pin + (i * groups_ + j) * channels() / groups_ * height() * width();
-            const auto* a = pweights + j * nweights / groups_;
-            const auto* b = kernel_ == 1 ? im : column_.data();
-            auto* c = pout + (i * groups_ + j) * n * m;
-
-            if (kernel_ != 1) {
-                im2col_cpu(im, channels() / groups_, height(), width(), kernel_, stride_, padding_, column_.data());
-            }
-
-            cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, alpha, a, k, b, n, beta, c, n);
-        }
-    }
+    convolutionalForward(ctxt);
 
     if (batchNormalize_) {
         batchNormalize_->forward(output_);
@@ -146,9 +127,30 @@ void ConvLayer::forward(const PxCpuVector& input)
     activationFnc_->apply(output_);
 }
 
-#if USE_CUDA
+ConvContext ConvLayer::makeContext(const PxCpuVector& input)
+{
+    ConvContext ctxt{};
+    ctxt.batch = batch();
+    ctxt.channels = channels();
+    ctxt.column = &column_;
+    ctxt.dilation = dilation_;
+    ctxt.filters = filters_;
+    ctxt.groups = groups_;
+    ctxt.height = height();
+    ctxt.input = &input;
+    ctxt.kernel = kernel_;
+    ctxt.outHeight = outHeight();
+    ctxt.outWidth = outWidth();
+    ctxt.output = &output_;
+    ctxt.padding = padding_;
+    ctxt.stride = stride_;
+    ctxt.weights = &weights_;
+    ctxt.width = width();
 
-#include <CudaUtils.cuh>
+    return ctxt;
+}
+
+#if USE_CUDA
 
 void ConvLayer::setup_gpu()
 {
@@ -226,24 +228,9 @@ void ConvLayer::setup_gpu()
 
 void ConvLayer::forwardGpu(const PxCudaVector& input)
 {
-    float alpha = 1.f;
-    float beta = 1.f;
+    ConvContext ctxt = makeContext(input);
 
-    const auto& context = cudnnContext();
-    auto status = cudnnConvolutionForward(context,
-                                          &alpha,
-                                          *xDesc_,
-                                          input.data(),
-                                          *wDesc_,
-                                          weightsGpu_.data(),
-                                          *convDesc_,
-                                          bestAlgo_,
-                                          workspace_.data(),
-                                          workspace_.size() * sizeof(float),
-                                          &beta,
-                                          *yDesc_,
-                                          outputGpu_.data());
-    PX_CHECK_CUDNN(status);
+    convolutionalForwardGpu(ctxt);
 
     if (batchNormalize_) {
         batchNormalize_->forwardGpu(outputGpu_);
@@ -253,6 +240,36 @@ void ConvLayer::forwardGpu(const PxCudaVector& input)
     }
 
     activationFnc_->applyGpu(outputGpu_);
+}
+
+ConvContext ConvLayer::makeContext(const PxCudaVector& input)
+{
+    ConvContext ctxt{};
+
+    ctxt.batch = batch();
+    ctxt.channels = channels();
+    ctxt.dilation = dilation_;
+    ctxt.filters = filters_;
+    ctxt.groups = groups_;
+    ctxt.height = height();
+    ctxt.inputGpu = &input;
+    ctxt.kernel = kernel_;
+    ctxt.outHeight = outHeight();
+    ctxt.outWidth = outWidth();
+    ctxt.outputGpu = &outputGpu_;
+    ctxt.padding = padding_;
+    ctxt.stride = stride_;
+    ctxt.weightsGpu = &weightsGpu_;
+    ctxt.width = width();
+    ctxt.workspace = &workspace_;
+    ctxt.xDesc = xDesc_.get();
+    ctxt.yDesc = yDesc_.get();
+    ctxt.convDesc = convDesc_.get();
+    ctxt.wDesc = wDesc_.get();
+    ctxt.bestAlgo = bestAlgo_;
+    ctxt.cudnnContext = &cudnnContext();
+
+    return ctxt;
 }
 
 #endif  // USE_CUDA
