@@ -77,7 +77,7 @@ GTEST_TEST(VectorSuite, MakeCudaVector)
 {
     constexpr std::size_t size(100);
 
-    auto vector = cudaVector(size);
+    auto vector = cudaVector(size, 0.0f);
 
     ASSERT_EQ(vector->device(), Device::CUDA);
     ASSERT_EQ(vector->size(), size);

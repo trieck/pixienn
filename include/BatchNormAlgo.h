@@ -14,17 +14,33 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_UTILITY_H
-#define PIXIENN_UTILITY_H
+#ifndef PIXIENN_BATCHNORM_ALGO_H
+#define PIXIENN_BATCHNORM_ALGO_H
 
-#include "Common.h"
+#include "PxTensor.h"
 
 namespace px {
 
-void im2col_cpu(const float* im, int channels, int height, int width, int ksize, int stride, int pad, float* dataCol);
-void addBias(float* output, const float* biases, int batch, int n, int size);
-void random_generate_cpu(float* ptr, std::size_t n, float a = 0.f, float b = 1.f);
+// Represents the context needed for a batch norm operation
+struct BNContext
+{
+    const PxCpuVector* input = nullptr;
+    PxCpuVector* output = nullptr;
+
+    const PxCpuTensor<1>* biases = nullptr;
+    const PxCpuTensor<1>* scales = nullptr;
+    const PxCpuTensor<1>* rollingMean = nullptr;
+    const PxCpuTensor<1>* rollingVar = nullptr;
+
+    int batch = 0;
+    int channels = 0;
+    int outHeight = 0;
+    int outWidth = 0;
+};
+
+void batchNormForward(const BNContext& ctxt);
 
 }   // px
 
-#endif // PIXIENN_UTILITY_H
+
+#endif // PIXIENN_BATCHNORM_ALGO_H

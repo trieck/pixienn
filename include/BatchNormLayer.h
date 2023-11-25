@@ -18,6 +18,7 @@
 #define PIXIENN_BATCHNORMLAYER_H
 
 #include "Layer.h"
+#include "BatchNormAlgo.h"
 
 #ifdef USE_CUDA
 
@@ -44,6 +45,7 @@ public:
 
 private:
     void setup() override;
+    BNContext makeContext(const PxCpuVector& input);
 
     friend LayerFactories;
     PxCpuTensor<1> biases_, scales_, rollingMean_, rollingVar_;

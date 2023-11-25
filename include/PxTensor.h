@@ -160,6 +160,7 @@ public:
     const_pointer data() const noexcept override;
 
     void copy(std::initializer_list<T>&& init);
+    void copy(const PxCpuVectorT& rhs);
     void copyHost(const T*, size_type n);
 
     void emplaceBack(T&& value);
@@ -183,6 +184,12 @@ public:
 private:
     C container_;
 };
+
+template<typename T, typename A>
+void PxCpuVectorT<T, A>::copy(const PxCpuVectorT& rhs)
+{
+    copyHost(rhs.data(), rhs.size());
+}
 
 template<typename T, typename A>
 auto PxCpuVectorT<T, A>::operator+(T value) const -> PxCpuVectorT
@@ -596,6 +603,7 @@ PxCudaVectorT<T, A>::PxCudaVectorT(size_type count, const_reference value, const
 
 #endif // USE_CUDA
 
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<typename T, std::size_t N>
 class PxTensor
@@ -625,6 +633,7 @@ public:
     static size_type dims();
 protected:
     PxTensor(Device dev);
+
     PxTensor(Device dev, const shape_type& shape);
 
 private:
@@ -689,12 +698,15 @@ public:
     using const_pointer = typename C::const_pointer;
     using size_type = typename C::size_type;
     using shape_type = base_type::shape_type;
+
+
     using device_type = std::integral_constant<Device, D>;
 
     PxTensorImpl();
     PxTensorImpl(const shape_type& shape);
     PxTensorImpl(const shape_type& shape, T value);
     PxTensorImpl(const shape_type& shape, std::initializer_list<T>&& init);
+    PxTensorImpl(const shape_type& shape, const PxCpuVectorT<T>& init);
 
     void copy(const PxTensor<T, N>& rhs) override;
     const_pointer data() const noexcept override;
@@ -745,6 +757,13 @@ PxTensorImpl<T, D, C, N>::PxTensorImpl(const shape_type& shape, std::initializer
     PX_CHECK(isize == size, "Initializer list size must match shape.");
 
     container_.copy(std::forward<decltype(init)>(init));
+}
+
+template<typename T, Device D, typename C, std::size_t N>
+PxTensorImpl<T, D, C, N>::PxTensorImpl(const shape_type& shape, const PxCpuVectorT<T>& init)
+        : PxTensor<T, N>(D, shape), container_(PxTensor<T, N>::size())
+{
+    container_.copy(init);
 }
 
 template<typename T, Device D, typename C, std::size_t N>

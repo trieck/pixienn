@@ -56,30 +56,7 @@ void im2col_cpu(const float* im, int channels, int height, int width, int ksize,
     }
 }
 
-void normalize_cpu(float* x, const float* mean, float* variance, int batch, int filters, int spatial)
-{
-    for (auto b = 0; b < batch; ++b) {
-        for (auto f = 0; f < filters; ++f) {
-            for (auto i = 0; i < spatial; ++i) {
-                auto index = b * filters * spatial + f * spatial + i;
-                x[index] = (x[index] - mean[f]) / (sqrt(variance[f]) + .000001f);
-            }
-        }
-    }
-}
-
-void scale_bias(float* output, const float* scales, int batch, int n, int size)
-{
-    for (auto b = 0; b < batch; ++b) {
-        for (auto i = 0; i < n; ++i) {
-            for (auto j = 0; j < size; ++j) {
-                output[(b * n + i) * size + j] *= scales[i];
-            }
-        }
-    }
-}
-
-void add_bias(float* output, const float* biases, int batch, int n, int size)
+void addBias(float* output, const float* biases, int batch, int n, int size)
 {
     for (auto b = 0; b < batch; ++b) {
         for (auto i = 0; i < n; ++i) {

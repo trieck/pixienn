@@ -132,7 +132,7 @@ void ConnLayer::forward(const PxCpuVector& input)
         batchNormalize_->forward(output_);
         output_ = batchNormalize_->output();
     } else {
-        add_bias(c, biases_.data(), m, outChannels(), outHeight() * outWidth());
+        addBias(c, biases_.data(), m, outChannels(), outHeight() * outWidth());
     }
 
     activationFnc_->apply(output_);
