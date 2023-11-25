@@ -1,5 +1,5 @@
 /********************************************************************************
-* Copyright 2020 Thomas A. Rieck, All Rights Reserved
+* Copyright 2020-2023 Thomas A. Rieck, All Rights Reserved
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -29,8 +29,7 @@ im2col_get_pixel(const float* im, int height, int width, int row, int col, int c
     if (row < 0 || col < 0 ||
         row >= height || col >= width)
         return 0;
-
-    return im[col + width * (row + height * channel)];
+    return im[col + width*(row + height*channel)];
 }
 
 

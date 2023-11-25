@@ -1,5 +1,5 @@
 /********************************************************************************
-* Copyright 2020 Thomas A. Rieck, All Rights Reserved
+* Copyright 2020-2023 Thomas A. Rieck, All Rights Reserved
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 #ifdef USE_CUDA
 
 #include "Cudnn.h"
+#include "ConvAlgo.h"
 
 #endif
 
@@ -46,9 +47,11 @@ public:
 
 private:
     void setup() override;
+    ConvContext makeContext(const PxCpuVector& input);
 
 #ifdef USE_CUDA
     void setup_gpu();
+    ConvContext makeContext(const PxCudaVector& input);
 #endif
     friend LayerFactories;
 
