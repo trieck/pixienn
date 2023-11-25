@@ -64,8 +64,6 @@ void BatchNormLayer::setupGpu()
         rollingMeanGpu_ = PxCudaTensor<1>({ (size_t) channels() }, 0.f);
         rollingVarGpu_ = PxCudaTensor<1>({ (size_t) channels() }, 0.f);
         outputGpu_ = PxCudaVector((size_t) batch() * outputs(), 0.f);
-        xGpu_ = PxCudaTensor<1>({ (size_t) batch() * outputs() });
-
         dstTens_ = std::make_unique<CudnnTensorDesc>();
         normTens_ = std::make_unique<CudnnTensorDesc>();
 
@@ -77,25 +75,8 @@ void BatchNormLayer::setupGpu()
 
 void BatchNormLayer::forwardGpu(const PxCudaVector& input)
 {
-    float alpha = 1;
-    float beta = 0;
-
-    const auto& context = cudnnContext();
-    auto status = cudnnBatchNormalizationForwardInference(context,
-                                                          CUDNN_BATCHNORM_SPATIAL,
-                                                          &alpha,
-                                                          &beta,
-                                                          *dstTens_,
-                                                          input.data(),
-                                                          *dstTens_,
-                                                          outputGpu_.data(),
-                                                          *normTens_,
-                                                          scalesGpu_.data(),
-                                                          biasesGpu_.data(),
-                                                          rollingMeanGpu_.data(),
-                                                          rollingVarGpu_.data(),
-                                                          0.00001);
-    PX_CHECK_CUDNN(status);
+    auto ctxt = makeContext(input);
+    batchNormForwardGpu(ctxt);
 }
 
 #endif // USE_CUDA
@@ -133,6 +114,28 @@ BNContext BatchNormLayer::makeContext(const PxCpuVector& input)
     ctxt.scales = &scales_;
     ctxt.rollingMean = &rollingMean_;
     ctxt.rollingVar = &rollingVar_;
+
+    ctxt.batch = batch();
+    ctxt.channels = outChannels();
+    ctxt.outHeight = outHeight();
+    ctxt.outWidth = outWidth();
+
+    return ctxt;
+}
+
+BNContext BatchNormLayer::makeContext(const PxCudaVector& input)
+{
+    BNContext ctxt;
+
+    ctxt.inputGpu = &input;
+    ctxt.outputGpu = &outputGpu_;
+    ctxt.biasesGpu = &biasesGpu_;
+    ctxt.scalesGpu = &scalesGpu_;
+    ctxt.rollingMeanGpu = &rollingMeanGpu_;
+    ctxt.rollingVarGpu = &rollingVarGpu_;
+    ctxt.cudnnContext = &cudnnContext();
+    ctxt.dstTens = dstTens_.get();
+    ctxt.normTens = normTens_.get();
 
     ctxt.batch = batch();
     ctxt.channels = outChannels();

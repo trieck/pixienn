@@ -52,8 +52,9 @@ private:
 
 #ifdef USE_CUDA
     void setupGpu();
+    BNContext makeContext(const PxCudaVector& input);
 
-    PxCudaTensor<1> xGpu_, biasesGpu_, scalesGpu_, rollingMeanGpu_, rollingVarGpu_;
+    PxCudaTensor<1> biasesGpu_, scalesGpu_, rollingMeanGpu_, rollingVarGpu_;
     CudnnTensorDesc::Ptr normTens_, dstTens_;
 #endif
 };

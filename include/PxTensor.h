@@ -425,6 +425,7 @@ public:
 
     void copy(std::initializer_list<T>&& init);
     void copy(const T* begin, const T* end);
+    void copy(const PxCpuVectorT<T>& rhs);
     void copy(const PxCudaVectorT& rhs);
     void copyHost(const T*, size_type n);
     void copyDevice(const T*, size_type n);
@@ -435,6 +436,12 @@ private:
     size_type size_ = 0;
     allocator_type alloc_;
 };
+
+template<typename T, typename A>
+void PxCudaVectorT<T, A>::copy(const PxCpuVectorT<T>& rhs)
+{
+    copyHost(rhs.data(), rhs.size());
+}
 
 template<typename T, typename A>
 void PxCudaVectorT<T, A>::copyHost(const T* ptr, size_type n)
@@ -602,7 +609,6 @@ PxCudaVectorT<T, A>::PxCudaVectorT(size_type count, const_reference value, const
 }
 
 #endif // USE_CUDA
-
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<typename T, std::size_t N>
