@@ -56,4 +56,30 @@ void batchNormForward(const BNContext& ctxt)
     addBias(ctxt.output->data(), ctxt.biases->data(), b, c, size);
 }
 
+#ifdef USE_CUDA
+
+void batchNormForwardGpu(const BNContext& ctxt)
+{
+    float alpha = 1;
+    float beta = 0;
+
+    auto status = cudnnBatchNormalizationForwardInference(*ctxt.cudnnContext,
+                                                          CUDNN_BATCHNORM_SPATIAL,
+                                                          &alpha,
+                                                          &beta,
+                                                          *ctxt.dstTens,
+                                                          ctxt.inputGpu->data(),
+                                                          *ctxt.dstTens,
+                                                          ctxt.outputGpu->data(),
+                                                          *ctxt.normTens,
+                                                          ctxt.scalesGpu->data(),
+                                                          ctxt.biasesGpu->data(),
+                                                          ctxt.rollingMeanGpu->data(),
+                                                          ctxt.rollingVarGpu->data(),
+                                                          0.00001);
+    PX_CHECK_CUDNN(status);
+}
+
+#endif // USE_CUDA
+
 }   // px

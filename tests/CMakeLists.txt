@@ -6,7 +6,7 @@ find_package(GTest REQUIRED)
 find_package(GMock REQUIRED)
 
 add_executable(pixienn_test
-        batchnormal.cpp
+        batchnorm.cpp
         convolve.cpp
         main.cpp
         math.cpp

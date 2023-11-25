@@ -19,6 +19,12 @@
 
 #include "PxTensor.h"
 
+#ifdef USE_CUDA
+
+#include "Cudnn.h"
+
+#endif // USE_CUDA
+
 namespace px {
 
 // Represents the context needed for a batch norm operation
@@ -32,6 +38,19 @@ struct BNContext
     const PxCpuTensor<1>* rollingMean = nullptr;
     const PxCpuTensor<1>* rollingVar = nullptr;
 
+#ifdef USE_CUDA
+    const PxCudaVector* inputGpu = nullptr;
+    PxCudaVector* outputGpu = nullptr;
+
+    const PxCudaTensor<1>* biasesGpu = nullptr;
+    const PxCudaTensor<1>* scalesGpu = nullptr;
+    const PxCudaTensor<1>* rollingMeanGpu = nullptr;
+    const PxCudaTensor<1>* rollingVarGpu = nullptr;
+    const CudnnContext* cudnnContext = nullptr;
+    const CudnnTensorDesc* dstTens = nullptr;
+    const CudnnTensorDesc* normTens = nullptr;
+#endif // USE_CUDA
+
     int batch = 0;
     int channels = 0;
     int outHeight = 0;
@@ -39,6 +58,10 @@ struct BNContext
 };
 
 void batchNormForward(const BNContext& ctxt);
+
+#ifdef USE_CUDA
+void batchNormForwardGpu(const BNContext& ctxt);
+#endif // USE_CUDA
 
 }   // px
 
