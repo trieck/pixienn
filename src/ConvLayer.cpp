@@ -113,7 +113,7 @@ std::streamoff ConvLayer::loadDarknetWeights(std::istream& is)
 
 void ConvLayer::forward(const PxCpuVector& input)
 {
-    ConvContext ctxt = makeContext(input);
+    auto ctxt = makeContext(input);
 
     convolutionalForward(ctxt);
 
@@ -121,7 +121,7 @@ void ConvLayer::forward(const PxCpuVector& input)
         batchNormalize_->forward(output_);
         output_ = batchNormalize_->output();
     } else {
-        add_bias(output_.data(), biases_.data(), batch(), outChannels(), outHeight() * outWidth());
+        addBias(output_.data(), biases_.data(), batch(), outChannels(), outHeight() * outWidth());
     }
 
     activationFnc_->apply(output_);

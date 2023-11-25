@@ -5,7 +5,15 @@ project(pixienn_tests)
 find_package(GTest REQUIRED)
 find_package(GMock REQUIRED)
 
-add_executable(pixienn_test main.cpp math.cpp tensor.cpp vector.cpp convolve.cpp)
+add_executable(pixienn_test
+        batchnormal.cpp
+        convolve.cpp
+        main.cpp
+        math.cpp
+        tensor.cpp
+        vector.cpp
+)
+
 target_include_directories(pixienn_test PRIVATE "${pixienn_SOURCE_DIR}/include")
 
 if (USE_CUDA)

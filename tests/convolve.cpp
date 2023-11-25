@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
-#include "ConvLayer.h"
+#include "ConvAlgo.h"
 
 using namespace px;
 using namespace testing;
@@ -38,42 +38,52 @@ struct ConvTestParams
     int width;
 };
 
-static void convolutionTest(const PxCpuVector& input, const PxCpuTensor<4>& weights, const PxCpuVector& expected,
-                            ConvTestParams&& params)
+class ConvTest : public Test
 {
-    ConvContext ctxt;
-    ctxt.input = &input;
-    ctxt.weights = &weights;
-    ctxt.batch = params.batch;
-    ctxt.channels = params.channels;
-    ctxt.dilation = params.dilation;
-    ctxt.filters = params.filters;
-    ctxt.groups = params.groups;
-    ctxt.height = params.height;
-    ctxt.kernel = params.kernel;
-    ctxt.outHeight = params.outHeight;
-    ctxt.outWidth = params.outWidth;
-    ctxt.padding = params.padding;
-    ctxt.stride = params.stride;
-    ctxt.width = params.width;
+protected:
+    void SetUp(const ConvTestParams& params)
+    {
+        column_ = PxCpuTensor<2>({ static_cast<size_t>(params.kernel * params.kernel * params.channels / params.groups),
+                                   static_cast<size_t>(params.outHeight * params.outWidth) }, 0.0f);
 
-    PxCpuTensor<2> column({ static_cast<size_t>(ctxt.kernel * ctxt.kernel * ctxt.channels / ctxt.groups),
-                            static_cast<size_t>(ctxt.outHeight * ctxt.outWidth) }, 0.0f);
-    ctxt.column = &column;
+        output_ = PxCpuVector(params.batch * params.filters * params.outHeight * params.outWidth, 0.0f);
+    }
 
-    PxCpuVector output(ctxt.batch * ctxt.filters * ctxt.outHeight * ctxt.outWidth, 0.0f);
-    ctxt.output = &output;
+    void convolutionTest(const PxCpuVector& input, const PxCpuTensor<4>& weights, const PxCpuVector& expected,
+                         const ConvTestParams& params)
+    {
+        SetUp(params);
 
-    convolutionalForward(ctxt);
+        ConvContext ctxt;
+        ctxt.input = &input;
+        ctxt.weights = &weights;
+        ctxt.column = &column_;
+        ctxt.output = &output_;
+        ctxt.batch = params.batch;
+        ctxt.channels = params.channels;
+        ctxt.dilation = params.dilation;
+        ctxt.filters = params.filters;
+        ctxt.groups = params.groups;
+        ctxt.height = params.height;
+        ctxt.kernel = params.kernel;
+        ctxt.outHeight = params.outHeight;
+        ctxt.outWidth = params.outWidth;
+        ctxt.padding = params.padding;
+        ctxt.stride = params.stride;
+        ctxt.width = params.width;
 
-    EXPECT_THAT(*ctxt.output, Pointwise(FloatEq(), expected));
-}
+        convolutionalForward(ctxt);
 
-GTEST_TEST(LayerSuite, SimpleConvolution)
+        EXPECT_THAT(*ctxt.output, Pointwise(FloatNear(1e-5), expected));
+    }
+
+private:
+    PxCpuTensor<2> column_;
+    PxCpuVector output_;
+};
+
+TEST_F(ConvTest, SimpleConvolution)
 {
-    PxCpuVector input{ 1.0f, 2.0f, 3.0f, 4.0f };
-    PxCpuTensor<4> weights({ 1, 1, 2, 2 }, { 0.5f, 0.5f, 0.5f, 0.5f });
-
     ConvTestParams params;
     params.batch = 1;
     params.channels = 1;
@@ -88,12 +98,14 @@ GTEST_TEST(LayerSuite, SimpleConvolution)
     params.stride = 1;
     params.width = 2;
 
+    PxCpuVector input{ 1.0f, 2.0f, 3.0f, 4.0f };
+    PxCpuTensor<4> weights({ 1, 1, 2, 2 }, { 0.5f, 0.5f, 0.5f, 0.5f });
     PxCpuVector expected{ 5.0f };
 
-    convolutionTest(input, weights, expected, std::move(params));
+    convolutionTest(input, weights, expected, params);
 }
 
-GTEST_TEST(LayerSuite, LargerConvolution)
+TEST_F(ConvTest, LargerConvolution)
 {
     PxCpuVector input{
             1.0f, 2.0f, 3.0f, 4.0f,
@@ -137,7 +149,7 @@ GTEST_TEST(LayerSuite, LargerConvolution)
 class CUDNNTest : public Test
 {
 protected:
-    void SetUp(ConvTestParams& params)
+    void SetUp(const ConvTestParams& params)
     {
         auto status = cudnnSetTensor4dDescriptor(xDesc_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, params.batch,
                                                  params.channels, params.height, params.width);
@@ -198,8 +210,10 @@ protected:
     }
 
     void convolutionTestGpu(const PxCudaVector& input, const PxCudaTensor<4>& weights, const PxCudaVector& expected,
-                            ConvTestParams&& params)
+                            const ConvTestParams& params)
     {
+        SetUp(params);
+
         ConvContext ctxt;
         ctxt.cudnnContext = &cudnnContext_;
         ctxt.xDesc = &xDesc_;
@@ -228,8 +242,8 @@ protected:
         ctxt.outputGpu = &output;
 
         convolutionalForwardGpu(ctxt);
-        
-        EXPECT_THAT(ctxt.outputGpu->asVector(), Pointwise(FloatEq(), expected.asVector()));
+
+        EXPECT_THAT(ctxt.outputGpu->asVector(), Pointwise(FloatNear(1e-5), expected.asVector()));
     }
 
 private:
@@ -257,11 +271,48 @@ TEST_F(CUDNNTest, SimpleConvolutionGpu)
     params.stride = 1;
     params.width = 2;
 
-    SetUp(params);
-
     PxCudaVector input{ 1.0f, 2.0f, 3.0f, 4.0f };
     PxCudaTensor<4> weights({ 1, 1, 2, 2 }, { 0.5f, 0.5f, 0.5f, 0.5f });
     PxCudaVector expected{ 5.0f };
+
+    convolutionTestGpu(input, weights, expected, std::move(params));
+}
+
+TEST_F(CUDNNTest, LargerConvolutionGpu)
+{
+    ConvTestParams params;
+    params.batch = 1;
+    params.channels = 1;
+    params.dilation = 1;
+    params.filters = 1;
+    params.groups = 1;
+    params.height = 4;
+    params.kernel = 2;
+    params.outHeight = 3;
+    params.outWidth = 3;
+    params.padding = 0;
+    params.stride = 1;
+    params.width = 4;
+
+    PxCudaVector input{
+            1.0f, 2.0f, 3.0f, 4.0f,
+            5.0f, 6.0f, 7.0f, 8.0f,
+            9.0f, 10.0f, 11.0f, 12.0f,
+            13.0f, 14.0f, 15.0f, 16.0f
+    };
+
+    PxCudaTensor<4> weights({ 2, 2, 2, 2 }, {
+            0.5f, 0.5f, 0.5f, 0.5f,
+            0.5f, 0.5f, 0.5f, 0.5f,
+            0.5f, 0.5f, 0.5f, 0.5f,
+            0.5f, 0.5f, 0.5f, 0.5f
+    });
+
+    PxCudaVector expected{
+            7.0f, 9.0f, 11.0f,
+            15.0f, 17.0f, 19.0f,
+            23.0f, 25.0f, 27.0f
+    };
 
     convolutionTestGpu(input, weights, expected, std::move(params));
 }

@@ -15,7 +15,6 @@
 ********************************************************************************/
 
 #include "BatchNormLayer.h"
-#include "Utility.h"
 
 namespace px {
 
@@ -51,16 +50,8 @@ std::ostream& BatchNormLayer::print(std::ostream& os)
 
 void BatchNormLayer::forward(const PxCpuVector& input)
 {
-    output_ = input;
-
-    auto b = batch();
-    auto c = outChannels();
-    auto size = outHeight() * outWidth();
-
-    normalize_cpu(output_.data(), rollingMean_.data(), rollingVar_.data(), b, c, size);
-
-    scale_bias(output_.data(), scales_.data(), b, c, size);
-    add_bias(output_.data(), biases_.data(), b, c, size);
+    auto ctxt = makeContext(input);
+    batchNormForward(ctxt);
 }
 
 #ifdef USE_CUDA
@@ -73,7 +64,7 @@ void BatchNormLayer::setupGpu()
         rollingMeanGpu_ = PxCudaTensor<1>({ (size_t) channels() }, 0.f);
         rollingVarGpu_ = PxCudaTensor<1>({ (size_t) channels() }, 0.f);
         outputGpu_ = PxCudaVector((size_t) batch() * outputs(), 0.f);
-        xGpu_ = PxCudaTensor<1>({(size_t)batch() * outputs()});
+        xGpu_ = PxCudaTensor<1>({ (size_t) batch() * outputs() });
 
         dstTens_ = std::make_unique<CudnnTensorDesc>();
         normTens_ = std::make_unique<CudnnTensorDesc>();
@@ -89,8 +80,7 @@ void BatchNormLayer::forwardGpu(const PxCudaVector& input)
     float alpha = 1;
     float beta = 0;
 
-    CudnnContext context;
-
+    const auto& context = cudnnContext();
     auto status = cudnnBatchNormalizationForwardInference(context,
                                                           CUDNN_BATCHNORM_SPATIAL,
                                                           &alpha,
@@ -131,6 +121,25 @@ std::streamoff BatchNormLayer::loadDarknetWeights(std::istream& is)
     PX_CHECK(is.good(), "Could not read batch_normalize parameters");
 
     return is.tellg() - start;
+}
+
+BNContext BatchNormLayer::makeContext(const PxCpuVector& input)
+{
+    BNContext ctxt;
+
+    ctxt.input = &input;
+    ctxt.output = &output_;
+    ctxt.biases = &biases_;
+    ctxt.scales = &scales_;
+    ctxt.rollingMean = &rollingMean_;
+    ctxt.rollingVar = &rollingVar_;
+
+    ctxt.batch = batch();
+    ctxt.channels = outChannels();
+    ctxt.outHeight = outHeight();
+    ctxt.outWidth = outWidth();
+
+    return ctxt;
 }
 
 }   // px

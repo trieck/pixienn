@@ -56,6 +56,7 @@ file(GLOB HEADERS "include/*.h")
 list(APPEND SOURCES
         ${HEADERS}
         src/Activation.cpp
+        src/BatchNormAlgo.cpp
         src/BatchNormLayer.cpp
         src/ConnLayer.cpp
         src/ConvAlgo.cpp

@@ -82,7 +82,7 @@ GTEST_TEST(TensorSuite, MakeCudaTensor3D)
 {
     std::array<std::size_t, 3> shape{ 2, 2, 2 };
 
-    auto tensor = cudaTensor<3>(shape);
+    auto tensor = cudaTensor<3>(shape, 0.0f);
 
     ASSERT_EQ(tensor->device(), Device::CUDA);
     ASSERT_EQ(tensor->size(), 8);
