@@ -14,18 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include <opencv2/imgproc.hpp>
-#include <opencv2/core/mat.hpp>
-
 #include "UpsampleLayer.h"
-
-#ifdef USE_CUDA
-
-#include "UpsampleKernels.cuh"
-
-#endif
-
-using namespace cv;
 
 namespace px {
 
@@ -39,7 +28,6 @@ void UpsampleLayer::setup()
     scale_ = property("scale", 1.0f);
     stride_ = property("stride", 2);    // FIXME: does not support negative stride (reverse upsample)
 
-    setInterpolationFlags();
     setOutChannels(channels());
     setOutHeight(height() * stride_);
     setOutWidth(width() * stride_);
@@ -63,43 +51,58 @@ std::ostream& UpsampleLayer::print(std::ostream& os)
 
 void UpsampleLayer::forward(const PxCpuVector& input)
 {
-    for (auto b = 0; b < batch(); ++b) {
-        auto* pinput = input.data() + b * inputs();
-        auto* poutput = output_.data() + b * outputs();
-
-        Mat mInput(height(), width(), CV_32FC(channels()), (void*) pinput, cv::Mat::AUTO_STEP);
-        Mat mOutput(outHeight(), outWidth(), CV_32FC(outChannels()), (void*) poutput, cv::Mat::AUTO_STEP);
-
-        resize(mInput, mOutput, { (int) outWidth(), (int) outHeight() }, scale_, scale_, flags_);
-    }
+    auto ctxt = makeContext(input);
+    upsampleForward(ctxt);
 }
 
 #ifdef USE_CUDA
 
 void UpsampleLayer::forwardGpu(const PxCudaVector& input)
 {
-    upsample_gpu(input.data(), width(), height(), channels(), batch(), stride_, 1, scale_, outputGpu_.data());
+    auto ctxt = makeContext(input);
+    upsampleForwardGpu(ctxt);
+}
+
+UpsampleContext UpsampleLayer::makeContext(const PxCudaVector& input)
+{
+    UpsampleContext ctxt;
+
+    ctxt.batch = batch();
+    ctxt.channels = channels();
+    ctxt.forward = true;
+    ctxt.height = height();
+    ctxt.inputGpu = &input;
+    ctxt.outChannels = outChannels();
+    ctxt.outHeight = outHeight();
+    ctxt.outWidth = outWidth();
+    ctxt.outputGpu = &outputGpu_;
+    ctxt.scale = scale_;
+    ctxt.stride = stride_;
+    ctxt.width = width();
+
+    return ctxt;
 }
 
 #endif  // USE_CUDA
 
-void UpsampleLayer::setInterpolationFlags()
+UpsampleContext UpsampleLayer::makeContext(const PxCpuVector& input)
 {
-    auto method = property<std::string>("interpolation", "nearest");
+    UpsampleContext ctxt;
 
-    if (method == "nearest") {
-        flags_ = InterpolationFlags::INTER_NEAREST;
-    } else if (method == "linear") {
-        flags_ = InterpolationFlags::INTER_LINEAR;
-    } else if (method == "linear_exact") {
-        flags_ = InterpolationFlags::INTER_LINEAR_EXACT;
-    } else if (method == "cubic") {
-        flags_ = InterpolationFlags::INTER_CUBIC;
-    } else if (method == "area") {
-        flags_ = InterpolationFlags::INTER_AREA;
-    } else {
-        PX_ERROR_THROW("Unsupported interpolation method \"%s\".", method.c_str());
-    }
+    ctxt.batch = batch();
+    ctxt.channels = channels();
+    ctxt.forward = true;
+    ctxt.height = height();
+    ctxt.input = &input;
+    ctxt.outChannels = outChannels();
+    ctxt.outHeight = outHeight();
+    ctxt.outWidth = outWidth();
+    ctxt.output = &output_;
+    ctxt.scale = scale_;
+    ctxt.stride = stride_;
+    ctxt.width = width();
+
+    return ctxt;
 }
 
 } // px

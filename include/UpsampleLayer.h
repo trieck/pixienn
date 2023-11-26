@@ -14,11 +14,10 @@
 * limitations under the License.
 ********************************************************************************/
 
-
 #ifndef PIXIENN_UPSAMPLELAYER_H
 #define PIXIENN_UPSAMPLELAYER_H
 
-#include <opencv2/imgproc.hpp>
+#include "UpsampleAlgo.h"
 #include "Layer.h"
 
 namespace px {
@@ -40,13 +39,15 @@ public:
 
 private:
     void setup() override;
+    UpsampleContext makeContext(const PxCpuVector& input);
 
+#ifdef USE_CUDA
+    UpsampleContext makeContext(const PxCudaVector& input);
+#endif
     friend LayerFactories;
-    void setInterpolationFlags();
 
     float scale_;
     int stride_;
-    cv::InterpolationFlags flags_ = cv::InterpolationFlags::INTER_NEAREST;
 };
 
 } // px

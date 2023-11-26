@@ -144,7 +144,6 @@ model:
 
     - type: upsample
       stride: 2
-      interpolation: nearest
 
     - type: route
       layers: [ -1,8 ]

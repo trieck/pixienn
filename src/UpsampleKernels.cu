@@ -22,8 +22,8 @@
 namespace px {
 
 __global__ void
-upsample_kernel(size_t N, const float* x, int w, int h, int c, int batch, int stride, int forward, float scale,
-                float* out)
+upsampleKernel(size_t N, const float* x, int w, int h, int c, int batch, int stride, int forward, float scale,
+               float* out)
 {
     size_t i = (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x + threadIdx.x;
     if (i >= N) return;
@@ -52,11 +52,11 @@ upsample_kernel(size_t N, const float* x, int w, int h, int c, int batch, int st
     }
 }
 
-void upsample_gpu(const float* in, int w, int h, int c, int batch, int stride, int forward, float scale, float* out)
+void upsampleGpu(const float* in, int w, int h, int c, int batch, int stride, int forward, float scale, float* out)
 {
     size_t size = w * h * c * batch * stride * stride;
 
-    upsample_kernel<<<cuda_gridsize(size), CUDA_BLOCK_SIZE>>>(size, in, w, h, c, batch, stride, forward, scale, out);
+    upsampleKernel<<<cuda_gridsize(size), CUDA_BLOCK_SIZE>>>(size, in, w, h, c, batch, stride, forward, scale, out);
 
     PX_CUDA_CHECK_LAST();
 }
