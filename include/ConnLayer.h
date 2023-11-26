@@ -24,6 +24,7 @@
 #endif
 
 #include "Activation.h"
+#include "ConnAlgo.h"
 #include "Layer.h"
 
 namespace px {
@@ -47,8 +48,12 @@ public:
 
 private:
     void setup() override;
+    ConnContext makeContext(const PxCpuVector& input);
+
 #ifdef USE_CUDA
     void setupGpu();
+    ConnContext makeContext(const PxCudaVector& input);
+
 #endif // USE_CUDA
 
     friend LayerFactories;

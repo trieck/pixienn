@@ -14,8 +14,6 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include <cblas.h>
-
 #include "ConnLayer.h"
 #include "Utility.h"
 
@@ -119,66 +117,61 @@ std::streamoff ConnLayer::loadDarknetWeights(std::istream& is)
 
 void ConnLayer::forward(const PxCpuVector& input)
 {
-    auto m = batch();
-    auto n = outputs();
-    auto k = inputs();
-    auto* a = input.data();
-    auto* b = weights_.data();
-    auto* c = output_.data();
-
-    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, m, n, k, 1.0f, a, k, b, k, 1.0f, c, n);
+    auto ctxt = makeContext(input);
+    connectedForward(ctxt);
 
     if (batchNormalize_) {
         batchNormalize_->forward(output_);
         output_ = batchNormalize_->output();
     } else {
-        addBias(c, biases_.data(), m, outChannels(), outHeight() * outWidth());
+        addBias(output_.data(), biases_.data(), batch(), outChannels(), outHeight() * outWidth());
     }
 
     activationFnc_->apply(output_);
+}
+
+ConnContext ConnLayer::makeContext(const PxCpuVector& input)
+{
+    ConnContext ctxt;
+    ctxt.input = &input;
+    ctxt.output = &output_;
+    ctxt.weights = &weights_;
+    ctxt.batch = batch();
+    ctxt.inputs = inputs();
+    ctxt.outputs = outputs();
+
+    return ctxt;
 }
 
 #if USE_CUDA
 
 void ConnLayer::forwardGpu(const PxCudaVector& input)
 {
-    auto m = outputs();
-    auto n = batch();
-    auto k = inputs();
-    auto* a = weightsGpu_.data();
-    auto* b = input.data();
-    auto* c = outputGpu_.data();
-
-    float alpha = 1.0f, beta = 1.0f;
-
-    const auto& context = cublasContext();
-
-    auto status = cublasSgemm(context,
-                              CUBLAS_OP_T,  /* transpose A */
-                              CUBLAS_OP_N,  /* transpose B */
-                              m,            /* M */
-                              n,            /* N */
-                              k,            /* K */
-                              &alpha,       /* alpha */
-                              a,            /* A */
-                              k,            /* lda */
-                              b,            /* B */
-                              k,            /* ldb */
-                              &beta,        /* beta */
-                              c,            /* C */
-                              m             /* ldc */
-    );
-
-    PX_CHECK_CUBLAS(status);
+    auto ctxt = makeContext(input);
+    connectedForwardGpu(ctxt);
 
     if (batchNormalize_) {
         batchNormalize_->forwardGpu(outputGpu_);
         outputGpu_ = batchNormalize_->outputGpu();
     } else {
-        add_bias_gpu(c, biasesGpu_.data(), n, m, 1);
+        addBiasGpu(outputGpu_.data(), biasesGpu_.data(), batch(), outputs(), 1);
     }
 
     activationFnc_->applyGpu(outputGpu_);
+}
+
+ConnContext ConnLayer::makeContext(const PxCudaVector& input)
+{
+    ConnContext ctxt;
+    ctxt.cublasContext = &cublasContext();
+    ctxt.inputGpu = &input;
+    ctxt.outputGpu = &outputGpu_;
+    ctxt.weightsGpu = &weightsGpu_;
+    ctxt.batch = batch();
+    ctxt.inputs = inputs();
+    ctxt.outputs = outputs();
+
+    return ctxt;
 }
 
 #endif  // USE_CUDA

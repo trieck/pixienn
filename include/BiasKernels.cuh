@@ -19,7 +19,7 @@
 
 namespace px {
 
-void add_bias_gpu(float* output, float* biases, int batch, int n, int size);
+void addBiasGpu(float* output, float* biases, int batch, int n, int size);
 
 }   // px
 

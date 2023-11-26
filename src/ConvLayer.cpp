@@ -14,7 +14,6 @@
 * limitations under the License.
 ********************************************************************************/
 
-
 #include "Activation.h"
 #include "ConvAlgo.h"
 #include "ConvLayer.h"
@@ -236,7 +235,7 @@ void ConvLayer::forwardGpu(const PxCudaVector& input)
         batchNormalize_->forwardGpu(outputGpu_);
         outputGpu_ = batchNormalize_->outputGpu();
     } else {
-        add_bias_gpu(outputGpu_.data(), biasesGpu_.data(), batch(), outChannels(), outHeight() * outWidth());
+        addBiasGpu(outputGpu_.data(), biasesGpu_.data(), batch(), outChannels(), outHeight() * outWidth());
     }
 
     activationFnc_->applyGpu(outputGpu_);

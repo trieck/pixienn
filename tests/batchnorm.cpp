@@ -97,6 +97,43 @@ TEST_F(BatchNormTest, SimpleBatchNorm)
     BNTest(input, expected, params);
 }
 
+TEST_F(BatchNormTest, LargerBatchNorm)
+{
+    BNTestParams params;
+    params.batch = 2;
+    params.channels = 3;
+    params.outHeight = 2;
+    params.outWidth = 2;
+
+    params.biases = { 1.0f, 2.0f, 3.0f };
+    params.scales = { 0.5f, 1.0f, 1.5f };
+    params.rollingMean = { 0.0f, 0.0f, 0.0f };
+    params.rollingVar = { 1.0f, 1.0f, 1.0f };
+
+    PxCpuVector input{
+            // Batch 1
+            1.0f, 2.0f, 3.0f,   // Channel 1
+            4.0f, 5.0f, 6.0f,   // Channel 2
+            7.0f, 8.0f, 9.0f,   // Channel 3
+            // Batch 2
+            10.0f, 11.0f, 12.0f,  // Channel 1
+            13.0f, 14.0f, 15.0f,  // Channel 2
+            16.0f, 17.0f, 18.0f   // Channel 3
+    };
+
+    PxCpuVector expected{
+            1.5f, 2.0f, 2.5f, 3.0f,
+            7.0f, 8.0f, 9.0f, 10.0f,
+            16.5f, 18.0f, 19.5f, 21.0f,
+            7.5f, 8.0f, 8.5f, 9.0f,
+            19.0f, 20.0f, 2.0f, 2.0f,
+            3.0f, 3.0f, 3.0f, 3.0f
+    };
+
+
+    BNTest(input, expected, params);
+}
+
 #ifdef USE_CUDA
 
 class BatchNormCudaTest : public Test
@@ -166,6 +203,42 @@ TEST_F(BatchNormCudaTest, SimpleBatchNorm)
 
     PxCudaVector input{ 1.0f, 2.0f };
     PxCudaVector expected{ 1.5f, 4.0f };
+
+    BNTest(input, expected, params);
+}
+
+TEST_F(BatchNormCudaTest, LargerBatchNorm)
+{
+    BNTestParams params;
+    params.batch = 2;
+    params.channels = 3;
+    params.outHeight = 2;
+    params.outWidth = 2;
+
+    params.biases = { 1.0f, 2.0f, 3.0f };
+    params.scales = { 0.5f, 1.0f, 1.5f };
+    params.rollingMean = { 0.0f, 0.0f, 0.0f };
+    params.rollingVar = { 1.0f, 1.0f, 1.0f };
+
+    PxCudaVector input{
+            // Batch 1
+            1.0f, 2.0f, 3.0f,   // Channel 1
+            4.0f, 5.0f, 6.0f,   // Channel 2
+            7.0f, 8.0f, 9.0f,   // Channel 3
+            // Batch 2
+            10.0f, 11.0f, 12.0f,  // Channel 1
+            13.0f, 14.0f, 15.0f,  // Channel 2
+            16.0f, 17.0f, 18.0f   // Channel 3
+    };
+
+    PxCudaVector expected{
+            1.5f, 2.0f, 2.5f, 3.0f,
+            7.0f, 8.0f, 9.0f, 10.0f,
+            16.5f, 18.0f, 19.5f, 21.0f,
+            7.5f, 8.0f, 8.5f, 9.0f,
+            19.0f, 20.0f, 2.0f, 2.0f,
+            3.0f, 3.0f, 3.0f, 3.0f
+    };
 
     BNTest(input, expected, params);
 }
