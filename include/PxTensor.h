@@ -77,9 +77,11 @@ PxCudaAllocatorT<T>::PxCudaAllocatorT(PxCudaAllocatorT::size_type n)
 template<typename T>
 PxCudaAllocatorT<T>::pointer PxCudaAllocatorT<T>::alloc(PxCudaAllocatorT::size_type n)
 {
+
     pointer ptr;
     auto result = cudaMalloc(&ptr, n * sizeof(T));
     PX_CUDA_CHECK_ERR(result);
+
 
     return ptr;
 }
@@ -162,6 +164,7 @@ public:
     void copy(std::initializer_list<T>&& init);
     void copy(const PxCpuVectorT& rhs);
     void copyHost(const T*, size_type n);
+    void release();
 
     void emplaceBack(T&& value);
     reference operator[](int i);
@@ -184,6 +187,12 @@ public:
 private:
     C container_;
 };
+
+template<typename T, typename A>
+void PxCpuVectorT<T, A>::release()
+{
+    container_.clear();
+}
 
 template<typename T, typename A>
 void PxCpuVectorT<T, A>::copy(const PxCpuVectorT& rhs)
@@ -705,8 +714,6 @@ public:
     using const_pointer = typename C::const_pointer;
     using size_type = typename C::size_type;
     using shape_type = base_type::shape_type;
-
-
     using device_type = std::integral_constant<Device, D>;
 
     PxTensorImpl();
@@ -719,10 +726,17 @@ public:
     const_pointer data() const noexcept override;
     pointer data() noexcept override;
     std::vector<T> asVector() const override;
+    void release();
 
 private:
     C container_;
 };
+
+template<typename T, Device D, typename C, std::size_t N>
+void PxTensorImpl<T, D, C, N>::release()
+{
+    container_.release();
+}
 
 template<typename T, Device D, typename C, std::size_t N>
 void PxTensorImpl<T, D, C, N>::copy(const PxTensorImpl::base_type& rhs)

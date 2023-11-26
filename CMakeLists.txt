@@ -33,7 +33,7 @@ if (USE_CUDA)
     enable_language(CUDA)
     find_package(CUDNN 8 REQUIRED)
 
-    set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++17 $<$<CONFIG:Debug>:-G>")
+    set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++20 $<$<CONFIG:Debug>:-G>")
     find_library(CUDART_LIBRARY cudart ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
     find_library(CUBLAS_LIBRARY cublas ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
 
@@ -74,6 +74,7 @@ list(APPEND SOURCES
         src/NMS.cpp
         src/RouteLayer.cpp
         src/Timer.cpp
+        src/UpsampleAlgo.cpp
         src/UpsampleLayer.cpp
         src/Utility.cpp
         src/YoloLayer.cpp

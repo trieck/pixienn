@@ -146,7 +146,7 @@ TEST_F(ConvTest, LargerConvolution)
 
 #ifdef USE_CUDA
 
-class CUDNNTest : public Test
+class ConvCudaTest : public Test
 {
 protected:
     void SetUp(const ConvTestParams& params)
@@ -209,8 +209,8 @@ protected:
     {
     }
 
-    void convolutionTestGpu(const PxCudaVector& input, const PxCudaTensor<4>& weights, const PxCudaVector& expected,
-                            const ConvTestParams& params)
+    void convolutionTest(const PxCudaVector& input, const PxCudaTensor<4>& weights, const PxCudaVector& expected,
+                         const ConvTestParams& params)
     {
         SetUp(params);
 
@@ -242,7 +242,6 @@ protected:
         ctxt.outputGpu = &output;
 
         convolutionalForwardGpu(ctxt);
-
         EXPECT_THAT(ctxt.outputGpu->asVector(), Pointwise(FloatNear(1e-5), expected.asVector()));
     }
 
@@ -255,7 +254,7 @@ private:
     PxCudaTensor<1> workspace_;
 };
 
-TEST_F(CUDNNTest, SimpleConvolutionGpu)
+TEST_F(ConvCudaTest, SimpleConvolution)
 {
     ConvTestParams params;
     params.batch = 1;
@@ -275,10 +274,10 @@ TEST_F(CUDNNTest, SimpleConvolutionGpu)
     PxCudaTensor<4> weights({ 1, 1, 2, 2 }, { 0.5f, 0.5f, 0.5f, 0.5f });
     PxCudaVector expected{ 5.0f };
 
-    convolutionTestGpu(input, weights, expected, std::move(params));
+    convolutionTest(input, weights, expected, std::move(params));
 }
 
-TEST_F(CUDNNTest, LargerConvolutionGpu)
+TEST_F(ConvCudaTest, LargerConvolution)
 {
     ConvTestParams params;
     params.batch = 1;
@@ -314,7 +313,7 @@ TEST_F(CUDNNTest, LargerConvolutionGpu)
             23.0f, 25.0f, 27.0f
     };
 
-    convolutionTestGpu(input, weights, expected, std::move(params));
+    convolutionTest(input, weights, expected, std::move(params));
 }
 
 #endif // USE_CUDA
