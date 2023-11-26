@@ -19,7 +19,7 @@
 
 namespace px {
 
-void maxpool_gpu(int n, int h, int w, int c, int stride, int kernel, int pad, const float* input, float* output);
+void maxpoolGpu(int n, int h, int w, int c, int stride, int kernel, int pad, const float* input, float* output);
 
 }   // px
 

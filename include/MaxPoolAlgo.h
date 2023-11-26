@@ -14,41 +14,48 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_MAXPOOLLAYER_H
-#define PIXIENN_MAXPOOLLAYER_H
+#ifndef PIXIENN_MAXPOOL_ALGO_H
+#define PIXIENN_MAXPOOL_ALGO_H
 
-#include "Layer.h"
-#include "MaxPoolAlgo.h"
+#include "PxTensor.h"
+
+#ifdef USE_CUDA
+
+#include "Cudnn.h"
+
+#endif // USE_CUDA
 
 namespace px {
 
-class MaxPoolLayer : public Layer
+// Represents the context needed for a batch norm operation
+struct MaxPoolContext
 {
-protected:
-    MaxPoolLayer(const Model& model, const YAML::Node& layerDef);
-
-public:
-    ~MaxPoolLayer() override = default;
-
-    std::ostream& print(std::ostream& os) override;
-    void forward(const PxCpuVector& input) override;
+    const PxCpuVector* input = nullptr;
+    PxCpuVector* output = nullptr;
 
 #ifdef USE_CUDA
-    void forwardGpu(const PxCudaVector& input) override;
-#endif
-
-private:
-    void setup() override;
-    MaxPoolContext makeContext(const PxCpuVector& input);
-
-#ifdef USE_CUDA
-    MaxPoolContext makeContext(const PxCudaVector& input);
+    const PxCudaVector* inputGpu = nullptr;
+    PxCudaVector* outputGpu = nullptr;
 #endif // USE_CUDA
 
-    friend LayerFactories;
-    int kernel_ = 0, stride_ = 0, padding_;
+    int batch = 0;
+    int channels = 0;
+    int height = 0;
+    int width = 0;
+    int outHeight = 0;
+    int outWidth = 0;
+    int kernel = 0;
+    int stride = 0;
+    int padding = 0;
 };
 
-} // px
+void maxPoolForward(const MaxPoolContext& ctxt);
 
-#endif // PIXIENN_MAXPOOLLAYER_H
+#ifdef USE_CUDA
+void maxPoolForwardGpu(const MaxPoolContext& ctxt);
+#endif // USE_CUDA
+
+}   // px
+
+
+#endif // PIXIENN_MAXPOOL_ALGO_H

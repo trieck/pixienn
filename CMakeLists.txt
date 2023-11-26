@@ -68,6 +68,7 @@ list(APPEND SOURCES
         src/Image.cpp
         src/Layer.cpp
         src/Math.cpp
+        src/MaxPoolAlgo.cpp
         src/MaxPoolLayer.cpp
         src/Model.cpp
         src/NMS.cpp
