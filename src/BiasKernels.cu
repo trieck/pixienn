@@ -21,7 +21,7 @@
 
 namespace px {
 
-__global__ void add_bias_kernel(float* output, const float* biases, int batch, int n, int size)
+__global__ void addBiasKernel(float* output, const float* biases, int batch, int n, int size)
 {
     auto index = (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x + threadIdx.x;
     if (index < n * size * batch) {
@@ -35,11 +35,11 @@ __global__ void add_bias_kernel(float* output, const float* biases, int batch, i
     }
 }
 
-void add_bias_gpu(float* output, float* biases, int batch, int n, int size)
+void addBiasGpu(float* output, float* biases, int batch, int n, int size)
 {
     auto num = n * size * batch;
 
-    add_bias_kernel<<<cuda_gridsize(num), CUDA_BLOCK_SIZE>>>(output, biases, batch, n, size);
+    addBiasKernel<<<cuda_gridsize(num), CUDA_BLOCK_SIZE>>>(output, biases, batch, n, size);
 
     PX_CUDA_CHECK_LAST();
 }

@@ -47,7 +47,6 @@ class LinearActivation : public Activation
 public:
     void apply(float* begin, float* end) const override
     {
-        std::for_each(begin, end, [](float& x) {});
     }
 #ifdef USE_CUDA
     void applyGpu(float* x, std::size_t n) const override
