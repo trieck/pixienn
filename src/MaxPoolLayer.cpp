@@ -38,7 +38,7 @@ void MaxPoolLayer::setup()
     setOutHeight((height() + padding_ - kernel_) / stride_ + 1);
     setOutWidth((width() + padding_ - kernel_) / stride_ + 1);
 
-    setOutputs(outHeight() * outWidth() * outChannels() * batch());
+    setOutputs(batch() * outChannels() * outHeight() * outWidth());
 
     output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
 
@@ -59,47 +59,54 @@ std::ostream& MaxPoolLayer::print(std::ostream& os)
 
 void MaxPoolLayer::forward(const PxCpuVector& input)
 {
-    int wOffset = -padding_ / 2;
-    int hOffset = -padding_ / 2;
+    auto ctxt = makeContext(input);
+    maxPoolForward(ctxt);
+}
 
-    auto ih = height();
-    auto iw = width();
-    auto oh = outHeight();
-    auto ow = outWidth();
-    auto c = channels();
-    const auto min = -std::numeric_limits<float>::max();
+MaxPoolContext MaxPoolLayer::makeContext(const PxCpuVector& input)
+{
+    MaxPoolContext ctxt;
 
-    const auto* pin = input.data();
-    auto* pout = output_.data();
+    ctxt.input = &input;
+    ctxt.output = &output_;
+    ctxt.batch = batch();
+    ctxt.channels = outChannels();
+    ctxt.height = height();
+    ctxt.width = width();
+    ctxt.outHeight = outHeight();
+    ctxt.outWidth = outWidth();
+    ctxt.kernel = kernel_;
+    ctxt.stride = stride_;
+    ctxt.padding = padding_;
 
-    for (auto b = 0; b < batch(); ++b) {
-        for (auto k = 0; k < c; ++k) {
-            for (auto i = 0; i < oh; ++i) {
-                for (auto j = 0; j < ow; ++j) {
-                    auto outIndex = j + ow * (i + oh * (k + c * b));
-                    float max = min;
-                    for (auto n = 0; n < kernel_; ++n) {
-                        for (auto m = 0; m < kernel_; ++m) {
-                            auto curH = hOffset + i * stride_ + n;
-                            auto curW = wOffset + j * stride_ + m;
-                            auto index = curW + iw * (curH + ih * (k + b * c));
-                            auto valid = (curH >= 0 && curH < ih && curW >= 0 && curW < iw);
-                            auto val = valid ? pin[index] : min;
-                            max = (val > max) ? val : max;
-                        }
-                    }
-
-                    pout[outIndex] = max;
-                }
-            }
-        }
-    }
+    return ctxt;
 }
 
 #ifdef USE_CUDA
+
+MaxPoolContext MaxPoolLayer::makeContext(const PxCudaVector& input)
+{
+    MaxPoolContext ctxt;
+
+    ctxt.inputGpu = &input;
+    ctxt.outputGpu = &outputGpu_;
+    ctxt.batch = batch();
+    ctxt.channels = outChannels();
+    ctxt.height = height();
+    ctxt.width = width();
+    ctxt.outHeight = outHeight();
+    ctxt.outWidth = outWidth();
+    ctxt.kernel = kernel_;
+    ctxt.stride = stride_;
+    ctxt.padding = padding_;
+
+    return ctxt;
+}
+
 void MaxPoolLayer::forwardGpu(const PxCudaVector& input)
 {
-    maxpool_gpu(outputs(), height(), width(), channels(), stride_, kernel_, padding_, input.data(), outputGpu_.data());
+    auto ctxt = makeContext(input);
+    maxPoolForwardGpu(ctxt);
 }
 
 #endif  // USE_CUDA

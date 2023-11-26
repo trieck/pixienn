@@ -577,6 +577,7 @@ PxCudaVectorT<T, A>::const_pointer PxCudaVectorT<T, A>::data() const noexcept
 {
     return ptr_;
 }
+
 template<typename T, typename A>
 PxCudaVectorT<T, A>::pointer PxCudaVectorT<T, A>::data() noexcept
 {

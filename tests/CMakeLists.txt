@@ -11,6 +11,7 @@ add_executable(pixienn_test
         convolve.cpp
         main.cpp
         math.cpp
+        maxpool.cpp
         tensor.cpp
         vector.cpp
 )

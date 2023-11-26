@@ -20,8 +20,8 @@
 
 namespace px {
 
-__global__ void maxpool_kernel(int n, int in_h, int in_w, int in_c, int stride, int kernel, int pad, const float* input,
-                               float* output)
+__global__ void maxpoolKernel(int n, int in_h, int in_w, int in_c, int stride, int kernel, int pad, const float* input,
+                              float* output)
 {
     auto h = (in_h + pad - kernel) / stride + 1;
     auto w = (in_w + pad - kernel) / stride + 1;
@@ -58,12 +58,11 @@ __global__ void maxpool_kernel(int n, int in_h, int in_w, int in_c, int stride, 
     output[out_index] = max;
 }
 
-void maxpool_gpu(int n, int h, int w, int c, int stride, int kernel, int pad, const float* input, float* output)
+void maxpoolGpu(int n, int h, int w, int c, int stride, int kernel, int pad, const float* input, float* output)
 {
-    maxpool_kernel<<<cuda_gridsize(n), CUDA_BLOCK_SIZE>>>(n, h, w, c, stride, kernel, pad, input, output);
+    maxpoolKernel<<<cuda_gridsize(n), CUDA_BLOCK_SIZE>>>(n, h, w, c, stride, kernel, pad, input, output);
 
     PX_CUDA_CHECK_LAST();
-
 }
 
-}
+}   // px
