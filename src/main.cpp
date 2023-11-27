@@ -47,26 +47,29 @@ void predict(const std::string& cfgFile, const std::string& imageFile,
 
 int main(int argc, char* argv[])
 {
-    if (argc < 3) {
-        std::cerr << "usage: pixienn [options] config-file image-file" << std::endl;
-        exit(1);
-    }
-
     po::options_description desc("options");
     po::positional_options_description pod;
     pod.add("config-file", 1);
     pod.add("image-file", 1);
 
     desc.add_options()
-            ("no-gpu", "Use CPU for processing")
-            ("confidence", po::value<float>()->default_value(0.2f))
-            ("nms", po::value<float>()->default_value(0.3f))
+            ("confidence", po::value<float>()->default_value(0.2f), "Threshold confidence for model")
             ("config-file", po::value<std::string>()->required(), "Configuration file")
-            ("image-file", po::value<std::string>()->required(), "Image file");
+            ("help", "Print program usage")
+            ("image-file", po::value<std::string>()->required(), "Image file")
+            ("nms", po::value<float>()->default_value(0.3f), "IoU threshold for Non-Maximum-Suppression")
+            ("no-gpu", "Use CPU for processing")
+            ("normalize", "Normalize overlay image");
 
     try {
         po::variables_map vm;
         po::store(po::command_line_parser(argc, argv).options(desc).positional(pod).run(), vm);
+        if (vm.count("help") || argc < 3) {
+            std::cerr << "usage: pixienn [options] config-file image-file" << std::endl;
+            std::cerr << desc << std::endl;
+            exit(1);
+        }
+
         po::notify(vm);
 
         auto config = vm["config-file"].as<std::string>();
