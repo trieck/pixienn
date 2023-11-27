@@ -303,7 +303,11 @@ void Model::overlay(const std::string& imageFile, const Detections& detects) con
         imtext(img, text.str().c_str(), box.tl(), textColor, bgColor, thickness);
     }
 
-    imsave("predictions.jpg", img);
+    if (hasOption("normalize")) {
+        imsave_normalize("predictions.tif", imnormalize(img));
+    } else {
+        imsave("predictions.jpg", img);
+    }
 }
 
 std::string Model::asJson(const Detections& detects) const noexcept

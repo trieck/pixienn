@@ -159,12 +159,11 @@ Mat imread(const char* path)
     return image;
 }
 
-// read an image, normalize bands and convert to float
-Mat imread_normalize(const char* path)
+// normalize bands and convert to float
+cv::Mat imnormalize(const cv::Mat& image)
 {
-    Mat image = imread(path);
-
     Mat swapped;
+
     if (image.channels() == 3) {
         cv::cvtColor(image, swapped, CV_BGR2RGB);
     } else {
@@ -178,6 +177,16 @@ Mat imread_normalize(const char* path)
     out /= 255.0f;
 
     return out;
+}
+
+// read an image and normalize
+Mat imread_normalize(const char* path)
+{
+    auto image = imread(path);
+
+    auto normal = imnormalize(image);
+
+    return normal;
 }
 
 void imsave(const char* path, const cv::Mat& image)
