@@ -1,0 +1,4 @@
+configuration:
+  model: ../models/yolov3.yml
+  weights: ../weights/yolov3.weights
+  labels: ../data/coco.names
