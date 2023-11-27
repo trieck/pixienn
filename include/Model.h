@@ -34,8 +34,11 @@ namespace px {
 
 class Model
 {
+private:
+    using var_map = boost::program_options::variables_map;
+
 public:
-    explicit Model(std::string cfgFile, const boost::program_options::variables_map& options = {});
+    explicit Model(std::string cfgFile, var_map options = {});
     Model(const Model& rhs) = delete;
     Model(Model&& rhs) noexcept = delete;
 
@@ -56,8 +59,11 @@ public:
     std::vector<Detection> predict(const std::string& imageFile);
     void overlay(const std::string& imageFile, const Detections& detects) const;
     std::string asJson(const Detections& detects) const noexcept;
-
     [[nodiscard]] const std::vector<std::string>& labels() const noexcept;
+    bool hasOption(const std::string& option) const;
+
+    template <typename T>
+    T option(const std::string& name) const;
 
 #ifdef USE_CUDA
     [[nodiscard]] const CublasContext& cublasContext() const noexcept;
@@ -84,6 +90,7 @@ private:
 
     LayerVec layers_;
     std::vector<std::string> labels_;
+    var_map options_;
 
 #ifdef USE_CUDA
     CublasContext::Ptr cublasCtxt_;
@@ -91,6 +98,12 @@ private:
     bool gpu_;
 #endif
 };
+
+template<typename T>
+T Model::option(const std::string& name) const
+{
+    return options_[name].as<T>();
+}
 
 }   // px
 

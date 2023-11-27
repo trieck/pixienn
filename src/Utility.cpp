@@ -14,9 +14,9 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include "Utility.h"
-
 #include <cmath>
+
+#include "Utility.h"
 
 namespace px {
 
@@ -29,7 +29,7 @@ im2col_get_pixel(const float* im, int height, int width, int row, int col, int c
     if (row < 0 || col < 0 ||
         row >= height || col >= width)
         return 0;
-    return im[col + width*(row + height*channel)];
+    return im[col + width * (row + height * channel)];
 }
 
 
@@ -79,5 +79,9 @@ void random_generate_cpu(float* ptr, std::size_t n, float a, float b)
 
     std::generate(ptr, ptr + n, gen);
 }
+
+
+
+
 
 }   // px
