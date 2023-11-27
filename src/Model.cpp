@@ -34,15 +34,16 @@ namespace po = boost::program_options;
 
 namespace px {
 
-Model::Model(std::string cfgFile, const boost::program_options::variables_map& options) : cfgFile_(std::move(cfgFile))
+Model::Model(std::string cfgFile, var_map options)
+        : options_(std::move(options)), cfgFile_(std::move(cfgFile))
 {
 #ifdef USE_CUDA
-    gpu_ = options.count("no-gpu") == 0;
+    gpu_ = options_.count("no-gpu") == 0;
     if (gpu_) {
         setupGpu();
     }
 #endif
-    threshold_ = options["confidence"].as<float>();
+    threshold_ = options_["confidence"].as<float>();
     parseConfig();
 }
 
@@ -379,6 +380,11 @@ void Model::setupGpu()
 bool Model::useGpu() const noexcept
 {
     return gpu_;
+}
+
+bool Model::hasOption(const std::string& option) const
+{
+    return options_.count(option) != 0;
 }
 
 #endif

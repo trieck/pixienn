@@ -430,7 +430,11 @@ public:
     const_pointer data() const noexcept override;
     size_type size() const noexcept override;
     bool empty() const noexcept override;
+
     std::vector<T> asVector() const override;
+
+    template<typename U = PxCpuVectorT<T>>
+    U asContainer () const;
 
     void copy(std::initializer_list<T>&& init);
     void copy(const T* begin, const T* end);
@@ -501,6 +505,18 @@ std::vector<T> PxCudaVectorT<T, A>::asVector() const
     PX_CUDA_CHECK_ERR(result);
 
     return v;
+}
+
+template<typename T, typename A>
+template<typename U>
+U PxCudaVectorT<T, A>::asContainer() const
+{
+    U u(size_);
+
+    auto result = cudaMemcpy(u.data(), ptr_, size_ * sizeof(T), cudaMemcpyDeviceToHost);
+    PX_CUDA_CHECK_ERR(result);
+
+    return u;
 }
 
 template<typename T, typename A>
