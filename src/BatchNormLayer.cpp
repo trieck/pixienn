@@ -123,6 +123,8 @@ BNContext BatchNormLayer::makeContext(const PxCpuVector& input)
     return ctxt;
 }
 
+#ifdef USE_CUDA
+
 BNContext BatchNormLayer::makeContext(const PxCudaVector& input)
 {
     BNContext ctxt;
@@ -144,6 +146,8 @@ BNContext BatchNormLayer::makeContext(const PxCudaVector& input)
 
     return ctxt;
 }
+
+#endif  // USE_CUDA
 
 }   // px
 

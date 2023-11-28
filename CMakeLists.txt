@@ -73,6 +73,8 @@ list(APPEND SOURCES
         src/Model.cpp
         src/NMS.cpp
         src/RouteLayer.cpp
+        src/ShortcutAlgo.cpp
+        src/ShortcutLayer.cpp
         src/Timer.cpp
         src/UpsampleAlgo.cpp
         src/UpsampleLayer.cpp

@@ -32,8 +32,8 @@ ConnLayer::ConnLayer(const Model& model, const YAML::Node& layerDef) : Layer(mod
 
 void ConnLayer::setup()
 {
-    activation_ = property<std::string>("activation", "logistic");
-    activationFnc_ = Activation::get(activation_);
+    auto activation = property<std::string>("activation", "logistic");
+    activationFnc_ = Activation::get(activation);
 
     auto batchNormalize = property<bool>("batch_normalize", false);
 

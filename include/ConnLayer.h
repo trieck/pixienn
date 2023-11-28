@@ -64,7 +64,6 @@ private:
     Activation::Ptr activationFnc_;
 
     Layer::Ptr batchNormalize_;
-    std::string activation_;
     float scales_, rollingMean_, rollingVar_;
 
 #ifdef USE_CUDA

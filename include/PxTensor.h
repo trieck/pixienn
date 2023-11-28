@@ -17,6 +17,8 @@
 #ifndef PXTENSOR_H
 #define PXTENSOR_H
 
+#include <numeric>
+
 #if USE_CUDA
 
 #include <cuda_runtime.h>
@@ -25,7 +27,6 @@
 
 #endif
 
-#include <numeric>
 #include "Common.h"
 #include "Error.h"
 #include "Strides.h"
@@ -97,6 +98,7 @@ public:
     virtual ~PxVector() = default;
     using Ptr = std::unique_ptr<PxVector>;
 
+    using value_type = T;
     using pointer = T*;
     using const_pointer = const T*;
     using size_type = std::size_t;

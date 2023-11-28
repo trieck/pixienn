@@ -1,0 +1,717 @@
+model:
+  batch: 1
+  subdivisions: 1
+  width: 608
+  height: 608
+  channels: 3
+  momentum: 0.9
+  decay: 0.0005
+  angle: 0
+  saturation: 1.5
+  exposure: 1.5
+  hue: 0.1
+  learning_rate: 0.001
+  burn_in: 1000
+  max_batches: 500200
+  policy: steps
+  steps:
+    - 400000
+    - 450000
+  scales:
+    - 0.1
+    - 0.1
+
+  layers:
+    - type: conv
+      batch_normalize: True
+      filters: 32
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 64
+      kernel: 3
+      stride: 2
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 32
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 64
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: shortcut
+      from: -3
+      activation: linear
+    - type: conv
+      batch_normalize: True
+      filters: 128
+      kernel: 3
+      stride: 2
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 64
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 128
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: shortcut
+      from: -3
+      activation: linear
+    - type: conv
+      batch_normalize: True
+      filters: 64
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 128
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: shortcut
+      from: -3
+      activation: linear
+    - type: conv
+      batch_normalize: True
+      filters: 256
+      kernel: 3
+      stride: 2
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 128
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 256
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: shortcut
+      from: -3
+      activation: linear
+    - type: conv
+      batch_normalize: True
+      filters: 128
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 256
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: shortcut
+      from: -3
+      activation: linear
+    - type: conv
+      batch_normalize: True
+      filters: 128
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 256
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: shortcut
+      from: -3
+      activation: linear
+    - type: conv
+      batch_normalize: True
+      filters: 128
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 256
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: shortcut
+      from: -3
+      activation: linear
+    - type: conv
+      batch_normalize: True
+      filters: 128
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 256
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: shortcut
+      from: -3
+      activation: linear
+    - type: conv
+      batch_normalize: True
+      filters: 128
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 256
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: shortcut
+      from: -3
+      activation: linear
+    - type: conv
+      batch_normalize: True
+      filters: 128
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 256
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: shortcut
+      from: -3
+      activation: linear
+    - type: conv
+      batch_normalize: True
+      filters: 128
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 256
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: shortcut
+      from: -3
+      activation: linear
+    - type: conv
+      batch_normalize: True
+      filters: 512
+      kernel: 3
+      stride: 2
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 256
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 512
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: shortcut
+      from: -3
+      activation: linear
+    - type: conv
+      batch_normalize: True
+      filters: 256
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 512
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: shortcut
+      from: -3
+      activation: linear
+    - type: conv
+      batch_normalize: True
+      filters: 256
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 512
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: shortcut
+      from: -3
+      activation: linear
+    - type: conv
+      batch_normalize: True
+      filters: 256
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 512
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: shortcut
+      from: -3
+      activation: linear
+    - type: conv
+      batch_normalize: True
+      filters: 256
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 512
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: shortcut
+      from: -3
+      activation: linear
+    - type: conv
+      batch_normalize: True
+      filters: 256
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 512
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: shortcut
+      from: -3
+      activation: linear
+    - type: conv
+      batch_normalize: True
+      filters: 256
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 512
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: shortcut
+      from: -3
+      activation: linear
+    - type: conv
+      batch_normalize: True
+      filters: 256
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 512
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: shortcut
+      from: -3
+      activation: linear
+    - type: conv
+      batch_normalize: True
+      filters: 1024
+      kernel: 3
+      stride: 2
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 512
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 1024
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: shortcut
+      from: -3
+      activation: linear
+    - type: conv
+      batch_normalize: True
+      filters: 512
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 1024
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: shortcut
+      from: -3
+      activation: linear
+    - type: conv
+      batch_normalize: True
+      filters: 512
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 1024
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: shortcut
+      from: -3
+      activation: linear
+    - type: conv
+      batch_normalize: True
+      filters: 512
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 1024
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: shortcut
+      from: -3
+      activation: linear
+    - type: conv
+      batch_normalize: True
+      filters: 512
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      kernel: 3
+      stride: 1
+      pad: True
+      filters: 1024
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 512
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      kernel: 3
+      stride: 1
+      pad: True
+      filters: 1024
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 512
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      kernel: 3
+      stride: 1
+      pad: True
+      filters: 1024
+      activation: leaky
+    - type: conv
+      kernel: 1
+      stride: 1
+      pad: True
+      filters: 255
+      activation: linear
+    - type: yolo
+      mask:
+        - 6
+        - 7
+        - 8
+      anchors:
+        - 10
+        - 13
+        - 16
+        - 30
+        - 33
+        - 23
+        - 30
+        - 61
+        - 62
+        - 45
+        - 59
+        - 119
+        - 116
+        - 90
+        - 156
+        - 198
+        - 373
+        - 326
+      classes: 80
+      num: 9
+      jitter: 0.3
+      ignore_thresh: 0.7
+      truth_thresh: True
+      random: True
+    - type: route
+      layers: [ -4 ]
+    - type: conv
+      batch_normalize: True
+      filters: 256
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: upsample
+      stride: 2
+    - type: route
+      layers: [ -1, 61 ]
+    - type: conv
+      batch_normalize: True
+      filters: 256
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      kernel: 3
+      stride: 1
+      pad: True
+      filters: 512
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 256
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      kernel: 3
+      stride: 1
+      pad: True
+      filters: 512
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 256
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      kernel: 3
+      stride: 1
+      pad: True
+      filters: 512
+      activation: leaky
+    - type: conv
+      kernel: 1
+      stride: 1
+      pad: True
+      filters: 255
+      activation: linear
+    - type: yolo
+      mask:
+        - 3
+        - 4
+        - 5
+      anchors:
+        - 10
+        - 13
+        - 16
+        - 30
+        - 33
+        - 23
+        - 30
+        - 61
+        - 62
+        - 45
+        - 59
+        - 119
+        - 116
+        - 90
+        - 156
+        - 198
+        - 373
+        - 326
+      classes: 80
+      num: 9
+      jitter: 0.3
+      ignore_thresh: 0.7
+      truth_thresh: True
+      random: True
+    - type: route
+      layers: [ -4 ]
+    - type: conv
+      batch_normalize: True
+      filters: 128
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: upsample
+      stride: 2
+    - type: route
+      layers: [ -1, 36 ]
+    - type: conv
+      batch_normalize: True
+      filters: 128
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      kernel: 3
+      stride: 1
+      pad: True
+      filters: 256
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 128
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      kernel: 3
+      stride: 1
+      pad: True
+      filters: 256
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      filters: 128
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: leaky
+    - type: conv
+      batch_normalize: True
+      kernel: 3
+      stride: 1
+      pad: True
+      filters: 256
+      activation: leaky
+    - type: conv
+      kernel: 1
+      stride: 1
+      pad: True
+      filters: 255
+      activation: linear
+    - type: yolo
+      mask:
+        - 0
+        - 1
+        - 2
+      anchors:
+        - 10
+        - 13
+        - 16
+        - 30
+        - 33
+        - 23
+        - 30
+        - 61
+        - 62
+        - 45
+        - 59
+        - 119
+        - 116
+        - 90
+        - 156
+        - 198
+        - 373
+        - 326
+      classes: 80
+      num: 9
+      jitter: 0.3
+      ignore_thresh: 0.7
+      truth_thresh: True
+      random: True

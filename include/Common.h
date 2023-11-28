@@ -28,6 +28,7 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <fstream>
 #include <random>
 #include <string>
 #include <unordered_map>
