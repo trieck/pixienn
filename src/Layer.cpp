@@ -14,9 +14,8 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include "Common.h"
-
 #include "BatchNormLayer.h"
+#include "Common.h"
 #include "ConnLayer.h"
 #include "ConvLayer.h"
 #include "DetectLayer.h"
@@ -25,6 +24,7 @@
 #include "MaxPoolLayer.h"
 #include "Model.h"
 #include "RouteLayer.h"
+#include "ShortcutLayer.h"
 #include "Singleton.h"
 #include "UpsampleLayer.h"
 #include "YoloLayer.h"
@@ -54,6 +54,7 @@ LayerFactories::LayerFactories()
     registerFactory<DetectLayer>("detection");
     registerFactory<MaxPoolLayer>("maxpool");
     registerFactory<RouteLayer>("route");
+    registerFactory<ShortcutLayer>("shortcut");
     registerFactory<UpsampleLayer>("upsample");
     registerFactory<YoloLayer>("yolo");
 }

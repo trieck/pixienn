@@ -52,6 +52,8 @@ public:
     [[nodiscard]] int channels() const;
     [[nodiscard]] int height() const;
     [[nodiscard]] int width() const;
+    [[nodiscard]] int subdivs() const;
+    [[nodiscard]] int timeSteps() const;
 
     int layerSize() const;
     [[nodiscard]] const Layer::Ptr& layerAt(int index) const;
@@ -86,6 +88,7 @@ private:
     std::string cfgFile_, modelFile_, weightsFile_, labelsFile_;
     int batch_ = 0, channels_ = 0, height_ = 0, width_ = 0;
     int major_ = 0, minor_ = 0, revision_ = 0;
+    int subdivs_ = 0, timeSteps_ = 0;
     float threshold_;
 
     LayerVec layers_;

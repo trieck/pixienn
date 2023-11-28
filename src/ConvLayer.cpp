@@ -35,14 +35,14 @@ ConvLayer::ConvLayer(const Model& model, const YAML::Node& layerDef) : Layer(mod
 
 void ConvLayer::setup()
 {
-    activation_ = property<std::string>("activation", "logistic");
-    activationFnc_ = Activation::get(activation_);
+    auto activation = property<std::string>("activation", "logistic");
+    activationFnc_ = Activation::get(activation);
 
     auto batchNormalize = property<bool>("batch_normalize", false);
     dilation_ = property<int>("dilation", 0);
     filters_ = property<int>("filters", 1);
     kernel_ = property<int>("kernel", 1);
-    auto pad = property<bool>("pad", 0);
+    auto pad = property<bool>("pad", false);
     padding_ = pad ? kernel_ / 2 : 0;
     stride_ = property<int>("stride", 1);
     groups_ = std::max(1, property<int>("groups", 1));

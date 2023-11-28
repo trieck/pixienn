@@ -86,6 +86,12 @@ void Model::parseModel()
     channels_ = model["channels"].as<int>();
     height_ = model["height"].as<int>();
     width_ = model["width"].as<int>();
+    subdivs_ = model["subdivisions"].as<int>(1);
+    timeSteps_ = model["time_steps"].as<int>(1);
+
+    batch_ /= subdivs_;
+    batch_ *= timeSteps_;
+
     auto inputs = batch_ * height_ * width_ * channels_;
 
     const auto layers = model["layers"];
@@ -363,6 +369,21 @@ std::string Model::asJson(const Detections& detects) const noexcept
     return json.dump(2);
 }
 
+bool Model::hasOption(const std::string& option) const
+{
+    return options_.count(option) != 0;
+}
+
+int Model::subdivs() const
+{
+    return subdivs_;
+}
+
+int Model::timeSteps() const
+{
+    return timeSteps_;
+}
+
 #ifdef USE_CUDA
 
 const CublasContext& Model::cublasContext() const noexcept
@@ -384,11 +405,6 @@ void Model::setupGpu()
 bool Model::useGpu() const noexcept
 {
     return gpu_;
-}
-
-bool Model::hasOption(const std::string& option) const
-{
-    return options_.count(option) != 0;
 }
 
 #endif
