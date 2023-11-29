@@ -59,7 +59,7 @@ int main(int argc, char* argv[])
             ("image-file", po::value<std::string>()->required(), "Image file")
             ("nms", po::value<float>()->default_value(0.3f), "IoU threshold for Non-Maximum-Suppression")
             ("no-gpu", "Use CPU for processing")
-            ("normalize", "Normalize overlay image");
+            ("tiff32", "Save overlay image in 32-bit floating-point TIFF format");
 
     try {
         po::variables_map vm;

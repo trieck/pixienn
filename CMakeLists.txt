@@ -75,6 +75,7 @@ list(APPEND SOURCES
         src/RouteLayer.cpp
         src/ShortcutAlgo.cpp
         src/ShortcutLayer.cpp
+        src/TiffIO.cpp
         src/Timer.cpp
         src/UpsampleAlgo.cpp
         src/UpsampleLayer.cpp

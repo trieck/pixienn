@@ -23,14 +23,16 @@
 namespace px {
 
 cv::Mat imchannel(const cv::Mat& image, int c);
-cv::Mat immake(int height, int width, int channels, float value = 0.0f);
-cv::Mat imrandom(int height, int width, int channels);
 cv::Mat imletterbox(const cv::Mat& image, int width, int height);
-cv::Mat imread_normalize(const char* path);
+cv::Mat immake(int height, int width, int channels, float value = 0.0f);
 cv::Mat imnormalize(const cv::Mat& image);
+cv::Mat imrandom(int height, int width, int channels);
 cv::Mat imread(const char* path);
+cv::Mat imread_8cu(const char* path);
+cv::Mat imread_normalize(const char* path);
+cv::Mat imread_tiff(const char* path);
 void imsave(const char* path, const cv::Mat& image);
-void imsave_normalize(const char* path, const cv::Mat& image);
+void imsave_tiff(const char* path, const cv::Mat& image);
 float imget(const cv::Mat& image, int x, int y, int c);
 float imgetextend(const cv::Mat& image, int x, int y, int c);
 void im2dconvolve(const cv::Mat& image, int imChannel, const cv::Mat& kernel, int kernelChannel, int stride,

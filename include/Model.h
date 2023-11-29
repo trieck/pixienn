@@ -74,6 +74,8 @@ public:
 #endif
 
 private:
+    using ImageInfo = std::pair<PxCpuVector, cv::Size>;
+    ImageInfo loadImage(const std::string& imageFile);
     void forward(const PxCpuVector& input) const;
 #ifdef USE_CUDA
     void forwardGpu(const PxCpuVector& input) const;
