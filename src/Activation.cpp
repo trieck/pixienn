@@ -51,7 +51,7 @@ public:
 #ifdef USE_CUDA
     void applyGpu(float* x, std::size_t n) const override
     {
-        linear_activate_gpu(x, n);
+        linearActivateGpu(x, n);
     }
 #endif
 };
@@ -68,7 +68,7 @@ public:
 #ifdef USE_CUDA
     void applyGpu(float* x, std::size_t n) const override
     {
-        leaky_activate_gpu(x, n);
+        leakyActivateGpu(x, n);
     }
 #endif // USE_CUDA
 };
@@ -85,7 +85,7 @@ public:
 #ifdef USE_CUDA
     void applyGpu(float* x, std::size_t n) const override
     {
-        loggy_activate_gpu(x, n);
+        loggyActivateGpu(x, n);
     }
 #endif // USE_CUDA
 };
@@ -102,7 +102,7 @@ public:
 #ifdef USE_CUDA
     void applyGpu(float* x, std::size_t n) const override
     {
-        logistic_activate_gpu(x, n);
+        logisticActivateGpu(x, n);
     }
 #endif // USE_CUDA
 };
@@ -119,7 +119,7 @@ public:
 #ifdef USE_CUDA
     void applyGpu(float* x, std::size_t n) const override
     {
-        relu_activate_gpu(x, n);
+        reluActivateGpu(x, n);
     }
 #endif
 };

@@ -12,7 +12,7 @@ This project aims to provide a modern and optimized C++ implementation of the Da
 
 - **CUDA Support:** Utilize the power of NVIDIA GPUs for accelerated neural network inference.
 - **Model Compatibility:** Successfully tested with YOLOv1-tiny, YOLOv3-tiny, and YOLOv3 models.
-- **Performance:** Significantly reduced inference time compared to the original Darknet implementation.
+- **Performance:** Significantly reduced inference time on CPU compared to the original Darknet implementation.
 - **Modern C++ Features:** Leveraging modern C++ standards for improved readability and maintainability.
 
 ## Getting Started

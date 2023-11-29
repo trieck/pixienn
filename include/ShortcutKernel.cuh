@@ -14,35 +14,13 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include <cuda_runtime.h>
-
-#include "BiasKernels.cuh"
-#include "CudaUtils.cuh"
-#include "CudaError.h"
+#ifndef PIXIENN_SHORTCUTKERNEL_CUH
+#define PIXIENN_SHORTCUTKERNEL_CUH
 
 namespace px {
 
-__global__ void addBiasKernel(float* output, const float* biases, int batch, int n, int size)
-{
-    auto index = (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x + threadIdx.x;
-    if (index < n * size * batch) {
-        auto i = index % size;
-        index /= size;
-        auto j = index % n;
-        index /= n;
-        auto k = index;
-
-        output[(k * n + j) * size + i] += biases[j];
-    }
+void shortcutGpu(int batch, int w1, int h1, int c1, const float* add, int w2, int h2, int c2, float s1, float s2,
+                 float* out);
 }
 
-void addBiasGpu(float* output, float* biases, int batch, int n, int size)
-{
-    auto num = n * size * batch;
-
-    addBiasKernel<<<cuda_gridsize(num), CUDA_BLOCK_SIZE>>>(output, biases, batch, n, size);
-
-    PX_CUDA_CHECK_LAST();
-}
-
-}   // px
+#endif // PIXIENN_SHORTCUTKERNEL_CUH

@@ -66,14 +66,14 @@ void ShortcutLayer::forward(const PxCpuVector& input)
 {
     output_.copy(input);
 
-    auto ctxt = makeContext();
+    auto ctxt = makeContext(input);
 
     shortcutForward(ctxt);
 
     activationFnc_->apply(output_);
 }
 
-ShortcutContext ShortcutLayer::makeContext()
+ShortcutContext ShortcutLayer::makeContext(const PxCpuVector&)
 {
     ShortcutContext ctxt;
     ctxt.output = &output_;
@@ -95,9 +95,32 @@ ShortcutContext ShortcutLayer::makeContext()
 
 void ShortcutLayer::forwardGpu(const PxCudaVector& input)
 {
-    // FIXME!!
+    outputGpu_.copy(input);
+
+    auto ctxt = makeContext(input);
+
+    shortcutForwardGpu(ctxt);
+
+    activationFnc_->applyGpu(outputGpu_);
 }
 
+ShortcutContext ShortcutLayer::makeContext(const PxCudaVector&)
+{
+    ShortcutContext ctxt;
+    ctxt.outputGpu = &outputGpu_;
+    ctxt.addGpu = &from_->outputGpu();
+    ctxt.alpha = alpha_;
+    ctxt.beta = beta_;
+    ctxt.batch = batch();
+    ctxt.channels = channels();
+    ctxt.height = height();
+    ctxt.width = width();
+    ctxt.outChannels = outChannels();
+    ctxt.outHeight = outHeight();
+    ctxt.outWidth = outWidth();
+
+    return ctxt;
+}
 
 #endif  // USE_CUDA
 
