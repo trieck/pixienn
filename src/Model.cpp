@@ -34,8 +34,7 @@ namespace po = boost::program_options;
 
 namespace px {
 
-Model::Model(std::string cfgFile, var_map options)
-        : options_(std::move(options)), cfgFile_(std::move(cfgFile))
+Model::Model(std::string cfgFile, var_map options) : options_(std::move(options)), cfgFile_(std::move(cfgFile))
 {
 #ifdef USE_CUDA
     gpu_ = options_.count("no-gpu") == 0;
@@ -212,11 +211,22 @@ void Model::loadDarknetWeights()
     ifs.close();
 }
 
-std::vector<Detection> Model::predict(const std::string& imageFile)
+auto Model::loadImage(const std::string& imageFile) -> ImageInfo
 {
     auto image = imread_normalize(imageFile.c_str());
+
+    // size image to match neural network input size
     auto sized = imletterbox(image, width(), height());
-    auto input = imvector(sized);
+
+    // convert the image from interleaved to planar
+    auto vector = imvector(sized);
+
+    return { vector, image.size() };
+}
+
+std::vector<Detection> Model::predict(const std::string& imageFile)
+{
+    auto info = loadImage(imageFile);
 
     std::cout << std::endl << "Running network...";
 
@@ -224,9 +234,9 @@ std::vector<Detection> Model::predict(const std::string& imageFile)
 
 #ifdef USE_CUDA
     if (useGpu()) {
-        forwardGpu(std::forward<decltype(input)>(input));
+        forwardGpu(info.first);
     } else {
-        forward(std::forward<decltype(input)>(input));
+        forward(info.first);
     }
 #else
     forward(std::forward<decltype(input)>(input));
@@ -238,9 +248,9 @@ std::vector<Detection> Model::predict(const std::string& imageFile)
         if (detector) {
 #ifdef USE_CUDA
             if (useGpu()) {
-                detector->addDetectsGpu(detections, image.cols, image.rows, threshold_);
+                detector->addDetectsGpu(detections, info.second.width, info.second.height, threshold_);
             } else {
-                detector->addDetects(detections, image.cols, image.rows, threshold_);
+                detector->addDetects(detections, info.second.width, info.second.height, threshold_);
             }
 #else
             detector->addDetects(detections, image.cols, image.rows, threshold_);
@@ -284,7 +294,8 @@ const std::vector<std::string>& Model::labels() const noexcept
 
 void Model::overlay(const std::string& imageFile, const Detections& detects) const
 {
-    auto img = imread(imageFile.c_str());
+    // There is no anti-aliasing for img.depth() != CV_8U
+    auto img = imread_8cu(imageFile.c_str());
 
     constexpr auto thickness = 2;
 
@@ -309,8 +320,8 @@ void Model::overlay(const std::string& imageFile, const Detections& detects) con
         imtext(img, text.str().c_str(), box.tl(), textColor, bgColor, thickness);
     }
 
-    if (hasOption("normalize")) {
-        imsave_normalize("predictions.tif", imnormalize(img));
+    if (hasOption("tiff32")) {
+        imsave_tiff("predictions.tif", img);
     } else {
         imsave("predictions.jpg", img);
     }

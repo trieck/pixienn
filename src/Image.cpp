@@ -14,15 +14,16 @@
 * limitations under the License.
 ********************************************************************************/
 
+#include <boost/filesystem.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/imgproc/types_c.h>
-
 #include <tiffio.h>
 
 #include "Common.h"
 #include "Error.h"
 #include "Image.h"
+#include "TiffIO.h"
 
 #define COLOR_RED(c)        ((uint8_t)(((c) & 0xFF0000) >> 16))
 #define COLOR_GREEN(c)      ((uint8_t)(((c) & 0xFF00) >> 8))
@@ -151,19 +152,59 @@ static constexpr uint32_t crayola16[] = {
 
 #define COLOR_ENTRY(i, cmap) cmap[i % (sizeof(cmap) / sizeof(cmap[0]))]
 
-Mat imread(const char* path)
+cv::Mat imread_tiff(const char* path)
 {
-    Mat image = imread(path, IMREAD_UNCHANGED);
-    PX_CHECK(!image.empty(), "Could not open image \"%s\".", path);
+    return readTIFF(path);
+}
+
+cv::Mat imread_8cu(const char* path)
+{
+    auto image = imread(path);
+
+    if (image.depth() == CV_32F) {
+        cv::Mat swapped;
+        if (image.channels() == 3) {
+            cv::cvtColor(image, swapped, CV_RGB2BGR);
+        } else {
+            swapped = image;
+        }
+
+        swapped *= 255.0f;  // assume in range 0..1
+
+        Mat out;
+        swapped.convertTo(out, CV_8UC(swapped.channels()));
+
+        return out;
+    }
 
     return image;
 }
 
-// normalize bands and convert to float
+Mat imread(const char* path)
+{
+    boost::filesystem::path filePath(path);
+
+    Mat image;
+
+    auto extension = filePath.extension().string();
+    if (extension == ".tiff" || extension == ".tif") {
+        image = imread_tiff(path);
+    } else {
+        image = imread(path, IMREAD_UNCHANGED);
+        PX_CHECK(!image.empty(), "Could not open image \"%s\".", path);
+    }
+
+    return image;
+}
+
+// normalize 8-bit RGB bands and convert to float
 cv::Mat imnormalize(const cv::Mat& image)
 {
-    Mat swapped;
+    if (image.type() == CV_32FC3 || image.type() == CV_32FC1) {
+        return image;
+    }
 
+    Mat swapped;
     if (image.channels() == 3) {
         cv::cvtColor(image, swapped, CV_BGR2RGB);
     } else {
@@ -178,6 +219,7 @@ cv::Mat imnormalize(const cv::Mat& image)
 
     return out;
 }
+
 
 // read an image and normalize
 Mat imread_normalize(const char* path)
@@ -195,15 +237,20 @@ void imsave(const char* path, const cv::Mat& image)
     PX_CHECK(result, "Could not save image \"%s\".", path);
 }
 
-// save an image loaded and normalized through imread(), as TIFF
-void imsave_normalize(const char* path, const cv::Mat& image)
+// save an image in normalized float format as TIFF
+void imsave_tiff(const char* path, const cv::Mat& image)
 {
+    Mat tiffImage(image);
+    if (tiffImage.type() != CV_32FC3 && tiffImage.type() != CV_32FC1) {
+        tiffImage = imnormalize(image);
+    }
+
     auto* tif = TIFFOpen(path, "w");
     PX_CHECK(tif != nullptr, "Cannot open image \"%s\".", path);
 
-    auto channels = image.channels();
-    auto width = image.cols, height = image.rows;
-    auto type = image.type();
+    auto channels = tiffImage.channels();
+    auto width = tiffImage.cols, height = tiffImage.rows;
+    auto type = tiffImage.type();
     auto depth = CV_MAT_DEPTH(type);
 
     TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, width);
@@ -228,7 +275,7 @@ void imsave_normalize(const char* path, const cv::Mat& image)
     AutoBuffer<uchar> buffer(scanlineSize + 32);
 
     for (auto y = 0; y < height; ++y) {
-        memcpy(buffer, image.ptr(y), scanlineSize);
+        memcpy(buffer, tiffImage.ptr(y), scanlineSize);
         PX_CHECK(TIFFWriteScanline(tif, buffer, y, 0) == 1, "Cannot write scan line.");
     }
 
