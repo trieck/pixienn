@@ -41,8 +41,11 @@ public:
 
 private:
     void setup() override;
-    ShortcutContext makeContext();
+    ShortcutContext makeContext(const PxCpuVector&);
 
+#ifdef USE_CUDA
+    ShortcutContext makeContext(const PxCudaVector&);
+#endif
     friend LayerFactories;
 
     Activation::Ptr activationFnc_;

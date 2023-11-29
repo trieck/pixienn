@@ -39,7 +39,7 @@ void ConvLayer::setup()
     activationFnc_ = Activation::get(activation);
 
     auto batchNormalize = property<bool>("batch_normalize", false);
-    dilation_ = property<int>("dilation", 0);
+    dilation_ = property<int>("dilation", 1);
     filters_ = property<int>("filters", 1);
     kernel_ = property<int>("kernel", 1);
     auto pad = property<bool>("pad", false);

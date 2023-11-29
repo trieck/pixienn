@@ -16,6 +16,12 @@
 
 #include "ShortcutAlgo.h"
 
+#ifdef USE_CUDA
+
+#include "ShortcutKernel.cuh"
+
+#endif
+
 namespace px {
 
 void shortcutForward(const ShortcutContext& ctxt)
@@ -51,6 +57,8 @@ void shortcutForward(const ShortcutContext& ctxt)
 
 void shortcutForwardGpu(const ShortcutContext& ctxt)
 {
+    shortcutGpu(ctxt.batch, ctxt.width, ctxt.height, ctxt.channels, ctxt.addGpu->data(), ctxt.outWidth, ctxt.outHeight,
+                ctxt.outChannels, ctxt.alpha, ctxt.beta, ctxt.outputGpu->data());
 }
 
 #endif

@@ -19,11 +19,11 @@
 
 namespace px {
 
-void leaky_activate_gpu(float *x, std::size_t n);
-void loggy_activate_gpu(float *x, std::size_t n);
-void logistic_activate_gpu(float *x, std::size_t n);
-void linear_activate_gpu(float *x, std::size_t n);
-void relu_activate_gpu(float *x, std::size_t n);
+void leakyActivateGpu(float *x, std::size_t n);
+void linearActivateGpu(float *x, std::size_t n);
+void loggyActivateGpu(float *x, std::size_t n);
+void logisticActivateGpu(float *x, std::size_t n);
+void reluActivateGpu(float *x, std::size_t n);
 
 }   // px
 

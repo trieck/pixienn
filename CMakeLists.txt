@@ -45,6 +45,7 @@ if (USE_CUDA)
             src/CudaError.cpp
             src/CudaUtils.cu
             src/PoolKernels.cu
+            src/ShortcutKernel.cu
             src/UpsampleKernels.cu
     )
     message(STATUS "CUDA FOUND AND ENABLED")
