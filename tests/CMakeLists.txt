@@ -29,7 +29,6 @@ endif ()
 set_target_properties(pixienn-test PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 target_link_libraries(pixienn-test
-        ${OpenCV_LIBS}
         pixienn
         tiff
         yaml-cpp
@@ -41,6 +40,7 @@ target_link_libraries(pixienn-test
         ${CUDART_LIBRARY}
         ${CUBLAS_LIBRARY}
         ${CUDNN_LIBRARY}
+        ${OpenCV_LIBS}
 )
 
 enable_testing()

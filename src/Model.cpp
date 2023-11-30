@@ -317,7 +317,7 @@ void Model::overlay(const std::string& imageFile, const Detections& detects) con
         auto text = boost::format("%1%: %2$.2f%%") % label % (max * 100);
         std::cout << text << std::endl;
 
-        imtext(img, text.str().c_str(), box.tl(), textColor, bgColor, thickness);
+        imtabbed_text(img, text.str().c_str(), box.tl(), textColor, bgColor, thickness);
     }
 
     if (hasOption("tiff32")) {

@@ -150,6 +150,16 @@ static constexpr uint32_t crayola16[] = {
         0xffffff
 };
 
+static constexpr uint32_t darknet[] = {
+        0xff00ff,
+        0x0000ff,
+        0x00ffff,
+        0x00ff00,
+        0xffff00,
+        0xff0000
+};
+
+
 #define COLOR_ENTRY(i, cmap) cmap[i % (sizeof(cmap) / sizeof(cmap[0]))]
 
 cv::Mat imread_tiff(const char* path)
@@ -430,17 +440,53 @@ PxCpuVector imvector(const cv::Mat& image)
     return vector;
 }
 
-void imrect(cv::Mat& image, const cv::Rect& rect, uint32_t rgb, int thickness)
+void imrect(cv::Mat& image, const cv::Rect& rect, uint32_t rgb, int thickness, int lineType)
 {
-    rectangle(image, rect, MAKE_CV_COLOR(rgb), thickness, LINE_8, 0);
+    rectangle(image, rect, MAKE_CV_COLOR(rgb), thickness, lineType, 0);
 }
 
-void imtext(Mat& image, const char* text, const cv::Point& ptOrg, uint32_t textColor, uint32_t bgColor, int thickness)
+void imtabbed_rect(cv::Mat& image, const cv::Point& pt1, const cv::Point& pt2, uint32_t rgb, int thickness,
+                   int lineType, int cornerRadius)
+{
+    auto lineColor = MAKE_CV_COLOR(rgb);
+
+    cv::Rect rect(pt1, pt2);
+    auto p1 = rect.tl();
+    auto p2 = Point(rect.br().x, rect.tl().y);
+    auto p3 = rect.br();
+    auto p4 = Point(rect.tl().x, rect.br().y);
+
+    auto q1 = Point(p1.x + cornerRadius, p1.y);
+    auto q2 = Point(p2.x - cornerRadius, p2.y);
+    auto q3 = Point(p2.x, p2.y + cornerRadius);
+    auto q4 = Point(p3.x, p3.y);
+    auto q5 = Point(p4.x, p4.y);
+    auto q6 = Point(p3.x, p3.y);
+    auto q7 = Point(p1.x, p1.y + cornerRadius);
+    auto q8 = Point(p4.x, p4.y);
+
+    line(image, q1, q2, lineColor, thickness, LINE_AA);
+    line(image, q3, q4, lineColor, thickness, LINE_AA);
+    line(image, q5, q6, lineColor, thickness, LINE_AA);
+    line(image, q7, q8, lineColor, thickness, LINE_AA);
+
+    ellipse(image, p1 + Point(cornerRadius, cornerRadius), Size(cornerRadius, cornerRadius), 180.0, 0, 90, lineColor,
+            thickness, lineType);
+    ellipse(image, p2 + Point(-cornerRadius, cornerRadius), Size(cornerRadius, cornerRadius), 270.0, 0, 90, lineColor,
+            thickness, lineType);
+
+    if (lineType == FILLED) {
+        cv::fillConvexPoly(image, std::vector<Point>{ q1, q2, q3, q4, q5, q6, q7, q8 }, lineColor, LINE_AA);
+    }
+}
+
+void imtabbed_text(cv::Mat& image, const char* text, const cv::Point& ptOrg, uint32_t textColor, uint32_t bgColor,
+                   int thickness)
 {
     constexpr auto fontFace = FONT_HERSHEY_SIMPLEX;
-    constexpr auto fontScale = 0.618f;
+    constexpr auto fontScale = 0.5f;
     constexpr auto xbuffer = 4;
-    constexpr auto ybuffer = 2;
+    constexpr auto ybuffer = 0;
 
     auto baseline = 0;
     auto textSize = getTextSize(text, fontFace, fontScale, thickness, &baseline);
@@ -449,11 +495,12 @@ void imtext(Mat& image, const char* text, const cv::Point& ptOrg, uint32_t textC
     textSize.width += xbuffer;
     textSize.height += baseline;
 
-    Point ptStart(ptOrg.x - (thickness / 2), ptOrg.y - (thickness / 2));
-    Point ptEnd(ptStart.x + textSize.width, ptStart.y - textSize.height);
+    Point ptStart(ptOrg.x - (thickness / 2) + 1, ptOrg.y - (thickness / 2));
+    Point ptEnd(ptStart.x + textSize.width + xbuffer, ptStart.y - textSize.height);
     Point ptText(ptStart.x + xbuffer, ptStart.y - baseline + thickness + ybuffer);
 
-    rectangle(image, ptStart, ptEnd, MAKE_CV_COLOR(bgColor), FILLED);
+    imtabbed_rect(image, ptStart, ptEnd, bgColor, thickness, FILLED);
+
     putText(image, text, ptText, fontFace, fontScale, MAKE_CV_COLOR(textColor), 1, LINE_AA);
 }
 
@@ -474,7 +521,7 @@ uint32_t imtextcolor(uint32_t bgColor)
 
     const auto luma = 0.2126f * std::pow(r, gamma) + 0.7152f * std::pow(g, gamma) + 0.0722f * std::pow(b, gamma);
 
-    return luma > 0.314f ? black : white;
+    return luma > 0.3f ? black : white;
 }
 
 } // px
