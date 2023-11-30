@@ -13,7 +13,7 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 find_package(BLAS REQUIRED)
 find_package(Boost 1.74 REQUIRED)
-find_package(OpenCV 4.5.4 REQUIRED)
+find_package(OpenCV 4.5.4 REQUIRED COMPONENTS core imgproc highgui)
 find_package(TIFF REQUIRED)
 find_package(nlohmann_json 3.10.5 REQUIRED)
 find_package(yaml-cpp REQUIRED)
@@ -109,7 +109,6 @@ set_target_properties(pixienn-bin PROPERTIES OUTPUT_NAME "pixienn")
 target_include_directories(pixienn-bin PRIVATE include)
 
 target_link_libraries(pixienn-bin
-        ${OpenCV_LIBS}
         pixienn
         tiff
         yaml-cpp
@@ -119,6 +118,8 @@ target_link_libraries(pixienn-bin
         ${CUDART_LIBRARY}
         ${CUBLAS_LIBRARY}
         ${CUDNN_LIBRARY}
+        ${OpenCV_LIBS}
+
 )
 
 add_subdirectory(tests)
