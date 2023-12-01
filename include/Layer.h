@@ -78,6 +78,7 @@ public:
 protected:
     const Model& model() const noexcept;
     const YAML::Node& layerDef() const noexcept;
+    bool hasOption(const std::string& option) const;
 
     template<typename T>
     T property(const std::string& prop) const;

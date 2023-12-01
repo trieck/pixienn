@@ -248,6 +248,11 @@ void Layer::print(std::ostream& os, const std::string& name, std::array<int, 3>&
     os << std::endl << std::flush;
 }
 
+bool Layer::hasOption(const std::string& option) const
+{
+    return model_.hasOption(option);
+}
+
 #ifdef USE_CUDA
 
 const CublasContext& Layer::cublasContext() const noexcept

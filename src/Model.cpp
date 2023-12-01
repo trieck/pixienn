@@ -299,7 +299,7 @@ void Model::overlay(const std::string& imageFile, const Detections& detects) con
     cv::cvtColor(img, img, cv::COLOR_BGR2BGRA);
 
     ColorMaps colors;
-    constexpr auto thickness = 1;
+    constexpr auto thickness = 2;
     for (const auto& detect: detects) {
         auto max = detect.max();
         if (max == 0) {

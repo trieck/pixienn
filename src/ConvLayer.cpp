@@ -202,33 +202,33 @@ void ConvLayer::setup_gpu()
     status = cudnnSetTensor4dDescriptor(*yDesc_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, n, c, h, w);
     PX_CHECK_CUDNN(status);
 
-    const auto& context = cudnnContext();
+    if (hasOption("find-best-algo")) {
+        const auto& context = cudnnContext();
+        int requestCount = 1, resultCount = 0;
+        status = cudnnGetConvolutionForwardAlgorithmMaxCount(context, &requestCount);
+        PX_CHECK_CUDNN(status);
 
-    int requestCount = 1, resultCount = 0;
-    status = cudnnGetConvolutionForwardAlgorithmMaxCount(context, &requestCount);
-    PX_CHECK_CUDNN(status);
+        auto results = std::make_unique<cudnnConvolutionFwdAlgoPerf_t[]>(requestCount);
 
-    auto results = std::make_unique<cudnnConvolutionFwdAlgoPerf_t[]>(requestCount);
+        status = cudnnFindConvolutionForwardAlgorithm(context,
+                                                      *xDesc_,
+                                                      *wDesc_,
+                                                      *convDesc_,
+                                                      *yDesc_,
+                                                      requestCount,
+                                                      &resultCount,
+                                                      results.get());
+        PX_CHECK_CUDNN(status);
 
-    status = cudnnFindConvolutionForwardAlgorithm(context,
-                                                  *xDesc_,
-                                                  *wDesc_,
-                                                  *convDesc_,
-                                                  *yDesc_,
-                                                  requestCount,
-                                                  &resultCount,
-                                                  results.get());
-    PX_CHECK_CUDNN(status);
-
-    size_t workspaceSize = std::numeric_limits<size_t>::max();
-    for (auto i = 0; i < resultCount; ++i) {
-        if (results[i].status == CUDNN_STATUS_SUCCESS && results[i].memory < workspaceSize) {
-            workspaceSize = results[i].memory;
-            bestAlgo_ = results[i].algo;
+        size_t workspaceSize = std::numeric_limits<size_t>::max();
+        for (auto i = 0; i < resultCount; ++i) {
+            if (results[i].status == CUDNN_STATUS_SUCCESS && results[i].memory < workspaceSize) {
+                workspaceSize = results[i].memory;
+                bestAlgo_ = results[i].algo;
+            }
         }
+        workspace_ = PxCudaTensor<1>({ workspaceSize / sizeof(float) });
     }
-
-    workspace_ = PxCudaTensor<1>({ workspaceSize / sizeof(float) });
 }
 
 void ConvLayer::forwardGpu(const PxCudaVector& input)
