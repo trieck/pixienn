@@ -330,7 +330,8 @@ void imtabbed_text(cv::Mat& image, const char* text, const cv::Point& ptOrg, uin
     pango_layout_get_pixel_size(layout, &textSize.width, &textSize.height);
     textSize.width += xpad;
 
-    Point ptStart(ptOrg.x - (thickness / 2) + 1, ptOrg.y - (thickness / 2));
+    auto yoffset = thickness / 2;
+    Point ptStart(ptOrg.x, ptOrg.y - yoffset);
     Point ptEnd(ptStart.x + textSize.width + xpad, ptStart.y - textSize.height);
 
     auto x = ptStart.x + xpad;
@@ -363,7 +364,7 @@ uint32_t imtextcolor(uint32_t bgColor)
 
     const auto luma = 0.2126f * std::pow(r, gamma) + 0.7152f * std::pow(g, gamma) + 0.0722f * std::pow(b, gamma);
 
-    return luma > 0.2f ? black : white;
+    return luma > 0.3f ? black : white;
 }
 
 } // px
