@@ -60,12 +60,14 @@ void RouteLayer::setup()
     setOutWidth(outWidth);
     setOutputs(outputs);
 
-    output_ = PxCpuVector(batch() * outChannels * outHeight * outWidth);
-
 #ifdef USE_CUDA
     if (useGpu()) {
         outputGpu_ = PxCudaVector(batch() * outChannels * outHeight * outWidth);
+    } else {
+        output_ = PxCpuVector(batch() * outChannels * outHeight * outWidth);
     }
+#else
+    output_ = PxCpuVector(batch() * outChannels * outHeight * outWidth);
 #endif // USE_CUDA
 }
 

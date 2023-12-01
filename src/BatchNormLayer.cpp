@@ -34,10 +34,14 @@ void BatchNormLayer::setup()
     rollingMean_ = PxCpuTensor<1>({ (size_t) channels() }, 0.f);
     rollingVar_ = PxCpuTensor<1>({ (size_t) channels() }, 0.f);
 
-    output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
-
 #ifdef USE_CUDA
-    setupGpu();
+    if (useGpu()) {
+        setupGpu();
+    } else {
+        output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
+    }
+#else
+    output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
 #endif
 }
 
@@ -58,19 +62,17 @@ void BatchNormLayer::forward(const PxCpuVector& input)
 
 void BatchNormLayer::setupGpu()
 {
-    if (useGpu()) {
-        biasesGpu_ = PxCudaTensor<1>({ (size_t) channels() }, 0.f);
-        scalesGpu_ = PxCudaTensor<1>({ (size_t) channels() }, 1.f);
-        rollingMeanGpu_ = PxCudaTensor<1>({ (size_t) channels() }, 0.f);
-        rollingVarGpu_ = PxCudaTensor<1>({ (size_t) channels() }, 0.f);
-        outputGpu_ = PxCudaVector((size_t) batch() * outputs(), 0.f);
-        dstTens_ = std::make_unique<CudnnTensorDesc>();
-        normTens_ = std::make_unique<CudnnTensorDesc>();
+    biasesGpu_ = PxCudaTensor<1>({ (size_t) channels() }, 0.f);
+    scalesGpu_ = PxCudaTensor<1>({ (size_t) channels() }, 1.f);
+    rollingMeanGpu_ = PxCudaTensor<1>({ (size_t) channels() }, 0.f);
+    rollingVarGpu_ = PxCudaTensor<1>({ (size_t) channels() }, 0.f);
+    outputGpu_ = PxCudaVector((size_t) batch() * outputs(), 0.f);
+    dstTens_ = std::make_unique<CudnnTensorDesc>();
+    normTens_ = std::make_unique<CudnnTensorDesc>();
 
-        cudnnSetTensor4dDescriptor(*dstTens_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, batch(), outChannels(), outHeight(),
-                                   outWidth());
-        cudnnSetTensor4dDescriptor(*normTens_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, 1, outChannels(), 1, 1);
-    }
+    cudnnSetTensor4dDescriptor(*dstTens_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, batch(), outChannels(), outHeight(),
+                               outWidth());
+    cudnnSetTensor4dDescriptor(*normTens_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, 1, outChannels(), 1, 1);
 }
 
 void BatchNormLayer::forwardGpu(const PxCudaVector& input)

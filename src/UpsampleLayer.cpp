@@ -33,12 +33,14 @@ void UpsampleLayer::setup()
     setOutWidth(width() * stride_);
     setOutputs(outHeight() * outWidth() * outChannels());
 
-    output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
-
 #ifdef USE_CUDA
     if (useGpu()) {
         outputGpu_ = PxCudaVector(batch() * outChannels() * outHeight() * outWidth());
+    } else {
+        output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
     }
+#else
+    output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
 #endif
 }
 

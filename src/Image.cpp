@@ -318,7 +318,7 @@ void imtabbed_text(cv::Mat& image, const char* text, const cv::Point& ptOrg, uin
     auto* layout = pango_cairo_create_layout(cr);
 
     // Set font description
-    auto* desc = pango_font_description_from_string("Sans 10");
+    auto* desc = pango_font_description_from_string("Sans 8");
     pango_layout_set_font_description(layout, desc);
     pango_font_description_free(desc);
 
@@ -363,7 +363,7 @@ uint32_t imtextcolor(uint32_t bgColor)
 
     const auto luma = 0.2126f * std::pow(r, gamma) + 0.7152f * std::pow(g, gamma) + 0.0722f * std::pow(b, gamma);
 
-    return luma > 0.3f ? black : white;
+    return luma > 0.2f ? black : white;
 }
 
 } // px
