@@ -15,6 +15,9 @@
 ********************************************************************************/
 
 #include <boost/filesystem.hpp>
+#include <cairo/cairo.h>
+#include <pango/pangocairo.h>
+
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/imgproc/types_c.h>
@@ -28,166 +31,20 @@
 #define COLOR_RED(c)        ((uint8_t)(((c) & 0xFF0000) >> 16))
 #define COLOR_GREEN(c)      ((uint8_t)(((c) & 0xFF00) >> 8))
 #define COLOR_BLUE(c)       ((uint8_t)(((c) & 0xFF)))
+
+#define COLOR_REDF(c)       (COLOR_RED(c) / 255.0f)
+#define COLOR_GREENF(c)     (COLOR_GREEN(c) / 255.0f)
+#define COLOR_BLUEF(c)      (COLOR_BLUE(c) / 255.0f)
+
 #define MAKE_CV_COLOR(c)    CV_RGB(COLOR_RED(c), COLOR_GREEN(c), COLOR_BLUE(c))
 
 using namespace cv;
 
 namespace px {
 
-static constexpr uint32_t tab20c[] = {
-        0x3182bd,
-        0x6baed6,
-        0x9ecae1,
-        0xc6dbef,
-        0xe6550d,
-        0xfd8d3c,
-        0xfdae6b,
-        0xfdd0a2,
-        0x31a354,
-        0x74c476,
-        0xa1d99b,
-        0xc7e9c0,
-        0x756bb1,
-        0x9e9ac8,
-        0xbcbddc,
-        0xdadaeb,
-        0x636363,
-        0x969696,
-        0xbdbdbd,
-        0xd9d9d9
-};
-
-static constexpr uint32_t Set1[] = {
-        0xe41a1c,
-        0x377eb8,
-        0x4daf4a,
-        0x984ea3,
-        0xff7f00,
-        0xffff33,
-        0xa65628,
-        0xf781bf,
-        0x999999
-};
-
-static constexpr uint32_t Paired[] = {
-        0xa6cee3,
-        0x1f78b4,
-        0xb2df8a,
-        0x33a02c,
-        0xfb9a99,
-        0xe31a1c,
-        0xfdbf6f,
-        0xff7f00,
-        0xcab2d6,
-        0x6a3d9a,
-        0xffff99,
-        0xb15928
-};
-
-static constexpr uint32_t Accent[] = {
-        0x7fc97f,
-        0xbeaed4,
-        0xfdc086,
-        0xffff99,
-        0x386cb0,
-        0xf0027f,
-        0xbf5b17,
-        0x666666
-};
-
-static constexpr uint32_t tab10[] = {
-        0x1f77b4,
-        0xff7f0e,
-        0x2ca02c,
-        0xd62728,
-        0x9467bd,
-        0x8c564b,
-        0xe377c2,
-        0x7f7f7f,
-        0xbcbd22,
-        0x17becf
-};
-
-static constexpr uint32_t tab20[] = {
-        0x1f77b4,
-        0xaec7e8,
-        0xff7f0e,
-        0xffbb78,
-        0x2ca02c,
-        0x98df8a,
-        0xd62728,
-        0xff9896,
-        0x9467bd,
-        0xc5b0d5,
-        0x8c564b,
-        0xc49c94,
-        0xe377c2,
-        0xf7b6d2,
-        0x7f7f7f,
-        0xc7c7c7,
-        0xbcbd22,
-        0xdbdb8d,
-        0x17becf,
-        0x9edae5
-};
-
-static constexpr uint32_t crayola16[] = {
-        0xed0a3f,
-        0xff681f,
-        0xff8833,
-        0xffae42,
-        0xfbe870,
-        0xc5e17a,
-        0x3aa655,
-        0x0095b7,
-        0x0066ff,
-        0x6456b7,
-        0x8359a3,
-        0xbb3385,
-        0xffa6c9,
-        0xaf593e,
-        0x000000,
-        0xffffff
-};
-
-static constexpr uint32_t darknet[] = {
-        0xff00ff,
-        0x0000ff,
-        0x00ffff,
-        0x00ff00,
-        0xffff00,
-        0xff0000
-};
-
-
-#define COLOR_ENTRY(i, cmap) cmap[i % (sizeof(cmap) / sizeof(cmap[0]))]
-
 cv::Mat imread_tiff(const char* path)
 {
     return readTIFF(path);
-}
-
-cv::Mat imread_8cu(const char* path)
-{
-    auto image = imread(path);
-
-    if (image.depth() == CV_32F) {
-        cv::Mat swapped;
-        if (image.channels() == 3) {
-            cv::cvtColor(image, swapped, CV_RGB2BGR);
-        } else {
-            swapped = image;
-        }
-
-        swapped *= 255.0f;  // assume in range 0..1
-
-        Mat out;
-        swapped.convertTo(out, CV_8UC(swapped.channels()));
-
-        return out;
-    }
-
-    return image;
 }
 
 Mat imread(const char* path)
@@ -229,7 +86,6 @@ cv::Mat imnormalize(const cv::Mat& image)
 
     return out;
 }
-
 
 // read an image and normalize
 Mat imread_normalize(const char* path)
@@ -377,38 +233,6 @@ Mat immake(int height, int width, int channels, float value)
     return { height, width, CV_32FC(channels), Scalar_<float>::all(value) };
 }
 
-void imconvolve(const Mat& image, const Mat& kernel, int stride, int channel, Mat& out)
-{
-    PX_CHECK(image.channels() == kernel.channels(), "Image and kernel have different number of channels.");
-
-    imzero(out, channel);
-
-    for (auto i = 0; i < image.channels(); ++i) {
-        im2dconvolve(image, i, kernel, i, stride, out, channel);
-    }
-}
-
-void im2dconvolve(const Mat& image, int imChannel, const Mat& kernel, int kernelChannel, int stride,
-                  Mat& out, int outChannel)
-{
-    PX_CHECK(stride > 0, "Stride must be greater than zero.");
-
-    for (auto y = 0; y < image.rows; y += stride) {
-        for (auto x = 0; x < image.cols; x += stride) {
-            float sum = 0;
-            for (auto i = 0; i < kernel.rows; ++i) {
-                for (auto j = 0; j < kernel.cols; ++j) {
-                    auto a = imget(kernel, i, j, kernelChannel);
-                    auto b = imgetextend(image, x + i - kernel.cols / 2, y + j - kernel.rows / 2, imChannel);
-                    sum += a * b;
-                }
-            }
-
-            imadd(out, x / stride, y / stride, outChannel, sum);
-        }
-    }
-}
-
 void imzero(const Mat& image, int c)
 {
     PX_CHECK(c < image.channels(), "Channel out of bounds.");
@@ -483,30 +307,48 @@ void imtabbed_rect(cv::Mat& image, const cv::Point& pt1, const cv::Point& pt2, u
 void imtabbed_text(cv::Mat& image, const char* text, const cv::Point& ptOrg, uint32_t textColor, uint32_t bgColor,
                    int thickness)
 {
-    constexpr auto fontFace = FONT_HERSHEY_SIMPLEX;
-    constexpr auto fontScale = 0.5f;
-    constexpr auto xbuffer = 4;
-    constexpr auto ybuffer = 0;
+    constexpr auto xpad = 4;
 
-    auto baseline = 0;
-    auto textSize = getTextSize(text, fontFace, fontScale, thickness, &baseline);
+    // create cairo surface and context
+    auto* surface = cairo_image_surface_create_for_data(
+            image.data, CAIRO_FORMAT_ARGB32, image.cols, image.rows, image.step);
+    auto* cr = cairo_create(surface);
 
-    baseline += thickness;
-    textSize.width += xbuffer;
-    textSize.height += baseline;
+    // create pango layout
+    auto* layout = pango_cairo_create_layout(cr);
+
+    // Set font description
+    auto* desc = pango_font_description_from_string("Sans 10");
+    pango_layout_set_font_description(layout, desc);
+    pango_font_description_free(desc);
+
+    // set layout text
+    pango_layout_set_text(layout, text, -1);
+
+    // get pixel size
+    cv::Size textSize;
+    pango_layout_get_pixel_size(layout, &textSize.width, &textSize.height);
+    textSize.width += xpad;
 
     Point ptStart(ptOrg.x - (thickness / 2) + 1, ptOrg.y - (thickness / 2));
-    Point ptEnd(ptStart.x + textSize.width + xbuffer, ptStart.y - textSize.height);
-    Point ptText(ptStart.x + xbuffer, ptStart.y - baseline + thickness + ybuffer);
+    Point ptEnd(ptStart.x + textSize.width + xpad, ptStart.y - textSize.height);
+
+    auto x = ptStart.x + xpad;
+    auto y = ptStart.y - textSize.height;
 
     imtabbed_rect(image, ptStart, ptEnd, bgColor, thickness, FILLED);
 
-    putText(image, text, ptText, fontFace, fontScale, MAKE_CV_COLOR(textColor), 1, LINE_AA);
-}
+    auto red = COLOR_REDF(textColor);
+    auto green = COLOR_GREENF(textColor);
+    auto blue = COLOR_BLUEF(textColor);
+    cairo_set_source_rgb(cr, red, green, blue);
 
-uint32_t imgetcolor(uint32_t index)
-{
-    return COLOR_ENTRY(index, crayola16);
+    cairo_move_to(cr, x, y);
+    pango_cairo_show_layout(cr, layout);
+
+    g_object_unref(layout);
+    cairo_surface_destroy(surface);
+    cairo_destroy(cr);
 }
 
 uint32_t imtextcolor(uint32_t bgColor)
@@ -515,9 +357,9 @@ uint32_t imtextcolor(uint32_t bgColor)
     constexpr auto white = 0xFFFFFF;
     constexpr auto gamma = 2.2f;
 
-    auto r = COLOR_RED(bgColor) / 255.0f;
-    auto g = COLOR_GREEN(bgColor) / 255.0f;
-    auto b = COLOR_BLUE(bgColor) / 255.0f;
+    auto r = COLOR_REDF(bgColor);
+    auto g = COLOR_GREENF(bgColor);
+    auto b = COLOR_BLUEF(bgColor);
 
     const auto luma = 0.2126f * std::pow(r, gamma) + 0.7152f * std::pow(g, gamma) + 0.0722f * std::pow(b, gamma);
 

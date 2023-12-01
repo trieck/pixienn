@@ -1,0 +1,16 @@
+find_path(HARFBUZZ_INCLUDE_DIR NAMES hb.h PATH_SUFFIXES harfbuzz)
+find_library(HARFBUZZ_LIBRARY NAMES harfbuzz)
+
+include(FindPackageHandleStandardArgs)
+
+find_package_handle_standard_args(HarfBuzz DEFAULT_MSG HARFBUZZ_LIBRARY HARFBUZZ_INCLUDE_DIR)
+
+if (HARFBUZZ_FOUND)
+    set(HARFBUZZ_LIBRARIES ${HARFBUZZ_LIBRARY})
+    set(HARFBUZZ_INCLUDE_DIRS ${HARFBUZZ_INCLUDE_DIR})
+else ()
+    set(HARFBUZZ_LIBRARIES)
+    set(HARFBUZZ_INCLUDE_DIRS)
+endif ()
+
+mark_as_advanced(HARFBUZZ_LIBRARY HARFBUZZ_INCLUDE_DIR)

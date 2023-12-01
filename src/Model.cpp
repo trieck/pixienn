@@ -20,6 +20,7 @@
 #include <nlohmann/json.hpp>
 #include <utility>
 
+#include "ColorMaps.h"
 #include "Error.h"
 #include "Image.h"
 #include "Layer.h"
@@ -294,11 +295,11 @@ const std::vector<std::string>& Model::labels() const noexcept
 
 void Model::overlay(const std::string& imageFile, const Detections& detects) const
 {
-    // There is no anti-aliasing for img.depth() != CV_8U
-    auto img = imread_8cu(imageFile.c_str());
+    auto img = imread(imageFile.c_str());
+    cv::cvtColor(img, img, cv::COLOR_BGR2BGRA);
 
+    ColorMaps colors;
     constexpr auto thickness = 2;
-
     for (const auto& detect: detects) {
         auto max = detect.max();
         if (max == 0) {
@@ -308,7 +309,7 @@ void Model::overlay(const std::string& imageFile, const Detections& detects) con
         auto index = detect.maxClass();
         const auto& label = labels_[index];
 
-        auto bgColor = imgetcolor(index);
+        auto bgColor = colors.color(index);
         auto textColor = imtextcolor(bgColor);
 
         const auto& box = detect.box();
