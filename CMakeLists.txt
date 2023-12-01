@@ -13,7 +13,11 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 find_package(BLAS REQUIRED)
 find_package(Boost 1.74 REQUIRED)
+find_package(Cairo 1.16.0 REQUIRED)
+find_package(GLIB REQUIRED)
+find_package(HarfBuzz REQUIRED)
 find_package(OpenCV 4.5.4 REQUIRED COMPONENTS core imgproc highgui)
+find_package(Pango REQUIRED)
 find_package(TIFF REQUIRED)
 find_package(nlohmann_json 3.10.5 REQUIRED)
 find_package(yaml-cpp REQUIRED)
@@ -59,6 +63,7 @@ list(APPEND SOURCES
         src/Activation.cpp
         src/BatchNormAlgo.cpp
         src/BatchNormLayer.cpp
+        src/ColorMaps.cpp
         src/ConnAlgo.cpp
         src/ConnLayer.cpp
         src/ConvAlgo.cpp
@@ -87,7 +92,13 @@ list(APPEND SOURCES
 add_library(pixienn STATIC ${SOURCES})
 set_target_properties(pixienn PROPERTIES OUTPUT_NAME "pixienn")
 
-target_include_directories(pixienn PRIVATE ${OpenCV_INCLUDE_DIRS} include)
+target_include_directories(pixienn PRIVATE
+        ${OpenCV_INCLUDE_DIRS}
+        ${CAIRO_INCLUDE_DIRS}
+        ${Pango_INCLUDE_DIR}
+        ${GLIB_INCLUDE_DIRS}
+        ${HARFBUZZ_INCLUDE_DIR}
+        include)
 
 if (USE_CUDA)
     target_include_directories(pixienn PRIVATE ${CUDNN_INCLUDE_DIR} ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
@@ -118,8 +129,12 @@ target_link_libraries(pixienn-bin
         ${CUDART_LIBRARY}
         ${CUBLAS_LIBRARY}
         ${CUDNN_LIBRARY}
+        ${CAIRO_LIBRARIES}
+        ${GLIB_LIBRARIES}
+        ${GLIB_GOBJECT_LIBRARIES}
+        ${HARFBUZZ_LIBRARY}
+        ${Pango_LIBRARIES}
         ${OpenCV_LIBS}
-
 )
 
 add_subdirectory(tests)

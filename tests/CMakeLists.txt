@@ -40,6 +40,11 @@ target_link_libraries(pixienn-test
         ${CUDART_LIBRARY}
         ${CUBLAS_LIBRARY}
         ${CUDNN_LIBRARY}
+        ${CAIRO_LIBRARIES}
+        ${GLIB_LIBRARIES}
+        ${GLIB_GOBJECT_LIBRARIES}
+        ${HARFBUZZ_LIBRARY}
+        ${Pango_LIBRARIES}
         ${OpenCV_LIBS}
 )
 

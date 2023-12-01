@@ -29,17 +29,13 @@ cv::Mat immake(int height, int width, int channels, float value = 0.0f);
 cv::Mat imnormalize(const cv::Mat& image);
 cv::Mat imrandom(int height, int width, int channels);
 cv::Mat imread(const char* path);
-cv::Mat imread_8cu(const char* path);
 cv::Mat imread_normalize(const char* path);
 cv::Mat imread_tiff(const char* path);
 void imsave(const char* path, const cv::Mat& image);
 void imsave_tiff(const char* path, const cv::Mat& image);
 float imget(const cv::Mat& image, int x, int y, int c);
 float imgetextend(const cv::Mat& image, int x, int y, int c);
-void im2dconvolve(const cv::Mat& image, int imChannel, const cv::Mat& kernel, int kernelChannel, int stride,
-                  cv::Mat& out, int outChannel);
 void imadd(cv::Mat& image, int x, int y, int c, float value);
-void imconvolve(const cv::Mat& image, const cv::Mat& kernel, int stride, int channel, cv::Mat& out);
 void imset(cv::Mat& image, int x, int y, int c, float value);
 void imzero(const cv::Mat& image, int c);
 PxCpuVector imvector(const cv::Mat& image);
@@ -48,7 +44,6 @@ void imtabbed_rect(cv::Mat& img, const cv::Point& pt1, const cv::Point& pt2, uin
                    int thickness = 1, int lineType = cv::LINE_AA, int cornerRadius = 2);
 void imtabbed_text(cv::Mat& image, const char* text, const cv::Point& ptOrg, uint32_t textColor, uint32_t bgColor,
                    int thickness = 1);
-uint32_t imgetcolor(uint32_t index);
 uint32_t imtextcolor(uint32_t color);
 
 } // px

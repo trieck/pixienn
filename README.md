@@ -19,15 +19,17 @@ This project aims to provide a modern and optimized C++ implementation of the Da
 
 ### Prerequisites
 
-- C++ Compiler
-- OpenBLAS library
 - Boost (>= 1.74)
-- OpenCV (>= 4.5.4)
-- LibTIFF
-- nlohmann_json (>= 3.10.5)
-- yaml-cpp
 - CUDA Toolkit (for GPU support)
 - CUDNN8 (for GPU support)
+- Cairo (>= 1.16.0)
+- GLib
+- LibTIFF
+- OpenBLAS library
+- OpenCV (>= 4.5.4)
+- Pango
+- nlohmann_json (>= 3.10.5)
+- yaml-cpp
 
 ### Installation
 
