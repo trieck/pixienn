@@ -47,12 +47,14 @@ void DetectLayer::setup()
     setOutWidth(width());
     setOutputs(batch() * inputs());
 
-    output_ = PxCpuVector(outputs());
-
 #ifdef USE_CUDA
     if (useGpu()) {
         outputGpu_ = PxCudaVector(outputs());
+    } else {
+        output_ = PxCpuVector(outputs());
     }
+#else
+    output_ = PxCpuVector(outputs());
 #endif
 }
 

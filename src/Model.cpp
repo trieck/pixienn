@@ -240,7 +240,7 @@ std::vector<Detection> Model::predict(const std::string& imageFile)
         forward(info.first);
     }
 #else
-    forward(std::forward<decltype(input)>(input));
+    forward(info.first);
 #endif  // USE_CUDA
 
     std::vector<Detection> detections;
@@ -254,7 +254,7 @@ std::vector<Detection> Model::predict(const std::string& imageFile)
                 detector->addDetects(detections, info.second.width, info.second.height, threshold_);
             }
 #else
-            detector->addDetects(detections, image.cols, image.rows, threshold_);
+            detector->addDetects(detections, info.second.width, info.second.height, threshold_);
 #endif // USE_CUDA
         }
     }
@@ -299,7 +299,7 @@ void Model::overlay(const std::string& imageFile, const Detections& detects) con
     cv::cvtColor(img, img, cv::COLOR_BGR2BGRA);
 
     ColorMaps colors;
-    constexpr auto thickness = 2;
+    constexpr auto thickness = 1;
     for (const auto& detect: detects) {
         auto max = detect.max();
         if (max == 0) {

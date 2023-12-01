@@ -58,10 +58,15 @@ void ConnLayer::setup()
     }
 
     weights_ = random<decltype(weights_)>({ (size_t) inputs(), (size_t) outputs() });
-    output_ = PxCpuVector(batch() * outputs());
 
 #ifdef USE_CUDA
-    setupGpu();
+    if (useGpu()) {
+        setupGpu();
+    } else {
+        output_ = PxCpuVector(batch() * outputs());
+    }
+#else
+    output_ = PxCpuVector(batch() * outputs());
 #endif
 }
 
@@ -69,14 +74,12 @@ void ConnLayer::setup()
 
 void ConnLayer::setupGpu()
 {
-    if (useGpu()) {
-        if (!batchNormalize_) {
-            biasesGpu_ = PxCudaTensor<1>({ (size_t) outputs() }, 0.f);
-        }
-
-        weightsGpu_ = random<decltype(weightsGpu_)>({ (size_t) inputs(), (size_t) outputs() });
-        outputGpu_ = PxCudaVector(batch() * outputs(), 0.f);
+    if (!batchNormalize_) {
+        biasesGpu_ = PxCudaTensor<1>({ (size_t) outputs() }, 0.f);
     }
+
+    weightsGpu_ = random<decltype(weightsGpu_)>({ (size_t) inputs(), (size_t) outputs() });
+    outputGpu_ = PxCudaVector(batch() * outputs(), 0.f);
 }
 
 #endif // USE_CUDA
