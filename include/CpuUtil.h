@@ -14,8 +14,8 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_UTILITY_H
-#define PIXIENN_UTILITY_H
+#ifndef PIXIENN_CPUUTIL_H
+#define PIXIENN_CPUUTIL_H
 
 #include "Common.h"
 
@@ -27,4 +27,4 @@ void random_generate_cpu(float* ptr, std::size_t n, float a = 0.f, float b = 1.f
 
 }   // px
 
-#endif // PIXIENN_UTILITY_H
+#endif // PIXIENN_CPUUTIL_H

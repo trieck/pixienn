@@ -10,6 +10,7 @@ if (NOT DEFINED USE_CUDA OR USE_CUDA STREQUAL "")
 endif ()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+include_directories(${CMAKE_SOURCE_DIR}/cmake)
 
 find_package(BLAS REQUIRED)
 find_package(Boost 1.74 REQUIRED)
@@ -68,9 +69,11 @@ list(APPEND SOURCES
         src/ConnLayer.cpp
         src/ConvAlgo.cpp
         src/ConvLayer.cpp
+        src/CpuUtil.cpp
         src/DetectLayer.cpp
         src/Detection.cpp
         src/Error.cpp
+        src/FileUtil.cpp
         src/Image.cpp
         src/Layer.cpp
         src/Math.cpp
@@ -85,7 +88,6 @@ list(APPEND SOURCES
         src/Timer.cpp
         src/UpsampleAlgo.cpp
         src/UpsampleLayer.cpp
-        src/Utility.cpp
         src/YoloLayer.cpp
 )
 
@@ -105,37 +107,8 @@ if (USE_CUDA)
     target_compile_definitions(pixienn PRIVATE -DUSE_CUDA)
 endif ()
 
-add_executable(pixienn-bin src/main.cpp)
-
-if (USE_CUDA)
-    target_compile_definitions(pixienn-bin PRIVATE -DUSE_CUDA)
-    target_include_directories(pixienn-bin PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
-    set_target_properties(pixienn-bin PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-    set_target_properties(pixienn-bin PROPERTIES CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
-endif ()
-
-set_target_properties(pixienn-bin PROPERTIES POSITION_INDEPENDENT_CODE ON)
-set_target_properties(pixienn-bin PROPERTIES OUTPUT_NAME "pixienn")
-
-target_include_directories(pixienn-bin PRIVATE include)
-
-target_link_libraries(pixienn-bin
-        pixienn
-        tiff
-        yaml-cpp
-        ${BLAS_openblas_LIBRARY}
-        boost_filesystem
-        boost_program_options
-        ${CUDART_LIBRARY}
-        ${CUBLAS_LIBRARY}
-        ${CUDNN_LIBRARY}
-        ${CAIRO_LIBRARIES}
-        ${GLIB_LIBRARIES}
-        ${GLIB_GOBJECT_LIBRARIES}
-        ${HARFBUZZ_LIBRARY}
-        ${Pango_LIBRARIES}
-        ${OpenCV_LIBS}
-)
+include(PixiennLibs)
+include(Pixienn)
+include(PixiennTrain)
 
 add_subdirectory(tests)
-

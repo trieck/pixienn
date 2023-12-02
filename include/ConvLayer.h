@@ -40,6 +40,7 @@ public:
     std::ostream& print(std::ostream& os) override;
     std::streamoff loadDarknetWeights(std::istream& is) override;
     void forward(const PxCpuVector& input) override;
+    void backward(const PxCpuVector& input) override;
 
 #ifdef USE_CUDA
     void forwardGpu(const PxCudaVector& input) override;

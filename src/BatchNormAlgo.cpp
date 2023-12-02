@@ -16,7 +16,7 @@
 
 #include "Common.h"
 #include "BatchNormAlgo.h"
-#include "Utility.h"
+#include "CpuUtil.h"
 
 namespace px {
 

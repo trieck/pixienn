@@ -65,6 +65,7 @@ public:
     }
 
     virtual void forward(const PxCpuVector& input) = 0;
+    virtual void backward(const PxCpuVector& input) = 0;
     const PxCpuVector& output() const noexcept;
 
 #ifdef USE_CUDA
@@ -102,7 +103,7 @@ protected:
                std::optional<int>&& filters = std::nullopt,
                std::optional<std::array<int, 3>>&& size = std::nullopt);
 
-    PxCpuVector output_;
+    PxCpuVector output_, delta_;
 
 #ifdef USE_CUDA
     PxCudaVector outputGpu_;

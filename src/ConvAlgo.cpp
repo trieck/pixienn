@@ -18,7 +18,7 @@
 
 #include "Common.h"
 #include "ConvAlgo.h"
-#include "Utility.h"
+#include "CpuUtil.h"
 
 namespace px {
 
@@ -52,6 +52,11 @@ void convolutionalForward(const ConvContext& ctxt)
             cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, alpha, a, k, b, n, beta, c, n);
         }
     }
+}
+
+void convolutionalBackward(const ConvContext& ctxt)
+{
+
 }
 
 #ifdef USE_CUDA

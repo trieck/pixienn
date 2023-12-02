@@ -63,6 +63,7 @@ struct ConvContext
 };
 
 void convolutionalForward(const ConvContext& ctxt);
+void convolutionalBackward(const ConvContext& ctxt);
 
 #ifdef USE_CUDA
 void convolutionalForwardGpu(const ConvContext& ctxt);

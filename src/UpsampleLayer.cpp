@@ -57,6 +57,10 @@ void UpsampleLayer::forward(const PxCpuVector& input)
     upsampleForward(ctxt);
 }
 
+void UpsampleLayer::backward(const PxCpuVector& input)
+{
+}
+
 #ifdef USE_CUDA
 
 void UpsampleLayer::forwardGpu(const PxCudaVector& input)

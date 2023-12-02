@@ -318,7 +318,7 @@ void imtabbed_text(cv::Mat& image, const char* text, const cv::Point& ptOrg, uin
     auto* layout = pango_cairo_create_layout(cr);
 
     // Set font description
-    auto* desc = pango_font_description_from_string("Sans 8");
+    auto* desc = pango_font_description_from_string("Sans 10");
     pango_layout_set_font_description(layout, desc);
     pango_font_description_free(desc);
 

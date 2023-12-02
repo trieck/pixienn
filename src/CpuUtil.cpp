@@ -16,7 +16,7 @@
 
 #include <cmath>
 
-#include "Utility.h"
+#include "CpuUtil.h"
 
 namespace px {
 

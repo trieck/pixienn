@@ -75,6 +75,11 @@ void ShortcutLayer::forward(const PxCpuVector& input)
     activationFnc_->apply(output_);
 }
 
+void ShortcutLayer::backward(const PxCpuVector& input)
+{
+
+}
+
 ShortcutContext ShortcutLayer::makeContext(const PxCpuVector&)
 {
     ShortcutContext ctxt;

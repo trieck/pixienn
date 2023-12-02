@@ -6,6 +6,7 @@ find_package(GTest REQUIRED)
 find_package(GMock REQUIRED)
 
 add_executable(pixienn-test
+        activations.cpp
         batchnorm.cpp
         connected.cpp
         convolve.cpp
@@ -28,25 +29,7 @@ endif ()
 
 set_target_properties(pixienn-test PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-target_link_libraries(pixienn-test
-        pixienn
-        tiff
-        yaml-cpp
-        ${BLAS_openblas_LIBRARY}
-        boost_filesystem
-        boost_program_options
-        GTest::gtest_main
-        GTest::gmock_main
-        ${CUDART_LIBRARY}
-        ${CUBLAS_LIBRARY}
-        ${CUDNN_LIBRARY}
-        ${CAIRO_LIBRARIES}
-        ${GLIB_LIBRARIES}
-        ${GLIB_GOBJECT_LIBRARIES}
-        ${HARFBUZZ_LIBRARY}
-        ${Pango_LIBRARIES}
-        ${OpenCV_LIBS}
-)
+target_link_libraries(pixienn-test ${PIXIENN_LIBS} GTest::gtest_main GTest::gmock_main)
 
 enable_testing()
 include(GoogleTest)

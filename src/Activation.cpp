@@ -48,6 +48,11 @@ public:
     void apply(float* begin, float* end) const override
     {
     }
+
+    void gradient(float* begin, float* end, float* delta) const override
+    {
+    }
+
 #ifdef USE_CUDA
     void applyGpu(float* x, std::size_t n) const override
     {
@@ -65,6 +70,14 @@ public:
             x = (x > 0) ? x : .1f * x;
         });
     }
+
+    void gradient(float* begin, float* end, float* dbegin) const override
+    {
+        std::transform(begin, end, dbegin, begin, [](float x, float delta) {
+            return x * ((delta > 0) ? 1.0f : 0.1f);
+        });
+    }
+
 #ifdef USE_CUDA
     void applyGpu(float* x, std::size_t n) const override
     {
@@ -79,9 +92,18 @@ public:
     void apply(float* begin, float* end) const override
     {
         std::for_each(begin, end, [](float& x) {
-            x = 2.f / (1.f + std::exp(-x)) - 1;
+            x = 2.0f / (1.0f + std::exp(-x)) - 1;
         });
     }
+
+    void gradient(float* begin, float* end, float* dbegin) const override
+    {
+        std::transform(begin, end, dbegin, begin, [](float x, float delta) {
+            auto y = (delta + 1.0f) / 2.0f;
+            return x * 2 * (1 - y) * y;
+        });
+    }
+
 #ifdef USE_CUDA
     void applyGpu(float* x, std::size_t n) const override
     {
@@ -99,6 +121,14 @@ public:
             x = 1.f / (1.f + std::exp(-x));
         });
     }
+
+    void gradient(float* begin, float* end, float* dbegin) const override
+    {
+        std::transform(begin, end, dbegin, begin, [](float x, float delta) {
+            return x * ((1 - delta) / delta);
+        });
+    }
+
 #ifdef USE_CUDA
     void applyGpu(float* x, std::size_t n) const override
     {
@@ -116,6 +146,14 @@ public:
             x = x * float(x > 0);
         });
     }
+
+    void gradient(float* begin, float* end, float* dbegin) const override
+    {
+        std::transform(begin, end, dbegin, begin, [](float x, float delta) {
+            return x * float(delta > 0);
+        });
+    }
+
 #ifdef USE_CUDA
     void applyGpu(float* x, std::size_t n) const override
     {
@@ -156,7 +194,12 @@ Activation::Ptr Activation::get(const std::string& s)
 
 void Activation::apply(PxCpuVector& container) const
 {
-    apply(container.begin().base(), container.end().base());
+    apply(&(*container.begin()), &(*container.end()));
+}
+
+void Activation::gradient(PxCpuVector& container, PxCpuVector& delta) const
+{
+    gradient(&(*container.begin()), &(*container.end()), &(*delta.begin()));
 }
 
 #ifdef USE_CUDA
