@@ -73,12 +73,14 @@ void ConvLayer::setup()
     } else {
         column_ = PxCpuTensor<2>(
                 { (size_t) kernel_ * kernel_ * channels() / groups_, (size_t) outHeight() * outWidth() });
-        output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
+        output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
+        delta_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
     }
 #else
     column_ = PxCpuTensor<2>(
             { (size_t) kernel_ * kernel_ * channels() / groups_, (size_t) outHeight() * outWidth() });
-    output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
+    output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
+    delta_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
 #endif
 }
 
@@ -132,6 +134,17 @@ void ConvLayer::forward(const PxCpuVector& input)
     }
 
     activationFnc_->apply(output_);
+}
+
+void ConvLayer::backward(const PxCpuVector& input)
+{
+    auto ctxt = makeContext(input);
+
+    activationFnc_->gradient(output_, delta_);
+
+    //gradient_array(l.output, l.outputs*l.batch, l.activation, l.delta);
+
+    convolutionalBackward(ctxt);
 }
 
 ConvContext ConvLayer::makeContext(const PxCpuVector& input)

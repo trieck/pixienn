@@ -2,3 +2,7 @@ configuration:
   model: ../models/yolov1-tiny.yml
   weights: ../weights/yolov1-tiny.weights
   labels: ../data/voc.names
+
+training:
+  train-images: ../data/voc/train.txt
+  ground-truth: ../data/voc/ground-truth

@@ -14,33 +14,16 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_ACTIVATION_H
-#define PIXIENN_ACTIVATION_H
+#ifndef PIXIENN_FILEUTIL_H
+#define PIXIENN_FILEUTIL_H
 
 #include "Common.h"
-#include "PxTensor.h"
 
 namespace px {
 
-class Activation
-{
-public:
-    using Ptr = std::shared_ptr<Activation>;
-
-    static Activation::Ptr get(const std::string& s);
-
-    virtual void apply(float* begin, float* end) const = 0;
-    virtual void gradient(float* begin, float* end, float* dbegin) const = 0;
-
-    void apply(PxCpuVector& container) const;
-    void gradient(PxCpuVector& container, PxCpuVector& delta) const;
-
-#ifdef USE_CUDA
-    virtual void applyGpu(float* begin, std::size_t n) const = 0;
-    void applyGpu(PxCudaVector&) const;
-#endif // USE_CUDA
-};
+std::string baseName(const std::string &filePath);
 
 }   // px
 
-#endif // PIXIENN_ACTIVATION_H
+#endif // PIXIENN_FILEUTIL_H
+

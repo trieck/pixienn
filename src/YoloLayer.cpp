@@ -77,6 +77,11 @@ void YoloLayer::forward(const PxCpuVector& input)
     }
 }
 
+void YoloLayer::backward(const PxCpuVector& input)
+{
+}
+
+
 #ifdef USE_CUDA
 void YoloLayer::forwardGpu(const PxCudaVector& input)
 {

@@ -30,7 +30,7 @@
 #include "Common.h"
 #include "Error.h"
 #include "Strides.h"
-#include "Utility.h"
+#include "CpuUtil.h"
 
 namespace px {
 

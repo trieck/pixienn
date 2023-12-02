@@ -74,6 +74,10 @@ void DetectLayer::forward(const PxCpuVector& input)
     }
 }
 
+void DetectLayer::backward(const PxCpuVector& input)
+{
+}
+
 #ifdef USE_CUDA
 void DetectLayer::forwardGpu(const PxCudaVector& input)
 {

@@ -18,7 +18,7 @@
 
 #include "Common.h"
 #include "ConnAlgo.h"
-#include "Utility.h"
+#include "CpuUtil.h"
 
 #ifdef USE_CUDA
 #include <cublas_api.h>

@@ -32,6 +32,8 @@ public:
 
     std::ostream& print(std::ostream& os) override;
     void forward(const PxCpuVector& input) override;
+    void backward(const PxCpuVector& input) override;
+
     void addDetects(Detections& detections, int width, int height, float threshold) override;
 
 #ifdef USE_CUDA

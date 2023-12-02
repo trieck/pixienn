@@ -27,6 +27,8 @@ namespace po = boost::program_options;
 
 using namespace px;
 
+namespace px {
+
 void predict(const std::string& cfgFile, const std::string& imageFile,
              const po::variables_map& options)
 {
@@ -44,6 +46,8 @@ void predict(const std::string& cfgFile, const std::string& imageFile,
     ofs << json << std::flush;
     ofs.close();
 }
+
+}   // px
 
 int main(int argc, char* argv[])
 {

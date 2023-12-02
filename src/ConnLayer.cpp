@@ -15,7 +15,7 @@
 ********************************************************************************/
 
 #include "ConnLayer.h"
-#include "Utility.h"
+#include "CpuUtil.h"
 
 #if USE_CUDA
 
@@ -131,6 +131,11 @@ void ConnLayer::forward(const PxCpuVector& input)
     }
 
     activationFnc_->apply(output_);
+}
+
+void ConnLayer::backward(const PxCpuVector& input)
+{
+
 }
 
 ConnContext ConnLayer::makeContext(const PxCpuVector& input)

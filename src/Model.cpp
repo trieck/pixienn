@@ -22,6 +22,7 @@
 
 #include "ColorMaps.h"
 #include "Error.h"
+#include "FileUtil.h"
 #include "Image.h"
 #include "Layer.h"
 #include "Model.h"
@@ -43,18 +44,21 @@ Model::Model(std::string cfgFile, var_map options) : options_(std::move(options)
         setupGpu();
     }
 #endif
-    threshold_ = options_["confidence"].as<float>();
+    if (inferring()) {
+        threshold_ = options_["confidence"].as<float>();
+    }
+
     parseConfig();
 }
 
 void Model::parseConfig()
 {
-    auto cfgDoc = LoadFile(cfgFile_);
+    config_ = LoadFile(cfgFile_);
 
-    PX_CHECK(cfgDoc.IsMap(), "Document not a map.");
-    PX_CHECK(cfgDoc["configuration"], "Document has no configuration.");
+    PX_CHECK(config_.IsMap(), "Document not a map.");
+    PX_CHECK(config_["configuration"], "Document has no configuration.");
 
-    const auto config = cfgDoc["configuration"];
+    const auto config = config_["configuration"];
     PX_CHECK(config.IsMap(), "Configuration is not a map.");
 
     auto cfgPath = path(cfgFile_);
@@ -63,8 +67,13 @@ void Model::parseConfig()
     modelFile_ = canonical(model, cfgPath.parent_path()).string();
     parseModel();
 
-    auto weights = config["weights"].as<std::string>();
-    weightsFile_ = canonical(weights, cfgPath.parent_path()).string();
+    if (inferring()) {
+        auto weights = config["weights"].as<std::string>();
+        weightsFile_ = canonical(weights, cfgPath.parent_path()).string();
+    } else {    // weights for training, if they exist
+        weightsFile_ = option<std::string>("weights-file");
+    }
+
     loadDarknetWeights();
 
     auto labels = config["labels"].as<std::string>();
@@ -88,6 +97,17 @@ void Model::parseModel()
     width_ = model["width"].as<int>();
     subdivs_ = model["subdivisions"].as<int>(1);
     timeSteps_ = model["time_steps"].as<int>(1);
+    maxBoxes_ = model["time_steps"].as<int>(90);
+
+    learningRate_ = model["learning_rate"].as<float>(0.001f);
+    momentum_ = model["momentum"].as<float>(0.9f);
+    decay_ = model["decay"].as<float>(0.0001f);
+    jitter_ = model["jitter"].as<float>(0.2f);
+    angle_ = model["angle"].as<float>(0.0f);
+    aspect_ = model["aspect"].as<float>(1.0f);
+    saturation_ = model["saturation"].as<float>(1.0f);
+    exposure_ = model["exposure"].as<float>(1.0f);
+    hue_ = model["hue"].as<float>(0.0f);
 
     batch_ /= subdivs_;
     batch_ *= timeSteps_;
@@ -98,7 +118,6 @@ void Model::parseModel()
     PX_CHECK(layers.IsSequence(), "Model has no layers.");
 
     std::cout << std::setfill('_');
-
     std::cout << std::setw(21) << std::left << "Layer"
               << std::setw(10) << "Filters"
               << std::setw(20) << "Size"
@@ -156,13 +175,27 @@ int Model::width() const
     return width_;
 }
 
-void Model::forward(const PxCpuVector& input) const
+void Model::forward(const PxCpuVector& input)
 {
     const auto* in = &input;
 
     for (auto& layer: layers()) {
         layer->forward(*in);
         in = &layer->output();
+    }
+}
+
+void Model::backward(const PxCpuVector& input) // FIXME:
+{
+    for (int i = layers_.size() - 1; i >= 0; --i) {
+        auto& layer = layers_[i];
+
+        if (i == 0) {
+            layer->backward(input);
+        } else {
+            auto& prev = layers_[i - 1];
+            layer->backward(prev->output());
+        }
     }
 }
 
@@ -183,33 +216,37 @@ void Model::forwardGpu(const PxCpuVector& input) const
 void Model::loadDarknetWeights()
 {
     std::ifstream ifs(weightsFile_, std::ios::in | std::ios::binary);
-    PX_CHECK(ifs.good(), "Could not open file \"%s\".", weightsFile_.c_str());
-
-    ifs.seekg(0, std::ifstream::end);
-    auto length = ifs.tellg();
-    ifs.seekg(0, std::ifstream::beg);
-
-    ifs.read((char*) &major_, sizeof(int));
-    ifs.read((char*) &minor_, sizeof(int));
-    ifs.read((char*) &revision_, sizeof(int));
-
-    if ((major_ * 10 + minor_) >= 2 && major_ < 1000 && minor_ < 1000) {
-        size_t seen;
-        ifs.read((char*) &seen, sizeof(size_t));
-    } else {
-        int iseen = 0;
-        ifs.read((char*) &iseen, sizeof(int));
+    if (inferring() && ifs.bad()) { // it is not an error for training weights to not exist.
+        PX_ERROR_THROW("Could not open file \"%s\".", weightsFile_.c_str());
     }
 
-    std::streamoff pos = ifs.tellg();
-    for (const auto& layer: layers()) {
-        pos += layer->loadDarknetWeights(ifs);
+    if (ifs.good()) {
+        ifs.seekg(0, std::ifstream::end);
+        auto length = ifs.tellg();
+        ifs.seekg(0, std::ifstream::beg);
+
+        ifs.read((char*) &major_, sizeof(int));
+        ifs.read((char*) &minor_, sizeof(int));
+        ifs.read((char*) &revision_, sizeof(int));
+
+        if ((major_ * 10 + minor_) >= 2 && major_ < 1000 && minor_ < 1000) {
+            size_t seen;
+            ifs.read((char*) &seen, sizeof(size_t));
+        } else {
+            int iseen = 0;
+            ifs.read((char*) &iseen, sizeof(int));
+        }
+
+        std::streamoff pos = ifs.tellg();
+        for (const auto& layer: layers()) {
+            pos += layer->loadDarknetWeights(ifs);
+        }
+
+        PX_CHECK(pos == length, "Did not fully read weights file; read %ld bytes, expected to read %ld bytes.",
+                 pos, length);
+
+        ifs.close();
     }
-
-    PX_CHECK(pos == length, "Did not fully read weights file; read %ld bytes, expected to read %ld bytes.",
-             pos, length);
-
-    ifs.close();
 }
 
 auto Model::loadImage(const std::string& imageFile) -> ImageInfo
@@ -229,7 +266,7 @@ std::vector<Detection> Model::predict(const std::string& imageFile)
 {
     auto info = loadImage(imageFile);
 
-    std::cout << std::endl << "Running network...";
+    std::cout << std::endl << "Running model...";
 
     Timer timer;
 
@@ -262,6 +299,128 @@ std::vector<Detection> Model::predict(const std::string& imageFile)
     std::printf("predicted in %s.\n", timer.str().c_str());
 
     return detections;
+}
+
+void Model::train()
+{
+    std::cout << std::endl << "Training model..." << std::endl;
+
+    Timer timer;
+    std::printf("Learning Rate: %.5f, Momentum: %.5f, Decay: %.5f\n", learningRate_, momentum_, decay_);
+
+    parseTrainConfig();
+    loadTrainImages();
+
+    auto batch = loadBatch();
+
+    train(batch);
+
+    std::printf("trained in %s.\n", timer.str().c_str());
+}
+
+void Model::train(const Model::ImageTruthVec& batch)
+{
+    std::printf("   training batch of size %zu....\n", batch.size());
+
+    for (const auto& item: batch) {
+        forward(item.image);
+        backward(item.image);
+        //auto error = cost();
+    }
+}
+
+void Model::parseTrainConfig()
+{
+    PX_CHECK(config_["training"], "Configuration has no training section.");
+
+    const auto training = config_["training"];
+    PX_CHECK(training.IsMap(), "training is not a map.");
+
+    auto trainImages = training["train-images"].as<std::string>();
+
+    auto cfgPath = path(cfgFile_);
+    trainImagePath_ = canonical(trainImages, cfgPath.parent_path()).string();
+
+    auto groundTruth = training["ground-truth"].as<std::string>();
+    trainGTPath_ = canonical(groundTruth, cfgPath.parent_path()).string();
+}
+
+auto Model::loadBatch() -> ImageTruthVec
+{
+    ImageTruthVec batch;
+
+    auto rng = std::default_random_engine{};
+    std::shuffle(std::begin(trainImages_), std::end(trainImages_), rng);
+
+    auto n = std::min<std::size_t>(3, trainImages_.size()); // FIXME: 3 images!
+
+    for (auto i = 0; i < n; ++i) {
+        const auto& imagePath = trainImages_[i];
+        auto image = loadImage(imagePath);
+        auto gts = groundTruth(imagePath);
+
+        ImageTruth truth;
+        truth.image = std::move(image.first);
+        truth.truth = std::move(gts);
+        batch.emplace_back(std::move(truth));
+    }
+
+    std::shuffle(std::begin(batch), std::end(batch), rng);
+
+    return batch;
+}
+
+auto Model::groundTruth(const std::string& imagePath) -> GroundTruthVec
+{
+    auto basePath = baseName(imagePath);
+
+    boost::filesystem::path gtFile(trainGTPath_);
+    gtFile /= basePath + ".txt";
+    gtFile = canonical(gtFile);
+
+    std::ifstream ifs(gtFile);
+    PX_CHECK(ifs.good(), "Could not open file \"%s\".", gtFile.c_str());
+
+    GroundTruthVec vector;
+
+    std::size_t id;
+    float x, y, w, h;
+
+    while (ifs >> id >> x >> y >> w >> h) {
+        GroundTruth gt;
+        gt.classId = id;
+
+        auto left = x - w / 2;
+        auto right = x + w / 2;
+        auto top = y - w / 2;
+        auto bottom = y + w / 2;
+
+        gt.box.x = left;
+        gt.box.width = right - left;
+        gt.box.y = top;
+        gt.box.height = bottom - top;
+
+        gt.x = (left + right) / 2;
+        gt.y = (top + bottom) / 2;
+        gt.width = gt.box.width;
+        gt.height = gt.box.height;
+
+        vector.emplace_back(std::move(gt));
+    }
+
+    return vector;
+}
+
+void Model::loadTrainImages()
+{
+    std::ifstream ifs(trainImagePath_, std::ios::in | std::ios::binary);
+    PX_CHECK(ifs.good(), "Could not open file \"%s\".", trainImagePath_.c_str());
+
+    trainImages_.clear();
+
+    for (std::string label; std::getline(ifs, label);) {
+        trainImages_.push_back(label);
+    }
 }
 
 int Model::layerSize() const
@@ -384,6 +543,16 @@ std::string Model::asJson(const Detections& detects) const noexcept
 bool Model::hasOption(const std::string& option) const
 {
     return options_.count(option) != 0;
+}
+
+bool Model::training() const
+{
+    return hasOption("train");
+}
+
+bool Model::inferring() const
+{
+    return !training();
 }
 
 int Model::subdivs() const

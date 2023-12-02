@@ -58,13 +58,17 @@ public:
     int layerSize() const;
     [[nodiscard]] const Layer::Ptr& layerAt(int index) const;
 
+    void train();
     std::vector<Detection> predict(const std::string& imageFile);
     void overlay(const std::string& imageFile, const Detections& detects) const;
     std::string asJson(const Detections& detects) const noexcept;
     [[nodiscard]] const std::vector<std::string>& labels() const noexcept;
-    bool hasOption(const std::string& option) const;
 
-    template <typename T>
+    bool hasOption(const std::string& option) const;
+    bool training() const;
+    bool inferring() const;
+
+    template<typename T>
     T option(const std::string& name) const;
 
 #ifdef USE_CUDA
@@ -75,26 +79,86 @@ public:
 
 private:
     using ImageInfo = std::pair<PxCpuVector, cv::Size>;
+
+    struct GroundTruth
+    {
+        std::size_t classId;
+        float x, y, width, height;
+        cv::Rect2f box;
+    };
+
+    using GroundTruthVec = std::vector<GroundTruth>;
+
+    struct ImageTruth {
+        PxCpuVector image;
+        GroundTruthVec truth;
+    };
+
+    using ImageTruthVec = std::vector<ImageTruth>;
+
+    void train(const ImageTruthVec& batch);
     ImageInfo loadImage(const std::string& imageFile);
-    void forward(const PxCpuVector& input) const;
+    void forward(const PxCpuVector& input);
+    void backward(const PxCpuVector& input);
 #ifdef USE_CUDA
     void forwardGpu(const PxCpuVector& input) const;
     void setupGpu();
 #endif
-
     void parseConfig();
+    void parseTrainConfig();
     void parseModel();
     void loadDarknetWeights();
     void loadLabels();
+    void loadTrainImages();
+    ImageTruthVec loadBatch();
+    GroundTruthVec groundTruth(const std::string& imagePath);
 
-    std::string cfgFile_, modelFile_, weightsFile_, labelsFile_;
-    int batch_ = 0, channels_ = 0, height_ = 0, width_ = 0;
-    int major_ = 0, minor_ = 0, revision_ = 0;
-    int subdivs_ = 0, timeSteps_ = 0;
-    float threshold_;
+    // file paths
+    std::string cfgFile_;
+    std::string modelFile_;
+    std::string weightsFile_;
+    std::string labelsFile_;
+    std::string trainImagePath_;
+    std::string trainGTPath_;
 
+    // network dimensions
+    int batch_ = 0;
+    int channels_ = 0;
+    int height_ = 0;
+    int width_ = 0;
+
+    // network version
+    int major_ = 0;
+    int minor_ = 0;
+    int revision_ = 0;
+
+    // training parameters
+    int maxBoxes_ = 0;
+    int subdivs_ = 0;
+    int timeSteps_ = 0;
+
+    float threshold_ = 0.0f;
+    float learningRate_ = 0.0f;
+    float momentum_ = 0.0f;
+    float decay_ = 0.0f;
+    float jitter_ = 0.0f;
+    float angle_ = 0.0f;
+    float aspect_ = 0.0f;
+    float saturation_ = 0.0f;
+    float exposure_ = 0.0f;
+    float hue_ = 0.0f;
+
+    // configuration
+    YAML::Node config_;
+
+    // network layers
     LayerVec layers_;
+
+    // labels and training data
     std::vector<std::string> labels_;
+    std::vector<std::string> trainImages_;
+
+    // program options
     var_map options_;
 
 #ifdef USE_CUDA

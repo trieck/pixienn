@@ -58,6 +58,11 @@ void BatchNormLayer::forward(const PxCpuVector& input)
     batchNormForward(ctxt);
 }
 
+void BatchNormLayer::backward(const PxCpuVector& input)
+{
+
+}
+
 #ifdef USE_CUDA
 
 void BatchNormLayer::setupGpu()

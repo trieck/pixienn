@@ -100,6 +100,11 @@ void RouteLayer::forward(const PxCpuVector& /*input*/)
     }
 }
 
+void RouteLayer::backward(const PxCpuVector& input)
+{
+
+}
+
 #ifdef USE_CUDA
 void RouteLayer::forwardGpu(const PxCudaVector& /*input*/)
 {
