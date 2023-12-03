@@ -40,7 +40,7 @@ void addBiasGpu(float* output, float* biases, int batch, int n, int size)
 {
     auto num = n * size * batch;
 
-    addBiasKernel<<<cuda_gridsize(num), CUDA_BLOCK_SIZE>>>(output, biases, batch, n, size);
+    addBiasKernel<<<cudaGridsize(num), CUDA_BLOCK_SIZE>>>(output, biases, batch, n, size);
 
     PX_CUDA_CHECK_LAST();
 }

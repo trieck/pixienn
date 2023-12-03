@@ -27,9 +27,9 @@
 
 namespace px {
 
-ConvLayer::ConvLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef),
-                                                                       filters_(0), kernel_(0), padding_(0), stride_(0),
-                                                                       groups_(0)
+ConvLayer::ConvLayer(Model& model, const YAML::Node& layerDef)
+        : Layer(model, layerDef), filters_(0), kernel_(0), padding_(0), stride_(0),
+          groups_(0)
 {
 }
 
@@ -92,12 +92,12 @@ std::ostream& ConvLayer::print(std::ostream& os)
     return os;
 }
 
-std::streamoff ConvLayer::loadDarknetWeights(std::istream& is)
+std::streamoff ConvLayer::loadWeights(std::istream& is)
 {
     auto start = is.tellg();
 
     if (batchNormalize_) {
-        batchNormalize_->loadDarknetWeights(is);
+        batchNormalize_->loadWeights(is);
     } else {
         is.read((char*) biases_.data(), int(biases_.size() * sizeof(float)));
         PX_CHECK(is.good(), "Could not read biases");
@@ -138,12 +138,9 @@ void ConvLayer::forward(const PxCpuVector& input)
 
 void ConvLayer::backward(const PxCpuVector& input)
 {
-    auto ctxt = makeContext(input);
-
     activationFnc_->gradient(output_, delta_);
 
-    //gradient_array(l.output, l.outputs*l.batch, l.activation, l.delta);
-
+    auto ctxt = makeContext(input);
     convolutionalBackward(ctxt);
 }
 

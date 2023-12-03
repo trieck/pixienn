@@ -71,31 +71,31 @@ __global__ void activateKernel(float* x, std::size_t n)
 
 void leakyActivateGpu(float* x, std::size_t n)
 {
-    activateKernel<LeakyActivation><<<cuda_gridsize(n), CUDA_BLOCK_SIZE>>>(x, n);
+    activateKernel<LeakyActivation><<<cudaGridsize(n), CUDA_BLOCK_SIZE>>>(x, n);
     PX_CUDA_CHECK_LAST();
 }
 
 void linearActivateGpu(float* x, std::size_t n)
 {
-    activateKernel<LinearActivation><<<cuda_gridsize(n), CUDA_BLOCK_SIZE>>>(x, n);
+    activateKernel<LinearActivation><<<cudaGridsize(n), CUDA_BLOCK_SIZE>>>(x, n);
     PX_CUDA_CHECK_LAST();
 }
 
 void loggyActivateGpu(float* x, std::size_t n)
 {
-    activateKernel<LoggyActivation><<<cuda_gridsize(n), CUDA_BLOCK_SIZE>>>(x, n);
+    activateKernel<LoggyActivation><<<cudaGridsize(n), CUDA_BLOCK_SIZE>>>(x, n);
     PX_CUDA_CHECK_LAST();
 }
 
 void logisticActivateGpu(float* x, std::size_t n)
 {
-    activateKernel<LogisticActivation><<<cuda_gridsize(n), CUDA_BLOCK_SIZE>>>(x, n);
+    activateKernel<LogisticActivation><<<cudaGridsize(n), CUDA_BLOCK_SIZE>>>(x, n);
     PX_CUDA_CHECK_LAST();
 }
 
 void reluActivateGpu(float* x, std::size_t n)
 {
-    activateKernel<ReluActivation><<<cuda_gridsize(n), CUDA_BLOCK_SIZE>>>(x, n);
+    activateKernel<ReluActivation><<<cudaGridsize(n), CUDA_BLOCK_SIZE>>>(x, n);
     PX_CUDA_CHECK_LAST();
 }
 

@@ -107,7 +107,6 @@ model:
 
     - type: detection
       class_scale: 1
-      classes: 20
       coord_scale: 5
       coords: 4
       jitter: 0.2

@@ -48,12 +48,12 @@ public:
     using LayerVec = std::vector<Layer::Ptr>;
     [[nodiscard]] const LayerVec& layers() const;
 
-    [[nodiscard]] int batch() const;
-    [[nodiscard]] int channels() const;
-    [[nodiscard]] int height() const;
-    [[nodiscard]] int width() const;
-    [[nodiscard]] int subdivs() const;
-    [[nodiscard]] int timeSteps() const;
+    [[nodiscard]] int batch() const noexcept;
+    [[nodiscard]] int channels() const noexcept;
+    [[nodiscard]] int height() const noexcept;
+    [[nodiscard]] int width() const noexcept;
+    [[nodiscard]] int subdivs() const noexcept;
+    [[nodiscard]] int timeSteps() const noexcept;
 
     int layerSize() const;
     [[nodiscard]] const Layer::Ptr& layerAt(int index) const;
@@ -67,9 +67,12 @@ public:
     bool hasOption(const std::string& option) const;
     bool training() const;
     bool inferring() const;
+    float cost() const noexcept;
 
     template<typename T>
     T option(const std::string& name) const;
+
+    PxCpuVector::pointer delta() noexcept;
 
 #ifdef USE_CUDA
     [[nodiscard]] const CublasContext& cublasContext() const noexcept;
@@ -77,8 +80,9 @@ public:
     [[nodiscard]] bool useGpu() const noexcept;
 #endif
 
+    uint32_t classes() const noexcept;
+
 private:
-    using ImageInfo = std::pair<PxCpuVector, cv::Size>;
 
     struct GroundTruth
     {
@@ -89,15 +93,15 @@ private:
 
     using GroundTruthVec = std::vector<GroundTruth>;
 
-    struct ImageTruth {
+    struct ImageTruth
+    {
         PxCpuVector image;
         GroundTruthVec truth;
     };
 
     using ImageTruthVec = std::vector<ImageTruth>;
 
-    void train(const ImageTruthVec& batch);
-    ImageInfo loadImage(const std::string& imageFile);
+    float trainBatch(ImageTruthVec&& batch);
     void forward(const PxCpuVector& input);
     void backward(const PxCpuVector& input);
 #ifdef USE_CUDA
@@ -107,7 +111,7 @@ private:
     void parseConfig();
     void parseTrainConfig();
     void parseModel();
-    void loadDarknetWeights();
+    void loadWeights();
     void loadLabels();
     void loadTrainImages();
     ImageTruthVec loadBatch();
@@ -133,10 +137,14 @@ private:
     int revision_ = 0;
 
     // training parameters
+    ImageTruthVec truth_;
+    PxCpuVector::pointer delta_ = nullptr;
+
     int maxBoxes_ = 0;
     int subdivs_ = 0;
     int timeSteps_ = 0;
-
+    int truths_ = 0;
+    int outputs_ = 0;
     float threshold_ = 0.0f;
     float learningRate_ = 0.0f;
     float momentum_ = 0.0f;
@@ -147,6 +155,7 @@ private:
     float saturation_ = 0.0f;
     float exposure_ = 0.0f;
     float hue_ = 0.0f;
+    float cost_ = 0.0f;
 
     // configuration
     YAML::Node config_;

@@ -19,7 +19,7 @@
 
 namespace px {
 
-ShortcutLayer::ShortcutLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
+ShortcutLayer::ShortcutLayer(Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
 }
 

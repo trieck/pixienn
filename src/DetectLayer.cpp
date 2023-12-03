@@ -14,19 +14,21 @@
 * limitations under the License.
 ********************************************************************************/
 
+#include <cblas.h>
+
 #include "DetectLayer.h"
+#include "Model.h"
 #include "Math.h"
 
 namespace px {
 
-DetectLayer::DetectLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
+DetectLayer::DetectLayer(Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
 }
 
 void DetectLayer::setup()
 {
     classScale = property<float>("class_scale", 1.0f);
-    classes_ = property<int>("classes", 1);
     coordScale_ = property<float>("coord_scale", 1.0f);
     coords_ = property<int>("coords", 1);
     forced_ = property<bool>("forced", false);
@@ -46,12 +48,14 @@ void DetectLayer::setup()
     setOutHeight(height());
     setOutWidth(width());
     setOutputs(batch() * inputs());
+    setTruths(side_ * side_ * (1 + coords_ + classes()));
 
 #ifdef USE_CUDA
     if (useGpu()) {
         outputGpu_ = PxCudaVector(outputs());
     } else {
         output_ = PxCpuVector(outputs());
+        delta_ = PxCpuVector(outputs());
     }
 #else
     output_ = PxCpuVector(outputs());
@@ -72,10 +76,45 @@ void DetectLayer::forward(const PxCpuVector& input)
     } else {
         output_.copy(input);
     }
+
+    if (!training()) {
+        return;
+    }
+
+    float avgIou = 0;
+    float avgCat = 0;
+    float avgAllcat = 0;
+    float avgObj = 0;
+    float avgAnyObj = 0;
+    auto count = 0;
+    auto size = batch() * inputs();
+    auto nclasses = classes();
+
+    setCost(0);
+
+    delta_.fill(0);
+
+    auto locations = side_ * side_;
+
+    for (auto b = 0; b < batch(); ++b) {
+        auto index = b * inputs();
+
+        for (auto i = 0; i < locations; ++i) {
+            auto truthIndex = (b * locations + i) * (1 + coords_ + nclasses);
+
+            // umm...what ? int is_obj = net.truth[truth_index];
+
+        }
+    }
+
 }
 
 void DetectLayer::backward(const PxCpuVector& input)
 {
+    PX_CHECK(delta_.data() != nullptr, "Layer delta tensor is null");
+    PX_CHECK(model().delta() != nullptr, "Model delta tensor is null");
+
+    cblas_saxpy(batch() * inputs(), 1, delta_.data(), 1, model().delta(), 1);
 }
 
 #ifdef USE_CUDA
@@ -103,14 +142,16 @@ void DetectLayer::addDetectsGpu(Detections& detections, int width, int height, f
 void
 DetectLayer::addDetects(Detections& detections, int width, int height, float threshold, const float* predictions) const
 {
+    auto nclasses = classes();
+
     const auto area = side_ * side_;
     for (auto i = 0; i < area; ++i) {
         auto row = i / side_;
         auto col = i % side_;
         for (auto n = 0; n < num_; ++n) {
-            auto pindex = area * classes_ + i * num_ + n;
+            auto pindex = area * nclasses + i * num_ + n;
             auto scale = predictions[pindex];
-            auto bindex = area * (classes_ + num_) + (i * num_ + n) * 4;
+            auto bindex = area * (nclasses + num_) + (i * num_ + n) * 4;
             auto x = (predictions[bindex + 0] + col) / side_ * width;
             auto y = (predictions[bindex + 1] + row) / side_ * height;
             auto w = pow(predictions[bindex + 2], (sqrt_ ? 2 : 1)) * width;
@@ -124,10 +165,10 @@ DetectLayer::addDetects(Detections& detections, int width, int height, float thr
             b.y = top;
             b.width = right - left;
             b.height = bottom - top;
-            Detection det(classes_, b, scale);
+            Detection det(nclasses, b, scale);
             int max = 0;
-            for (auto j = 0; j < classes_; ++j) {
-                auto index = i * classes_;
+            for (auto j = 0; j < nclasses; ++j) {
+                auto index = i * nclasses;
                 det[j] = scale * predictions[index + j];
                 if (det[j] > det[max]) {
                     max = j;

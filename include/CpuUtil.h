@@ -21,9 +21,12 @@
 
 namespace px {
 
-void im2col_cpu(const float* im, int channels, int height, int width, int ksize, int stride, int pad, float* dataCol);
 void addBias(float* output, const float* biases, int batch, int n, int size);
-void random_generate_cpu(float* ptr, std::size_t n, float a = 0.f, float b = 1.f);
+void backwardBias(float* biasUpdates, const float* delta, int batch, int n, int size);
+void im2ColCpu(const float* im, int channels, int height, int width, int ksize, int stride, int pad, float* dataCol);
+void randomGenerateCpu(float* ptr, std::size_t n, float a = 0.f, float b = 1.f);
+float sumArray(const float* a, int n);
+
 
 }   // px
 

@@ -19,7 +19,7 @@
 
 namespace px {
 
-RouteLayer::RouteLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
+RouteLayer::RouteLayer(Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
 }
 

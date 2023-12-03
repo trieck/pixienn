@@ -56,9 +56,9 @@ void shortcutGpu(int batch, int w1, int h1, int c1, const float* add, int w2, in
 
     int size = batch * minw * minh * minc;
 
-    shortcutKernel<<<cuda_gridsize(size), CUDA_BLOCK_SIZE>>>(size, minw, minh, minc, stride, sample, batch, w1, h1, c1,
-                                                             add, w2,
-                                                             h2, c2, s1, s2, out);
+    shortcutKernel<<<cudaGridsize(size), CUDA_BLOCK_SIZE>>>(size, minw, minh, minc, stride, sample, batch, w1, h1, c1,
+                                                            add, w2,
+                                                            h2, c2, s1, s2, out);
 
     PX_CUDA_CHECK_LAST();
 

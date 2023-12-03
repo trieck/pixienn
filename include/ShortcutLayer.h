@@ -27,7 +27,7 @@ namespace px {
 class ShortcutLayer : public Layer
 {
 protected:
-    ShortcutLayer(const Model& model, const YAML::Node& layerDef);
+    ShortcutLayer(Model& model, const YAML::Node& layerDef);
 
 public:
     ~ShortcutLayer() override = default;

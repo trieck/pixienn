@@ -39,10 +39,10 @@ public:
     template<typename T>
     void registerFactory(const char* type);
 
-    Layer::Ptr create(const Model& model, const YAML::Node& layerDef);
+    Layer::Ptr create(Model& model, const YAML::Node& layerDef);
 
 private:
-    using LayerFactory = std::function<Layer::Ptr(const Model& model, const YAML::Node& layerDef)>;
+    using LayerFactory = std::function<Layer::Ptr(Model& model, const YAML::Node& layerDef)>;
     std::unordered_map<std::string, LayerFactory> factories_;
 };
 
@@ -62,12 +62,12 @@ LayerFactories::LayerFactories()
 template<typename T>
 void LayerFactories::registerFactory(const char* type)
 {
-    factories_[type] = [](const Model& model, const YAML::Node& layerDef) {
+    factories_[type] = [](Model& model, const YAML::Node& layerDef) {
         return Layer::Ptr(new T(model, layerDef));
     };
 }
 
-Layer::Ptr LayerFactories::create(const Model& model, const YAML::Node& layerDef)
+Layer::Ptr LayerFactories::create(Model& model, const YAML::Node& layerDef)
 {
     PX_CHECK(layerDef.IsMap(), "Layer definition is not a map.");
 
@@ -85,7 +85,7 @@ Layer::Ptr LayerFactories::create(const Model& model, const YAML::Node& layerDef
     return ptr;
 }
 
-Layer::Layer(const Model& model, const YAML::Node& layerDef) : model_(model), layerDef_(layerDef)
+Layer::Layer(Model& model, const YAML::Node& layerDef) : model_(model), layerDef_(layerDef)
 {
     batch_ = property<int>("batch");
     channels_ = property<int>("channels");
@@ -93,53 +93,59 @@ Layer::Layer(const Model& model, const YAML::Node& layerDef) : model_(model), la
     index_ = property<int>("index");
     inputs_ = property<int>("inputs");
     width_ = property<int>("width");
+    truth_ = property<int>("truth", 0);
 
     outChannels_ = outHeight_ = outWidth_ = outputs_ = 0;
 }
 
 Layer::~Layer() = default;
 
-Layer::Ptr Layer::create(const Model& model, const YAML::Node& layerDef)
+Layer::Ptr Layer::create(Model& model, const YAML::Node& layerDef)
 {
     return LayerFactories::instance().create(model, layerDef);
 }
 
-int Layer::batch() const
+int Layer::batch() const noexcept
 {
     return batch_;
 }
 
-int Layer::channels() const
+int Layer::channels() const noexcept
 {
     return channels_;
 }
 
-int Layer::height() const
+int Layer::height() const noexcept
 {
     return height_;
 }
 
-int Layer::width() const
+int Layer::width() const noexcept
 {
     return width_;
 }
 
-int Layer::outChannels() const
+int Layer::truth() const noexcept
+{
+    return truth_;
+}
+
+int Layer::outChannels() const noexcept
 {
     return outChannels_;
 }
 
-int Layer::outHeight() const
+int Layer::outHeight() const noexcept
 {
     return outHeight_;
 }
 
-int Layer::outWidth() const
+int Layer::outWidth() const noexcept
 {
     return outWidth_;
 }
 
-int Layer::outputs() const
+int Layer::outputs() const noexcept
 {
     return outputs_;
 }
@@ -164,7 +170,17 @@ void Layer::setOutputs(int outputs)
     outputs_ = outputs;
 }
 
-int Layer::inputs() const
+void Layer::setTruths(int truths)
+{
+    truths_ = truths;
+}
+
+void Layer::setCost(float cost)
+{
+    cost_ = cost;
+}
+
+int Layer::inputs() const noexcept
 {
     return inputs_;
 }
@@ -194,6 +210,11 @@ const PxCpuVector& Layer::output() const noexcept
     return output_;
 }
 
+PxCpuVector::pointer Layer::delta() noexcept
+{
+    return delta_.data();
+}
+
 #ifdef USE_CUDA
 const PxCudaVector& Layer::outputGpu() const noexcept
 {
@@ -206,12 +227,17 @@ const Model& Layer::model() const noexcept
     return model_;
 }
 
+Model& Layer::model() noexcept
+{
+    return model_;
+}
+
 const YAML::Node& Layer::layerDef() const noexcept
 {
     return layerDef_;
 }
 
-int Layer::index() const
+int Layer::index() const noexcept
 {
     return index_;
 }
@@ -251,6 +277,31 @@ void Layer::print(std::ostream& os, const std::string& name, std::array<int, 3>&
 bool Layer::hasOption(const std::string& option) const
 {
     return model_.hasOption(option);
+}
+
+bool Layer::training() const
+{
+    return model_.training();
+}
+
+bool Layer::inferring() const
+{
+    return model_.inferring();
+}
+
+float Layer::cost() const noexcept
+{
+    return cost_;
+}
+
+uint32_t Layer::classes() const noexcept
+{
+    return model_.classes();
+}
+
+int Layer::truths() const noexcept
+{
+    return 0;
 }
 
 #ifdef USE_CUDA

@@ -21,6 +21,7 @@
 #include "CpuUtil.h"
 
 #ifdef USE_CUDA
+
 #include <cublas_api.h>
 
 #include "Cudnn.h"
@@ -39,6 +40,18 @@ void connectedForward(const ConnContext& ctxt)
     auto* c = ctxt.output->data();
 
     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, m, n, k, 1.0f, a, k, b, k, 1.0f, c, n);
+}
+
+void connectedBackward(const ConnContext& ctxt)
+{
+    auto m = ctxt.batch;
+    auto n = ctxt.outputs;
+    auto k = ctxt.inputs;
+    auto* a = ctxt.input->data();
+    auto* b = ctxt.weights->data();
+    auto* c = ctxt.output->data();
+
+    //cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, m, n, k, 1.0f, a, k, b, k, 1.0f, c, n);
 }
 
 #ifdef USE_CUDA

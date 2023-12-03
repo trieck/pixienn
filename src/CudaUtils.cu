@@ -24,7 +24,7 @@
 
 namespace px {
 
-dim3 cuda_gridsize(std::uint32_t n)
+dim3 cudaGridsize(std::uint32_t n)
 {
     std::uint32_t k = (n - 1) / CUDA_BLOCK_SIZE + 1;
     std::uint32_t x = k;
@@ -61,13 +61,13 @@ __host__ __device__ float random_generator::operator()(std::size_t n) const
     return dist(rng);
 }
 
-void fill_gpu(float* ptr, std::size_t n, float value)
+void fillGpu(float* ptr, std::size_t n, float value)
 {
     thrust::device_ptr<float> dev_ptr = thrust::device_pointer_cast(ptr);
     thrust::fill(dev_ptr, dev_ptr + n, value);
 }
 
-void random_generate_gpu(float* ptr, std::size_t n, float a, float b)
+void randomGenerateGpu(float* ptr, std::size_t n, float a, float b)
 {
     thrust::device_ptr<float> dev_ptr = thrust::device_pointer_cast(ptr);
 

@@ -32,13 +32,13 @@ namespace px {
 class ConnLayer : public Layer
 {
 protected:
-    ConnLayer(const Model& model, const YAML::Node& layerDef);
+    ConnLayer(Model& model, const YAML::Node& layerDef);
 
 public:
     ~ConnLayer() override = default;
 
     std::ostream& print(std::ostream& os) override;
-    std::streamoff loadDarknetWeights(std::istream& is) override;
+    std::streamoff loadWeights(std::istream& is) override;
 
     void forward(const PxCpuVector& input) override;
     void backward(const PxCpuVector& input) override;
@@ -60,7 +60,7 @@ private:
     friend LayerFactories;
 
     PxCpuTensor<2> weights_;
-    PxCpuTensor<1> biases_;
+    PxCpuTensor<1> biases_, biasUpdates_;
 
     Activation::Ptr activationFnc_;
 

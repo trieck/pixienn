@@ -25,8 +25,8 @@
 
 namespace px {
 
-ConnLayer::ConnLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef), scales_(0),
-                                                                       rollingMean_(0), rollingVar_(0)
+ConnLayer::ConnLayer(Model& model, const YAML::Node& layerDef) : Layer(model, layerDef), scales_(0),
+                                                                 rollingMean_(0), rollingVar_(0)
 {
 }
 
@@ -54,7 +54,8 @@ void ConnLayer::setup()
         def["width"] = outWidth();
         batchNormalize_ = Layer::create(model(), def);
     } else {
-        biases_ = PxCpuTensor<1>({ (size_t) outputs() });
+        biases_ = PxCpuTensor<1>({ (size_t) outputs() }, 0.0f);
+        biasUpdates_ = PxCpuTensor<1>({ (size_t) outputs() }, 0.0f);
     }
 
     weights_ = random<decltype(weights_)>({ (size_t) inputs(), (size_t) outputs() });
@@ -64,9 +65,11 @@ void ConnLayer::setup()
         setupGpu();
     } else {
         output_ = PxCpuVector(batch() * outputs());
+        delta_ = PxCpuVector(batch() * outputs());
     }
 #else
     output_ = PxCpuVector(batch() * outputs());
+    delta_ = PxCpuVector(batch() * outputs());
 #endif
 }
 
@@ -91,7 +94,7 @@ std::ostream& ConnLayer::print(std::ostream& os)
     return os;
 }
 
-std::streamoff ConnLayer::loadDarknetWeights(std::istream& is)
+std::streamoff ConnLayer::loadWeights(std::istream& is)
 {
     auto start = is.tellg();
 
@@ -135,7 +138,18 @@ void ConnLayer::forward(const PxCpuVector& input)
 
 void ConnLayer::backward(const PxCpuVector& input)
 {
+    auto ctxt = makeContext(input);
 
+    activationFnc_->gradient(output_, delta_);
+
+    if (batchNormalize_) {
+        batchNormalize_->backward(output_);
+        output_ = batchNormalize_->output();
+    } else {
+        backwardBias(biasUpdates_.data(), delta_.data(), batch(), outChannels(), outHeight() * outWidth());
+    }
+
+    connectedBackward(ctxt);
 }
 
 ConnContext ConnLayer::makeContext(const PxCpuVector& input)

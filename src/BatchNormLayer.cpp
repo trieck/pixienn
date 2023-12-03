@@ -18,7 +18,7 @@
 
 namespace px {
 
-BatchNormLayer::BatchNormLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
+BatchNormLayer::BatchNormLayer(Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
 }
 
@@ -88,7 +88,7 @@ void BatchNormLayer::forwardGpu(const PxCudaVector& input)
 
 #endif // USE_CUDA
 
-std::streamoff BatchNormLayer::loadDarknetWeights(std::istream& is)
+std::streamoff BatchNormLayer::loadWeights(std::istream& is)
 {
     auto start = is.tellg();
 

@@ -37,29 +37,32 @@ class LayerFactories;
 class Layer
 {
 protected:
-    Layer(const Model& model, const YAML::Node& layerDef);
+    Layer(Model& model, const YAML::Node& layerDef);
 
 public:
     virtual ~Layer() = 0;
     using Ptr = std::shared_ptr<Layer>;
 
-    static Layer::Ptr create(const Model& model, const YAML::Node& layerDef);
+    static Layer::Ptr create(Model& model, const YAML::Node& layerDef);
 
-    int inputs() const;
-    int index() const;
-    int batch() const;
-    int channels() const;
-    int height() const;
-    int width() const;
-
-    int outChannels() const;
-    int outHeight() const;
-    int outWidth() const;
-    int outputs() const;
+    float cost() const noexcept;
+    int batch() const noexcept;
+    int channels() const noexcept;
+    int height() const noexcept;
+    int index() const noexcept;
+    int inputs() const noexcept;
+    int outChannels() const noexcept;
+    int outHeight() const noexcept;
+    int outWidth() const noexcept;
+    int outputs() const noexcept;
+    int truth() const noexcept;
+    int truths() const noexcept;
+    int width() const noexcept;
+    uint32_t classes() const noexcept;
 
     virtual std::ostream& print(std::ostream& os) = 0;
 
-    virtual inline std::streamoff loadDarknetWeights(std::istream& is)
+    virtual inline std::streamoff loadWeights(std::istream& is)
     {
         return 0;
     }
@@ -67,6 +70,7 @@ public:
     virtual void forward(const PxCpuVector& input) = 0;
     virtual void backward(const PxCpuVector& input) = 0;
     const PxCpuVector& output() const noexcept;
+    PxCpuVector::pointer delta() noexcept;
 
 #ifdef USE_CUDA
     virtual void forwardGpu(const PxCudaVector& input) = 0;
@@ -78,6 +82,8 @@ public:
 
 protected:
     const Model& model() const noexcept;
+    Model& model() noexcept;
+
     const YAML::Node& layerDef() const noexcept;
     bool hasOption(const std::string& option) const;
 
@@ -96,6 +102,8 @@ protected:
     void setOutChannels(int channels);
     void setOutHeight(int height);
     void setOutWidth(int width);
+    void setTruths(int truths);
+    void setCost(float cost);
 
     void print(std::ostream& os, const std::string& name,
                std::array<int, 3>&& input,
@@ -103,21 +111,28 @@ protected:
                std::optional<int>&& filters = std::nullopt,
                std::optional<std::array<int, 3>>&& size = std::nullopt);
 
-    PxCpuVector output_, delta_;
+    bool training() const;
+    bool inferring() const;
 
 #ifdef USE_CUDA
     PxCudaVector outputGpu_;
 #endif
+
+    PxCpuVector output_, delta_;
 
 private:
     friend LayerFactories;
 
     virtual void setup() = 0;
 
-    const Model& model_;
+    Model& model_;
     YAML::Node layerDef_;
     int batch_, channels_, height_, width_;
     int outChannels_, outHeight_, outWidth_, inputs_, index_, outputs_;
+
+    // training parameters
+    int truth_ = 0, truths_ = 0;
+    float cost_ = 0.0f;
 };
 
 template<typename T>

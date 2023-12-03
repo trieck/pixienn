@@ -18,7 +18,7 @@
 
 namespace px {
 
-UpsampleLayer::UpsampleLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef),
+UpsampleLayer::UpsampleLayer(Model& model, const YAML::Node& layerDef) : Layer(model, layerDef),
                                                                                stride_(0), scale_(0)
 {
 }

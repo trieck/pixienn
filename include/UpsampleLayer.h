@@ -25,7 +25,7 @@ namespace px {
 class UpsampleLayer : public Layer
 {
 protected:
-    UpsampleLayer(const Model& model, const YAML::Node& layerDef);
+    UpsampleLayer(Model& model, const YAML::Node& layerDef);
 
 public:
     ~UpsampleLayer() override = default;
