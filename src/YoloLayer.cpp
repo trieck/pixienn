@@ -19,7 +19,7 @@
 
 namespace px {
 
-YoloLayer::YoloLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
+YoloLayer::YoloLayer(Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
 }
 
@@ -27,16 +27,16 @@ void YoloLayer::setup()
 {
     activation_ = Activation::get("logistic");
     anchors_ = property<std::vector<int>>("anchors");
-    classes_ = property<int>("classes", 0);
     mask_ = property<std::vector<int>>("mask");
     total_ = property<int>("num", 1);
 
     PX_CHECK(anchors_.size() == total_ * 2, "Anchors size must be twice num size.");
 
-    setOutChannels(mask_.size() * (classes_ + 5));
+    auto nclasses = classes();
+    setOutChannels(mask_.size() * (nclasses + 5));
     setOutHeight(height());
     setOutWidth(width());
-    setOutputs(outHeight() * outWidth() * outChannels() * (classes_ + 4 + 1));
+    setOutputs(outHeight() * outWidth() * outChannels() * (nclasses + 4 + 1));
 
 #ifdef USE_CUDA
     if (useGpu()) {
@@ -61,6 +61,7 @@ void YoloLayer::forward(const PxCpuVector& input)
     std::copy(input.begin(), input.end(), output_.begin());
 
     auto area = std::max(1, width() * height());
+    auto nclasses = 0;
 
     auto* poutput = output_.data();
     for (auto b = 0; b < batch(); ++b) {
@@ -71,7 +72,7 @@ void YoloLayer::forward(const PxCpuVector& input)
             activation_->apply(start, end);
             index = entryIndex(b, n * area, 4);
             start = poutput + index;
-            end = start + (1 + classes_) * area + 1;
+            end = start + (1 + nclasses) * area + 1;
             activation_->apply(start, end);
         }
     }
@@ -88,6 +89,7 @@ void YoloLayer::forwardGpu(const PxCudaVector& input)
     outputGpu_.copy(input);
 
     auto area = std::max(1, width() * height());
+    auto nclasses = classes();
 
     auto* poutput = outputGpu_.data();
     for (auto b = 0; b < batch(); ++b) {
@@ -97,7 +99,7 @@ void YoloLayer::forwardGpu(const PxCudaVector& input)
             activation_->applyGpu(start, 2 * area);
             index = entryIndex(b, n * area, 4);
             start = poutput + index;
-            activation_->applyGpu(start, (1 + classes_) * area + 1);
+            activation_->applyGpu(start, (1 + nclasses) * area + 1);
         }
     }
 }
@@ -110,7 +112,7 @@ int YoloLayer::entryIndex(int batch, int location, int entry) const noexcept
     auto n = location / area;
     int loc = location % area;
 
-    return batch * outputs() + n * area * (classes_ + 5) + entry * area + loc;
+    return batch * outputs() + n * area * (classes() + 5) + entry * area + loc;
 }
 
 cv::Rect
@@ -167,6 +169,7 @@ YoloLayer::addDetects(Detections& detections, int width, int height, float thres
                       const float* predictions) const
 {
     auto area = std::max(1, this->width() * this->height());
+    auto nclasses = classes();
 
     for (auto i = 0; i < area; ++i) {
         auto row = i / this->width();
@@ -182,10 +185,10 @@ YoloLayer::addDetects(Detections& detections, int width, int height, float thres
             auto boxIndex = entryIndex(0, n * area + i, 0);
             auto box = yoloBox(predictions, mask_[n], boxIndex, col, row, width, height);
 
-            Detection det(classes_, box, objectness);
+            Detection det(nclasses, box, objectness);
 
             int max = 0;
-            for (auto j = 0; j < classes_; ++j) {
+            for (auto j = 0; j < nclasses; ++j) {
                 int clsIndex = entryIndex(0, n * area + i, 5 + j);
                 det[j] = objectness * predictions[clsIndex];
                 if (det[j] > det[max]) {

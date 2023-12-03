@@ -74,7 +74,7 @@ void Model::parseConfig()
         weightsFile_ = option<std::string>("weights-file");
     }
 
-    loadDarknetWeights();
+    loadWeights();
 
     auto labels = config["labels"].as<std::string>();
     labelsFile_ = canonical(labels, cfgPath.parent_path()).string();
@@ -116,6 +116,7 @@ void Model::parseModel()
 
     const auto layers = model["layers"];
     PX_CHECK(layers.IsSequence(), "Model has no layers.");
+    PX_CHECK(layers.size() > 0, "Model has no layers.");
 
     std::cout << std::setfill('_');
     std::cout << std::setw(21) << std::left << "Layer"
@@ -148,6 +149,11 @@ void Model::parseModel()
 
         layers_.emplace_back(layer);
     }
+
+    const auto& out = layers_[layers_.size() - 1];  // TODO: check for cost layer
+    outputs_ = out->outputs();
+    truths_ = out->truths() ? out->truths() : out->outputs();
+    //truth_ = PxCpuVector(truths_ * batch_);
 }
 
 const Model::LayerVec& Model::layers() const
@@ -155,22 +161,22 @@ const Model::LayerVec& Model::layers() const
     return layers_;
 }
 
-int Model::batch() const
+int Model::batch() const noexcept
 {
     return batch_;
 }
 
-int Model::channels() const
+int Model::channels() const noexcept
 {
     return channels_;
 }
 
-int Model::height() const
+int Model::height() const noexcept
 {
     return height_;
 }
 
-int Model::width() const
+int Model::width() const noexcept
 {
     return width_;
 }
@@ -182,20 +188,27 @@ void Model::forward(const PxCpuVector& input)
     for (auto& layer: layers()) {
         layer->forward(*in);
         in = &layer->output();
+        if (layer->truth()) {
+            // FIXME: ??? truth_ = layer->output();
+        }
     }
 }
 
 void Model::backward(const PxCpuVector& input) // FIXME:
 {
+    const PxCpuVector* in;
+
     for (int i = layers_.size() - 1; i >= 0; --i) {
         auto& layer = layers_[i];
 
         if (i == 0) {
-            layer->backward(input);
+            in = &input;
         } else {
             auto& prev = layers_[i - 1];
-            layer->backward(prev->output());
+            delta_ = prev->delta();
+            in = &prev->output();
         }
+        layer->backward(*in);
     }
 }
 
@@ -213,7 +226,7 @@ void Model::forwardGpu(const PxCpuVector& input) const
 }
 #endif // USE_CUDA
 
-void Model::loadDarknetWeights()
+void Model::loadWeights()
 {
     std::ifstream ifs(weightsFile_, std::ios::in | std::ios::binary);
     if (inferring() && ifs.bad()) { // it is not an error for training weights to not exist.
@@ -239,7 +252,7 @@ void Model::loadDarknetWeights()
 
         std::streamoff pos = ifs.tellg();
         for (const auto& layer: layers()) {
-            pos += layer->loadDarknetWeights(ifs);
+            pos += layer->loadWeights(ifs);
         }
 
         PX_CHECK(pos == length, "Did not fully read weights file; read %ld bytes, expected to read %ld bytes.",
@@ -249,22 +262,9 @@ void Model::loadDarknetWeights()
     }
 }
 
-auto Model::loadImage(const std::string& imageFile) -> ImageInfo
-{
-    auto image = imread_normalize(imageFile.c_str());
-
-    // size image to match neural network input size
-    auto sized = imletterbox(image, width(), height());
-
-    // convert the image from interleaved to planar
-    auto vector = imvector(sized);
-
-    return { vector, image.size() };
-}
-
 std::vector<Detection> Model::predict(const std::string& imageFile)
 {
-    auto info = loadImage(imageFile);
+    auto image = imread_vector(imageFile.c_str());
 
     std::cout << std::endl << "Running model...";
 
@@ -272,12 +272,12 @@ std::vector<Detection> Model::predict(const std::string& imageFile)
 
 #ifdef USE_CUDA
     if (useGpu()) {
-        forwardGpu(info.first);
+        forwardGpu(image.vector);
     } else {
-        forward(info.first);
+        forward(image.vector);
     }
 #else
-    forward(info.first);
+    forward(image.vector);
 #endif  // USE_CUDA
 
     std::vector<Detection> detections;
@@ -286,12 +286,12 @@ std::vector<Detection> Model::predict(const std::string& imageFile)
         if (detector) {
 #ifdef USE_CUDA
             if (useGpu()) {
-                detector->addDetectsGpu(detections, info.second.width, info.second.height, threshold_);
+                detector->addDetectsGpu(detections, image.width, image.height, threshold_);
             } else {
-                detector->addDetects(detections, info.second.width, info.second.height, threshold_);
+                detector->addDetects(detections, image.width, image.height, threshold_);
             }
 #else
-            detector->addDetects(detections, info.second.width, info.second.height, threshold_);
+            detector->addDetects(detections, image.size.width, image.size.height, threshold_);
 #endif // USE_CUDA
         }
     }
@@ -303,30 +303,33 @@ std::vector<Detection> Model::predict(const std::string& imageFile)
 
 void Model::train()
 {
-    std::cout << std::endl << "Training model..." << std::endl;
+    std::printf("\nTraining model...\n");
 
     Timer timer;
     std::printf("Learning Rate: %.5f, Momentum: %.5f, Decay: %.5f\n", learningRate_, momentum_, decay_);
 
     parseTrainConfig();
     loadTrainImages();
-
-    auto batch = loadBatch();
-
-    train(batch);
+    trainBatch(loadBatch());
 
     std::printf("trained in %s.\n", timer.str().c_str());
 }
 
-void Model::train(const Model::ImageTruthVec& batch)
+float Model::trainBatch(Model::ImageTruthVec&& batch)
 {
+    float error = 0;
+
     std::printf("   training batch of size %zu....\n", batch.size());
 
-    for (const auto& item: batch) {
+    truth_ = std::move(batch);
+
+    for (const auto& item: truth_) {
         forward(item.image);
         backward(item.image);
-        //auto error = cost();
+        error = +cost();
     }
+
+    return error;
 }
 
 void Model::parseTrainConfig()
@@ -352,15 +355,17 @@ auto Model::loadBatch() -> ImageTruthVec
     auto rng = std::default_random_engine{};
     std::shuffle(std::begin(trainImages_), std::end(trainImages_), rng);
 
-    auto n = std::min<std::size_t>(3, trainImages_.size()); // FIXME: 3 images!
+    auto n = std::min<std::size_t>(1, trainImages_.size()); // FIXME: 1 image!
 
     for (auto i = 0; i < n; ++i) {
         const auto& imagePath = trainImages_[i];
-        auto image = loadImage(imagePath);
+        auto image = imread_vector(imagePath.c_str(), width(), height());
+        imsave_tiff("sized.tiff", image);
+
         auto gts = groundTruth(imagePath);
 
         ImageTruth truth;
-        truth.image = std::move(image.first);
+        truth.image = std::move(image.vector);
         truth.truth = std::move(gts);
         batch.emplace_back(std::move(truth));
     }
@@ -555,14 +560,29 @@ bool Model::inferring() const
     return !training();
 }
 
-int Model::subdivs() const
+int Model::subdivs() const noexcept
 {
     return subdivs_;
 }
 
-int Model::timeSteps() const
+int Model::timeSteps() const noexcept
 {
     return timeSteps_;
+}
+
+PxCpuVector::pointer Model::delta() noexcept
+{
+    return delta_;
+}
+
+float Model::cost() const noexcept
+{
+    return 0;
+}
+
+uint32_t Model::classes() const noexcept
+{
+    return labels_.size();
 }
 
 #ifdef USE_CUDA

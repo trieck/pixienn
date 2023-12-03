@@ -24,7 +24,7 @@
 
 namespace px {
 
-MaxPoolLayer::MaxPoolLayer(const Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
+MaxPoolLayer::MaxPoolLayer(Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
 }
 

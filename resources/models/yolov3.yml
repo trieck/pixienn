@@ -527,7 +527,6 @@ model:
         - 198
         - 373
         - 326
-      classes: 80
       num: 9
       jitter: 0.3
       ignore_thresh: 0.7
@@ -618,7 +617,6 @@ model:
         - 198
         - 373
         - 326
-      classes: 80
       num: 9
       jitter: 0.3
       ignore_thresh: 0.7
@@ -709,7 +707,6 @@ model:
         - 198
         - 373
         - 326
-      classes: 80
       num: 9
       jitter: 0.3
       ignore_thresh: 0.7

@@ -22,6 +22,7 @@
 namespace px {
 
 cv::Mat readTIFF(const char* path);
+void writeTIFF(const char* path, const cv::Mat& image);
 
 }
 

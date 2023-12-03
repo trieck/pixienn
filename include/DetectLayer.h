@@ -25,7 +25,7 @@ namespace px {
 class DetectLayer : public Layer, public Detector
 {
 protected:
-    DetectLayer(const Model& model, const YAML::Node& layerDef);
+    DetectLayer(Model& model, const YAML::Node& layerDef);
 
 public:
     ~DetectLayer() override = default;
@@ -47,7 +47,7 @@ private:
 
     friend LayerFactories;
 
-    int coords_, classes_, num_, side_, maxBoxes_;
+    int coords_, num_, side_, maxBoxes_;
     bool rescore_, softmax_, sqrt_, forced_, random_, reorg_;
     float coordScale_, objectScale_, noObjectScale_, classScale, jitter_;
 };

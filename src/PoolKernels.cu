@@ -60,7 +60,7 @@ __global__ void maxpoolKernel(int n, int in_h, int in_w, int in_c, int stride, i
 
 void maxpoolGpu(int n, int h, int w, int c, int stride, int kernel, int pad, const float* input, float* output)
 {
-    maxpoolKernel<<<cuda_gridsize(n), CUDA_BLOCK_SIZE>>>(n, h, w, c, stride, kernel, pad, input, output);
+    maxpoolKernel<<<cudaGridsize(n), CUDA_BLOCK_SIZE>>>(n, h, w, c, stride, kernel, pad, input, output);
 
     PX_CUDA_CHECK_LAST();
 }

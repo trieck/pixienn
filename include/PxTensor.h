@@ -110,6 +110,7 @@ public:
     virtual size_type size() const noexcept = 0;
     virtual const_pointer data() const noexcept = 0;
     virtual pointer data() noexcept = 0;
+    virtual void fill(T value) = 0;
 
 protected:
     PxVector(Device dev);
@@ -162,6 +163,7 @@ public:
     bool empty() const override;
     pointer data() noexcept override;
     const_pointer data() const noexcept override;
+    void fill(T value) override;
 
     void copy(std::initializer_list<T>&& init);
     void copy(const PxCpuVectorT& rhs);
@@ -189,6 +191,12 @@ public:
 private:
     C container_;
 };
+
+template<typename T, typename A>
+void PxCpuVectorT<T, A>::fill(T value)
+{
+    std::fill(begin(), end(), value);
+}
 
 template<typename T, typename A>
 void PxCpuVectorT<T, A>::release()
@@ -432,11 +440,11 @@ public:
     const_pointer data() const noexcept override;
     size_type size() const noexcept override;
     bool empty() const noexcept override;
-
     std::vector<T> asVector() const override;
+    void fill(T value) override;
 
     template<typename U = PxCpuVectorT<T>>
-    U asContainer () const;
+    U asContainer() const;
 
     void copy(std::initializer_list<T>&& init);
     void copy(const T* begin, const T* end);
@@ -451,6 +459,12 @@ private:
     size_type size_ = 0;
     allocator_type alloc_;
 };
+
+template<typename T, typename A>
+void PxCudaVectorT<T, A>::fill(T value)
+{
+    fillGpu(data(), size(), value);
+}
 
 template<typename T, typename A>
 void PxCudaVectorT<T, A>::copy(const PxCpuVectorT<T>& rhs)
@@ -632,7 +646,7 @@ PxCudaVectorT<T, A>::PxCudaVectorT(size_type count, const_reference value, const
         : PxCudaVectorT(count, alloc)
 {
     if (count != 0) {
-        fill_gpu(ptr_, count, value);
+        fill(value);
     }
 }
 
@@ -924,9 +938,9 @@ T random(const typename T::shape_type& shape)
 
 #ifdef USE_CUDA
     if constexpr (typename T::device_type() == Device::CUDA) {
-        random_generate_gpu(out.data(), out.size(), typename T::value_type(0), typename T::value_type(1));
+        randomGenerateGpu(out.data(), out.size(), typename T::value_type(0), typename T::value_type(1));
     } else {
-        random_generate_cpu(out.data(), out.size(), typename T::value_type(0), typename T::value_type(1));
+        randomGenerateCpu(out.data(), out.size(), typename T::value_type(0), typename T::value_type(1));
     }
 #else
     random_generate_cpu(out.data(), out.size(), typename T::value_type(0), typename T::value_type(1));

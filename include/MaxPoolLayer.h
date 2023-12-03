@@ -25,7 +25,7 @@ namespace px {
 class MaxPoolLayer : public Layer
 {
 protected:
-    MaxPoolLayer(const Model& model, const YAML::Node& layerDef);
+    MaxPoolLayer(Model& model, const YAML::Node& layerDef);
 
 public:
     ~MaxPoolLayer() override = default;

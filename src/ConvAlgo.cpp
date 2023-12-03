@@ -45,8 +45,8 @@ void convolutionalForward(const ConvContext& ctxt)
             auto* c = pout + (i * ctxt.groups + j) * n * m;
 
             if (ctxt.kernel != 1) {
-                im2col_cpu(im, ctxt.channels / ctxt.groups, ctxt.height, ctxt.width, ctxt.kernel, ctxt.stride,
-                           ctxt.padding, ctxt.column->data());
+                im2ColCpu(im, ctxt.channels / ctxt.groups, ctxt.height, ctxt.width, ctxt.kernel, ctxt.stride,
+                          ctxt.padding, ctxt.column->data());
             }
 
             cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, alpha, a, k, b, n, beta, c, n);

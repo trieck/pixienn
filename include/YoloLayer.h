@@ -26,7 +26,7 @@ namespace px {
 class YoloLayer : public Layer, public Detector
 {
 protected:
-    YoloLayer(const Model& model, const YAML::Node& layerDef);
+    YoloLayer(Model& model, const YAML::Node& layerDef);
 
 public:
     ~YoloLayer() override = default;
@@ -49,7 +49,7 @@ private:
     cv::Rect yoloBox(const float* p, int mask, int index, int col, int row, int w, int h) const;
 
     Activation::Ptr activation_;
-    int classes_{}, total_{};
+    int total_ = 0;
     std::vector<int> mask_, anchors_;
 };
 

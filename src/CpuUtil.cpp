@@ -15,26 +15,26 @@
 ********************************************************************************/
 
 #include <cmath>
-
 #include "CpuUtil.h"
 
 namespace px {
 
 static float
-im2col_get_pixel(const float* im, int height, int width, int row, int col, int channel, int pad)
+im2ColGetPixel(const float* im, int height, int width, int row, int col, int channel, int pad)
 {
     row -= pad;
     col -= pad;
 
-    if (row < 0 || col < 0 ||
-        row >= height || col >= width)
+    if (row < 0 || col < 0 || row >= height || col >= width) {
         return 0;
+    }
+
     return im[col + width * (row + height * channel)];
 }
 
 
-void im2col_cpu(const float* im, int channels, int height, int width, int ksize, int stride, int pad,
-                float* dataCol)
+void im2ColCpu(const float* im, int channels, int height, int width, int ksize, int stride, int pad,
+               float* dataCol)
 {
     int c, h, w;
     int heightCol = (height + 2 * pad - ksize) / stride + 1;
@@ -50,7 +50,7 @@ void im2col_cpu(const float* im, int channels, int height, int width, int ksize,
                 int imRow = hOffset + h * stride;
                 int imCol = wOffset + w * stride;
                 int colIndex = (c * heightCol + h) * widthCol + w;
-                dataCol[colIndex] = im2col_get_pixel(im, height, width, imRow, imCol, cIm, pad);
+                dataCol[colIndex] = im2ColGetPixel(im, height, width, imRow, imCol, cIm, pad);
             }
         }
     }
@@ -67,7 +67,27 @@ void addBias(float* output, const float* biases, int batch, int n, int size)
     }
 }
 
-void random_generate_cpu(float* ptr, std::size_t n, float a, float b)
+void backwardBias(float* biasUpdates, const float* delta, int batch, int n, int size)
+{
+    for (auto b = 0; b < batch; ++b) {
+        for (auto i = 0; i < n; ++i) {
+            biasUpdates[i] += sumArray(delta + size * (i + b * n), size);
+        }
+    }
+}
+
+float sumArray(const float* a, int n)
+{
+    float sum = 0;
+
+    for (auto i = 0; i < n; ++i) {
+        sum += a[i];
+    }
+
+    return sum;
+}
+
+void randomGenerateCpu(float* ptr, std::size_t n, float a, float b)
 {
     std::random_device device;
     std::mt19937 engine{ device() };
@@ -79,9 +99,6 @@ void random_generate_cpu(float* ptr, std::size_t n, float a, float b)
 
     std::generate(ptr, ptr + n, gen);
 }
-
-
-
 
 
 }   // px

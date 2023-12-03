@@ -31,7 +31,7 @@ namespace px {
 class BatchNormLayer : public Layer
 {
 protected:
-    BatchNormLayer(const Model& model, const YAML::Node& layerDef);
+    BatchNormLayer(Model& model, const YAML::Node& layerDef);
 
 public:
     void forward(const PxCpuVector& input) override;
@@ -42,7 +42,7 @@ public:
 #endif
 
     std::ostream& print(std::ostream& os) override;
-    std::streamoff loadDarknetWeights(std::istream& is) override;
+    std::streamoff loadWeights(std::istream& is) override;
 
 private:
     void setup() override;

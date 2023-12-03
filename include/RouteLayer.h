@@ -24,7 +24,7 @@ namespace px {
 class RouteLayer : public Layer
 {
 protected:
-    RouteLayer(const Model& model, const YAML::Node& layerDef);
+    RouteLayer(Model& model, const YAML::Node& layerDef);
 
 public:
     ~RouteLayer() override = default;

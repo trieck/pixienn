@@ -47,6 +47,7 @@ struct ConnContext
 };
 
 void connectedForward(const ConnContext& ctxt);
+void connectedBackward(const ConnContext& ctxt);
 
 #ifdef USE_CUDA
 

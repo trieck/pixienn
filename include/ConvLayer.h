@@ -32,13 +32,13 @@ namespace px {
 class ConvLayer : public Layer
 {
 protected:
-    ConvLayer(const Model& model, const YAML::Node& layerDef);
+    ConvLayer(Model& model, const YAML::Node& layerDef);
 
 public:
     ~ConvLayer() override = default;
 
     std::ostream& print(std::ostream& os) override;
-    std::streamoff loadDarknetWeights(std::istream& is) override;
+    std::streamoff loadWeights(std::istream& is) override;
     void forward(const PxCpuVector& input) override;
     void backward(const PxCpuVector& input) override;
 

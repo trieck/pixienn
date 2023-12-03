@@ -21,7 +21,6 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/imgproc/types_c.h>
-#include <tiffio.h>
 
 #include "Common.h"
 #include "Error.h"
@@ -64,6 +63,29 @@ Mat imread(const char* path)
     return image;
 }
 
+ImageVector imread_vector(const char* path)
+{
+    auto image = imread_normalize(path);
+
+    // convert the image from interleaved to planar
+    auto vector = imvector(image);
+
+    return { vector, image.cols, image.rows, image.channels() };
+}
+
+ImageVector imread_vector(const char* path, int width, int height)
+{
+    auto image = imread_normalize(path);
+
+    // size image to match neural network input size
+    auto sized = imletterbox(image, width, height);
+
+    // convert the image from interleaved to planar
+    auto vector = imvector(sized);
+
+    return { vector, sized.cols, sized.rows, sized.channels() };
+}
+
 // normalize 8-bit RGB bands and convert to float
 cv::Mat imnormalize(const cv::Mat& image)
 {
@@ -104,6 +126,25 @@ void imsave(const char* path, const cv::Mat& image)
 }
 
 // save an image in normalized float format as TIFF
+void imsave_tiff(const char* path, ImageVector& image)
+{
+    cv::Mat mat(image.height, image.width, CV_MAKETYPE(CV_32F, image.channels));
+
+    auto* pimage = image.vector.data();
+    auto* pmat = mat.ptr<float>();
+    auto planeSize = image.height * image.width;
+
+    // convert planar image to interleaved mat
+    for (auto i = 0; i < planeSize; ++i) {
+        for (auto j = 0; j < image.channels; ++j) {
+            pmat[i * image.channels + j] = pimage[i + j * planeSize];
+        }
+    }
+
+    imsave_tiff(path, mat);
+}
+
+// save an image in normalized float format as TIFF
 void imsave_tiff(const char* path, const cv::Mat& image)
 {
     Mat tiffImage(image);
@@ -111,41 +152,7 @@ void imsave_tiff(const char* path, const cv::Mat& image)
         tiffImage = imnormalize(image);
     }
 
-    auto* tif = TIFFOpen(path, "w");
-    PX_CHECK(tif != nullptr, "Cannot open image \"%s\".", path);
-
-    auto channels = tiffImage.channels();
-    auto width = tiffImage.cols, height = tiffImage.rows;
-    auto type = tiffImage.type();
-    auto depth = CV_MAT_DEPTH(type);
-
-    TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, width);
-    TIFFSetField(tif, TIFFTAG_IMAGELENGTH, height);
-
-    size_t fileStep = (width * channels * 32) / 8;
-
-    auto rowsPerStrip = (int) ((1 << 13) / fileStep);
-    rowsPerStrip = std::max(1, std::min(height, rowsPerStrip));
-
-    auto colorspace = channels > 1 ? PHOTOMETRIC_RGB : PHOTOMETRIC_MINISBLACK;
-
-    TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 32);
-    TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
-    TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, colorspace);
-    TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, channels);
-    TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-    TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, rowsPerStrip);
-    TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, depth >= CV_32F ? SAMPLEFORMAT_IEEEFP : SAMPLEFORMAT_UINT);
-
-    auto scanlineSize = TIFFScanlineSize(tif);
-    AutoBuffer<uchar> buffer(scanlineSize + 32);
-
-    for (auto y = 0; y < height; ++y) {
-        memcpy(buffer, tiffImage.ptr(y), scanlineSize);
-        PX_CHECK(TIFFWriteScanline(tif, buffer, y, 0) == 1, "Cannot write scan line.");
-    }
-
-    TIFFClose(tif);
+    writeTIFF(path, tiffImage);
 }
 
 Mat imletterbox(const Mat& image, int width, int height)
@@ -245,19 +252,22 @@ PxCpuVector imvector(const cv::Mat& image)
 {
     PX_CHECK(image.isContinuous(), "Non-continuous mat not supported.");
 
-    int channels = image.channels();
-    int width = image.cols;
-    int height = image.rows;
+    auto channels = image.channels();
+    auto width = image.cols;
+    auto height = image.rows;
+    auto depth = image.depth();
 
-    PxCpuVector vector(height * width * channels);
-    auto* pimage = vector.data();
+    PX_CHECK(depth == CV_32F, "Only 32-bit floating point images supported.");
+
+    auto planeSize = height * width;
+    PxCpuVector vector(planeSize * channels);
+    auto* pvector = vector.data();
+    auto* pimage = image.ptr<float>();
 
     // convert interleaved mat to planar image
-    for (auto i = 0; i < height; ++i) {
-        for (auto j = 0; j < width; ++j) {
-            for (auto k = 0; k < channels; ++k) {
-                pimage[k * width * height + i * width + j] = image.ptr<float>(i, j)[k];
-            }
+    for (auto i = 0; i < planeSize; ++i) {
+        for (auto j = 0; j < channels; ++j) {
+            pvector[i + j * planeSize] = pimage[i * channels + j];
         }
     }
 
