@@ -27,7 +27,7 @@ constexpr auto CUDA_BLOCK_SIZE = 512;
 void addBiasGpu(float* output, float* biases, int batch, int n, int size);
 dim3 cudaGridsize(std::uint32_t n);
 void fillGpu(float* ptr, std::size_t n, float value);
-void randomGenerateGpu(float* ptr, std::size_t n, float a = 0.f, float b = 1.f);
+void randomGpu(float* ptr, std::size_t n, float a = 0.f, float b = 1.f);
 
 }   // px
 

@@ -58,7 +58,8 @@ void ConnLayer::setup()
         biasUpdates_ = PxCpuTensor<1>({ (size_t) outputs() }, 0.0f);
     }
 
-    weights_ = random<decltype(weights_)>({ (size_t) inputs(), (size_t) outputs() });
+    auto scale = std::sqrt(2.0f / inputs());
+    weights_ = random<decltype(weights_)>({ (size_t) inputs(), (size_t) outputs() }) * scale;
 
 #ifdef USE_CUDA
     if (useGpu()) {

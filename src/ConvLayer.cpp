@@ -64,8 +64,11 @@ void ConvLayer::setup()
         biases_ = PxCpuTensor<1>({ (size_t) filters_ }, 0.f);
     }
 
-    weights_ = random<decltype(weights_)>(
-            { (size_t) filters_, (size_t) (channels() / groups_), (size_t) kernel_, (size_t) kernel_ });
+    auto scale = std::sqrt(2.0f / (kernel_ * kernel_ * channels() / groups_));
+    weights_ = random<decltype(weights_)>({ (size_t) filters_,
+                                            (size_t) (channels() / groups_),
+                                            (size_t) kernel_,
+                                            (size_t) kernel_ }) * scale;
 
 #ifdef USE_CUDA
     if (useGpu()) {

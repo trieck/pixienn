@@ -47,18 +47,19 @@ void DetectLayer::setup()
     setOutChannels(channels());
     setOutHeight(height());
     setOutWidth(width());
-    setOutputs(batch() * inputs());
+    setOutputs(inputs());
     setTruths(side_ * side_ * (1 + coords_ + classes()));
 
 #ifdef USE_CUDA
     if (useGpu()) {
-        outputGpu_ = PxCudaVector(outputs());
+        outputGpu_ = PxCudaVector(outputs(), 0.0f);
     } else {
-        output_ = PxCpuVector(outputs());
-        delta_ = PxCpuVector(outputs());
+        output_ = PxCpuVector(outputs(), 0.0f);
+        delta_ = PxCpuVector(outputs(), 0.0f);
     }
 #else
-    output_ = PxCpuVector(outputs());
+    output_ = PxCpuVector(outputs(), 0.0f);
+    delta_ = PxCpuVector(outputs(), 0.0f);
 #endif
 }
 
@@ -96,13 +97,36 @@ void DetectLayer::forward(const PxCpuVector& input)
 
     auto locations = side_ * side_;
 
+    auto* poutput = output_.data();
+    auto* pdelta = delta_.data();
+
     for (auto b = 0; b < batch(); ++b) {
         auto index = b * inputs();
 
         for (auto i = 0; i < locations; ++i) {
             auto truthIndex = (b * locations + i) * (1 + coords_ + nclasses);
+            // batch * (7 x 7 = 49)
+            // ^^ ground truth size = 1(id) + 4(coords) + 20(classes) == 25
+            // int is_obj = net.truth[truth_index]; -- makes no sense?? -- net.truth[truth_index]== x coord for ground truth??
+            for (auto j = 0; j < num_; ++j) {
+                // ^ each location manages num_=2 boxes
 
-            // umm...what ? int is_obj = net.truth[truth_index];
+                // what kind of voodoo shit is this?
+
+                auto pindex = index + locations * nclasses + i * num_ + j;
+                pdelta[pindex] = noObjectScale_ * (0 - poutput[pindex]);
+
+                cost() += noObjectScale_ * std::pow(poutput[pindex], 2);
+                avgAnyObj += poutput[pindex];
+            }
+
+            auto bestIndex = -1;
+            auto bestIou = 0.0f;
+            auto bestRmse = 20.0f;
+
+            /*if (!is_obj){ this makes no sense
+                continue;
+            }*/
 
         }
     }
@@ -160,11 +184,8 @@ DetectLayer::addDetects(Detections& detections, int width, int height, float thr
             auto right = std::min<int>(width - 1, (x + w / 2));
             auto top = std::max<int>(0, (y - h / 2));
             auto bottom = std::min<int>(height - 1, (y + h / 2));
-            cv::Rect b;
-            b.x = left;
-            b.y = top;
-            b.width = right - left;
-            b.height = bottom - top;
+            cv::Rect b{ left, top, right - left, bottom - top };
+
             Detection det(nclasses, b, scale);
             int max = 0;
             for (auto j = 0; j < nclasses; ++j) {

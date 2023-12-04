@@ -49,7 +49,7 @@ private:
     BNContext makeContext(const PxCpuVector& input);
 
     friend LayerFactories;
-    PxCpuTensor<1> biases_, scales_, rollingMean_, rollingVar_;
+    PxCpuTensor<1> biases_, scales_, mean_, var_, rollingMean_, rollingVar_;
 
 #ifdef USE_CUDA
     void setupGpu();

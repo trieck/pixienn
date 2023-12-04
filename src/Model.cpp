@@ -360,8 +360,6 @@ auto Model::loadBatch() -> ImageTruthVec
     for (auto i = 0; i < n; ++i) {
         const auto& imagePath = trainImages_[i];
         auto image = imread_vector(imagePath.c_str(), width(), height());
-        imsave_tiff("sized.tiff", image);
-
         auto gts = groundTruth(imagePath);
 
         ImageTruth truth;
@@ -397,8 +395,8 @@ auto Model::groundTruth(const std::string& imagePath) -> GroundTruthVec
 
         auto left = x - w / 2;
         auto right = x + w / 2;
-        auto top = y - w / 2;
-        auto bottom = y + w / 2;
+        auto top = y - h / 2;
+        auto bottom = y + h / 2;
 
         gt.box.x = left;
         gt.box.width = right - left;

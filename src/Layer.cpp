@@ -304,6 +304,11 @@ int Layer::truths() const noexcept
     return 0;
 }
 
+float& Layer::cost()
+{
+    return cost_;
+}
+
 #ifdef USE_CUDA
 
 const CublasContext& Layer::cublasContext() const noexcept

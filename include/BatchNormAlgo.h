@@ -32,11 +32,14 @@ struct BNContext
 {
     const PxCpuVector* input = nullptr;
     PxCpuVector* output = nullptr;
+    PxCpuVector* xNorm = nullptr;
 
     const PxCpuTensor<1>* biases = nullptr;
     const PxCpuTensor<1>* scales = nullptr;
-    const PxCpuTensor<1>* rollingMean = nullptr;
-    const PxCpuTensor<1>* rollingVar = nullptr;
+    PxCpuTensor<1>* mean = nullptr;
+    PxCpuTensor<1>* var = nullptr;
+    PxCpuTensor<1>* rollingMean = nullptr;
+    PxCpuTensor<1>* rollingVar = nullptr;
 
 #ifdef USE_CUDA
     const PxCudaVector* inputGpu = nullptr;
@@ -55,6 +58,7 @@ struct BNContext
     int channels = 0;
     int outHeight = 0;
     int outWidth = 0;
+    bool training = false;
 };
 
 void batchNormForward(const BNContext& ctxt);

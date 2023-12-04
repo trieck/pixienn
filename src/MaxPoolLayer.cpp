@@ -37,7 +37,7 @@ void MaxPoolLayer::setup()
     setOutChannels(channels());
     setOutHeight((height() + padding_ - kernel_) / stride_ + 1);
     setOutWidth((width() + padding_ - kernel_) / stride_ + 1);
-    setOutputs(batch() * outChannels() * outHeight() * outWidth());
+    setOutputs(outChannels() * outHeight() * outWidth());
 
 #ifdef USE_CUDA
     if (useGpu()) {
