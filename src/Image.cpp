@@ -83,7 +83,7 @@ ImageVector imread_vector(const char* path, int width, int height)
     // convert the image from interleaved to planar
     auto vector = imvector(sized);
 
-    return { vector, sized.cols, sized.rows, sized.channels() };
+    return { vector, image.cols, image.rows, sized.channels() };
 }
 
 // normalize 8-bit RGB bands and convert to float

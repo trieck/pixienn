@@ -61,7 +61,7 @@ void YoloLayer::forward(const PxCpuVector& input)
     std::copy(input.begin(), input.end(), output_.begin());
 
     auto area = std::max(1, width() * height());
-    auto nclasses = 0;
+    auto nclasses = classes();
 
     auto* poutput = output_.data();
     for (auto b = 0; b < batch(); ++b) {

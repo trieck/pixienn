@@ -63,6 +63,10 @@ void Model::parseConfig()
 
     auto cfgPath = path(cfgFile_);
 
+    auto labels = config["labels"].as<std::string>();
+    labelsFile_ = canonical(labels, cfgPath.parent_path()).string();
+    loadLabels();
+
     auto model = config["model"].as<std::string>();
     modelFile_ = canonical(model, cfgPath.parent_path()).string();
     parseModel();
@@ -75,10 +79,6 @@ void Model::parseConfig()
     }
 
     loadWeights();
-
-    auto labels = config["labels"].as<std::string>();
-    labelsFile_ = canonical(labels, cfgPath.parent_path()).string();
-    loadLabels();
 }
 
 void Model::parseModel()
@@ -188,9 +188,6 @@ void Model::forward(const PxCpuVector& input)
     for (auto& layer: layers()) {
         layer->forward(*in);
         in = &layer->output();
-        if (layer->truth()) {
-            // FIXME: ??? truth_ = layer->output();
-        }
     }
 }
 
@@ -264,7 +261,7 @@ void Model::loadWeights()
 
 std::vector<Detection> Model::predict(const std::string& imageFile)
 {
-    auto image = imread_vector(imageFile.c_str());
+    auto image = imread_vector(imageFile.c_str(), width(), height());
 
     std::cout << std::endl << "Running model...";
 
