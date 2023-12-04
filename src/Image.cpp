@@ -77,7 +77,7 @@ ImageVector imread_vector(const char* path, int width, int height)
 {
     auto image = imread_normalize(path);
 
-    // size image to match neural network input size
+    // size image to match width and height
     auto sized = imletterbox(image, width, height);
 
     // convert the image from interleaved to planar
@@ -126,7 +126,7 @@ void imsave(const char* path, const cv::Mat& image)
 }
 
 // save an image in normalized float format as TIFF
-void imsave_tiff(const char* path, ImageVector& image)
+void imsave(const char* path, ImageVector& image)
 {
     cv::Mat mat(image.height, image.width, CV_MAKETYPE(CV_32F, image.channels));
 

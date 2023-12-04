@@ -174,7 +174,7 @@ void TIFFIO::write(const Mat& image) const
     TIFFSetField(tiff_, TIFFTAG_SAMPLESPERPIXEL, channels);
     TIFFSetField(tiff_, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
     TIFFSetField(tiff_, TIFFTAG_ROWSPERSTRIP, rowsPerStrip);
-    TIFFSetField(tiff_, TIFFTAG_SAMPLEFORMAT, depth >= CV_32F ? SAMPLEFORMAT_IEEEFP : SAMPLEFORMAT_UINT);
+    TIFFSetField(tiff_, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_IEEEFP);
 
     auto scanlineSize = TIFFScanlineSize(tiff_);
     AutoBuffer<uchar> buffer(scanlineSize + 32);

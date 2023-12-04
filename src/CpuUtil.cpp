@@ -14,7 +14,9 @@
 * limitations under the License.
 ********************************************************************************/
 
+#include <cblas.h>
 #include <cmath>
+
 #include "CpuUtil.h"
 
 namespace px {
@@ -31,7 +33,6 @@ im2ColGetPixel(const float* im, int height, int width, int row, int col, int cha
 
     return im[col + width * (row + height * channel)];
 }
-
 
 void im2ColCpu(const float* im, int channels, int height, int width, int ksize, int stride, int pad,
                float* dataCol)
@@ -60,9 +61,8 @@ void addBias(float* output, const float* biases, int batch, int n, int size)
 {
     for (auto b = 0; b < batch; ++b) {
         for (auto i = 0; i < n; ++i) {
-            for (auto j = 0; j < size; ++j) {
-                output[(b * n + i) * size + j] += biases[i];
-            }
+            auto offset = b * n + i;
+            cblas_saxpy(size, 1.0f, biases + i, 0, output + (b * n + i) * size, 1);
         }
     }
 }
@@ -87,7 +87,7 @@ float sumArray(const float* a, int n)
     return sum;
 }
 
-void randomGenerateCpu(float* ptr, std::size_t n, float a, float b)
+void randomCpu(float* ptr, std::size_t n, float a, float b)
 {
     std::random_device device;
     std::mt19937 engine{ device() };
@@ -98,6 +98,61 @@ void randomGenerateCpu(float* ptr, std::size_t n, float a, float b)
     };
 
     std::generate(ptr, ptr + n, gen);
+}
+
+void meanCpu(const float* x, int batch, int filters, int spatial, float* mean)
+{
+    auto scale = 1.0f / (batch * spatial);
+
+    for (auto i = 0; i < filters; ++i) {
+        mean[i] = 0;
+        for (auto j = 0; j < batch; ++j) {
+            for (auto k = 0; k < spatial; ++k) {
+                int index = j * filters * spatial + i * spatial + k;
+                mean[i] += x[index];
+            }
+        }
+        mean[i] *= scale;
+    }
+}
+
+void varianceCpu(const float* x, float* mean, int batch, int filters, int spatial, float* variance)
+{
+    auto scale = 1.0f / (batch * spatial - 1);
+
+    for (auto i = 0; i < filters; ++i) {
+        variance[i] = 0;
+        for (auto j = 0; j < batch; ++j) {
+            for (auto k = 0; k < spatial; ++k) {
+                int index = i * spatial + j * filters * spatial +  k;
+                variance[i] += pow((x[index] - mean[i]), 2);
+            }
+        }
+        variance[i] *= scale;
+    }
+}
+
+void normalizeCpu(float* x, const float* mean, const float* variance, int batch, int filters, int spatial)
+{
+    for (auto b = 0; b < batch; ++b) {
+        for (auto f = 0; f < filters; ++f) {
+            for (auto i = 0; i < spatial; ++i) {
+                auto index = b * filters * spatial + f * spatial + i;
+                x[index] = (x[index] - mean[f]) / (sqrt(variance[f]) + .000001f);
+            }
+        }
+    }
+}
+
+void scaleBias(float* output, const float* scales, int batch, int n, int size)
+{
+    for (auto b = 0; b < batch; ++b) {
+        for (auto i = 0; i < n; ++i) {
+            for (auto j = 0; j < size; ++j) {
+                output[(b * n + i) * size + j] *= scales[i];
+            }
+        }
+    }
 }
 
 

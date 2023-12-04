@@ -178,6 +178,8 @@ public:
     PxCpuVectorT operator-(const PxCpuVectorT& rhs) const;
     PxCpuVectorT operator+(T value) const;
     PxCpuVectorT operator-(T value) const;
+    PxCpuVectorT operator*(T value) const;
+    PxCpuVectorT operator/(T value) const;
 
 #ifdef USE_CUDA
     void copyDevice(const T*, size_type n);
@@ -230,6 +232,30 @@ auto PxCpuVectorT<T, A>::operator-(T value) const -> PxCpuVectorT
     }
 
     return difference;
+}
+
+template<typename T, typename A>
+auto PxCpuVectorT<T, A>::operator*(T value) const -> PxCpuVectorT
+{
+    PxCpuVectorT<T, A> product(size());
+    for (auto i = 0; i < size(); ++i) {
+        product[i] = (*this)[i] * value;
+    }
+
+    return product;
+}
+
+template<typename T, typename A>
+auto PxCpuVectorT<T, A>::operator/(T value) const -> PxCpuVectorT
+{
+    PX_CHECK(value != 0, "Division by zero.");
+
+    PxCpuVectorT<T, A> div(size());
+    for (auto i = 0; i < size(); ++i) {
+        div[i] = (*this)[i] / value;
+    }
+
+    return div;
 }
 
 template<typename T, typename A>
@@ -670,7 +696,6 @@ public:
     Device device() const;
     virtual const shape_type& shape() const noexcept;
     virtual const shape_type& strides() const noexcept;
-
     size_type size() const noexcept;
 
     virtual void copy(const PxTensor<T, N>& rhs) = 0;
@@ -681,7 +706,6 @@ public:
     static size_type dims();
 protected:
     PxTensor(Device dev);
-
     PxTensor(Device dev, const shape_type& shape);
 
 private:
@@ -744,6 +768,8 @@ public:
     using value_type = T;
     using pointer = typename C::pointer;
     using const_pointer = typename C::const_pointer;
+    using reference = typename C::reference;
+    using const_reference = typename C::const_reference;
     using size_type = typename C::size_type;
     using shape_type = base_type::shape_type;
     using device_type = std::integral_constant<Device, D>;
@@ -760,9 +786,75 @@ public:
     std::vector<T> asVector() const override;
     void release();
 
+    reference operator[](int i);
+    const_reference operator[](int i) const;
+
+    PxTensorImpl operator+(T value) const;
+    PxTensorImpl operator-(T value) const;
+    PxTensorImpl operator*(T value) const;
+    PxTensorImpl operator/(T value) const;
+
 private:
     C container_;
 };
+
+template<typename T, Device D, typename C, std::size_t N>
+auto PxTensorImpl<T, D, C, N>::operator[](int i) const -> const_reference
+{
+    return container_[i];
+}
+
+template<typename T, Device D, typename C, std::size_t N>
+auto PxTensorImpl<T, D, C, N>::operator[](int i) -> reference
+{
+    return container_[i];
+}
+
+template<typename T, Device D, typename C, std::size_t N>
+auto PxTensorImpl<T, D, C, N>::operator+(T value) const -> PxTensorImpl
+{
+    PxTensorImpl sum(this->shape());
+    for (auto i = 0; i < this->size(); ++i) {
+        sum[i] = (*this)[i] + value;
+    }
+
+    return sum;
+}
+
+template<typename T, Device D, typename C, std::size_t N>
+auto PxTensorImpl<T, D, C, N>::operator-(T value) const -> PxTensorImpl
+{
+    PxTensorImpl diff(this->shape());
+    for (auto i = 0; i < this->size(); ++i) {
+        diff[i] = (*this)[i] - value;
+    }
+
+    return diff;
+}
+
+template<typename T, Device D, typename C, std::size_t N>
+auto PxTensorImpl<T, D, C, N>::operator*(T value) const -> PxTensorImpl
+{
+    PxTensorImpl product(this->shape());
+    for (auto i = 0; i < this->size(); ++i) {
+        product[i] = (*this)[i] * value;
+    }
+
+    return product;
+}
+
+template<typename T, Device D, typename C, std::size_t N>
+auto PxTensorImpl<T, D, C, N>::operator/(T value) const -> PxTensorImpl
+{
+    PX_CHECK(value != 0, "Division by zero.");
+
+    PxTensorImpl div(this->shape());
+    for (auto i = 0; i < this->size(); ++i) {
+        div[i] = (*this)[i] / value;
+    }
+
+    return div;
+}
 
 template<typename T, Device D, typename C, std::size_t N>
 void PxTensorImpl<T, D, C, N>::release()
@@ -938,12 +1030,12 @@ T random(const typename T::shape_type& shape)
 
 #ifdef USE_CUDA
     if constexpr (typename T::device_type() == Device::CUDA) {
-        randomGenerateGpu(out.data(), out.size(), typename T::value_type(0), typename T::value_type(1));
+        randomGpu(out.data(), out.size(), typename T::value_type(0), typename T::value_type(1));
     } else {
-        randomGenerateCpu(out.data(), out.size(), typename T::value_type(0), typename T::value_type(1));
+        randomCpu(out.data(), out.size(), typename T::value_type(0), typename T::value_type(1));
     }
 #else
-    random_generate_cpu(out.data(), out.size(), typename T::value_type(0), typename T::value_type(1));
+    randomCpu(out.data(), out.size(), typename T::value_type(0), typename T::value_type(1));
 #endif // USE_CUDA
 
     return out;

@@ -66,7 +66,7 @@ void imsave(const char* path, const cv::Mat& image);
 void imsave_tiff(const char* path, const cv::Mat& image);
 
 // Save an ImageVector in TIFF format
-void imsave_tiff(const char* path, ImageVector& image);
+void imsave(const char* path, ImageVector& image);
 
 // Get the pixel value at a specific position in the image
 float imget(const cv::Mat& image, int x, int y, int c);

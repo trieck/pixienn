@@ -7,6 +7,7 @@ find_package(GMock REQUIRED)
 
 add_executable(pixienn-test
         activations.cpp
+        blas.cpp
         batchnorm.cpp
         connected.cpp
         convolve.cpp

@@ -105,6 +105,8 @@ protected:
     void setTruths(int truths);
     void setCost(float cost);
 
+    float& cost();
+
     void print(std::ostream& os, const std::string& name,
                std::array<int, 3>&& input,
                std::array<int, 3>&& output,
@@ -118,7 +120,7 @@ protected:
     PxCudaVector outputGpu_;
 #endif
 
-    PxCpuVector output_, delta_;
+    PxCpuVector output_, delta_, xNorm_;
 
 private:
     friend LayerFactories;

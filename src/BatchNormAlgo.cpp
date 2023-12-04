@@ -14,34 +14,13 @@
 * limitations under the License.
 ********************************************************************************/
 
+#include <cblas.h>
+
 #include "Common.h"
 #include "BatchNormAlgo.h"
 #include "CpuUtil.h"
 
 namespace px {
-
-static void normalizeCpu(float* x, const float* mean, const float* variance, int batch, int filters, int spatial)
-{
-    for (auto b = 0; b < batch; ++b) {
-        for (auto f = 0; f < filters; ++f) {
-            for (auto i = 0; i < spatial; ++i) {
-                auto index = b * filters * spatial + f * spatial + i;
-                x[index] = (x[index] - mean[f]) / (sqrt(variance[f]) + .000001f);
-            }
-        }
-    }
-}
-
-static void scaleBias(float* output, const float* scales, int batch, int n, int size)
-{
-    for (auto b = 0; b < batch; ++b) {
-        for (auto i = 0; i < n; ++i) {
-            for (auto j = 0; j < size; ++j) {
-                output[(b * n + i) * size + j] *= scales[i];
-            }
-        }
-    }
-}
 
 void batchNormForward(const BNContext& ctxt)
 {
@@ -50,8 +29,20 @@ void batchNormForward(const BNContext& ctxt)
     auto b = ctxt.batch;
     auto c = ctxt.channels;
     auto size = ctxt.outHeight * ctxt.outWidth;
+    auto outputs = c * size;
 
-    normalizeCpu(ctxt.output->data(), ctxt.rollingMean->data(), ctxt.rollingVar->data(), b, c, size);
+    if (ctxt.training) {
+        meanCpu(ctxt.output->data(), b, c, size, ctxt.mean->data());
+        varianceCpu(ctxt.output->data(), ctxt.mean->data(), b, c, size, ctxt.var->data());
+        cblas_sscal(c, 0.99f, ctxt.rollingMean->data(), 1);
+        cblas_saxpy(c, .01f, ctxt.var->data(), 1, ctxt.rollingVar->data(), 1);
+        normalizeCpu(ctxt.output->data(), ctxt.mean->data(), ctxt.var->data(), b, c, size);
+        cblas_scopy(b * outputs, ctxt.output->data(), 1, ctxt.xNorm->data(), 1);
+
+    } else {
+        normalizeCpu(ctxt.output->data(), ctxt.rollingMean->data(), ctxt.rollingVar->data(), b, c, size);
+    }
+
     scaleBias(ctxt.output->data(), ctxt.scales->data(), b, c, size);
     addBias(ctxt.output->data(), ctxt.biases->data(), b, c, size);
 }

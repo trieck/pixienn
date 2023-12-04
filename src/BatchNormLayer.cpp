@@ -27,10 +27,12 @@ void BatchNormLayer::setup()
     setOutChannels(channels());
     setOutHeight(height());
     setOutWidth(width());
-    setOutputs(outHeight() * outWidth() * outChannels() * batch());
+    setOutputs(outHeight() * outWidth() * outChannels());
 
     biases_ = PxCpuTensor<1>({ (size_t) channels() }, 0.f);
     scales_ = PxCpuTensor<1>({ (size_t) channels() }, 1.f);
+    mean_ = PxCpuTensor<1>({ (size_t) channels() }, 0.f);
+    var_ = PxCpuTensor<1>({ (size_t) channels() }, 0.f);
     rollingMean_ = PxCpuTensor<1>({ (size_t) channels() }, 0.f);
     rollingVar_ = PxCpuTensor<1>({ (size_t) channels() }, 0.f);
 
@@ -39,9 +41,11 @@ void BatchNormLayer::setup()
         setupGpu();
     } else {
         output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
+        xNorm_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
     }
 #else
     output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
+    xNorm_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
 #endif
 }
 
@@ -117,8 +121,11 @@ BNContext BatchNormLayer::makeContext(const PxCpuVector& input)
 
     ctxt.input = &input;
     ctxt.output = &output_;
+    ctxt.xNorm = &xNorm_;
     ctxt.biases = &biases_;
     ctxt.scales = &scales_;
+    ctxt.mean = &mean_;
+    ctxt.var = &var_;
     ctxt.rollingMean = &rollingMean_;
     ctxt.rollingVar = &rollingVar_;
 
@@ -126,6 +133,8 @@ BNContext BatchNormLayer::makeContext(const PxCpuVector& input)
     ctxt.channels = outChannels();
     ctxt.outHeight = outHeight();
     ctxt.outWidth = outWidth();
+
+    ctxt.training = training();
 
     return ctxt;
 }
@@ -150,6 +159,8 @@ BNContext BatchNormLayer::makeContext(const PxCudaVector& input)
     ctxt.channels = outChannels();
     ctxt.outHeight = outHeight();
     ctxt.outWidth = outWidth();
+
+    ctxt.training = training();
 
     return ctxt;
 }
