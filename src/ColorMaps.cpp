@@ -732,7 +732,6 @@ using ColorMap = std::unordered_map<std::string, std::pair<const uint32_t*, std:
 static const ColorMap colorMap = {
         { "Accent",        { Accent,        sizeof(Accent) } },
         { "Paired",        { Paired,        sizeof(Paired) } },
-        { "Paired",        { Paired,        sizeof(Paired) } },
         { "Set1",          { Set1,          sizeof(Set1) } },
         { "crayola16",     { crayola16,     sizeof(crayola16) } },
         { "darknet",       { darknet,       sizeof(darknet) } },
@@ -741,10 +740,8 @@ static const ColorMap colorMap = {
         { "frogs32",       { frogs32,       sizeof(frogs32), } },
         { "interesting32", { interesting32, sizeof(interesting32) } },
         { "off_the_path",  { off_the_path,  sizeof(off_the_path) } },
-        { "Paired",        { Paired,        sizeof(Paired) } },
         { "plasma",        { plasma,        sizeof(plasma) } },
         { "reds",          { reds,          sizeof(reds) } },
-        { "Set1",          { Set1,          sizeof(Set1) } },
         { "sunset32",      { sunset32,      sizeof(sunset32), } },
         { "tab10",         { tab10,         sizeof(tab10) } },
         { "tab20",         { tab20,         sizeof(tab20) } },
@@ -788,6 +785,19 @@ uint32_t ColorMaps::color(uint32_t index) const
     index *= 2654435761U;
 
     return table[index % sz];
+}
+
+std::vector<std::string> ColorMaps::maps()
+{
+    std::vector<std::string> colors;
+
+    for (auto const& entry: colorMap) {
+        colors.emplace_back(entry.first);
+    }
+
+    std::sort(colors.begin(), colors.end());
+
+    return colors;
 }
 
 }   // px

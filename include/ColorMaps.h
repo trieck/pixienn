@@ -27,7 +27,7 @@ public:
     ~ColorMaps();
 
     uint32_t color(uint32_t index) const;
-
+    static std::vector<std::string> maps();
 private:
     class Iterator;
     Iterator* it_;
