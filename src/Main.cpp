@@ -18,6 +18,7 @@
 #include <iostream>
 
 #include "Common.h"
+#include "ColorMaps.h"
 #include "Error.h"
 #include "Image.h"
 #include "Model.h"
@@ -57,23 +58,29 @@ int main(int argc, char* argv[])
     pod.add("image-file", 1);
 
     desc.add_options()
-            ("color-map", po::value<std::string>()->default_value("plasma"), "Color map")
+            ("color-map", po::value<std::string>()->default_value("fluorescent"), "Color map")
             ("confidence", po::value<float>()->default_value(0.2f), "Threshold confidence for model")
             ("config-file", po::value<std::string>()->required(), "Configuration file")
             ("find-best-algo", po::bool_switch()->default_value(false), "Find the best cuDNN convolution algorithm")
-            ("help", "Print program usage")
+            ("help", po::bool_switch()->default_value(false), "Print program usage")
             ("image-file", po::value<std::string>()->required(), "Image file")
             ("line-thickness", po::value<int>()->default_value(2), "Line thickness")
+            ("list-colormaps", po::bool_switch()->default_value(false), "List colormaps and exit")
             ("nms", po::value<float>()->default_value(0.3f), "IoU threshold for Non-Maximum-Suppression")
             ("no-gpu", po::bool_switch()->default_value(false), "Use CPU for processing")
             ("no-labels", po::bool_switch()->default_value(false), "Don't draw labels on image")
-            ("tiff32", po::bool_switch()->default_value(false),
-             "Save overlay image in 32-bit floating-point TIFF format");
+            ("tiff32", po::bool_switch()->default_value(false), "Save image in 32-bit floating-point TIFF format");
 
     try {
         po::variables_map vm;
         po::store(po::command_line_parser(argc, argv).options(desc).positional(pod).run(), vm);
-        if (vm.count("help") || argc < 3) {
+        if (vm["list-colormaps"].as<bool>()) {
+            std::cerr << "Color maps:" << std::endl;
+            for (const auto& map: ColorMaps::maps()) {
+                std::cerr << "   " << map << std::endl;
+            }
+            exit(1);
+        } else if (vm["help"].as<bool>() || argc < 3) {
             std::cerr << "usage: pixienn [options] config-file image-file" << std::endl;
             std::cerr << desc << std::endl;
             exit(1);
