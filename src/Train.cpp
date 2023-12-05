@@ -46,7 +46,7 @@ int main(int argc, char* argv[])
             ("no-gpu", po::bool_switch()->default_value(true), "Use CPU for processing");
 
     po::options_description hidden;
-    hidden.add_options()("train", po::value<int>()->default_value(1));
+    hidden.add_options()("train", po::bool_switch()->default_value(true));
 
     po::options_description all;
     all.add(desc).add(hidden);

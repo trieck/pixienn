@@ -27,6 +27,7 @@
 #endif
 
 #include "Error.h"
+#include "GroundTruth.h"
 #include "PxTensor.h"
 
 namespace px {
@@ -55,10 +56,7 @@ public:
     int outHeight() const noexcept;
     int outWidth() const noexcept;
     int outputs() const noexcept;
-    int truth() const noexcept;
-    int truths() const noexcept;
     int width() const noexcept;
-    uint32_t classes() const noexcept;
 
     virtual std::ostream& print(std::ostream& os) = 0;
 
@@ -102,10 +100,11 @@ protected:
     void setOutChannels(int channels);
     void setOutHeight(int height);
     void setOutWidth(int width);
-    void setTruths(int truths);
     void setCost(float cost);
 
     float& cost();
+    uint32_t classes() const noexcept;
+    const ImageTruths& truth() const noexcept;
 
     void print(std::ostream& os, const std::string& name,
                std::array<int, 3>&& input,
@@ -133,7 +132,6 @@ private:
     int outChannels_, outHeight_, outWidth_, inputs_, index_, outputs_;
 
     // training parameters
-    int truth_ = 0, truths_ = 0;
     float cost_ = 0.0f;
 };
 

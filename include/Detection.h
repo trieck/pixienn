@@ -29,11 +29,11 @@ public:
     float& operator[](int clazz);
     const float& operator[](int clazz) const;
 
-    [[nodiscard]] const std::vector<float>& prob() const noexcept;
-    [[nodiscard]] int size() const noexcept;
-    [[nodiscard]] const cv::Rect& box() const noexcept;
-    [[nodiscard]] float max() const noexcept;
-    [[nodiscard]] int maxClass() const noexcept;
+    const std::vector<float>& prob() const noexcept;
+    int size() const noexcept;
+    const cv::Rect& box() const noexcept;
+    float max() const noexcept;
+    int maxClass() const noexcept;
 
     void setMaxClass(int max);
 

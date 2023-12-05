@@ -17,8 +17,8 @@
 #include <boost/endian/conversion.hpp>
 #include <opencv2/core/utility.hpp>
 #include <opencv2/imgproc/types_c.h>
-
 #include <tiffio.h>
+
 #include "Common.h"
 #include "Error.h"
 #include "TiffIO.h"
@@ -147,7 +147,6 @@ Mat TIFFIO::read() const
 
     return image;
 }
-
 
 void TIFFIO::write(const Mat& image) const
 {

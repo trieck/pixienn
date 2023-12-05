@@ -41,9 +41,9 @@ void MaxPoolLayer::setup()
 
 #ifdef USE_CUDA
     if (useGpu()) {
-        outputGpu_ = PxCudaVector(batch() * outChannels() * outHeight() * outWidth());
+        outputGpu_ = PxCudaVector(batch() * outputs());
     } else {
-        output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
+        output_ = PxCpuVector(batch() * outputs());
     }
 #else
     output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());

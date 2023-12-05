@@ -39,7 +39,7 @@ namespace px {
 Model::Model(std::string cfgFile, var_map options) : options_(std::move(options)), cfgFile_(std::move(cfgFile))
 {
 #ifdef USE_CUDA
-    gpu_ = options_.count("no-gpu") == 0;
+    gpu_ = !hasOption("no-gpu");
     if (gpu_) {
         setupGpu();
     }
@@ -149,11 +149,6 @@ void Model::parseModel()
 
         layers_.emplace_back(layer);
     }
-
-    const auto& out = layers_[layers_.size() - 1];  // TODO: check for cost layer
-    outputs_ = out->outputs();
-    truths_ = out->truths() ? out->truths() : out->outputs();
-    //truth_ = PxCpuVector(truths_ * batch_);
 }
 
 const Model::LayerVec& Model::layers() const
@@ -312,7 +307,7 @@ void Model::train()
     std::printf("trained in %s.\n", timer.str().c_str());
 }
 
-float Model::trainBatch(Model::ImageTruthVec&& batch)
+float Model::trainBatch(ImageTruths&& batch)
 {
     float error = 0;
 
@@ -345,9 +340,9 @@ void Model::parseTrainConfig()
     trainGTPath_ = canonical(groundTruth, cfgPath.parent_path()).string();
 }
 
-auto Model::loadBatch() -> ImageTruthVec
+auto Model::loadBatch() -> ImageTruths
 {
-    ImageTruthVec batch;
+    ImageTruths batch;
 
     auto rng = std::default_random_engine{};
     std::shuffle(std::begin(trainImages_), std::end(trainImages_), rng);
@@ -362,7 +357,7 @@ auto Model::loadBatch() -> ImageTruthVec
         ImageTruth truth;
         truth.image = std::move(image.vector);
         truth.truth = std::move(gts);
-        batch.emplace_back(std::move(truth));
+        batch.emplaceBack(std::move(truth));
     }
 
     std::shuffle(std::begin(batch), std::end(batch), rng);
@@ -457,8 +452,9 @@ void Model::overlay(const std::string& imageFile, const Detections& detects) con
     auto img = imread(imageFile.c_str());
     cv::cvtColor(img, img, cv::COLOR_BGR2BGRA);
 
-    ColorMaps colors;
-    constexpr auto thickness = 2;
+    ColorMaps colors(option<std::string>("color-map"));
+    auto thickness = std::max(1, option<int>("line-thickness"));
+
     for (const auto& detect: detects) {
         auto max = detect.max();
         if (max == 0) {
@@ -477,7 +473,9 @@ void Model::overlay(const std::string& imageFile, const Detections& detects) con
         auto text = boost::format("%1%: %2$.2f%%") % label % (max * 100);
         std::cout << text << std::endl;
 
-        imtabbed_text(img, text.str().c_str(), box.tl(), textColor, bgColor, thickness);
+        if (!hasOption("no-labels")) {
+            imtabbed_text(img, text.str().c_str(), box.tl(), textColor, bgColor, thickness);
+        }
     }
 
     if (hasOption("tiff32")) {
@@ -542,7 +540,11 @@ std::string Model::asJson(const Detections& detects) const noexcept
 
 bool Model::hasOption(const std::string& option) const
 {
-    return options_.count(option) != 0;
+    if (options_.count(option) == 0) {
+        return false;
+    }
+
+    return options_[option].as<bool>();
 }
 
 bool Model::training() const
@@ -578,6 +580,11 @@ float Model::cost() const noexcept
 uint32_t Model::classes() const noexcept
 {
     return labels_.size();
+}
+
+const ImageTruths& Model::truth() const noexcept
+{
+    return truth_;
 }
 
 #ifdef USE_CUDA

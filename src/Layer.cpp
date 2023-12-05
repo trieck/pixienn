@@ -93,7 +93,6 @@ Layer::Layer(Model& model, const YAML::Node& layerDef) : model_(model), layerDef
     index_ = property<int>("index");
     inputs_ = property<int>("inputs");
     width_ = property<int>("width");
-    truth_ = property<int>("truth", 0);
 
     outChannels_ = outHeight_ = outWidth_ = outputs_ = 0;
 }
@@ -123,11 +122,6 @@ int Layer::height() const noexcept
 int Layer::width() const noexcept
 {
     return width_;
-}
-
-int Layer::truth() const noexcept
-{
-    return truth_;
 }
 
 int Layer::outChannels() const noexcept
@@ -168,11 +162,6 @@ void Layer::setOutWidth(int width)
 void Layer::setOutputs(int outputs)
 {
     outputs_ = outputs;
-}
-
-void Layer::setTruths(int truths)
-{
-    truths_ = truths;
 }
 
 void Layer::setCost(float cost)
@@ -299,14 +288,14 @@ uint32_t Layer::classes() const noexcept
     return model_.classes();
 }
 
-int Layer::truths() const noexcept
-{
-    return 0;
-}
-
 float& Layer::cost()
 {
     return cost_;
+}
+
+const ImageTruths& Layer::truth() const noexcept
+{
+    return model_.truth();
 }
 
 #ifdef USE_CUDA
