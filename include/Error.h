@@ -39,12 +39,12 @@ public:
     fromFormat(const char* file, unsigned int line, const char* function, const char* format, ...) noexcept;
 
     // std::exception
-    [[nodiscard]] const char* what() const noexcept override;
+    const char* what() const noexcept override;
 
-    [[nodiscard]] const std::string& file() const noexcept;
-    [[nodiscard]] unsigned int line() const noexcept;
-    [[nodiscard]] const std::string& function() const noexcept;
-    [[nodiscard]] const std::string& message() const noexcept;
+    const std::string& file() const noexcept;
+    unsigned int line() const noexcept;
+    const std::string& function() const noexcept;
+    const std::string& message() const noexcept;
 
 protected:
     void init() noexcept;

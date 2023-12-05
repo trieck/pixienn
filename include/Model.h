@@ -21,6 +21,7 @@
 #include <boost/program_options/variables_map.hpp>
 
 #include "Detection.h"
+#include "GroundTruth.h"
 #include "Layer.h"
 
 #ifdef USE_CUDA
@@ -46,23 +47,23 @@ public:
     Model& operator=(Model&& rhs) = delete;
 
     using LayerVec = std::vector<Layer::Ptr>;
-    [[nodiscard]] const LayerVec& layers() const;
+    const LayerVec& layers() const;
 
-    [[nodiscard]] int batch() const noexcept;
-    [[nodiscard]] int channels() const noexcept;
-    [[nodiscard]] int height() const noexcept;
-    [[nodiscard]] int width() const noexcept;
-    [[nodiscard]] int subdivs() const noexcept;
-    [[nodiscard]] int timeSteps() const noexcept;
+    int batch() const noexcept;
+    int channels() const noexcept;
+    int height() const noexcept;
+    int width() const noexcept;
+    int subdivs() const noexcept;
+    int timeSteps() const noexcept;
 
     int layerSize() const;
-    [[nodiscard]] const Layer::Ptr& layerAt(int index) const;
+    const Layer::Ptr& layerAt(int index) const;
 
     void train();
     std::vector<Detection> predict(const std::string& imageFile);
     void overlay(const std::string& imageFile, const Detections& detects) const;
     std::string asJson(const Detections& detects) const noexcept;
-    [[nodiscard]] const std::vector<std::string>& labels() const noexcept;
+    const std::vector<std::string>& labels() const noexcept;
 
     bool hasOption(const std::string& option) const;
     bool training() const;
@@ -71,37 +72,18 @@ public:
 
     template<typename T>
     T option(const std::string& name) const;
-
     PxCpuVector::pointer delta() noexcept;
+    uint32_t classes() const noexcept;
+    const ImageTruths& truth() const noexcept;
 
 #ifdef USE_CUDA
-    [[nodiscard]] const CublasContext& cublasContext() const noexcept;
-    [[nodiscard]] const CudnnContext& cudnnContext() const noexcept;
-    [[nodiscard]] bool useGpu() const noexcept;
+    const CublasContext& cublasContext() const noexcept;
+    const CudnnContext& cudnnContext() const noexcept;
+    bool useGpu() const noexcept;
 #endif
-
-    uint32_t classes() const noexcept;
-
 private:
 
-    struct GroundTruth
-    {
-        std::size_t classId;
-        float x, y, width, height;
-        cv::Rect2f box;
-    };
-
-    using GroundTruthVec = std::vector<GroundTruth>;
-
-    struct ImageTruth
-    {
-        PxCpuVector image;
-        GroundTruthVec truth;
-    };
-
-    using ImageTruthVec = std::vector<ImageTruth>;
-
-    float trainBatch(ImageTruthVec&& batch);
+    float trainBatch(ImageTruths&& batch);
     void forward(const PxCpuVector& input);
     void backward(const PxCpuVector& input);
 #ifdef USE_CUDA
@@ -114,7 +96,7 @@ private:
     void loadWeights();
     void loadLabels();
     void loadTrainImages();
-    ImageTruthVec loadBatch();
+    ImageTruths loadBatch();
     GroundTruthVec groundTruth(const std::string& imagePath);
 
     // file paths
@@ -137,13 +119,12 @@ private:
     int revision_ = 0;
 
     // training parameters
-    ImageTruthVec truth_;
+    ImageTruths truth_;
     PxCpuVector::pointer delta_ = nullptr;
 
     int maxBoxes_ = 0;
     int subdivs_ = 0;
     int timeSteps_ = 0;
-    int truths_ = 0;
     int outputs_ = 0;
     float threshold_ = 0.0f;
     float learningRate_ = 0.0f;

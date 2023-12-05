@@ -48,7 +48,6 @@ void DetectLayer::setup()
     setOutHeight(height());
     setOutWidth(width());
     setOutputs(inputs());
-    setTruths(side_ * side_ * (1 + coords_ + classes()));
 
 #ifdef USE_CUDA
     if (useGpu()) {
@@ -90,13 +89,12 @@ void DetectLayer::forward(const PxCpuVector& input)
     auto count = 0;
     auto size = batch() * inputs();
     auto nclasses = classes();
+    const auto& gndTruth = truth();
 
-    setCost(0);
-
+    cost() = 0;
     delta_.fill(0);
 
     auto locations = side_ * side_;
-
     auto* poutput = output_.data();
     auto* pdelta = delta_.data();
 
@@ -104,15 +102,10 @@ void DetectLayer::forward(const PxCpuVector& input)
         auto index = b * inputs();
 
         for (auto i = 0; i < locations; ++i) {
-            auto truthIndex = (b * locations + i) * (1 + coords_ + nclasses);
-            // batch * (7 x 7 = 49)
-            // ^^ ground truth size = 1(id) + 4(coords) + 20(classes) == 25
-            // int is_obj = net.truth[truth_index]; -- makes no sense?? -- net.truth[truth_index]== x coord for ground truth??
+            auto truthIndex = (b * locations + i);
+            auto isObject = gndTruth.hasObject(truthIndex);
+
             for (auto j = 0; j < num_; ++j) {
-                // ^ each location manages num_=2 boxes
-
-                // what kind of voodoo shit is this?
-
                 auto pindex = index + locations * nclasses + i * num_ + j;
                 pdelta[pindex] = noObjectScale_ * (0 - poutput[pindex]);
 
@@ -124,13 +117,17 @@ void DetectLayer::forward(const PxCpuVector& input)
             auto bestIou = 0.0f;
             auto bestRmse = 20.0f;
 
-            /*if (!is_obj){ this makes no sense
+            if (!isObject) {
                 continue;
-            }*/
+            }
 
+            auto classIndex = index + i * nclasses;
+
+            for (auto j = 0; j < nclasses; ++j) {
+                // FIXME: pdelta[classIndex + j] = classScale;
+            }
         }
     }
-
 }
 
 void DetectLayer::backward(const PxCpuVector& input)

@@ -96,6 +96,8 @@ cv::Mat imnormalize(const cv::Mat& image)
     Mat swapped;
     if (image.channels() == 3) {
         cv::cvtColor(image, swapped, CV_BGR2RGB);
+    } else if (image.channels() == 4) {
+        cv::cvtColor(image, swapped, CV_BGRA2RGB);
     } else {
         swapped = image;
     }

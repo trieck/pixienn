@@ -28,7 +28,7 @@ public:
     Timer();
     ~Timer();
 
-    [[nodiscard]] std::string str() const;
+    std::string str() const;
     void restart();
 private:
     using Clock = std::chrono::high_resolution_clock;

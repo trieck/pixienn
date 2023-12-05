@@ -57,14 +57,18 @@ int main(int argc, char* argv[])
     pod.add("image-file", 1);
 
     desc.add_options()
+            ("color-map", po::value<std::string>()->default_value("plasma"), "Color map")
             ("confidence", po::value<float>()->default_value(0.2f), "Threshold confidence for model")
             ("config-file", po::value<std::string>()->required(), "Configuration file")
-            ("find-best-algo", "Find the best cuDNN convolution algorithm")
+            ("find-best-algo", po::bool_switch()->default_value(false), "Find the best cuDNN convolution algorithm")
             ("help", "Print program usage")
             ("image-file", po::value<std::string>()->required(), "Image file")
+            ("line-thickness", po::value<int>()->default_value(2), "Line thickness")
             ("nms", po::value<float>()->default_value(0.3f), "IoU threshold for Non-Maximum-Suppression")
-            ("no-gpu", "Use CPU for processing")
-            ("tiff32", "Save overlay image in 32-bit floating-point TIFF format");
+            ("no-gpu", po::bool_switch()->default_value(false), "Use CPU for processing")
+            ("no-labels", po::bool_switch()->default_value(false), "Don't draw labels on image")
+            ("tiff32", po::bool_switch()->default_value(false),
+             "Save overlay image in 32-bit floating-point TIFF format");
 
     try {
         po::variables_map vm;

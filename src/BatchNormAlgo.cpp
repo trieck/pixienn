@@ -38,7 +38,6 @@ void batchNormForward(const BNContext& ctxt)
         cblas_saxpy(c, .01f, ctxt.var->data(), 1, ctxt.rollingVar->data(), 1);
         normalizeCpu(ctxt.output->data(), ctxt.mean->data(), ctxt.var->data(), b, c, size);
         cblas_scopy(b * outputs, ctxt.output->data(), 1, ctxt.xNorm->data(), 1);
-
     } else {
         normalizeCpu(ctxt.output->data(), ctxt.rollingMean->data(), ctxt.rollingVar->data(), b, c, size);
     }
