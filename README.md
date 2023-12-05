@@ -22,12 +22,12 @@ This project aims to provide a modern and optimized C++ implementation of the Da
 - Boost (>= 1.74)
 - CUDA Toolkit (for GPU support)
 - CUDNN8 (for GPU support)
-- Cairo (>= 1.16.0)
+- Cairo (>= 1.16.0) (optional)
 - GLib
 - LibTIFF
 - OpenBLAS library
 - OpenCV (>= 4.5.4)
-- Pango
+- Pango (optional)
 - nlohmann_json (>= 3.10.5)
 - yaml-cpp
 

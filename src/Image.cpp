@@ -15,8 +15,13 @@
 ********************************************************************************/
 
 #include <boost/filesystem.hpp>
+
+#ifdef USE_PANGO
+
 #include <cairo/cairo.h>
 #include <pango/pangocairo.h>
+
+#endif
 
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
@@ -316,6 +321,8 @@ void imtabbed_rect(cv::Mat& image, const cv::Point& pt1, const cv::Point& pt2, u
     }
 }
 
+#ifdef USE_PANGO
+
 void imtabbed_text(cv::Mat& image, const char* text, const cv::Point& ptOrg, uint32_t textColor, uint32_t bgColor,
                    int thickness)
 {
@@ -363,6 +370,34 @@ void imtabbed_text(cv::Mat& image, const char* text, const cv::Point& ptOrg, uin
     cairo_surface_destroy(surface);
     cairo_destroy(cr);
 }
+
+#else
+
+void imtabbed_text(cv::Mat& image, const char* text, const cv::Point& ptOrg, uint32_t textColor, uint32_t bgColor,
+                   int thickness)
+{
+    constexpr auto fontFace = FONT_HERSHEY_SIMPLEX;
+    constexpr auto fontScale = 0.5f;
+    constexpr auto xpad = 4;
+
+    auto baseline = 0;
+    auto textSize = getTextSize(text, fontFace, fontScale, thickness, &baseline);
+
+    baseline += thickness;
+    textSize.width += xpad;
+    textSize.height += baseline;
+
+    auto yoffset = thickness / 2;
+    Point ptStart(ptOrg.x, ptOrg.y - yoffset);
+    Point ptEnd(ptStart.x + textSize.width + xpad, ptStart.y - textSize.height);
+    Point ptText(ptStart.x + xpad, ptStart.y - baseline + thickness);
+
+    imtabbed_rect(image, ptStart, ptEnd, bgColor, thickness, FILLED);
+
+    putText(image, text, ptText, fontFace, fontScale, MAKE_CV_COLOR(textColor), 1, LINE_AA);
+}
+
+#endif // USE_PANGO
 
 uint32_t imtextcolor(uint32_t bgColor)
 {
