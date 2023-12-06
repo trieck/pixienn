@@ -15,10 +15,16 @@ list(APPEND PIXIENN_LIBS
         ${OpenCV_LIBS}
 )
 
-if (USE_PANGO)
+if (Cairo_FOUND)
+    list(APPEND PIXIENN_LIBS
+            ${CAIRO_LIBRARIES}
+    )
+endif (Cairo_FOUND)
+
+if (PANGO_FOUND)
     list(APPEND PIXIENN_LIBS
             ${CAIRO_LIBRARIES}
             ${Pango_LIBRARIES}
     )
 
-endif (USE_PANGO)
+endif (PANGO_FOUND)

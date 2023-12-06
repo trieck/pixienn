@@ -23,19 +23,10 @@
 
 namespace px {
 
-struct GroundTruth
-{
-    std::size_t classId;
-    float x, y, width, height;
-    cv::Rect2f box;
-};
-
-using GroundTruthVec = std::vector<GroundTruth>;
-
 struct ImageTruth
 {
     PxCpuVector image;
-    GroundTruthVec truth;
+    PxCpuVector truth;
 };
 
 class ImageTruths
@@ -56,7 +47,6 @@ public:
     ImageTruths& operator=(const ImageTruths&) = default;
     ImageTruths& operator=(ImageTruths&&) = default;
     const ImageTruth& operator[](size_type index) const;
-    bool hasObject(size_type index) const noexcept;
 
     void emplaceBack(ImageTruth&& item);
     size_type size() const noexcept;

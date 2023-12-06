@@ -149,6 +149,8 @@ void Model::parseModel()
 
         layers_.emplace_back(layer);
     }
+
+    truths_ = detectTruths();
 }
 
 const Model::LayerVec& Model::layers() const
@@ -264,9 +266,9 @@ std::vector<Detection> Model::predict(const std::string& imageFile)
 
 #ifdef USE_CUDA
     if (useGpu()) {
-        forwardGpu(image.vector);
+        forwardGpu(image.data);
     } else {
-        forward(image.vector);
+        forward(image.data);
     }
 #else
     forward(image.vector);
@@ -293,14 +295,31 @@ std::vector<Detection> Model::predict(const std::string& imageFile)
     return detections;
 }
 
+std::uint32_t Model::detectTruths() const
+{
+    Detector* detector;
+
+    for (int i = layers_.size() - 1; i >= 0; --i) {
+        detector = dynamic_cast<Detector*>(layers_[i].get());
+        if (detector) {
+            break;
+        }
+    }
+
+    PX_CHECK(detector, "Mode has no detector layer.");
+
+    return detector->truths();
+}
+
 void Model::train()
 {
     std::printf("\nTraining model...\n");
 
+    parseTrainConfig();
+
     Timer timer;
     std::printf("Learning Rate: %.5f, Momentum: %.5f, Decay: %.5f\n", learningRate_, momentum_, decay_);
 
-    parseTrainConfig();
     loadTrainImages();
     trainBatch(loadBatch());
 
@@ -355,7 +374,7 @@ auto Model::loadBatch() -> ImageTruths
         auto gts = groundTruth(imagePath);
 
         ImageTruth truth;
-        truth.image = std::move(image.vector);
+        truth.image = std::move(image.data);
         truth.truth = std::move(gts);
         batch.emplaceBack(std::move(truth));
     }
@@ -365,7 +384,7 @@ auto Model::loadBatch() -> ImageTruths
     return batch;
 }
 
-auto Model::groundTruth(const std::string& imagePath) -> GroundTruthVec
+PxCpuVector Model::groundTruth(const std::string& imagePath)
 {
     auto basePath = baseName(imagePath);
 
@@ -376,34 +395,52 @@ auto Model::groundTruth(const std::string& imagePath) -> GroundTruthVec
     std::ifstream ifs(gtFile);
     PX_CHECK(ifs.good(), "Could not open file \"%s\".", gtFile.c_str());
 
-    GroundTruthVec vector;
+    PxCpuVector truth(truths_, 0.0f);
+    auto* ptruth = truth.data();
 
+    auto nclasses = classes();
     std::size_t id;
     float x, y, w, h;
 
     while (ifs >> id >> x >> y >> w >> h) {
-        GroundTruth gt;
-        gt.classId = id;
-
         auto left = x - w / 2;
         auto right = x + w / 2;
         auto top = y - h / 2;
         auto bottom = y + h / 2;
 
-        gt.box.x = left;
-        gt.box.width = right - left;
-        gt.box.y = top;
-        gt.box.height = bottom - top;
+        id = std::min<std::size_t>(id, nclasses - 1);
+        left = std::max(0.0f, std::min(left, 1.0f));
+        right = std::max(0.0f, std::min(right, 1.0f));
+        top = std::max(0.0f, std::min(top, 1.0f));
+        bottom = std::max(0.0f, std::min(bottom, 1.0f));
 
-        gt.x = (left + right) / 2;
-        gt.y = (top + bottom) / 2;
-        gt.width = gt.box.width;
-        gt.height = gt.box.height;
+        x = (left + right) / 2;
+        y = (top + bottom) / 2;
+        w = right - left;
+        h = bottom - top;
 
-        vector.emplace_back(std::move(gt));
+        auto col = (int) (x * 7);   // FIXME:
+        auto row = (int) (y * 7);
+
+        x = x * 7 - col;
+        y = y * 7 - row;
+
+        w = sqrt(w);    // FIXME:
+        h = sqrt(h);
+
+        auto index = (col + row * 7) * (4 + nclasses + 1 /*background*/);    // FIXME:
+        if (1/*background*/) {
+            ptruth[index++] = 0;
+        }
+        ptruth[index + id] = 1;
+        index += nclasses;
+        truth[index++] = x;
+        truth[index++] = y;
+        truth[index++] = w;
+        truth[index++] = h;
     }
 
-    return vector;
+    return truth;
 }
 
 void Model::loadTrainImages()
@@ -585,6 +622,11 @@ uint32_t Model::classes() const noexcept
 const ImageTruths& Model::truth() const noexcept
 {
     return truth_;
+}
+
+const uint32_t Model::truths() const noexcept
+{
+    return truths_;
 }
 
 #ifdef USE_CUDA

@@ -15,6 +15,7 @@ add_executable(pixienn-test
         math.cpp
         maxpool.cpp
         tensor.cpp
+        tiff.cpp
         upsample.cpp
         vector.cpp
 )

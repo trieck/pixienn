@@ -68,7 +68,7 @@ Mat imread(const char* path)
     return image;
 }
 
-ImageVector imread_vector(const char* path)
+Image imread_vector(const char* path)
 {
     auto image = imread_normalize(path);
 
@@ -78,7 +78,7 @@ ImageVector imread_vector(const char* path)
     return { vector, image.cols, image.rows, image.channels() };
 }
 
-ImageVector imread_vector(const char* path, int width, int height)
+Image imread_vector(const char* path, int width, int height)
 {
     auto image = imread_normalize(path);
 
@@ -133,11 +133,11 @@ void imsave(const char* path, const cv::Mat& image)
 }
 
 // save an image in normalized float format as TIFF
-void imsave(const char* path, ImageVector& image)
+void imsave(const char* path, Image& image)
 {
     cv::Mat mat(image.height, image.width, CV_MAKETYPE(CV_32F, image.channels));
 
-    auto* pimage = image.vector.data();
+    auto* pimage = image.data.data();
     auto* pmat = mat.ptr<float>();
     auto planeSize = image.height * image.width;
 
@@ -179,7 +179,7 @@ Mat imletterbox(const Mat& image, int width, int height)
     Mat resized;
     resize(image, resized, { newWidth, newHeight });
 
-    auto boxed = immake(height, width, image.channels(), 0.5f);
+    Mat boxed{ height, width, CV_32FC(image.channels()), Scalar_<float>::all(0.5f) };
 
     auto x = (width - newWidth) / 2;
     auto y = (height - newHeight) / 2;
@@ -187,72 +187,6 @@ Mat imletterbox(const Mat& image, int width, int height)
     resized.copyTo(boxed(Rect(x, y, resized.cols, resized.rows)));
 
     return boxed;
-}
-
-Mat imchannel(const Mat& image, int c)
-{
-    PX_CHECK(c < image.channels(), "Channel out of bounds.");
-
-    Mat channel;
-    extractChannel(image, channel, c);
-
-    return channel;
-}
-
-float imget(const Mat& image, int x, int y, int c)
-{
-    PX_CHECK(image.rows > y, "Row out of bounds");
-    PX_CHECK(image.cols > x, "Column out of bounds");
-    PX_CHECK(image.channels() > c, "Channel out of bounds");
-
-    return image.ptr<float>(y, x)[c];
-}
-
-float imgetextend(const Mat& image, int x, int y, int c)
-{
-    if (x < 0 || x >= image.cols || y < 0 || y >= image.rows || c < 0 || c >= image.channels()) return 0;
-
-    return imget(image, x, y, c);
-}
-
-void imset(Mat& image, int x, int y, int c, float value)
-{
-    PX_CHECK(image.rows > y, "Row out of bounds.");
-    PX_CHECK(image.cols > x, "Column out of bounds.");
-    PX_CHECK(image.channels() > c, "Channel out of bounds.");
-
-    image.ptr<float>(y, x)[c] = value;
-}
-
-void imadd(Mat& image, int x, int y, int c, float value)
-{
-    PX_CHECK(image.rows > y, "Row out of bounds.");
-    PX_CHECK(image.cols > x, "Column out of bounds.");
-    PX_CHECK(image.channels() > c, "Channel out of bounds.");
-
-    image.ptr<float>(y, x)[c] += value;
-}
-
-Mat imrandom(int height, int width, int channels)
-{
-    Mat image = immake(height, width, channels);
-
-    randu(image, Scalar::all(0.f), Scalar::all(1.f));
-
-    return image;
-}
-
-Mat immake(int height, int width, int channels, float value)
-{
-    return { height, width, CV_32FC(channels), Scalar_<float>::all(value) };
-}
-
-void imzero(const Mat& image, int c)
-{
-    PX_CHECK(c < image.channels(), "Channel out of bounds.");
-
-    auto channel = imchannel(image, c);
-    channel.setTo(Scalar::all(0.0f));
 }
 
 PxCpuVector imvector(const cv::Mat& image)
@@ -337,7 +271,7 @@ void imtabbed_text(cv::Mat& image, const char* text, const cv::Point& ptOrg, uin
     auto* layout = pango_cairo_create_layout(cr);
 
     // Set font description
-    auto* desc = pango_font_description_from_string("Sans 10");
+    auto* desc = pango_font_description_from_string("Quicksand Semi-Bold 12, Sans 12");
     pango_layout_set_font_description(layout, desc);
     pango_font_description_free(desc);
 
