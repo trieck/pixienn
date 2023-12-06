@@ -44,6 +44,8 @@ void DetectLayer::setup()
     softmax_ = property<bool>("softmax", false);
     sqrt_ = property<bool>("sqrt", false);
 
+    assert(side_ * side_ * ((1 + coords_) * num_ + classes()) == inputs());
+
     setOutChannels(channels());
     setOutHeight(height());
     setOutWidth(width());
@@ -69,6 +71,14 @@ std::ostream& DetectLayer::print(std::ostream& os)
     return os;
 }
 
+uint32_t DetectLayer::truths() const noexcept
+{
+    auto nclasses = classes();
+    auto result = side_ * side_ * (1 + coords_ + nclasses);
+
+    return result;
+}
+
 void DetectLayer::forward(const PxCpuVector& input)
 {
     if (softmax_) {
@@ -81,11 +91,7 @@ void DetectLayer::forward(const PxCpuVector& input)
         return;
     }
 
-    float avgIou = 0;
-    float avgCat = 0;
-    float avgAllcat = 0;
-    float avgObj = 0;
-    float avgAnyObj = 0;
+    float avgIou = 0, avgCat = 0, avgAllcat = 0, avgObj = 0, avgAnyObj = 0;
     auto count = 0;
     auto size = batch() * inputs();
     auto nclasses = classes();
@@ -103,7 +109,7 @@ void DetectLayer::forward(const PxCpuVector& input)
 
         for (auto i = 0; i < locations; ++i) {
             auto truthIndex = (b * locations + i);
-            auto isObject = gndTruth.hasObject(truthIndex);
+            //auto isObject = gndTruth.hasObject(truthIndex);
 
             for (auto j = 0; j < num_; ++j) {
                 auto pindex = index + locations * nclasses + i * num_ + j;
@@ -117,9 +123,9 @@ void DetectLayer::forward(const PxCpuVector& input)
             auto bestIou = 0.0f;
             auto bestRmse = 20.0f;
 
-            if (!isObject) {
+            /*if (!isObject) {
                 continue;
-            }
+            }*/
 
             auto classIndex = index + i * nclasses;
 
@@ -165,14 +171,14 @@ DetectLayer::addDetects(Detections& detections, int width, int height, float thr
 {
     auto nclasses = classes();
 
-    const auto area = side_ * side_;
-    for (auto i = 0; i < area; ++i) {
+    const auto locations = side_ * side_;
+    for (auto i = 0; i < locations; ++i) {
         auto row = i / side_;
         auto col = i % side_;
         for (auto n = 0; n < num_; ++n) {
-            auto pindex = area * nclasses + i * num_ + n;
+            auto pindex = locations * nclasses + i * num_ + n;
             auto scale = predictions[pindex];
-            auto bindex = area * (nclasses + num_) + (i * num_ + n) * 4;
+            auto bindex = locations * (nclasses + num_) + (i * num_ + n) * 4;
             auto x = (predictions[bindex + 0] + col) / side_ * width;
             auto y = (predictions[bindex + 1] + row) / side_ * height;
             auto w = pow(predictions[bindex + 2], (sqrt_ ? 2 : 1)) * width;

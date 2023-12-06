@@ -21,7 +21,6 @@ namespace px {
 
 ImageTruths::ImageTruths()
 {
-
 }
 
 ImageTruths::~ImageTruths()
@@ -63,11 +62,6 @@ const ImageTruth& ImageTruths::operator[](size_type index) const
 auto ImageTruths::size() const noexcept -> size_type
 {
     return truths_.size();
-}
-
-bool ImageTruths::hasObject(size_type index) const noexcept
-{
-    return index < size();
 }
 
 }

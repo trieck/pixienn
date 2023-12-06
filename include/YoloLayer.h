@@ -36,6 +36,8 @@ public:
     void backward(const PxCpuVector& input) override;
 
     void addDetects(Detections& detections, int width, int height, float threshold) override;
+    uint32_t truths() const noexcept override;
+
 #ifdef USE_CUDA
     void forwardGpu(const PxCudaVector& input) override;
     void addDetectsGpu(Detections& detections, int width, int height, float threshold) override;

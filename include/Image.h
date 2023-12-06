@@ -23,26 +23,19 @@
 
 namespace px {
 
-struct ImageVector
+struct Image
 {
-    PxCpuVector vector;
-    int width, height, channels;
+    PxCpuVector data;
+    int width = 0;
+    int height = 0;
+    int channels = 0;
 };
-
-// Single-channel extraction from an image
-cv::Mat imchannel(const cv::Mat& image, int channel);
 
 // Resize image with letterboxing
 cv::Mat imletterbox(const cv::Mat& image, int width, int height);
 
-// Create an image with specified dimensions and channels, optionally filled with a value
-cv::Mat immake(int height, int width, int channels, float value = 0.0f);
-
 // Normalize image pixel values
 cv::Mat imnormalize(const cv::Mat& image);
-
-// Create a random image with specified dimensions and channels
-cv::Mat imrandom(int height, int width, int channels);
 
 // Read an image from a file
 cv::Mat imread(const char* path);
@@ -54,10 +47,10 @@ cv::Mat imread_normalize(const char* path);
 cv::Mat imread_tiff(const char* path);
 
 // Read an image as vector
-ImageVector imread_vector(const char* path);
+Image imread_vector(const char* path);
 
 // Read an image as vector with a specific height and width
-ImageVector imread_vector(const char* path, int width, int height);
+Image imread_vector(const char* path, int width, int height);
 
 // Save an image to a file
 void imsave(const char* path, const cv::Mat& image);
@@ -66,22 +59,7 @@ void imsave(const char* path, const cv::Mat& image);
 void imsave_tiff(const char* path, const cv::Mat& image);
 
 // Save an ImageVector in TIFF format
-void imsave(const char* path, ImageVector& image);
-
-// Get the pixel value at a specific position in the image
-float imget(const cv::Mat& image, int x, int y, int c);
-
-// Get extended pixel value at a specific position in the image
-float imgetextend(const cv::Mat& image, int x, int y, int c);
-
-// Add a value to a pixel in the image
-void imadd(cv::Mat& image, int x, int y, int c, float value);
-
-// Set the pixel value at a specific position in the image
-void imset(cv::Mat& image, int x, int y, int c, float value);
-
-// Zero out a specific channel in the image
-void imzero(const cv::Mat& image, int c);
+void imsave(const char* path, Image& image);
 
 // Convert image to a PxCpuVector
 PxCpuVector imvector(const cv::Mat& image);
