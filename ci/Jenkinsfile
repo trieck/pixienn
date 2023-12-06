@@ -6,8 +6,6 @@ pipeline {
     }
 
     environment {
-        // Define environment variables if needed
-        // For example:
         // CMAKE_VERSION = '3.21.2'
     }
 
