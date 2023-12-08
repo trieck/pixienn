@@ -147,8 +147,6 @@ void Model::parseModel()
 
         layers_.emplace_back(layer);
     }
-
-    truths_ = detectTruths();
 }
 
 const Model::LayerVec& Model::layers() const
@@ -186,7 +184,6 @@ void Model::forward(const PxCpuVector& input)
     }
 
     //calc_network_cost(netp);
-
 }
 
 void Model::backward(const PxCpuVector& input) // FIXME:
@@ -296,22 +293,6 @@ std::vector<Detection> Model::predict(const std::string& imageFile)
     return detections;
 }
 
-std::uint32_t Model::detectTruths() const
-{
-    Detector* detector;
-
-    for (int i = layers_.size() - 1; i >= 0; --i) {
-        detector = dynamic_cast<Detector*>(layers_[i].get());
-        if (detector) {
-            break;
-        }
-    }
-
-    PX_CHECK(detector, "Mode has no detector layer.");
-
-    return detector->truths();
-}
-
 void Model::train()
 {
     std::printf("\nTraining model...\n");
@@ -367,7 +348,7 @@ auto Model::loadBatch() -> ImageTruths
     auto rng = std::default_random_engine{};
     std::shuffle(std::begin(trainImages_), std::end(trainImages_), rng);
 
-    auto n = std::min<std::size_t>(1, trainImages_.size()); // FIXME: 1 image!
+    auto n = std::min<std::size_t>(1000, trainImages_.size()); // FIXME: 1 image!
 
     for (auto i = 0; i < n; ++i) {
         const auto& imagePath = trainImages_[i];
@@ -607,11 +588,6 @@ uint32_t Model::classes() const noexcept
 const ImageTruths& Model::truth() const noexcept
 {
     return truth_;
-}
-
-const uint32_t Model::truths() const noexcept
-{
-    return truths_;
 }
 
 #ifdef USE_CUDA

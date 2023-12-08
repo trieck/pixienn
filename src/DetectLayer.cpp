@@ -222,14 +222,18 @@ void DetectLayer::forward(const PxCpuVector& input)
 
     // what was the point of all the cost stuff we just did???
     cost() = std::pow(magArray(pdelta, batch() * outputs()), 2);
-
-    printf("Detection Avg IOU: %.2f, Pos Cat: %.2f, All Cat: %.2f, Pos Obj: %.2f, Any Obj: %.2f, Count: %d\n",
-           avgIou / count,
-           avgCat / count,
-           avgAllcat / (count * nclasses),
-           avgObj / count,
-           avgAnyObj / (batch() * locations * num_),
-           count);
+    if (count == 0) {
+        printf("Detection Avg IOU: ----, Pos Cat: ----, All Cat: ----, Pos Obj: ----, Any Obj: %.2f, Count: 0\n",
+               avgAnyObj / (batch() * locations * num_));
+    } else {
+        printf("Detection Avg IOU: %.2f, Pos Cat: %.2f, All Cat: %.2f, Pos Obj: %.2f, Any Obj: %.2f, Count: %d\n",
+               avgIou / count,
+               avgCat / count,
+               avgAllcat / (count * nclasses),
+               avgObj / count,
+               avgAnyObj / (batch() * locations * num_),
+               count);
+    }
 }
 
 void DetectLayer::backward(const PxCpuVector& input)
