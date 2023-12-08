@@ -1024,15 +1024,15 @@ PxTensor<float, N>::Ptr cudaTensor(Args&& ...args)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<typename T>
-T random(const typename T::shape_type& shape)
+T random(const typename T::shape_type& shape, typename T::value_type lo = 0, typename T::value_type hi = 1)
 {
     T out(shape);
 
 #ifdef USE_CUDA
     if constexpr (typename T::device_type() == Device::CUDA) {
-        randomGpu(out.data(), out.size(), typename T::value_type(0), typename T::value_type(1));
+        randomGpu(out.data(), out.size(), lo, hi);
     } else {
-        randomCpu(out.data(), out.size(), typename T::value_type(0), typename T::value_type(1));
+        randomCpu(out.data(), out.size(), lo, hi);
     }
 #else
     randomCpu(out.data(), out.size(), typename T::value_type(0), typename T::value_type(1));

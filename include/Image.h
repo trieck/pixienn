@@ -41,22 +41,22 @@ cv::Mat imnormalize(const cv::Mat& image);
 cv::Mat imread(const char* path);
 
 // Read an image and resize with normalization
-cv::Mat imread_normalize(const char* path);
+cv::Mat imreadNormalize(const char* path);
 
 // Read an image in TIFF format
-cv::Mat imread_tiff(const char* path);
+cv::Mat imreadTiff(const char* path);
 
 // Read an image as vector
-Image imread_vector(const char* path);
+Image imreadVector(const char* path);
 
 // Read an image as vector with a specific height and width
-Image imread_vector(const char* path, int width, int height);
+Image imreadVector(const char* path, int width, int height);
 
 // Save an image to a file
 void imsave(const char* path, const cv::Mat& image);
 
 // Save an image in TIFF format
-void imsave_tiff(const char* path, const cv::Mat& image);
+void imsaveTiff(const char* path, const cv::Mat& image);
 
 // Save an ImageVector in TIFF format
 void imsave(const char* path, Image& image);
@@ -68,12 +68,12 @@ PxCpuVector imvector(const cv::Mat& image);
 void imrect(cv::Mat& image, const cv::Rect& rect, uint32_t color, int thickness = 1, int lineType = cv::LINE_AA);
 
 // Draw a rectangle with tabbed corners on the image
-void imtabbed_rect(cv::Mat& img, const cv::Point& pt1, const cv::Point& pt2, uint32_t color,
-                   int thickness = 1, int lineType = cv::LINE_AA, int cornerRadius = 2);
+void imtabbedRect(cv::Mat& img, const cv::Point& pt1, const cv::Point& pt2, uint32_t color,
+                  int thickness = 1, int lineType = cv::LINE_AA, int cornerRadius = 2);
 
 // Draw tabbed text on the image
-void imtabbed_text(cv::Mat& image, const char* text, const cv::Point& ptOrg, uint32_t textColor, uint32_t bgColor,
-                   int thickness = 1);
+void imtabbedText(cv::Mat& image, const char* text, const cv::Point& ptOrg, uint32_t textColor, uint32_t bgColor,
+                  int thickness = 1);
 
 // Get the text color for an image background color
 uint32_t imtextcolor(uint32_t color);

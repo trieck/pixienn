@@ -184,6 +184,9 @@ void Model::forward(const PxCpuVector& input)
         layer->forward(*in);
         in = &layer->output();
     }
+
+    //calc_network_cost(netp);
+
 }
 
 void Model::backward(const PxCpuVector& input) // FIXME:
@@ -256,7 +259,7 @@ void Model::loadWeights()
 
 std::vector<Detection> Model::predict(const std::string& imageFile)
 {
-    auto image = imread_vector(imageFile.c_str(), width(), height());
+    auto image = imreadVector(imageFile.c_str(), width(), height());
 
     std::cout << std::endl << "Running model...";
 
@@ -335,7 +338,7 @@ float Model::trainBatch(ImageTruths&& batch)
     for (const auto& item: truth_) {
         forward(item.image);
         backward(item.image);
-        error = +cost();
+        error += cost();
     }
 
     return error;
@@ -368,7 +371,7 @@ auto Model::loadBatch() -> ImageTruths
 
     for (auto i = 0; i < n; ++i) {
         const auto& imagePath = trainImages_[i];
-        auto image = imread_vector(imagePath.c_str(), width(), height());
+        auto image = imreadVector(imagePath.c_str(), width(), height());
         auto gts = groundTruth(imagePath);
 
         ImageTruth truth;
@@ -493,12 +496,12 @@ void Model::overlay(const std::string& imageFile, const Detections& detects) con
         std::cout << text << std::endl;
 
         if (!hasOption("no-labels")) {
-            imtabbed_text(img, text.str().c_str(), box.tl(), textColor, bgColor, thickness);
+            imtabbedText(img, text.str().c_str(), box.tl(), textColor, bgColor, thickness);
         }
     }
 
     if (hasOption("tiff32")) {
-        imsave_tiff("predictions.tif", img);
+        imsaveTiff("predictions.tif", img);
     } else {
         imsave("predictions.jpg", img);
     }

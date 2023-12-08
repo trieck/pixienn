@@ -21,8 +21,8 @@
 
 namespace px {
 
-float boxIou(const cv::Rect& a, const cv::Rect& b);
-float boxRmse(const cv::Rect& a, const cv::Rect& b);
+float boxIou(const cv::Rect2f& a, const cv::Rect2f& b);
+float boxRmse(const cv::Rect2f& a, const cv::Rect2f& b);
 void nms(Detections& detects, float threshold);
 
 }   // px

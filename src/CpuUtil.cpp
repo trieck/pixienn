@@ -41,8 +41,8 @@ void im2ColCpu(const float* im, int channels, int height, int width, int ksize, 
     int heightCol = (height + 2 * pad - ksize) / stride + 1;
     int widthCol = (width + 2 * pad - ksize) / stride + 1;
 
-    int channels_col = channels * ksize * ksize;
-    for (c = 0; c < channels_col; ++c) {
+    int channelsCol = channels * ksize * ksize;
+    for (c = 0; c < channelsCol; ++c) {
         int wOffset = c % ksize;
         int hOffset = (c / ksize) % ksize;
         int cIm = c / ksize / ksize;
