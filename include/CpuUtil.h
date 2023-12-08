@@ -21,6 +21,7 @@
 
 namespace px {
 
+float magArray(const float *a, int n);
 float sumArray(const float* a, int n);
 void addBias(float* output, const float* biases, int batch, int n, int size);
 void backwardBias(float* biasUpdates, const float* delta, int batch, int n, int size);

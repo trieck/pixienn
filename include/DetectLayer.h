@@ -50,7 +50,7 @@ private:
 
     int coords_, num_, side_, maxBoxes_;
     bool rescore_, softmax_, sqrt_, forced_, random_, reorg_;
-    float coordScale_, objectScale_, noObjectScale_, classScale, jitter_;
+    float coordScale_, objectScale_, noObjectScale_, classScale_, jitter_;
 };
 
 } // px

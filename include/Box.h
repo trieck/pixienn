@@ -14,15 +14,17 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_NMS_H
-#define PIXIENN_NMS_H
+#ifndef PIXIENN_BOX_H
+#define PIXIENN_BOX_H
 
 #include "Detection.h"
 
 namespace px {
 
+float boxIou(const cv::Rect& a, const cv::Rect& b);
+float boxRmse(const cv::Rect& a, const cv::Rect& b);
 void nms(Detections& detects, float threshold);
 
 }   // px
 
-#endif // PIXIENN_NMS_H
+#endif // PIXIENN_BOX_H

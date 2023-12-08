@@ -98,7 +98,7 @@ private:
     std::uint32_t detectTruths() const;
     void loadTrainImages();
     ImageTruths loadBatch();
-    PxCpuVector groundTruth(const std::string& imagePath);
+    GroundTruthVec groundTruth(const std::string& imagePath);
 
     // file paths
     std::string cfgFile_;
@@ -124,7 +124,6 @@ private:
     PxCpuVector::pointer delta_ = nullptr;
 
     std::uint32_t truths_ = 0;
-    int maxBoxes_ = 0;
     int subdivs_ = 0;
     int timeSteps_ = 0;
     int outputs_ = 0;

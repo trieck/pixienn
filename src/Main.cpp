@@ -22,7 +22,7 @@
 #include "Error.h"
 #include "Image.h"
 #include "Model.h"
-#include "NMS.h"
+#include "Box.h"
 
 namespace po = boost::program_options;
 

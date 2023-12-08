@@ -87,6 +87,17 @@ float sumArray(const float* a, int n)
     return sum;
 }
 
+float magArray(const float* a, int n)
+{
+    float sum = 0;
+
+    for (auto i = 0; i < n; ++i) {
+        sum += a[i] * a[i];
+    }
+
+    return sqrt(sum);
+}
+
 void randomCpu(float* ptr, std::size_t n, float a, float b)
 {
     std::random_device device;
@@ -124,7 +135,7 @@ void varianceCpu(const float* x, float* mean, int batch, int filters, int spatia
         variance[i] = 0;
         for (auto j = 0; j < batch; ++j) {
             for (auto k = 0; k < spatial; ++k) {
-                int index = i * spatial + j * filters * spatial +  k;
+                int index = i * spatial + j * filters * spatial + k;
                 variance[i] += pow((x[index] - mean[i]), 2);
             }
         }
