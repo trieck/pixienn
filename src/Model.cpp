@@ -97,8 +97,6 @@ void Model::parseModel()
     width_ = model["width"].as<int>();
     subdivs_ = model["subdivisions"].as<int>(1);
     timeSteps_ = model["time_steps"].as<int>(1);
-    maxBoxes_ = model["time_steps"].as<int>(90);
-
     learningRate_ = model["learning_rate"].as<float>(0.001f);
     momentum_ = model["momentum"].as<float>(0.9f);
     decay_ = model["decay"].as<float>(0.0001f);
@@ -384,7 +382,7 @@ auto Model::loadBatch() -> ImageTruths
     return batch;
 }
 
-PxCpuVector Model::groundTruth(const std::string& imagePath)
+auto Model::groundTruth(const std::string& imagePath) -> GroundTruthVec
 {
     auto basePath = baseName(imagePath);
 
@@ -395,14 +393,16 @@ PxCpuVector Model::groundTruth(const std::string& imagePath)
     std::ifstream ifs(gtFile);
     PX_CHECK(ifs.good(), "Could not open file \"%s\".", gtFile.c_str());
 
-    PxCpuVector truth(truths_, 0.0f);
-    auto* ptruth = truth.data();
+    GroundTruthVec vector;
 
     auto nclasses = classes();
     std::size_t id;
     float x, y, w, h;
 
     while (ifs >> id >> x >> y >> w >> h) {
+        GroundTruth gt;
+        gt.classId = id;
+
         auto left = x - w / 2;
         auto right = x + w / 2;
         auto top = y - h / 2;
@@ -414,33 +414,15 @@ PxCpuVector Model::groundTruth(const std::string& imagePath)
         top = std::max(0.0f, std::min(top, 1.0f));
         bottom = std::max(0.0f, std::min(bottom, 1.0f));
 
-        x = (left + right) / 2;
-        y = (top + bottom) / 2;
-        w = right - left;
-        h = bottom - top;
+        gt.box.x = (left + right) / 2;
+        gt.box.y = (top + bottom) / 2;
+        gt.box.width = right - left;
+        gt.box.height = bottom - top;
 
-        auto col = (int) (x * 7);   // FIXME:
-        auto row = (int) (y * 7);
-
-        x = x * 7 - col;
-        y = y * 7 - row;
-
-        w = sqrt(w);    // FIXME:
-        h = sqrt(h);
-
-        auto index = (col + row * 7) * (4 + nclasses + 1 /*background*/);    // FIXME:
-        if (1/*background*/) {
-            ptruth[index++] = 0;
-        }
-        ptruth[index + id] = 1;
-        index += nclasses;
-        truth[index++] = x;
-        truth[index++] = y;
-        truth[index++] = w;
-        truth[index++] = h;
+        vector.emplace_back(std::move(gt));
     }
 
-    return truth;
+    return vector;
 }
 
 void Model::loadTrainImages()
@@ -561,8 +543,8 @@ std::string Model::asJson(const Detections& detects) const noexcept
 
         geometry["coordinates"] = json::array({ coords });
 
-        props["top_cat"] = labels_[index];
-        props["top_score"] = max;
+        props["class"] = labels_[index];
+        props["confidence"] = max;
 
         feature["geometry"] = geometry;
         feature["properties"] = props;

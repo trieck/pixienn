@@ -23,10 +23,18 @@
 
 namespace px {
 
+struct GroundTruth
+{
+    std::size_t classId;
+    cv::Rect2f box;
+};
+
+using GroundTruthVec = std::vector<GroundTruth>;
+
 struct ImageTruth
 {
     PxCpuVector image;
-    PxCpuVector truth;
+    GroundTruthVec truth;
 };
 
 class ImageTruths
@@ -47,6 +55,8 @@ public:
     ImageTruths& operator=(const ImageTruths&) = default;
     ImageTruths& operator=(ImageTruths&&) = default;
     const ImageTruth& operator[](size_type index) const;
+
+    const GroundTruthVec& groundTruth(size_type index) const;
 
     void emplaceBack(ImageTruth&& item);
     size_type size() const noexcept;

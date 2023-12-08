@@ -64,4 +64,11 @@ auto ImageTruths::size() const noexcept -> size_type
     return truths_.size();
 }
 
+const GroundTruthVec& ImageTruths::groundTruth(ImageTruths::size_type index) const
+{
+    PX_CHECK(index <= truths_.size(), "Index out of range.");
+
+    return truths_[index].truth;
+}
+
 }

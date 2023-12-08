@@ -14,7 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include "NMS.h"
+#include "Box.h"
 
 namespace px {
 
@@ -28,9 +28,17 @@ static float boxUnion(const cv::Rect& a, const cv::Rect& b)
     return float((a | b).area());
 }
 
-static float boxIou(const cv::Rect& a, const cv::Rect& b)
+float boxIou(const cv::Rect& a, const cv::Rect& b)
 {
     return boxIntersection(a, b) / boxUnion(a, b);
+}
+
+float boxRmse(const cv::Rect& a, const cv::Rect& b)
+{
+    return std::sqrt(pow(a.x - b.x, 2) +
+                pow(a.y - b.y, 2) +
+                pow(a.width - b.width, 2) +
+                pow(a.height - b.height, 2));
 }
 
 void nms(Detections& detects, float threshold)

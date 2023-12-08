@@ -94,6 +94,7 @@ list(APPEND SOURCES
         src/Activation.cpp
         src/BatchNormAlgo.cpp
         src/BatchNormLayer.cpp
+        src/Box.cpp
         src/ColorMaps.cpp
         src/ConnAlgo.cpp
         src/ConnLayer.cpp
@@ -111,7 +112,6 @@ list(APPEND SOURCES
         src/MaxPoolAlgo.cpp
         src/MaxPoolLayer.cpp
         src/Model.cpp
-        src/NMS.cpp
         src/RouteLayer.cpp
         src/ShortcutAlgo.cpp
         src/ShortcutLayer.cpp
@@ -134,22 +134,22 @@ target_include_directories(pixienn PRIVATE
         include)
 
 if (Cairo_FOUND)
-    target_compile_definitions(pixienn PRIVATE -DUSE_CAIRO)
+    target_compile_definitions(pixienn PRIVATE USE_CAIRO)
 else ()
-    unset(USE_CAIRO CACHE)
+    remove_definitions(-DUSE_CAIRO)
 endif ()
 
 if (PANGO_FOUND)
-    target_compile_definitions(pixienn PRIVATE -DUSE_PANGO)
+    target_compile_definitions(pixienn PRIVATE USE_PANGO)
 else ()
-    unset(USE_PANGO CACHE)
+    remove_definitions(-DUSE_PANGO)
 endif ()
 
 if (USE_CUDA)
     target_include_directories(pixienn PRIVATE ${CUDNN_INCLUDE_DIR} ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
-    target_compile_definitions(pixienn PRIVATE -DUSE_CUDA)
+    target_compile_definitions(pixienn PRIVATE USE_CUDA)
 else ()
-    unset(USE_CUDA CACHE)
+    remove_definitions(-DUSE_CUDA)
 endif ()
 
 include(PixiennLibs)
