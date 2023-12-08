@@ -95,7 +95,6 @@ private:
     void parseModel();
     void loadWeights();
     void loadLabels();
-    std::uint32_t detectTruths() const;
     void loadTrainImages();
     ImageTruths loadBatch();
     GroundTruthVec groundTruth(const std::string& imagePath);
@@ -123,7 +122,6 @@ private:
     ImageTruths truth_;
     PxCpuVector::pointer delta_ = nullptr;
 
-    std::uint32_t truths_ = 0;
     int subdivs_ = 0;
     int timeSteps_ = 0;
     int outputs_ = 0;
