@@ -131,7 +131,7 @@ void ConvLayer::forward(const PxCpuVector& input)
 
     if (batchNormalize_) {
         batchNormalize_->forward(output_);
-        output_ = batchNormalize_->output();
+        output_.copy(batchNormalize_->output());
     } else {
         addBias(output_.data(), biases_.data(), batch(), outChannels(), outHeight() * outWidth());
     }

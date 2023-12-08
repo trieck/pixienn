@@ -18,22 +18,27 @@
 
 namespace px {
 
-static float boxIntersection(const cv::Rect& a, const cv::Rect& b)
+static float boxIntersection(const cv::Rect2f& a, const cv::Rect2f& b)
 {
     return float((a & b).area());
 }
 
-static float boxUnion(const cv::Rect& a, const cv::Rect& b)
+static float boxUnion(const cv::Rect2f& a, const cv::Rect2f& b)
 {
     return float((a | b).area());
 }
 
-float boxIou(const cv::Rect& a, const cv::Rect& b)
+float boxIou(const cv::Rect2f& a, const cv::Rect2f& b)
 {
-    return boxIntersection(a, b) / boxUnion(a, b);
+    auto _inter = boxIntersection(a, b);
+    auto _union = boxUnion(a, b);
+
+    auto result = _inter / _union;
+
+    return result;
 }
 
-float boxRmse(const cv::Rect& a, const cv::Rect& b)
+float boxRmse(const cv::Rect2f& a, const cv::Rect2f& b)
 {
     return std::sqrt(pow(a.x - b.x, 2) +
                 pow(a.y - b.y, 2) +

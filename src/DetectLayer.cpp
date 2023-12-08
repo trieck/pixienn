@@ -230,7 +230,6 @@ void DetectLayer::forward(const PxCpuVector& input)
            avgObj / count,
            avgAnyObj / (batch() * locations * num_),
            count);
-
 }
 
 void DetectLayer::backward(const PxCpuVector& input)

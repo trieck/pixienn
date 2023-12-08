@@ -59,7 +59,7 @@ void ConnLayer::setup()
     }
 
     auto scale = std::sqrt(2.0f / inputs());
-    weights_ = random<decltype(weights_)>({ (size_t) inputs(), (size_t) outputs() }) * scale;
+    weights_ = random<decltype(weights_)>({ (size_t) inputs(), (size_t) outputs() }, -1.0f, 1.0f) * scale;
 
 #ifdef USE_CUDA
     if (useGpu()) {
@@ -129,7 +129,7 @@ void ConnLayer::forward(const PxCpuVector& input)
 
     if (batchNormalize_) {
         batchNormalize_->forward(output_);
-        output_ = batchNormalize_->output();
+        output_.copy(batchNormalize_->output());
     } else {
         addBias(output_.data(), biases_.data(), batch(), outChannels(), outHeight() * outWidth());
     }

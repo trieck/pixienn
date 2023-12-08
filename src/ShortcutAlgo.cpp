@@ -43,10 +43,10 @@ void shortcutForward(const ShortcutContext& ctxt)
         for (k = 0; k < minc; ++k) {
             for (j = 0; j < minh; ++j) {
                 for (i = 0; i < minw; ++i) {
-                    int out_index =
+                    int outIndex =
                             i * sample + ctxt.outWidth * (j * sample + ctxt.outWidth * (k + ctxt.outChannels * b));
-                    int add_index = i * stride + ctxt.width * (j * stride + ctxt.height * (k + ctxt.channels * b));
-                    out[out_index] = ctxt.alpha * out[out_index] + ctxt.beta * add[add_index];
+                    int addIndex = i * stride + ctxt.width * (j * stride + ctxt.height * (k + ctxt.channels * b));
+                    out[outIndex] = ctxt.alpha * out[outIndex] + ctxt.beta * add[addIndex];
                 }
             }
         }

@@ -46,7 +46,7 @@ using namespace cv;
 
 namespace px {
 
-cv::Mat imread_tiff(const char* path)
+cv::Mat imreadTiff(const char* path)
 {
     return readTIFF(path);
 }
@@ -59,7 +59,7 @@ Mat imread(const char* path)
 
     auto extension = filePath.extension().string();
     if (extension == ".tiff" || extension == ".tif") {
-        image = imread_tiff(path);
+        image = imreadTiff(path);
     } else {
         image = imread(path, IMREAD_UNCHANGED);
         PX_CHECK(!image.empty(), "Could not open image \"%s\".", path);
@@ -68,9 +68,9 @@ Mat imread(const char* path)
     return image;
 }
 
-Image imread_vector(const char* path)
+Image imreadVector(const char* path)
 {
-    auto image = imread_normalize(path);
+    auto image = imreadNormalize(path);
 
     // convert the image from interleaved to planar
     auto vector = imvector(image);
@@ -78,9 +78,9 @@ Image imread_vector(const char* path)
     return { vector, image.cols, image.rows, image.channels() };
 }
 
-Image imread_vector(const char* path, int width, int height)
+Image imreadVector(const char* path, int width, int height)
 {
-    auto image = imread_normalize(path);
+    auto image = imreadNormalize(path);
 
     // size image to match width and height
     auto sized = imletterbox(image, width, height);
@@ -117,7 +117,7 @@ cv::Mat imnormalize(const cv::Mat& image)
 }
 
 // read an image and normalize
-Mat imread_normalize(const char* path)
+Mat imreadNormalize(const char* path)
 {
     auto image = imread(path);
 
@@ -148,11 +148,11 @@ void imsave(const char* path, Image& image)
         }
     }
 
-    imsave_tiff(path, mat);
+    imsaveTiff(path, mat);
 }
 
 // save an image in normalized float format as TIFF
-void imsave_tiff(const char* path, const cv::Mat& image)
+void imsaveTiff(const char* path, const cv::Mat& image)
 {
     Mat tiffImage(image);
     if (tiffImage.type() != CV_32FC3 && tiffImage.type() != CV_32FC1) {
@@ -220,8 +220,8 @@ void imrect(cv::Mat& image, const cv::Rect& rect, uint32_t rgb, int thickness, i
     rectangle(image, rect, MAKE_CV_COLOR(rgb), thickness, lineType, 0);
 }
 
-void imtabbed_rect(cv::Mat& image, const cv::Point& pt1, const cv::Point& pt2, uint32_t rgb, int thickness,
-                   int lineType, int cornerRadius)
+void imtabbedRect(cv::Mat& image, const cv::Point& pt1, const cv::Point& pt2, uint32_t rgb, int thickness,
+                  int lineType, int cornerRadius)
 {
     auto lineColor = MAKE_CV_COLOR(rgb);
 
@@ -257,7 +257,7 @@ void imtabbed_rect(cv::Mat& image, const cv::Point& pt1, const cv::Point& pt2, u
 
 #ifdef USE_PANGO
 
-void imtabbed_text(cv::Mat& image, const char* text, const cv::Point& ptOrg, uint32_t textColor, uint32_t bgColor,
+void imtabbedText(cv::Mat& image, const char* text, const cv::Point& ptOrg, uint32_t textColor, uint32_t bgColor,
                    int thickness)
 {
     constexpr auto xpad = 4;
@@ -290,7 +290,7 @@ void imtabbed_text(cv::Mat& image, const char* text, const cv::Point& ptOrg, uin
     auto x = ptStart.x + xpad;
     auto y = ptStart.y - textSize.height;
 
-    imtabbed_rect(image, ptStart, ptEnd, bgColor, thickness, FILLED);
+    imtabbedRect(image, ptStart, ptEnd, bgColor, thickness, FILLED);
 
     auto red = COLOR_REDF(textColor);
     auto green = COLOR_GREENF(textColor);
@@ -307,8 +307,8 @@ void imtabbed_text(cv::Mat& image, const char* text, const cv::Point& ptOrg, uin
 
 #else
 
-void imtabbed_text(cv::Mat& image, const char* text, const cv::Point& ptOrg, uint32_t textColor, uint32_t bgColor,
-                   int thickness)
+void imtabbedText(cv::Mat& image, const char* text, const cv::Point& ptOrg, uint32_t textColor, uint32_t bgColor,
+                  int thickness)
 {
     constexpr auto fontFace = FONT_HERSHEY_SIMPLEX;
     constexpr auto fontScale = 0.5f;
@@ -326,7 +326,7 @@ void imtabbed_text(cv::Mat& image, const char* text, const cv::Point& ptOrg, uin
     Point ptEnd(ptStart.x + textSize.width + xpad, ptStart.y - textSize.height);
     Point ptText(ptStart.x + xpad, ptStart.y - baseline + thickness);
 
-    imtabbed_rect(image, ptStart, ptEnd, bgColor, thickness, FILLED);
+    imtabbedRect(image, ptStart, ptEnd, bgColor, thickness, FILLED);
 
     putText(image, text, ptText, fontFace, fontScale, MAKE_CV_COLOR(textColor), 1, LINE_AA);
 }
