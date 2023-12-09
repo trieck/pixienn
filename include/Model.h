@@ -75,7 +75,6 @@ public:
     PxCpuVector::pointer delta() noexcept;
     uint32_t classes() const noexcept;
     const ImageTruths& truth() const noexcept;
-    const uint32_t truths() const noexcept;
 
 #ifdef USE_CUDA
     const CublasContext& cublasContext() const noexcept;

@@ -40,12 +40,15 @@ void batchNormBackward(const BNContext& ctxt)
     meanDeltaCpu(ctxt.delta->data(), ctxt.var->data(), ctxt.batch, ctxt.channels, ctxt.outHeight * ctxt.outWidth,
                  ctxt.meanDelta->data());
 
-    /*varianceDeltaCpu(ctxt.x->data, ctxt.delta->data(), ctxt.mean->data(), ctxt.var->data(), ctxt.batch, ctxt.channels,
-                     ctxt.outHeight * ctxt.outWidth, ctxt.varDelta->data());*/
+    varianceDeltaCpu(ctxt.x->data(), ctxt.delta->data(), ctxt.mean->data(), ctxt.var->data(), ctxt.batch, ctxt.channels,
+                     ctxt.outHeight * ctxt.outWidth, ctxt.varDelta->data());
 
+    normalizeDeltaCpu(ctxt.x->data(), ctxt.mean->data(), ctxt.var->data(), ctxt.meanDelta->data(),
+                      ctxt.varDelta->data(), ctxt.batch, ctxt.channels, ctxt.outHeight * ctxt.outWidth,
+                      ctxt.delta->data());
 
-    //normalize_delta_cpu(l.x, l.mean, l.variance, l.mean_delta, l.variance_delta, l.batch, l.out_c, l.out_w*l.out_h, l.delta);
-    //if(l.type == BATCHNORM) copy_cpu(l.outputs*l.batch, l.delta, 1, net.delta, 1);
+    // FIXME: we need another way
+    //  if(l.type == BATCHNORM) copy_cpu(l.outputs*l.batch, l.delta, 1, net.delta, 1);
 }
 
 void batchNormForward(const BNContext& ctxt)
@@ -60,8 +63,12 @@ void batchNormForward(const BNContext& ctxt)
     if (ctxt.training) {
         meanCpu(ctxt.output->data(), b, c, size, ctxt.mean->data());
         varianceCpu(ctxt.output->data(), ctxt.mean->data(), b, c, size, ctxt.var->data());
+
         cblas_sscal(c, 0.99f, ctxt.rollingMean->data(), 1);
+        cblas_saxpy(c, .01f, ctxt.mean->data(), 1, ctxt.rollingMean->data(), 1);
+        cblas_sscal(c, 0.99f, ctxt.rollingVar->data(), 1);
         cblas_saxpy(c, .01f, ctxt.var->data(), 1, ctxt.rollingVar->data(), 1);
+
         normalizeCpu(ctxt.output->data(), ctxt.mean->data(), ctxt.var->data(), b, c, size);
         cblas_scopy(b * outputs, ctxt.output->data(), 1, ctxt.xNorm->data(), 1);
     } else {

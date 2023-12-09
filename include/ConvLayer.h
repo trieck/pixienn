@@ -56,8 +56,8 @@ private:
 #endif
     friend LayerFactories;
 
-    PxCpuTensor<4> weights_;
-    PxCpuTensor<1> biases_;
+    PxCpuTensor<4> weights_, weightUpdates_;
+    PxCpuTensor<1> biases_, biasUpdates_;
     PxCpuTensor<2> column_;
 
     int dilation_ = 0, filters_, kernel_, padding_, stride_, groups_;

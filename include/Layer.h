@@ -46,7 +46,6 @@ public:
 
     static Layer::Ptr create(Model& model, const YAML::Node& layerDef);
 
-    float cost() const noexcept;
     int batch() const noexcept;
     int channels() const noexcept;
     int height() const noexcept;
@@ -69,6 +68,7 @@ public:
     virtual void backward(const PxCpuVector& input) = 0;
     const PxCpuVector& output() const noexcept;
     PxCpuVector::pointer delta() noexcept;
+    PxCpuVector::const_pointer cost() const noexcept;
 
 #ifdef USE_CUDA
     virtual void forwardGpu(const PxCudaVector& input) = 0;
@@ -100,9 +100,7 @@ protected:
     void setOutChannels(int channels);
     void setOutHeight(int height);
     void setOutWidth(int width);
-    void setCost(float cost);
 
-    float& cost();
     uint32_t classes() const noexcept;
     const ImageTruths& truth() const noexcept;
 
@@ -119,7 +117,7 @@ protected:
     PxCudaVector outputGpu_, deltaGpu_;
 #endif
 
-    PxCpuVector output_, delta_;
+    PxCpuVector output_, delta_, cost_;
 
 private:
     friend LayerFactories;
@@ -130,9 +128,6 @@ private:
     YAML::Node layerDef_;
     int batch_, channels_, height_, width_;
     int outChannels_, outHeight_, outWidth_, inputs_, index_, outputs_;
-
-    // training parameters
-    float cost_ = 0.0f;
 };
 
 template<typename T>

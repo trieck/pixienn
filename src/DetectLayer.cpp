@@ -56,12 +56,12 @@ void DetectLayer::setup()
     softmax_ = property<bool>("softmax", false);
     sqrt_ = property<bool>("sqrt", false);
 
-    assert(side_ * side_ * ((1 + coords_) * num_ + classes()) == inputs());
-
     setOutChannels(channels());
     setOutHeight(height());
     setOutWidth(width());
     setOutputs(inputs());
+
+    cost_ = PxCpuVector(1);
 
 #ifdef USE_CUDA
     if (useGpu()) {
@@ -109,7 +109,7 @@ void DetectLayer::forward(const PxCpuVector& input)
     auto nclasses = classes();
     const auto& truths = truth();
 
-    cost() = 0;
+    auto& cost = cost_[0] = 0;
     delta_.fill(0);
 
     auto locations = side_ * side_;
@@ -128,7 +128,7 @@ void DetectLayer::forward(const PxCpuVector& input)
             for (auto j = 0; j < num_; ++j) {
                 auto pindex = index + locations * nclasses + i * num_ + j;
                 pdelta[pindex] = noObjectScale_ * (0 - poutput[pindex]);
-                cost() += noObjectScale_ * std::pow(poutput[pindex], 2);
+                cost += noObjectScale_ * std::pow(poutput[pindex], 2);
                 avgAnyObj += poutput[pindex];
 
                 auto boxIndex = index + locations * (nclasses + num_) + (i * num_ + j) * coords_;
@@ -179,7 +179,7 @@ void DetectLayer::forward(const PxCpuVector& input)
             for (auto j = 0; j < nclasses; ++j) {
                 float netTruth = bestTruth->classId == j ? 1.0f : 0.0f;
                 pdelta[classIndex + j] = classScale_ * (netTruth - poutput[classIndex + j]);
-                cost() += classScale_ * pow(netTruth - poutput[classIndex + j], 2);
+                cost += classScale_ * pow(netTruth - poutput[classIndex + j], 2);
                 if (netTruth) avgCat += poutput[classIndex + j];
                 avgAllcat += poutput[classIndex + j];
             }
@@ -195,8 +195,8 @@ void DetectLayer::forward(const PxCpuVector& input)
 
             auto iou = boxIou(pred, bestTruth->box);
             auto pindex = index + locations * nclasses + i * num_ + bestIndex;
-            cost() -= noObjectScale_ * std::pow(poutput[pindex], 2);
-            cost() += objectScale_ * std::pow(1 - poutput[pindex], 2);
+            cost -= noObjectScale_ * std::pow(poutput[pindex], 2);
+            cost += objectScale_ * std::pow(1 - poutput[pindex], 2);
             avgObj += poutput[pindex];
             pdelta[pindex] = objectScale_ * (1. - poutput[pindex]);
 
@@ -214,14 +214,14 @@ void DetectLayer::forward(const PxCpuVector& input)
                 pdelta[boxIndex + 3] = coordScale_ * (std::sqrt(bestTruth->box.height) - poutput[boxIndex + 3]);
             }
 
-            cost() += std::pow(1 - iou, 2);
+            cost += std::pow(1 - iou, 2);
             avgIou += iou;
             ++count;
         }
     }
 
     // what was the point of all the cost stuff we just did???
-    cost() = std::pow(magArray(pdelta, batch() * outputs()), 2);
+    cost = std::pow(magArray(pdelta, batch() * outputs()), 2);
     if (count == 0) {
         printf("Detection Avg IOU: ----, Pos Cat: ----, All Cat: ----, Pos Obj: ----, Any Obj: %.2f, Count: 0\n",
                avgAnyObj / (batch() * locations * num_));

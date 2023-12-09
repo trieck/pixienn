@@ -27,9 +27,9 @@
 
 namespace px {
 
-ConvLayer::ConvLayer(Model& model, const YAML::Node& layerDef)
-        : Layer(model, layerDef), filters_(0), kernel_(0), padding_(0), stride_(0),
-          groups_(0)
+ConvLayer::ConvLayer(Model& model, const YAML::Node& layerDef) : Layer(model, layerDef), filters_(0), kernel_(0),
+                                                                 padding_(0), stride_(0),
+                                                                 groups_(0)
 {
 }
 
@@ -62,6 +62,7 @@ void ConvLayer::setup()
         batchNormalize_ = Layer::create(model(), def);
     } else {
         biases_ = PxCpuTensor<1>({ (size_t) filters_ }, 0.f);
+        biasUpdates_ = PxCpuTensor<1>({ (size_t) filters_ }, 0.f);
     }
 
     auto scale = std::sqrt(2.0f / (kernel_ * kernel_ * channels() / groups_));
@@ -69,6 +70,8 @@ void ConvLayer::setup()
                                             (size_t) (channels() / groups_),
                                             (size_t) kernel_,
                                             (size_t) kernel_ }) * scale;
+    
+    weightUpdates_ = PxCpuTensor<4>(weights_.shape());
 
 #ifdef USE_CUDA
     if (useGpu()) {
@@ -133,7 +136,7 @@ void ConvLayer::forward(const PxCpuVector& input)
         batchNormalize_->forward(output_);
         output_.copy(batchNormalize_->output());
     } else {
-        addBias(output_.data(), biases_.data(), batch(), outChannels(), outHeight() * outWidth());
+        addBias(output_.data(), biases_.data(), batch(), filters_, outHeight() * outWidth());
     }
 
     activationFnc_->apply(output_);
@@ -147,7 +150,7 @@ void ConvLayer::backward(const PxCpuVector& input)
         batchNormalize_->backward(output_);
         output_.copy(batchNormalize_->output());    // TODO: is that right?
     } else {
-        addBias(output_.data(), biases_.data(), batch(), outChannels(), outHeight() * outWidth());
+        backwardBias(biasUpdates_.data(), delta_.data(), batch(), filters_, outHeight() * outWidth());
     }
 
     auto ctxt = makeContext(input);
@@ -160,18 +163,21 @@ ConvContext ConvLayer::makeContext(const PxCpuVector& input)
     ctxt.batch = batch();
     ctxt.channels = channels();
     ctxt.column = &column_;
+    ctxt.delta = &delta_;
     ctxt.dilation = dilation_;
     ctxt.filters = filters_;
     ctxt.groups = groups_;
     ctxt.height = height();
     ctxt.input = &input;
     ctxt.kernel = kernel_;
+    ctxt.nweights = weights_.size();
     ctxt.outHeight = outHeight();
     ctxt.outWidth = outWidth();
     ctxt.output = &output_;
     ctxt.padding = padding_;
     ctxt.stride = stride_;
     ctxt.weights = &weights_;
+    ctxt.weightUpdates = &weightUpdates_;
     ctxt.width = width();
 
     return ctxt;
@@ -261,7 +267,7 @@ void ConvLayer::forwardGpu(const PxCudaVector& input)
         batchNormalize_->forwardGpu(outputGpu_);
         outputGpu_ = batchNormalize_->outputGpu();
     } else {
-        addBiasGpu(outputGpu_.data(), biasesGpu_.data(), batch(), outChannels(), outHeight() * outWidth());
+        addBiasGpu(outputGpu_.data(), biasesGpu_.data(), batch(), filters_, outHeight() * outWidth());
     }
 
     activationFnc_->applyGpu(outputGpu_);
@@ -272,27 +278,28 @@ ConvContext ConvLayer::makeContext(const PxCudaVector& input)
     ConvContext ctxt{};
 
     ctxt.batch = batch();
+    ctxt.bestAlgo = bestAlgo_;
     ctxt.channels = channels();
+    ctxt.convDesc = convDesc_.get();
+    ctxt.cudnnContext = &cudnnContext();
     ctxt.dilation = dilation_;
     ctxt.filters = filters_;
     ctxt.groups = groups_;
     ctxt.height = height();
     ctxt.inputGpu = &input;
     ctxt.kernel = kernel_;
+    ctxt.nweights = weightsGpu_.size();
     ctxt.outHeight = outHeight();
     ctxt.outWidth = outWidth();
     ctxt.outputGpu = &outputGpu_;
     ctxt.padding = padding_;
     ctxt.stride = stride_;
+    ctxt.wDesc = wDesc_.get();
     ctxt.weightsGpu = &weightsGpu_;
     ctxt.width = width();
     ctxt.workspace = &workspace_;
     ctxt.xDesc = xDesc_.get();
     ctxt.yDesc = yDesc_.get();
-    ctxt.convDesc = convDesc_.get();
-    ctxt.wDesc = wDesc_.get();
-    ctxt.bestAlgo = bestAlgo_;
-    ctxt.cudnnContext = &cudnnContext();
 
     return ctxt;
 }

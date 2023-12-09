@@ -56,7 +56,43 @@ void convolutionalForward(const ConvContext& ctxt)
 
 void convolutionalBackward(const ConvContext& ctxt)
 {
+    auto m = ctxt.filters / ctxt.groups;
+    auto n = ctxt.kernel * ctxt.kernel * ctxt.channels / ctxt.groups;
+    auto k = ctxt.outWidth * ctxt.outHeight;
 
+    int nweights = ctxt.weights->size();
+    const auto* pweights = ctxt.weights->data();
+
+    /*const auto* pin = ctxt.input->data();
+    auto* pout = ctxt.output->data();*/
+
+    auto alpha = 1.0f;
+    auto beta = 1.0f;
+
+    for (auto i = 0; i < ctxt.batch; ++i) {
+        for (auto j = 0; j < ctxt.groups; ++j) {
+            auto* a = ctxt.delta + (i * ctxt.groups + j) * m * k;
+            float* b = nullptr; // WTF ctxt.netWorkspace;
+            auto* c = ctxt.weightUpdates + j * ctxt.nweights / ctxt.groups;
+
+            // GOODNIGHT!!!
+
+            // float *im  = net.input + (i*l.groups + j)*l.c/l.groups*l.h*l.w;
+            // float *imd = net.delta + (i*l.groups + j)*l.c/l.groups*l.h*l.w;
+
+            /*const auto* im = pin + (i * ctxt.groups + j) * ctxt.channels / ctxt.groups * ctxt.height * ctxt.width;
+            const auto* a = pweights + j * nweights / ctxt.groups;
+            const auto* b = ctxt.kernel == 1 ? im : ctxt.column->data();
+            auto* c = pout + (i * ctxt.groups + j) * n * m;
+
+            if (ctxt.kernel != 1) {
+                im2ColCpu(im, ctxt.channels / ctxt.groups, ctxt.height, ctxt.width, ctxt.kernel, ctxt.stride,
+                          ctxt.padding, ctxt.column->data());
+            }
+
+            cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, alpha, a, k, b, n, beta, c, n);*/
+        }
+    }
 }
 
 #ifdef USE_CUDA

@@ -32,8 +32,10 @@ struct ConvContext
 {
     const PxCpuVector* input = nullptr;
     const PxCpuTensor<4>* weights = nullptr;
+    PxCpuTensor<4>* weightUpdates = nullptr;
     PxCpuTensor<2>* column = nullptr;
     PxCpuVector* output = nullptr;
+    PxCpuVector* delta = nullptr;
 
 #ifdef USE_CUDA
     const PxCudaVector* inputGpu = nullptr;
@@ -55,6 +57,7 @@ struct ConvContext
     int groups = 1;
     int height = 0;
     int kernel = 0;
+    int nweights = 0;
     int outHeight = 0;
     int outWidth = 0;
     int padding = 0;

@@ -37,20 +37,23 @@ struct BNContext
     PxCpuTensor<1>* rollingVar = nullptr;
     PxCpuTensor<1>* scaleUpdates = nullptr;
     PxCpuTensor<1>* var = nullptr;
+    PxCpuTensor<1>* varDelta = nullptr;
     PxCpuVector* delta = nullptr;
     PxCpuVector* output = nullptr;
     PxCpuVector* xNorm = nullptr;
     const PxCpuTensor<1>* biases = nullptr;
     const PxCpuTensor<1>* scales = nullptr;
     const PxCpuVector* input = nullptr;
+    const PxCpuVector* x = nullptr;
 
 #ifdef USE_CUDA
     PxCudaTensor<1>* biasUpdatesGpu = nullptr;
-    PxCudaTensor<1>* meanGpu = nullptr;
     PxCudaTensor<1>* meanDeltaGpu = nullptr;
+    PxCudaTensor<1>* meanGpu = nullptr;
     PxCudaTensor<1>* scalesUpdatesGpu = nullptr;
     PxCudaVector* deltaGpu = nullptr;
     PxCudaVector* outputGpu = nullptr;
+    PxCudaVector* xNormGpu = nullptr;
     const CudnnContext* cudnnContext = nullptr;
     const CudnnTensorDesc* dstTens = nullptr;
     const CudnnTensorDesc* normTens = nullptr;
@@ -59,6 +62,7 @@ struct BNContext
     const PxCudaTensor<1>* rollingVarGpu = nullptr;
     const PxCudaTensor<1>* scalesGpu = nullptr;
     const PxCudaVector* inputGpu = nullptr;
+    const PxCudaVector* xGpu = nullptr;
 #endif // USE_CUDA
 
     int batch = 0;

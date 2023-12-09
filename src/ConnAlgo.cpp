@@ -44,14 +44,24 @@ void connectedForward(const ConnContext& ctxt)
 
 void connectedBackward(const ConnContext& ctxt)
 {
-    auto m = ctxt.batch;
-    auto n = ctxt.outputs;
-    auto k = ctxt.inputs;
-    auto* a = ctxt.input->data();
-    auto* b = ctxt.weights->data();
-    auto* c = ctxt.output->data();
+    auto m = ctxt.outputs;
+    auto n = ctxt.inputs;
+    auto k = ctxt.batch;
+    auto* a = ctxt.delta->data();
+    auto* b = ctxt.input->data();
+    auto* c = ctxt.weightUpdates->data();
 
-    //cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, m, n, k, 1.0f, a, k, b, k, 1.0f, c, n);
+    cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, m, n, k, 1.0f, a, m, b, n, 1.0f, c, n);
+
+    m = ctxt.batch;
+    k = ctxt.outputs;
+    n = ctxt.inputs;
+    b = ctxt.weights->data();
+    c = ctxt.netDelta;
+
+    if (c) {
+        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, 1.0f, a, k, b, n, 1.0f, c, n);
+    }
 }
 
 #ifdef USE_CUDA

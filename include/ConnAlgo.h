@@ -31,8 +31,11 @@ namespace px {
 struct ConnContext
 {
     const PxCpuVector* input = nullptr;
-    const PxCpuTensor<2>* weights = nullptr;
     PxCpuVector* output = nullptr;
+    const PxCpuVector* delta = nullptr;
+    PxCpuVector::pointer netDelta = nullptr;
+    const PxCpuTensor<2>* weights = nullptr;
+    PxCpuTensor<2>* weightUpdates = nullptr;
 
 #ifdef USE_CUDA
     const PxCudaVector* inputGpu = nullptr;

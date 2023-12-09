@@ -164,11 +164,6 @@ void Layer::setOutputs(int outputs)
     outputs_ = outputs;
 }
 
-void Layer::setCost(float cost)
-{
-    cost_ = cost;
-}
-
 int Layer::inputs() const noexcept
 {
     return inputs_;
@@ -278,19 +273,18 @@ bool Layer::inferring() const
     return model_.inferring();
 }
 
-float Layer::cost() const noexcept
+PxCpuVector::const_pointer Layer::cost() const noexcept
 {
-    return cost_;
+    if (cost_.size() == 0) {
+        return nullptr;
+    }
+
+    return cost_.data();
 }
 
 uint32_t Layer::classes() const noexcept
 {
     return model_.classes();
-}
-
-float& Layer::cost()
-{
-    return cost_;
 }
 
 const ImageTruths& Layer::truth() const noexcept

@@ -36,6 +36,7 @@ void BatchNormLayer::setup()
     mean_ = PxCpuTensor<1>({ (size_t) channels() }, 0.f);
     meanDelta_ = PxCpuTensor<1>({ (size_t) channels() }, 0.f);
     var_ = PxCpuTensor<1>({ (size_t) channels() }, 0.f);
+    varDelta_ = PxCpuTensor<1>({ (size_t) channels() }, 0.f);
     rollingMean_ = PxCpuTensor<1>({ (size_t) channels() }, 0.f);
     rollingVar_ = PxCpuTensor<1>({ (size_t) channels() }, 0.f);
 
@@ -43,13 +44,15 @@ void BatchNormLayer::setup()
     if (useGpu()) {
         setupGpu();
     } else {
-        output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
-        delta_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
-        xNorm_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
+        output_ = PxCpuVector(batch() * outputs(), 0.0f);
+        delta_ = PxCpuVector(batch() * outputs(), 0.0f);
+        x_ = PxCpuVector(batch() * outputs(), 0.0f);
+        xNorm_ = PxCpuVector(batch() * outputs(), 0.0f);
     }
 #else
     output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
     delta_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
+    x_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
     xNorm_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
 #endif
 }
@@ -129,6 +132,7 @@ BNContext BatchNormLayer::makeContext(const PxCpuVector& input)
 
     ctxt.input = &input;
     ctxt.output = &output_;
+    ctxt.x = &x_;
     ctxt.xNorm = &xNorm_;
     ctxt.biases = &biases_;
     ctxt.biasUpdates = &biasUpdates_;
@@ -138,6 +142,7 @@ BNContext BatchNormLayer::makeContext(const PxCpuVector& input)
     ctxt.scaleUpdates = &scaleUpdates_;
     ctxt.mean = &mean_;
     ctxt.var = &var_;
+    ctxt.varDelta = &varDelta_;
     ctxt.rollingMean = &rollingMean_;
     ctxt.rollingVar = &rollingVar_;
 
@@ -159,6 +164,8 @@ BNContext BatchNormLayer::makeContext(const PxCudaVector& input)
 
     ctxt.inputGpu = &input;
     ctxt.outputGpu = &outputGpu_;
+    ctxt.xGpu = &xGpu_;
+    ctxt.xNormGpu = &xNormGpu_;
     ctxt.biasesGpu = &biasesGpu_;
     ctxt.biasUpdatesGpu = &biasUpdatesGpu_;
     ctxt.deltaGpu = &deltaGpu_;

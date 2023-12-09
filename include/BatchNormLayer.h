@@ -49,8 +49,9 @@ private:
     BNContext makeContext(const PxCpuVector& input);
 
     friend LayerFactories;
-    PxCpuTensor<1> biases_, biasUpdates_, scales_, scaleUpdates_, mean_, meanDelta_, var_, rollingMean_, rollingVar_;
-    PxCpuVector xNorm_;
+    PxCpuTensor<1> biases_, biasUpdates_, scales_, scaleUpdates_, mean_, meanDelta_, var_, varDelta_;
+    PxCpuTensor<1> rollingMean_, rollingVar_;
+    PxCpuVector x_, xNorm_;
 
 #ifdef USE_CUDA
     void setupGpu();
@@ -58,7 +59,7 @@ private:
 
     PxCudaTensor<1> biasesGpu_, biasUpdatesGpu_, scalesGpu_, scaleUpdatesGpu_, meanGpu_, meanDeltaGpu_;
     PxCudaTensor<1> rollingMeanGpu_, rollingVarGpu_;
-    PxCudaVector deltaGpu_, xNormGpu_;
+    PxCudaVector deltaGpu_, xGpu_, xNormGpu_;
     CudnnTensorDesc::Ptr normTens_, dstTens_;
 #endif
 };
