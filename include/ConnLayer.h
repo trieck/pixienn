@@ -59,7 +59,7 @@ private:
 
     friend LayerFactories;
 
-    PxCpuTensor<2> weights_;
+    PxCpuTensor<2> weights_, weightUpdates_;
     PxCpuTensor<1> biases_, biasUpdates_;
 
     Activation::Ptr activationFnc_;

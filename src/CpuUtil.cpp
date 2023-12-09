@@ -185,4 +185,21 @@ void varianceDeltaCpu(const float* x, const float* delta, const float* mean, con
     }
 }
 
+void normalizeDeltaCpu(const float* x, const float* mean, const float* variance, const float* meanDelta,
+                       const float* varianceDelta, int batch, int filters, int spatial, float* delta)
+{
+    const int spatialSize = batch * spatial;
+
+    for (auto j = 0; j < batch; ++j) {
+        for (auto f = 0; f < filters; ++f) {
+            for (auto k = 0; k < spatial; ++k) {
+                auto index = j * filters * spatial + f * spatial + k;
+                delta[index] = delta[index] * 1. / (sqrt(variance[f] + .00001f)) +
+                               varianceDelta[f] * 2. * (x[index] - mean[f]) / (spatial * batch) +
+                               meanDelta[f] / (spatial * batch);
+            }
+        }
+    }
+}
+
 }   // px

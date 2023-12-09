@@ -21,6 +21,7 @@
 
 namespace px {
 
+
 float magArray(const float* a, int n);
 float sumArray(const float* a, int n);
 void addBias(float* output, const float* biases, int batch, int n, int size);
@@ -30,6 +31,8 @@ void im2ColCpu(const float* im, int channels, int height, int width, int ksize, 
 void meanCpu(const float* x, int batch, int filters, int spatial, float* mean);
 void meanDeltaCpu(const float* delta, const float* variance, int batch, int filters, int spatial, float* meanDelta);
 void normalizeCpu(float* x, const float* mean, const float* variance, int batch, int filters, int spatial);
+void normalizeDeltaCpu(const float* x, const float* mean, const float* variance, const float* meanDelta,
+                       const float* varianceDelta, int batch, int filters, int spatial, float* delta);
 void randomCpu(float* ptr, std::size_t n, float a = 0.f, float b = 1.f);
 void scaleBias(float* output, const float* scales, int batch, int n, int size);
 void varianceCpu(const float* x, float* mean, int batch, int filters, int spatial, float* variance);

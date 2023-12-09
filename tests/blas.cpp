@@ -25,9 +25,7 @@ using namespace testing;
 
 TEST(BlasTests, MagArray)
 {
-    constexpr float array[] = {
-            1, 2, 3, 4, 5
-    };
+    constexpr float array[] = { 1, 2, 3, 4, 5 };
 
     const auto expected = std::sqrt(55.0f);
 
@@ -160,7 +158,7 @@ TEST(BlasTests, MeanDeltaCpu)
 
     PxCpuTensor<1> variance({ 3 }, { 2.0f, 3.0f, 4.0f });
     PxCpuTensor<1> expected({ 3 }, { -48.0831, -57.7349, -65.9999 });
-    PxCpuVector output(3);
+    PxCpuTensor<1> output({ 3 });
 
     meanDeltaCpu(delta.data(), variance.data(), batch, filters, spatial, output.data());
 
@@ -178,10 +176,32 @@ TEST(BlasTests, VarianceDeltaCpu)
     PxCpuTensor<1> mean({ filters }, { 0.5, 0.6 });
     PxCpuTensor<1> variance({ filters }, { 0.7, 0.8 });
     PxCpuTensor<1> expected({ filters }, { -13.2326, -56.7392 });
-    PxCpuVector varianceDelta(filters);
+    PxCpuTensor<1> varianceDelta({ filters });
 
     varianceDeltaCpu(x.data(), delta.data(), mean.data(), variance.data(), batch, filters, spatial,
                      varianceDelta.data());
 
     EXPECT_THAT(varianceDelta.asVector(), Pointwise(FloatNear(1e-4), expected.asVector()));
 }
+
+TEST(BlasTests, NormalizeDeltaCpu)
+{
+    constexpr int batch = 2;
+    constexpr int filters = 2;
+    constexpr int spatial = 2;
+
+    PxCpuTensor<3> x({ batch, filters, spatial }, { 1.0f, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0 });
+    PxCpuTensor<1> mean({ filters }, { 10.0, 12.0 });
+    PxCpuTensor<1> variance({ filters }, { 4.0f, 6.0f });
+    PxCpuTensor<1> meanDelta({ filters }, { -1.0, 0.5 });
+    PxCpuTensor<1> varianceDelta({ filters }, { 0.1, -0.23 });
+    PxCpuTensor<3> delta({ batch, filters, spatial }, 0.0f);
+
+    PxCpuTensor<3> expected({ batch, filters, spatial }, { -0.7, -0.65, 1.16, 1.045, -0.5, -0.45, 0.7, 0.585 });
+
+    normalizeDeltaCpu(x.data(), mean.data(), variance.data(), meanDelta.data(),
+                      varianceDelta.data(), batch, filters, spatial, delta.data());
+
+    EXPECT_THAT(delta.asVector(), Pointwise(FloatNear(1e-4), expected.asVector()));
+}
+

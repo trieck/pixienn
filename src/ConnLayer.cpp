@@ -16,6 +16,7 @@
 
 #include "ConnLayer.h"
 #include "CpuUtil.h"
+#include "Model.h"
 
 #if USE_CUDA
 
@@ -60,6 +61,7 @@ void ConnLayer::setup()
 
     auto scale = std::sqrt(2.0f / inputs());
     weights_ = random<decltype(weights_)>({ (size_t) inputs(), (size_t) outputs() }, -1.0f, 1.0f) * scale;
+    weightUpdates_ = PxCpuTensor<2>({ (size_t) inputs(), (size_t) outputs() }, 0.0f);
 
 #ifdef USE_CUDA
     if (useGpu()) {
@@ -131,7 +133,7 @@ void ConnLayer::forward(const PxCpuVector& input)
         batchNormalize_->forward(output_);
         output_.copy(batchNormalize_->output());
     } else {
-        addBias(output_.data(), biases_.data(), batch(), outChannels(), outHeight() * outWidth());
+        addBias(output_.data(), biases_.data(), batch(), outputs(), 1);
     }
 
     activationFnc_->apply(output_);
@@ -145,9 +147,9 @@ void ConnLayer::backward(const PxCpuVector& input)
 
     if (batchNormalize_) {
         batchNormalize_->backward(output_);
-        output_ = batchNormalize_->output();
+        output_.copy(batchNormalize_->output());
     } else {
-        backwardBias(biasUpdates_.data(), delta_.data(), batch(), outChannels(), outHeight() * outWidth());
+        backwardBias(biasUpdates_.data(), delta_.data(), batch(), outputs(), 1);
     }
 
     connectedBackward(ctxt);
@@ -158,7 +160,10 @@ ConnContext ConnLayer::makeContext(const PxCpuVector& input)
     ConnContext ctxt;
     ctxt.input = &input;
     ctxt.output = &output_;
+    ctxt.delta = &delta_;
+    ctxt.netDelta = model().delta();
     ctxt.weights = &weights_;
+    ctxt.weightUpdates = &weightUpdates_;
     ctxt.batch = batch();
     ctxt.inputs = inputs();
     ctxt.outputs = outputs();
