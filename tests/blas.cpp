@@ -23,6 +23,32 @@
 using namespace px;
 using namespace testing;
 
+TEST(BlasTests, MagArray)
+{
+    constexpr float array[] = {
+            1, 2, 3, 4, 5
+    };
+
+    const auto expected = std::sqrt(55.0f);
+
+    auto result = magArray(array, sizeof(array) / sizeof(float));
+
+    EXPECT_FLOAT_EQ(result, expected);
+}
+
+TEST(BlasTests, SumArray)
+{
+    constexpr float array[] = {
+            1, 2, 4, 8, 16, 31, 62, 124, 248
+    };
+
+    constexpr float expected = 496.0;
+
+    auto result = sumArray(array, sizeof(array) / sizeof(float));
+
+    EXPECT_FLOAT_EQ(result, expected);
+}
+
 TEST(BlasTests, AddBias)
 {
     constexpr auto batch = 2;
@@ -35,6 +61,49 @@ TEST(BlasTests, AddBias)
     addBias(output.data(), bias.data(), batch, n, size);
 
     EXPECT_THAT(output.asVector(), Each(FloatEq(1.5f)));
+}
+
+TEST(BlasTests, BackwardBias)
+{
+    constexpr auto batch = 1;
+    constexpr auto n = 2;
+    constexpr auto size = 3;
+
+    PxCpuTensor<3> output({ batch, n, size }, 1.0f);
+    PxCpuTensor<1> bias({ n }, 0.5f);
+
+    backwardBias(output.data(), bias.data(), batch, n, size);
+
+    EXPECT_THAT(output.asVector(), ElementsAre(2, 1, 1, 1, 1, 1));
+}
+
+TEST(BlasTests, ScaleBias)
+{
+    constexpr auto batch = 2;
+    constexpr auto n = 3;
+    constexpr auto size = 4;
+
+    PxCpuTensor<3> output({ batch, n, size }, 2.0f);
+    PxCpuTensor<1> bias({ n }, 0.2f);
+
+    scaleBias(output.data(), bias.data(), batch, n, size);
+
+    EXPECT_THAT(output.asVector(), Each(FloatEq(0.4f)));
+}
+
+TEST(BlasTests, BackwardScaleCpu)
+{
+    constexpr auto batch = 2;
+    constexpr auto n = 3;
+    constexpr auto size = 4;
+
+    PxCpuTensor<3> xNorm({ batch, n, size }, 1.0f);
+    PxCpuTensor<3> delta({ batch, n, size }, 2.0f);
+    PxCpuTensor<1> scaleUpdates({ n }, 0.0f);
+
+    backwardScaleCpu(xNorm.data(), delta.data(), batch, n, size, scaleUpdates.data());
+
+    EXPECT_THAT(scaleUpdates.asVector(), Each(FloatEq(16.0f)));
 }
 
 TEST(BlasTests, MeanCpu)
@@ -67,10 +136,52 @@ TEST(BlasTests, VarianceCpu)
 
     PxCpuTensor<1> mean({ filters }, { 2.0f, 4.0f, 6.0f });
 
-    PxCpuTensor<1> expectedVariance({ filters }, { 90.85714, 125.14286, 168.57144 });
+    PxCpuTensor<1> expected({ filters }, { 90.85714, 125.14286, 168.57144 });
 
     PxCpuTensor<1> variance({ filters });
     varianceCpu(input.data(), mean.data(), batch, filters, spatial, variance.data());
 
-    EXPECT_THAT(variance.asVector(), Pointwise(FloatNear(1e-4), expectedVariance.asVector()));
+    EXPECT_THAT(variance.asVector(), Pointwise(FloatNear(1e-4), expected.asVector()));
+}
+
+TEST(BlasTests, MeanDeltaCpu)
+{
+    constexpr int batch = 2;
+    constexpr int filters = 3;
+    constexpr int spatial = 4;
+
+    PxCpuTensor<3> delta({ batch, filters, spatial },
+                         { 1.0f, 2.0, 3.0, 4.0,
+                           5.0, 6.0, 7.0, 8.0,
+                           9.0, 10.0, 11.0, 12.0,
+                           13.0, 14.0, 15.0, 16.0,
+                           17.0, 18.0, 19.0, 20.0,
+                           21.0, 22.0, 23.0, 24.0 });
+
+    PxCpuTensor<1> variance({ 3 }, { 2.0f, 3.0f, 4.0f });
+    PxCpuTensor<1> expected({ 3 }, { -48.0831, -57.7349, -65.9999 });
+    PxCpuVector output(3);
+
+    meanDeltaCpu(delta.data(), variance.data(), batch, filters, spatial, output.data());
+
+    EXPECT_THAT(output.asVector(), Pointwise(FloatNear(1e-4), expected.asVector()));
+}
+
+TEST(BlasTests, VarianceDeltaCpu)
+{
+    constexpr int batch = 1;
+    constexpr int filters = 2;
+    constexpr int spatial = 3;
+
+    PxCpuTensor<3> x({ batch, filters, spatial }, { 1, 2, 3, 4, 5, 6 });
+    PxCpuTensor<3> delta({ batch, filters, spatial }, { 2, 3, 4, 5, 6, 7 });
+    PxCpuTensor<1> mean({ filters }, { 0.5, 0.6 });
+    PxCpuTensor<1> variance({ filters }, { 0.7, 0.8 });
+    PxCpuTensor<1> expected({ filters }, { -13.2326, -56.7392 });
+    PxCpuVector varianceDelta(filters);
+
+    varianceDeltaCpu(x.data(), delta.data(), mean.data(), variance.data(), batch, filters, spatial,
+                     varianceDelta.data());
+
+    EXPECT_THAT(varianceDelta.asVector(), Pointwise(FloatNear(1e-4), expected.asVector()));
 }

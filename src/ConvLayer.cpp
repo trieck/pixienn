@@ -143,6 +143,13 @@ void ConvLayer::backward(const PxCpuVector& input)
 {
     activationFnc_->gradient(output_, delta_);
 
+    if (batchNormalize_) {
+        batchNormalize_->backward(output_);
+        output_.copy(batchNormalize_->output());    // TODO: is that right?
+    } else {
+        addBias(output_.data(), biases_.data(), batch(), outChannels(), outHeight() * outWidth());
+    }
+
     auto ctxt = makeContext(input);
     convolutionalBackward(ctxt);
 }

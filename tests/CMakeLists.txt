@@ -2,6 +2,11 @@ cmake_minimum_required(VERSION 3.15)
 
 project(pixienn-tests)
 
+if (COVERAGE)
+    list(APPEND CMAKE_CXX_FLAGS "--coverage")
+    set(CODE_COVERAGE ON)
+endif ()
+
 find_package(GTest REQUIRED)
 find_package(GMock REQUIRED)
 

@@ -116,10 +116,10 @@ protected:
     bool inferring() const;
 
 #ifdef USE_CUDA
-    PxCudaVector outputGpu_;
+    PxCudaVector outputGpu_, deltaGpu_;
 #endif
 
-    PxCpuVector output_, delta_, xNorm_;
+    PxCpuVector output_, delta_;
 
 private:
     friend LayerFactories;

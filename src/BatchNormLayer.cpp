@@ -29,9 +29,12 @@ void BatchNormLayer::setup()
     setOutWidth(width());
     setOutputs(outHeight() * outWidth() * outChannels());
 
-    biases_ = PxCpuTensor<1>({ (size_t) channels() }, 0.f);
+    biases_ = PxCpuTensor<1>({ (size_t) channels() }, 0.0f);
+    biasUpdates_ = PxCpuTensor<1>({ (size_t) channels() }, 0.0f);
     scales_ = PxCpuTensor<1>({ (size_t) channels() }, 1.f);
+    scaleUpdates_ = PxCpuTensor<1>({ (size_t) channels() }, 0.f);
     mean_ = PxCpuTensor<1>({ (size_t) channels() }, 0.f);
+    meanDelta_ = PxCpuTensor<1>({ (size_t) channels() }, 0.f);
     var_ = PxCpuTensor<1>({ (size_t) channels() }, 0.f);
     rollingMean_ = PxCpuTensor<1>({ (size_t) channels() }, 0.f);
     rollingVar_ = PxCpuTensor<1>({ (size_t) channels() }, 0.f);
@@ -40,11 +43,13 @@ void BatchNormLayer::setup()
     if (useGpu()) {
         setupGpu();
     } else {
-        output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
+        output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
+        delta_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
         xNorm_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
     }
 #else
-    output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
+    output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
+    delta_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
     xNorm_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
 #endif
 }
@@ -64,6 +69,8 @@ void BatchNormLayer::forward(const PxCpuVector& input)
 
 void BatchNormLayer::backward(const PxCpuVector& input)
 {
+    auto ctxt = makeContext(input);
+    batchNormBackward(ctxt);
 }
 
 #ifdef USE_CUDA
@@ -71,7 +78,9 @@ void BatchNormLayer::backward(const PxCpuVector& input)
 void BatchNormLayer::setupGpu()
 {
     biasesGpu_ = PxCudaTensor<1>({ (size_t) channels() }, 0.f);
+    biasUpdatesGpu_ = PxCudaTensor<1>({ (size_t) channels() }, 0.f);
     scalesGpu_ = PxCudaTensor<1>({ (size_t) channels() }, 1.f);
+    scaleUpdatesGpu_ = PxCudaTensor<1>({ (size_t) channels() }, 0.f);
     rollingMeanGpu_ = PxCudaTensor<1>({ (size_t) channels() }, 0.f);
     rollingVarGpu_ = PxCudaTensor<1>({ (size_t) channels() }, 0.f);
     outputGpu_ = PxCudaVector((size_t) batch() * outputs(), 0.f);
@@ -122,7 +131,11 @@ BNContext BatchNormLayer::makeContext(const PxCpuVector& input)
     ctxt.output = &output_;
     ctxt.xNorm = &xNorm_;
     ctxt.biases = &biases_;
+    ctxt.biasUpdates = &biasUpdates_;
+    ctxt.delta = &delta_;
+    ctxt.meanDelta = &meanDelta_;
     ctxt.scales = &scales_;
+    ctxt.scaleUpdates = &scaleUpdates_;
     ctxt.mean = &mean_;
     ctxt.var = &var_;
     ctxt.rollingMean = &rollingMean_;
@@ -147,7 +160,11 @@ BNContext BatchNormLayer::makeContext(const PxCudaVector& input)
     ctxt.inputGpu = &input;
     ctxt.outputGpu = &outputGpu_;
     ctxt.biasesGpu = &biasesGpu_;
+    ctxt.biasUpdatesGpu = &biasUpdatesGpu_;
+    ctxt.deltaGpu = &deltaGpu_;
+    ctxt.meanDeltaGpu = &meanDeltaGpu_;
     ctxt.scalesGpu = &scalesGpu_;
+    ctxt.scalesUpdatesGpu = &scaleUpdatesGpu_;
     ctxt.rollingMeanGpu = &rollingMeanGpu_;
     ctxt.rollingVarGpu = &rollingVarGpu_;
     ctxt.cudnnContext = &cudnnContext();

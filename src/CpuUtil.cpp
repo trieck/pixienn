@@ -76,26 +76,21 @@ void backwardBias(float* biasUpdates, const float* delta, int batch, int n, int 
     }
 }
 
+void backwardScaleCpu(const float* xNorm, const float* delta, int batch, int n, int size, float* scaleUpdates)
+{
+    for (auto i = 0; i < n; ++i) {
+        scaleUpdates[i] += cblas_sdot(size * batch, delta + size * i, 1, xNorm + size * i, 1);
+    }
+}
+
 float sumArray(const float* a, int n)
 {
-    float sum = 0;
-
-    for (auto i = 0; i < n; ++i) {
-        sum += a[i];
-    }
-
-    return sum;
+    return cblas_sasum(n, a, 1);
 }
 
 float magArray(const float* a, int n)
 {
-    float sum = 0;
-
-    for (auto i = 0; i < n; ++i) {
-        sum += a[i] * a[i];
-    }
-
-    return sqrt(sum);
+    return cblas_snrm2(n, a, 1);
 }
 
 void randomCpu(float* ptr, std::size_t n, float a, float b)
@@ -119,7 +114,7 @@ void meanCpu(const float* x, int batch, int filters, int spatial, float* mean)
         mean[i] = 0;
         for (auto j = 0; j < batch; ++j) {
             for (auto k = 0; k < spatial; ++k) {
-                int index = j * filters * spatial + i * spatial + k;
+                auto index = j * filters * spatial + i * spatial + k;
                 mean[i] += x[index];
             }
         }
@@ -135,7 +130,7 @@ void varianceCpu(const float* x, float* mean, int batch, int filters, int spatia
         variance[i] = 0;
         for (auto j = 0; j < batch; ++j) {
             for (auto k = 0; k < spatial; ++k) {
-                int index = i * spatial + j * filters * spatial + k;
+                auto index = i * spatial + j * filters * spatial + k;
                 variance[i] += pow((x[index] - mean[i]), 2);
             }
         }
@@ -159,12 +154,35 @@ void scaleBias(float* output, const float* scales, int batch, int n, int size)
 {
     for (auto b = 0; b < batch; ++b) {
         for (auto i = 0; i < n; ++i) {
-            for (auto j = 0; j < size; ++j) {
-                output[(b * n + i) * size + j] *= scales[i];
-            }
+            cblas_sscal(size, scales[i], &output[(b * n + i) * size], 1);
         }
     }
 }
 
+void meanDeltaCpu(const float* delta, const float* variance, int batch, int filters, int spatial, float* meanDelta)
+{
+    for (auto i = 0; i < filters; ++i) {
+        meanDelta[i] = 0;
+        for (int j = 0; j < batch; ++j) {
+            meanDelta[i] += cblas_sasum(spatial, &delta[j * filters * spatial + i * spatial], 1);
+        }
+        meanDelta[i] *= (-1. / std::sqrt(variance[i] + .00001f));
+    }
+}
+
+void varianceDeltaCpu(const float* x, const float* delta, const float* mean, const float* variance, int batch,
+                      int filters, int spatial, float* varianceDelta)
+{
+    for (auto i = 0; i < filters; ++i) {
+        varianceDelta[i] = 0;
+        for (auto j = 0; j < batch; ++j) {
+            for (auto k = 0; k < spatial; ++k) {
+                int index = j * filters * spatial + i * spatial + k;
+                varianceDelta[i] += delta[index] * (x[index] - mean[i]);
+            }
+        }
+        varianceDelta[i] *= -.5f * std::pow(variance[i] + .00001f, -3.0f / 2.0f);
+    }
+}
 
 }   // px

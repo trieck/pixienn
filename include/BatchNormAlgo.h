@@ -30,28 +30,35 @@ namespace px {
 // Represents the context needed for a batch norm operation
 struct BNContext
 {
-    const PxCpuVector* input = nullptr;
-    PxCpuVector* output = nullptr;
-    PxCpuVector* xNorm = nullptr;
-
-    const PxCpuTensor<1>* biases = nullptr;
-    const PxCpuTensor<1>* scales = nullptr;
+    PxCpuTensor<1>* biasUpdates = nullptr;
     PxCpuTensor<1>* mean = nullptr;
-    PxCpuTensor<1>* var = nullptr;
+    PxCpuTensor<1>* meanDelta = nullptr;
     PxCpuTensor<1>* rollingMean = nullptr;
     PxCpuTensor<1>* rollingVar = nullptr;
+    PxCpuTensor<1>* scaleUpdates = nullptr;
+    PxCpuTensor<1>* var = nullptr;
+    PxCpuVector* delta = nullptr;
+    PxCpuVector* output = nullptr;
+    PxCpuVector* xNorm = nullptr;
+    const PxCpuTensor<1>* biases = nullptr;
+    const PxCpuTensor<1>* scales = nullptr;
+    const PxCpuVector* input = nullptr;
 
 #ifdef USE_CUDA
-    const PxCudaVector* inputGpu = nullptr;
+    PxCudaTensor<1>* biasUpdatesGpu = nullptr;
+    PxCudaTensor<1>* meanGpu = nullptr;
+    PxCudaTensor<1>* meanDeltaGpu = nullptr;
+    PxCudaTensor<1>* scalesUpdatesGpu = nullptr;
+    PxCudaVector* deltaGpu = nullptr;
     PxCudaVector* outputGpu = nullptr;
-
-    const PxCudaTensor<1>* biasesGpu = nullptr;
-    const PxCudaTensor<1>* scalesGpu = nullptr;
-    const PxCudaTensor<1>* rollingMeanGpu = nullptr;
-    const PxCudaTensor<1>* rollingVarGpu = nullptr;
     const CudnnContext* cudnnContext = nullptr;
     const CudnnTensorDesc* dstTens = nullptr;
     const CudnnTensorDesc* normTens = nullptr;
+    const PxCudaTensor<1>* biasesGpu = nullptr;
+    const PxCudaTensor<1>* rollingMeanGpu = nullptr;
+    const PxCudaTensor<1>* rollingVarGpu = nullptr;
+    const PxCudaTensor<1>* scalesGpu = nullptr;
+    const PxCudaVector* inputGpu = nullptr;
 #endif // USE_CUDA
 
     int batch = 0;
@@ -62,6 +69,7 @@ struct BNContext
 };
 
 void batchNormForward(const BNContext& ctxt);
+void batchNormBackward(const BNContext& ctxt);
 
 #ifdef USE_CUDA
 void batchNormForwardGpu(const BNContext& ctxt);
