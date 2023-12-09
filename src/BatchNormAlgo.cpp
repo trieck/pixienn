@@ -22,6 +22,32 @@
 
 namespace px {
 
+void batchNormBackward(const BNContext& ctxt)
+{
+    if (!ctxt.training) { // why is backward called if we are not training?
+        ctxt.mean->copy(*ctxt.rollingMean);
+        ctxt.var->copy(*ctxt.rollingVar);
+    }
+
+    backwardBias(ctxt.biasUpdates->data(), ctxt.delta->data(), ctxt.batch, ctxt.channels,
+                 ctxt.outWidth * ctxt.outHeight);
+
+    backwardScaleCpu(ctxt.xNorm->data(), ctxt.delta->data(), ctxt.batch, ctxt.channels,
+                     ctxt.outWidth * ctxt.outHeight, ctxt.scaleUpdates->data());
+
+    scaleBias(ctxt.delta->data(), ctxt.scales->data(), ctxt.batch, ctxt.channels, ctxt.outHeight * ctxt.outWidth);
+
+    meanDeltaCpu(ctxt.delta->data(), ctxt.var->data(), ctxt.batch, ctxt.channels, ctxt.outHeight * ctxt.outWidth,
+                 ctxt.meanDelta->data());
+
+    /*varianceDeltaCpu(ctxt.x->data, ctxt.delta->data(), ctxt.mean->data(), ctxt.var->data(), ctxt.batch, ctxt.channels,
+                     ctxt.outHeight * ctxt.outWidth, ctxt.varDelta->data());*/
+
+
+    //normalize_delta_cpu(l.x, l.mean, l.variance, l.mean_delta, l.variance_delta, l.batch, l.out_c, l.out_w*l.out_h, l.delta);
+    //if(l.type == BATCHNORM) copy_cpu(l.outputs*l.batch, l.delta, 1, net.delta, 1);
+}
+
 void batchNormForward(const BNContext& ctxt)
 {
     ctxt.output->copy(*ctxt.input);

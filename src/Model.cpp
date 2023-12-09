@@ -348,7 +348,7 @@ auto Model::loadBatch() -> ImageTruths
     auto rng = std::default_random_engine{};
     std::shuffle(std::begin(trainImages_), std::end(trainImages_), rng);
 
-    auto n = std::min<std::size_t>(1000, trainImages_.size()); // FIXME: 1 image!
+    auto n = std::min<std::size_t>(1, trainImages_.size()); // FIXME: 1 image!
 
     for (auto i = 0; i < n; ++i) {
         const auto& imagePath = trainImages_[i];

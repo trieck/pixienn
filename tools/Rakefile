@@ -1,0 +1,9 @@
+# Rakefile
+require 'rspec/core/rake_task'
+
+RSpec::Core::RakeTask.new(:integration_test) do |t|
+  t.pattern = 'integration_tests/**/*_spec.rb'
+  t.rspec_opts = '--format documentation'
+end
+
+task default: :integration_test

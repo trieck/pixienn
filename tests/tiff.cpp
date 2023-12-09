@@ -32,16 +32,25 @@ namespace px {
 class TIFFIOTest : public ::testing::Test
 {
 protected:
-    path testImagePath;
+    path imagePath_;
+    FILE* fp_ = nullptr;
 
     void SetUp() override
     {
-        testImagePath = temp_directory_path() / "test_image.tif";
+#if defined(_WIN32)
+        fp_ = freopen("NUL", "w", stderr);
+#else
+        fp_ = freopen("/dev/null", "w", stderr);
+#endif
+
+        imagePath_ = temp_directory_path() / "test_image.tif";
     }
 
     void TearDown() override
     {
-        remove(testImagePath);
+        freopen(NULL, "w", stderr);
+        fclose(fp_);
+        remove(imagePath_);
     }
 };
 
@@ -54,9 +63,9 @@ TEST_F(TIFFIOTest, OpenNonExistingFile)
 TEST_F(TIFFIOTest, ReadWriteTIFF)
 {
     cv::Mat sampleImage(100, 100, CV_32FC3, cv::Scalar(0.5, 0.3, 0.2));
-    writeTIFF(testImagePath.string().c_str(), sampleImage);
+    writeTIFF(imagePath_.string().c_str(), sampleImage);
 
-    auto readImage = readTIFF(testImagePath.string().c_str());
+    auto readImage = readTIFF(imagePath_.string().c_str());
 
     EXPECT_EQ(sampleImage.rows, readImage.rows);
     EXPECT_EQ(sampleImage.cols, readImage.cols);
@@ -76,7 +85,7 @@ TEST_F(TIFFIOTest, ReadWriteTIFF)
 TEST_F(TIFFIOTest, WriteUnsupportedImageType)
 {
     cv::Mat unsupportedImage(100, 100, CV_16UC1, cv::Scalar(1000));
-    EXPECT_THROW(writeTIFF(testImagePath.string().c_str(), unsupportedImage), px::Error);
+    EXPECT_THROW(writeTIFF(imagePath_.string().c_str(), unsupportedImage), px::Error);
 }
 
 }  // namespace px
