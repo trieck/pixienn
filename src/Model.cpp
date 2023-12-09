@@ -176,14 +176,24 @@ int Model::width() const noexcept
 
 void Model::forward(const PxCpuVector& input)
 {
+    auto sum = 0.0f;
+    auto i = 0, count = 0;
+
     const auto* in = &input;
 
     for (auto& layer: layers()) {
         layer->forward(*in);
+        if (layer->cost()) {
+            sum += *layer->cost();
+            ++count;
+        }
+
         in = &layer->output();
     }
 
-    //calc_network_cost(netp);
+    if (count) {
+        cost_ = sum / count;
+    }
 }
 
 void Model::backward(const PxCpuVector& input) // FIXME:
@@ -348,7 +358,7 @@ auto Model::loadBatch() -> ImageTruths
     auto rng = std::default_random_engine{};
     std::shuffle(std::begin(trainImages_), std::end(trainImages_), rng);
 
-    auto n = std::min<std::size_t>(1, trainImages_.size()); // FIXME: 1 image!
+    auto n = std::min<std::size_t>(10, trainImages_.size()); // FIXME: 1 image!
 
     for (auto i = 0; i < n; ++i) {
         const auto& imagePath = trainImages_[i];
