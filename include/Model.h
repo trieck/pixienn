@@ -60,8 +60,41 @@ public:
     const Layer::Ptr& layerAt(int index) const;
 
     void train();
+
+    /**
+     * @brief Perform object detection on an input image.
+     *
+     * This method takes the path to an image file and performs object detection using the trained
+     * neural network model. It returns a vector of Detection objects, each representing a detected
+     * object in the image along with its associated information, such as the bounding box coordinates
+     * and confidence score.
+     *
+     * @param imageFile The path to the input image file.
+     * @return A vector of Detection objects representing the detected objects.
+     *
+     * @note The returned vector may be empty if no objects are detected in the image.
+     * @warning This method assumes that the neural network model has been trained and loaded
+     *          successfully prior to calling predict.
+     */
     std::vector<Detection> predict(const std::string& imageFile);
+
+    /**
+     * @brief Overlay detections on an input image.
+     *
+     * This method takes the path to an image file and a set of detections. It overlays bounding boxes
+     * and additional information for each detected object on the input image. The resulting image
+     * with overlays is not modified; instead, the overlay may be saved to a new file or displayed
+     * depending on the implementation.
+     *
+     * @param imageFile The path to the input image file.
+     * @param detects   A set of detections containing information about detected objects.
+     *
+     * @note This method assumes that the input image exists and that the detections are valid.
+     * @warning The overlay result may be saved to a new file or displayed, depending on the
+     *          implementation. Ensure appropriate handling of the overlay result.
+     */
     void overlay(const std::string& imageFile, const Detections& detects) const;
+
     std::string asJson(const Detections& detects) const noexcept;
     const std::vector<std::string>& labels() const noexcept;
 
