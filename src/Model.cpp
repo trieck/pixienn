@@ -196,7 +196,19 @@ void Model::forward(const PxCpuVector& input)
     }
 }
 
-void Model::backward(const PxCpuVector& input) // FIXME:
+/**
+ * @brief Perform the backward pass (backpropagation) through the neural network.
+ *
+ * This method iterates through the layers of the neural network in reverse order, starting from
+ * the last layer and moving towards the input layer. For each layer, it computes the gradients
+ * with respect to the layer's parameters and updates them based on the error signals propagated
+ * from subsequent layers. The process involves the use of the chain rule of calculus and ensures
+ * that the network learns from the provided input data by adjusting its parameters to minimize the
+ * loss.
+ *
+ * @param input The input data to the neural network.
+ */
+void Model::backward(const PxCpuVector& input)
 {
     const PxCpuVector* in;
 

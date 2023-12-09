@@ -63,8 +63,8 @@ void convolutionalBackward(const ConvContext& ctxt)
     int nweights = ctxt.weights->size();
     const auto* pweights = ctxt.weights->data();
 
-    /*const auto* pin = ctxt.input->data();
-    auto* pout = ctxt.output->data();*/
+    const auto* pin = ctxt.input->data();
+    auto* pout = ctxt.output->data();
 
     auto alpha = 1.0f;
     auto beta = 1.0f;
@@ -72,12 +72,11 @@ void convolutionalBackward(const ConvContext& ctxt)
     for (auto i = 0; i < ctxt.batch; ++i) {
         for (auto j = 0; j < ctxt.groups; ++j) {
             auto* a = ctxt.delta + (i * ctxt.groups + j) * m * k;
-            float* b = nullptr; // WTF ctxt.netWorkspace;
+            float* b = ctxt.column->data(); // WTF ctxt.netWorkspace;
             auto* c = ctxt.weightUpdates + j * ctxt.nweights / ctxt.groups;
 
-            // GOODNIGHT!!!
+            auto* im = pin + (i * ctxt.groups + j) * ctxt.channels / ctxt.groups * ctxt.height * ctxt.width;
 
-            // float *im  = net.input + (i*l.groups + j)*l.c/l.groups*l.h*l.w;
             // float *imd = net.delta + (i*l.groups + j)*l.c/l.groups*l.h*l.w;
 
             /*const auto* im = pin + (i * ctxt.groups + j) * ctxt.channels / ctxt.groups * ctxt.height * ctxt.width;

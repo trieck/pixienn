@@ -66,7 +66,7 @@ void ConvLayer::setup()
     }
 
     auto scale = std::sqrt(2.0f / (kernel_ * kernel_ * channels() / groups_));
-    weights_ = random<decltype(weights_)>({ (size_t) filters_,
+    weights_ = random<PxCpuTensor<4>>({ (size_t) filters_,
                                             (size_t) (channels() / groups_),
                                             (size_t) kernel_,
                                             (size_t) kernel_ }) * scale;

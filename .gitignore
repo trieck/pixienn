@@ -7,3 +7,5 @@
 *.geojson
 *.qml
 *.aux.xml
+/docs/html/
+/docs/latex/

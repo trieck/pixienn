@@ -60,7 +60,7 @@ void ConnLayer::setup()
     }
 
     auto scale = std::sqrt(2.0f / inputs());
-    weights_ = random<decltype(weights_)>({ (size_t) inputs(), (size_t) outputs() }, -1.0f, 1.0f) * scale;
+    weights_ = random<PxCpuTensor<2>>({ (size_t) inputs(), (size_t) outputs() }, -1.0f, 1.0f) * scale;
     weightUpdates_ = PxCpuTensor<2>({ (size_t) inputs(), (size_t) outputs() }, 0.0f);
 
 #ifdef USE_CUDA

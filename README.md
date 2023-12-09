@@ -1,5 +1,7 @@
 # PIXIENN
 
+![Project Icon](resources/images/pixie.png)
+
 A modern C++ reimplementation of Darknet with CUDA support for efficient neural network inference.
 
 ![Inference Result 1](resources/examples/predictions.jpg)
