@@ -238,4 +238,12 @@ void normalizeDeltaCpu(const float* x, const float* mean, const float* variance,
     }
 }
 
+void constrain(int n, float alpha, float* x, int incX)
+{
+    for (auto i = 0; i < n; ++i) {
+        x[i * incX] = std::fminf(alpha, std::fmaxf(-alpha, x[i * incX]));
+    }
+}
+
+
 }   // px

@@ -146,7 +146,7 @@ void ConnLayer::forward(const PxCpuVector& input)
 
 void ConnLayer::backward(const PxCpuVector& input)
 {
-    auto ctxt = makeContext(input);
+    constrain(outputs() * batch(), 1, delta_.data(), 1);
 
     activationFnc_->gradient(output_, delta_);
 
@@ -157,6 +157,7 @@ void ConnLayer::backward(const PxCpuVector& input)
         backwardBias(biasUpdates_.data(), delta_.data(), batch(), outputs(), 1);
     }
 
+    auto ctxt = makeContext(input);
     connectedBackward(ctxt);
 }
 

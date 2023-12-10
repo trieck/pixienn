@@ -201,14 +201,14 @@ void DetectLayer::forward(const PxCpuVector& input)
                 pdelta[pindex] = objectScale_ * (iou - poutput[pindex]);
             }
 
-            pdelta[boxIndex + 0] = coordScale_ * (truthBox.x - poutput[boxIndex + 0]);
-            pdelta[boxIndex + 1] = coordScale_ * (truthBox.y - poutput[boxIndex + 1]);
-            pdelta[boxIndex + 2] = coordScale_ * (truthBox.width - poutput[boxIndex + 2]);
-            pdelta[boxIndex + 3] = coordScale_ * (truthBox.height - poutput[boxIndex + 3]);
+            pdelta[boxIndex + 0] = coordScale_ * (truth->box.x - poutput[boxIndex + 0]);
+            pdelta[boxIndex + 1] = coordScale_ * (truth->box.y - poutput[boxIndex + 1]);
+            pdelta[boxIndex + 2] = coordScale_ * (truth->box.width - poutput[boxIndex + 2]);
+            pdelta[boxIndex + 3] = coordScale_ * (truth->box.height - poutput[boxIndex + 3]);
 
             if (sqrt_) {
-                pdelta[boxIndex + 2] = coordScale_ * (std::sqrt(truthBox.width) - poutput[boxIndex + 2]);
-                pdelta[boxIndex + 3] = coordScale_ * (std::sqrt(truthBox.height) - poutput[boxIndex + 3]);
+                pdelta[boxIndex + 2] = coordScale_ * (std::sqrt(truth->box.width) - poutput[boxIndex + 2]);
+                pdelta[boxIndex + 3] = coordScale_ * (std::sqrt(truth->box.height) - poutput[boxIndex + 3]);
             }
 
             cost_ += std::pow(1 - iou, 2);

@@ -29,6 +29,7 @@ void backwardBias(float* biasUpdates, const float* delta, int batch, int n, int 
 void backwardScaleCpu(const float* xNorm, const float* delta, int batch, int n, int size, float* scaleUpdates);
 void col2ImCpu(const float* dataCol, int channels, int height, int width, int ksize, int stride, int pad,
                float* dataIm);
+void constrain(int n, float alpha, float* x, int incX);
 void im2ColCpu(const float* im, int channels, int height, int width, int ksize, int stride, int pad, float* dataCol);
 void meanCpu(const float* x, int batch, int filters, int spatial, float* mean);
 void meanDeltaCpu(const float* delta, const float* variance, int batch, int filters, int spatial, float* meanDelta);
