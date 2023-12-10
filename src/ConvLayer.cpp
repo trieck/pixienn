@@ -14,6 +14,8 @@
 * limitations under the License.
 ********************************************************************************/
 
+#include <cblas.h>
+
 #include "Activation.h"
 #include "ConvAlgo.h"
 #include "ConvLayer.h"
@@ -61,25 +63,27 @@ void ConvLayer::setup()
         def["height"] = outHeight();
         def["width"] = outWidth();
         batchNormalize_ = Layer::create(model(), def);
+        scales_ = PxCpuTensor<1>({ (size_t) filters_ }, 1.0f);
+        scaleUpdates_ = PxCpuTensor<1>({ (size_t) filters_ }, 0.0f);
     } else {
-        biases_ = PxCpuTensor<1>({ (size_t) filters_ }, 0.f);
-        biasUpdates_ = PxCpuTensor<1>({ (size_t) filters_ }, 0.f);
+        biases_ = PxCpuTensor<1>({ (size_t) filters_ }, 0.0f);
+        biasUpdates_ = PxCpuTensor<1>({ (size_t) filters_ }, 0.0f);
     }
 
     auto scale = std::sqrt(2.0f / (kernel_ * kernel_ * channels() / groups_));
     weights_ = random<PxCpuTensor<4>>({ (size_t) filters_,
-                                            (size_t) (channels() / groups_),
-                                            (size_t) kernel_,
-                                            (size_t) kernel_ }) * scale;
-    
-    weightUpdates_ = PxCpuTensor<4>(weights_.shape());
+                                        (size_t) (channels() / groups_),
+                                        (size_t) kernel_,
+                                        (size_t) kernel_ }) * scale;
+
+    weightUpdates_ = PxCpuTensor<4>(weights_.shape(), 0.0f);
 
 #ifdef USE_CUDA
     if (useGpu()) {
         setup_gpu();
     } else {
         column_ = PxCpuTensor<2>(
-                { (size_t) kernel_ * kernel_ * channels() / groups_, (size_t) outHeight() * outWidth() });
+                { (size_t) kernel_ * kernel_ * channels() / groups_, (size_t) outHeight() * outWidth() }, 0.0f);
         output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
         delta_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
     }
@@ -149,13 +153,35 @@ void ConvLayer::backward(const PxCpuVector& input)
 
     if (batchNormalize_) {
         batchNormalize_->backward(output_);
-        output_.copy(batchNormalize_->output());    // TODO: is that right?
+        output_.copy(batchNormalize_->output());
     } else {
         backwardBias(biasUpdates_.data(), delta_.data(), batch(), filters_, outHeight() * outWidth());
     }
 
     auto ctxt = makeContext(input);
     convolutionalBackward(ctxt);
+}
+
+void ConvLayer::update()
+{
+    const auto& net = model();
+    auto learningRate = net.learningRate();
+    auto momentum = net.momentum();
+    auto decay = net.decay();
+
+    if (!batchNormalize_) {
+        cblas_saxpy(filters_, learningRate / batch(), biasUpdates_.data(), 1, biases_.data(), 1);
+        cblas_sscal(filters_, momentum, biasUpdates_.data(), 1);
+    }
+
+    if (scales_.size()) {
+        cblas_saxpy(filters_, learningRate / batch(), scaleUpdates_.data(), 1, scales_.data(), 1);
+        cblas_sscal(filters_, momentum, scaleUpdates_.data(), 1);
+    }
+
+    cblas_saxpy(weights_.size(), -decay * batch(), weights_.data(), 1, weightUpdates_.data(), 1);
+    cblas_saxpy(weights_.size(), learningRate / batch(), weightUpdates_.data(), 1, weights_.data(), 1);
+    cblas_sscal(weights_.size(), momentum, weightUpdates_.data(), 1);
 }
 
 ConvContext ConvLayer::makeContext(const PxCpuVector& input)

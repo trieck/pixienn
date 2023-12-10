@@ -51,7 +51,7 @@ private:
 
     friend LayerFactories;
 
-    int coords_, num_, side_, maxBoxes_;
+    int coords_, num_, side_;
     bool rescore_, softmax_, sqrt_, forced_, random_, reorg_;
     float coordScale_, objectScale_, noObjectScale_, classScale_, jitter_;
 };

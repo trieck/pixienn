@@ -20,16 +20,9 @@
 #include <opencv2/core/mat.hpp>
 #include <opencv2/imgproc.hpp>
 #include "PxTensor.h"
+#include "ImageVec.h"
 
 namespace px {
-
-struct Image
-{
-    PxCpuVector data;
-    int width = 0;
-    int height = 0;
-    int channels = 0;
-};
 
 // Resize image with letterboxing
 cv::Mat imletterbox(const cv::Mat& image, int width, int height);
@@ -47,10 +40,10 @@ cv::Mat imreadNormalize(const char* path);
 cv::Mat imreadTiff(const char* path);
 
 // Read an image as vector
-Image imreadVector(const char* path);
+ImageVec imreadVector(const char* path);
 
 // Read an image as vector with a specific height and width
-Image imreadVector(const char* path, int width, int height);
+ImageVec imreadVector(const char* path, int width, int height);
 
 // Save an image to a file
 void imsave(const char* path, const cv::Mat& image);
@@ -59,7 +52,7 @@ void imsave(const char* path, const cv::Mat& image);
 void imsaveTiff(const char* path, const cv::Mat& image);
 
 // Save an ImageVector in TIFF format
-void imsave(const char* path, Image& image);
+void imsave(const char* path, ImageVec& image);
 
 // Convert image to a PxCpuVector
 PxCpuVector imvector(const cv::Mat& image);

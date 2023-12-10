@@ -19,6 +19,7 @@
 
 #include <opencv2/core/types.hpp>
 
+#include "ImageVec.h"
 #include "PxTensor.h"
 
 namespace px {
@@ -33,7 +34,7 @@ using GroundTruthVec = std::vector<GroundTruth>;
 
 struct ImageTruth
 {
-    PxCpuVector image;
+    ImageVec image;
     GroundTruthVec truth;
 };
 

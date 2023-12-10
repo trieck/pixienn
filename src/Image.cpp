@@ -68,17 +68,24 @@ Mat imread(const char* path)
     return image;
 }
 
-Image imreadVector(const char* path)
+ImageVec imreadVector(const char* path)
 {
     auto image = imreadNormalize(path);
 
     // convert the image from interleaved to planar
     auto vector = imvector(image);
 
-    return { vector, image.cols, image.rows, image.channels() };
+    ImageVec imageVec;
+    imageVec.imagePath = path;
+    imageVec.data = std::move(vector);
+    imageVec.channels = image.channels();
+    imageVec.size = { image.cols, image.rows };
+    imageVec.originalSize = imageVec.size;
+
+    return imageVec;
 }
 
-Image imreadVector(const char* path, int width, int height)
+ImageVec imreadVector(const char* path, int width, int height)
 {
     auto image = imreadNormalize(path);
 
@@ -88,7 +95,14 @@ Image imreadVector(const char* path, int width, int height)
     // convert the image from interleaved to planar
     auto vector = imvector(sized);
 
-    return { vector, image.cols, image.rows, sized.channels() };
+    ImageVec imageVec;
+    imageVec.imagePath = path;
+    imageVec.data = std::move(vector);
+    imageVec.channels = image.channels();
+    imageVec.size = { sized.cols, sized.rows };
+    imageVec.originalSize = { image.cols, image.rows };
+
+    return imageVec;
 }
 
 // normalize 8-bit RGB bands and convert to float
@@ -123,7 +137,7 @@ Mat imreadNormalize(const char* path)
 
     auto normal = imnormalize(image);
 
-    return normal;
+    return normal.clone();
 }
 
 void imsave(const char* path, const cv::Mat& image)
@@ -133,13 +147,13 @@ void imsave(const char* path, const cv::Mat& image)
 }
 
 // save an image in normalized float format as TIFF
-void imsave(const char* path, Image& image)
+void imsave(const char* path, ImageVec& image)
 {
-    cv::Mat mat(image.height, image.width, CV_MAKETYPE(CV_32F, image.channels));
+    cv::Mat mat(image.size.height, image.size.width, CV_MAKETYPE(CV_32F, image.channels));
 
     auto* pimage = image.data.data();
     auto* pmat = mat.ptr<float>();
-    auto planeSize = image.height * image.width;
+    auto planeSize = image.size.height * image.size.width;
 
     // convert planar image to interleaved mat
     for (auto i = 0; i < planeSize; ++i) {
@@ -258,7 +272,7 @@ void imtabbedRect(cv::Mat& image, const cv::Point& pt1, const cv::Point& pt2, ui
 #ifdef USE_PANGO
 
 void imtabbedText(cv::Mat& image, const char* text, const cv::Point& ptOrg, uint32_t textColor, uint32_t bgColor,
-                   int thickness)
+                  int thickness)
 {
     constexpr auto xpad = 4;
 

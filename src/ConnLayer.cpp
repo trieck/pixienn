@@ -14,6 +14,8 @@
 * limitations under the License.
 ********************************************************************************/
 
+#include <cblas.h>
+
 #include "ConnLayer.h"
 #include "CpuUtil.h"
 #include "Model.h"
@@ -26,8 +28,7 @@
 
 namespace px {
 
-ConnLayer::ConnLayer(Model& model, const YAML::Node& layerDef) : Layer(model, layerDef), scales_(0),
-                                                                 rollingMean_(0), rollingVar_(0)
+ConnLayer::ConnLayer(Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
 }
 
@@ -54,6 +55,10 @@ void ConnLayer::setup()
         def["height"] = outHeight();
         def["width"] = outWidth();
         batchNormalize_ = Layer::create(model(), def);
+        scales_ = PxCpuTensor<1>({ (size_t) outputs() }, 1.0f);
+        scaleUpdates_ = PxCpuTensor<1>({ (size_t) outputs() }, 0.0f);
+        rollingMean_ = PxCpuTensor<1>({ (size_t) outputs() }, 0.0f);
+        rollingVar_ = PxCpuTensor<1>({ (size_t) outputs() }, 0.0f);
     } else {
         biases_ = PxCpuTensor<1>({ (size_t) outputs() }, 0.0f);
         biasUpdates_ = PxCpuTensor<1>({ (size_t) outputs() }, 0.0f);
@@ -115,9 +120,9 @@ std::streamoff ConnLayer::loadWeights(std::istream& is)
 #endif
 
     if (batchNormalize_) {
-        is.read((char*) &scales_, sizeof(float));
-        is.read((char*) &rollingMean_, sizeof(float));
-        is.read((char*) &rollingVar_, sizeof(float));
+        is.read((char*) scales_.data(), outputs() * sizeof(float));
+        is.read((char*) rollingMean_.data(), outputs() * sizeof(float));
+        is.read((char*) rollingVar_.data(), outputs() * sizeof(float));
         PX_CHECK(is.good(), "Could not read batch_normalize parameters");
     }
 
@@ -153,6 +158,27 @@ void ConnLayer::backward(const PxCpuVector& input)
     }
 
     connectedBackward(ctxt);
+}
+
+void ConnLayer::update()
+{
+    const auto& net = model();
+    auto learningRate = net.learningRate();
+    auto momentum = net.momentum();
+    auto decay = net.decay();
+
+    cblas_saxpy(outputs(), learningRate / batch(), biasUpdates_.data(), 1, biases_.data(), 1);
+    cblas_sscal(outputs(), momentum, biasUpdates_.data(), 1);
+
+    if (batchNormalize_) {
+        cblas_saxpy(outputs(), learningRate / batch(), scaleUpdates_.data(), 1, scales_.data(), 1);
+        cblas_sscal(outputs(), momentum, scaleUpdates_.data(), 1);
+    }
+
+    auto size = inputs() * outputs();
+    cblas_saxpy(size, -decay * batch(), weights_.data(), 1, weightUpdates_.data(), 1);
+    cblas_saxpy(size, learningRate / batch(), weightUpdates_.data(), 1, weights_.data(), 1);
+    cblas_sscal(size, momentum, weightUpdates_.data(), 1);
 }
 
 ConnContext ConnLayer::makeContext(const PxCpuVector& input)

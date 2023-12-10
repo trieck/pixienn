@@ -288,6 +288,20 @@ const ImageTruths& Layer::truth() const noexcept
     return model_.truth();
 }
 
+std::streamoff Layer::loadWeights(std::istream& is)
+{
+    return 0;
+}
+
+bool Layer::hasCost() const noexcept
+{
+    return false;
+}
+
+void Layer::update()
+{
+}
+
 #ifdef USE_CUDA
 
 const CublasContext& Layer::cublasContext() const noexcept

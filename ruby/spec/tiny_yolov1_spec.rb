@@ -7,13 +7,13 @@ include Constants
 
 describe 'Pixienn Tiny Yolov1 Inference Test' do
   before(:all) do
-    @inference_command = "bin/pixienn " \
+    @inference_command = "#{PIXIENN_BIN} " \
       "--no-gpu " \
       "--color-map=plasma " \
       "--nms=0.3 " \
       "--confidence=0.2 " \
-      "../resources/cfg/yolov1-tiny-cfg.yml " \
-      "../resources/images/dog.jpg"
+      "../../resources/cfg/yolov1-tiny-cfg.yml " \
+      "../../resources/images/dog.jpg"
   end
 
   after(:all) do
@@ -22,7 +22,7 @@ describe 'Pixienn Tiny Yolov1 Inference Test' do
   end
 
   it 'runs Tiny Yolov1 model and checks generated files' do
-    Dir.chdir(PIXIENN_BUILD_PATH) do
+    Dir.chdir(PIXIENN_PATH) do
       `#{@inference_command}`
     end
 

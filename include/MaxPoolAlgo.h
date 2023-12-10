@@ -39,6 +39,7 @@ struct MaxPoolContext
 #ifdef USE_CUDA
     const PxCudaVector* inputGpu = nullptr;
     PxCudaVector* outputGpu = nullptr;
+    PxCudaVectorT<int>* indexesGpu = nullptr;
 #endif // USE_CUDA
 
     int batch = 0;

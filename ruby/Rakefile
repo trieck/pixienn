@@ -1,0 +1,11 @@
+require 'rspec/core/rake_task'
+require_relative 'load_config'
+
+RSpec::Core::RakeTask.new(:integration_tests) do |t|
+  t.name = 'Integration Tests'
+  t.verbose = false
+  t.pattern = 'spec/**/*_spec.rb'
+  t.rspec_opts = %w[--format documentation --format progress]
+end
+
+task default: :integration_tests

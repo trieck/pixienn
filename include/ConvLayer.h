@@ -41,6 +41,7 @@ public:
     std::streamoff loadWeights(std::istream& is) override;
     void forward(const PxCpuVector& input) override;
     void backward(const PxCpuVector& input) override;
+    void update() override;
 
 #ifdef USE_CUDA
     void forwardGpu(const PxCudaVector& input) override;
@@ -57,7 +58,7 @@ private:
     friend LayerFactories;
 
     PxCpuTensor<4> weights_, weightUpdates_;
-    PxCpuTensor<1> biases_, biasUpdates_;
+    PxCpuTensor<1> biases_, biasUpdates_, scales_, scaleUpdates_;
     PxCpuTensor<2> column_;
 
     int dilation_ = 0, filters_, kernel_, padding_, stride_, groups_;

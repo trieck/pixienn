@@ -44,6 +44,7 @@ void MaxPoolLayer::setup()
 #ifdef USE_CUDA
     if (useGpu()) {
         outputGpu_ = PxCudaVector(outputSize, 0.0f);
+        indexesGpu_ = PxCudaVectorT<int>(outputSize, 0);
     } else {
         output_ = PxCpuVector(outputSize, 0.0f);
         indexes_ = PxCpuVectorT<int>(outputSize, 0);
@@ -106,6 +107,7 @@ MaxPoolContext MaxPoolLayer::makeContext(const PxCudaVector& input)
 
     ctxt.inputGpu = &input;
     ctxt.outputGpu = &outputGpu_;
+    ctxt.indexesGpu = &indexesGpu_;
     ctxt.batch = batch();
     ctxt.channels = outChannels();
     ctxt.height = height();

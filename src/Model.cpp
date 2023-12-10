@@ -194,18 +194,6 @@ void Model::forward(const PxCpuVector& input)
     cost_ = count ? sum / count : 0.0f;
 }
 
-/**
- * @brief Perform the backward pass (backpropagation) through the neural network.
- *
- * This method iterates through the layers of the neural network in reverse order, starting from
- * the last layer and moving towards the input layer. For each layer, it computes the gradients
- * with respect to the layer's parameters and updates them based on the error signals propagated
- * from subsequent layers. The process involves the use of the chain rule of calculus and ensures
- * that the network learns from the provided input data by adjusting its parameters to minimize the
- * loss.
- *
- * @param input The input data to the neural network.
- */
 void Model::backward(const PxCpuVector& input)
 {
     const PxCpuVector* in;
@@ -298,12 +286,12 @@ std::vector<Detection> Model::predict(const std::string& imageFile)
         if (detector) {
 #ifdef USE_CUDA
             if (useGpu()) {
-                detector->addDetectsGpu(detections, image.width, image.height, threshold_);
+                detector->addDetectsGpu(detections, image.originalSize.width, image.originalSize.height, threshold_);
             } else {
-                detector->addDetects(detections, image.width, image.height, threshold_);
+                detector->addDetects(detections, image.originalSize.width, image.originalSize.height, threshold_);
             }
 #else
-            detector->addDetects(detections, image.width, image.height, threshold_);
+            detector->addDetects(detections, image.originalSize.width, image.originalSize.height, threshold_);
 #endif // USE_CUDA
         }
     }
@@ -323,10 +311,9 @@ void Model::train()
     auto avgLoss = -std::numeric_limits<float>::max();
 
     Timer timer;
-
     std::printf("Learning Rate: %.5f, Momentum: %.5f, Decay: %.5f\n", learningRate_, momentum_, decay_);
 
-    for (auto i = 0; i < 2; ++i) {
+    for (auto i = 0; i < 1; ++i) {
         Timer batchTimer;
         auto loss = trainBatch(loadBatch());
         avgLoss = avgLoss < 0 ? loss : (avgLoss * .9f + loss * .1f);
@@ -347,12 +334,28 @@ float Model::trainBatch(ImageTruths&& batch)
     truth_ = std::move(batch);
 
     for (const auto& item: truth_) {
-        forward(item.image);
-        backward(item.image);
-        error += cost();
+        error += trainOnce(item.image.data);
     }
 
     return error;
+}
+
+float Model::trainOnce(const PxCpuVector& input)
+{
+    forward(input);
+    backward(input);
+    auto error = cost();
+
+    update(); // how often?
+
+    return error;
+}
+
+void Model::update()
+{
+    for (auto& layer: layers()) {
+        layer->update();
+    }
 }
 
 void Model::parseTrainConfig()
@@ -386,7 +389,7 @@ auto Model::loadBatch() -> ImageTruths
         auto gts = groundTruth(imagePath);
 
         ImageTruth truth;
-        truth.image = std::move(image.data);
+        truth.image = std::move(image);
         truth.truth = std::move(gts);
         batch.emplaceBack(std::move(truth));
     }
@@ -618,6 +621,21 @@ uint32_t Model::classes() const noexcept
 const ImageTruths& Model::truth() const noexcept
 {
     return truth_;
+}
+
+float Model::learningRate() const noexcept
+{
+    return learningRate_;
+}
+
+float Model::momentum() const noexcept
+{
+    return momentum_;
+}
+
+float Model::decay() const noexcept
+{
+    return decay_;
 }
 
 #ifdef USE_CUDA
