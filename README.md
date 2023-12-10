@@ -1,6 +1,7 @@
 # PIXIENN
 
 A modern C++ reimplementation of Darknet with CUDA support for efficient neural network inference.
+The development of training is still in progress.
 
 ![Inference Result 1](resources/examples/predictions.jpg)
 
