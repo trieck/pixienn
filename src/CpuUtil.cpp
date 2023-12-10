@@ -34,24 +34,60 @@ im2ColGetPixel(const float* im, int height, int width, int row, int col, int cha
     return im[col + width * (row + height * channel)];
 }
 
+static void col2ImAddPixel(float* im, int height, int width, int channels, int row, int col, int channel, int pad,
+                           float val)
+{
+    row -= pad;
+    col -= pad;
+
+    if (row < 0 || col < 0 || row >= height || col >= width) {
+        return;
+    }
+
+    im[col + width * (row + height * channel)] += val;
+}
+
 void im2ColCpu(const float* im, int channels, int height, int width, int ksize, int stride, int pad,
                float* dataCol)
 {
-    int c, h, w;
-    int heightCol = (height + 2 * pad - ksize) / stride + 1;
-    int widthCol = (width + 2 * pad - ksize) / stride + 1;
+    auto heightCol = (height + 2 * pad - ksize) / stride + 1;
+    auto widthCol = (width + 2 * pad - ksize) / stride + 1;
 
-    int channelsCol = channels * ksize * ksize;
-    for (c = 0; c < channelsCol; ++c) {
-        int wOffset = c % ksize;
-        int hOffset = (c / ksize) % ksize;
-        int cIm = c / ksize / ksize;
-        for (h = 0; h < heightCol; ++h) {
-            for (w = 0; w < widthCol; ++w) {
-                int imRow = hOffset + h * stride;
-                int imCol = wOffset + w * stride;
-                int colIndex = (c * heightCol + h) * widthCol + w;
+    auto channelsCol = channels * ksize * ksize;
+    for (auto c = 0; c < channelsCol; ++c) {
+        auto wOffset = c % ksize;
+        auto hOffset = (c / ksize) % ksize;
+        auto cIm = c / ksize / ksize;
+        for (auto h = 0; h < heightCol; ++h) {
+            for (auto w = 0; w < widthCol; ++w) {
+                auto imRow = hOffset + h * stride;
+                auto imCol = wOffset + w * stride;
+                auto colIndex = (c * heightCol + h) * widthCol + w;
                 dataCol[colIndex] = im2ColGetPixel(im, height, width, imRow, imCol, cIm, pad);
+            }
+        }
+    }
+}
+
+void col2ImCpu(const float* dataCol, int channels, int height, int width, int ksize, int stride, int pad,
+               float* dataIm)
+{
+    auto heightCol = (height + 2 * pad - ksize) / stride + 1;
+    auto widthCol = (width + 2 * pad - ksize) / stride + 1;
+
+    auto channelsCol = channels * ksize * ksize;
+    for (auto c = 0; c < channelsCol; ++c) {
+        auto wOffset = c % ksize;
+        auto hOffset = (c / ksize) % ksize;
+        auto cIm = c / ksize / ksize;
+        for (auto h = 0; h < heightCol; ++h) {
+            for (auto w = 0; w < widthCol; ++w) {
+                auto imRow = hOffset + h * stride;
+                auto imCol = wOffset + w * stride;
+                auto colIndex = (c * heightCol + h) * widthCol + w;
+                double val = dataCol[colIndex];
+                col2ImAddPixel(dataIm, height, width, channels,
+                               imRow, imCol, cIm, pad, val);
             }
         }
     }

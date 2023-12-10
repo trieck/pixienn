@@ -55,7 +55,6 @@ public:
     int width() const noexcept;
     int subdivs() const noexcept;
     int timeSteps() const noexcept;
-
     int layerSize() const;
     const Layer::Ptr& layerAt(int index) const;
 
@@ -105,7 +104,8 @@ public:
 
     template<typename T>
     T option(const std::string& name) const;
-    PxCpuVector::pointer delta() noexcept;
+    PxCpuVector* delta() noexcept;
+
     uint32_t classes() const noexcept;
     const ImageTruths& truth() const noexcept;
 
@@ -152,7 +152,7 @@ private:
 
     // training parameters
     ImageTruths truth_;
-    PxCpuVector::pointer delta_ = nullptr;
+    PxCpuVector* delta_ = nullptr;
 
     int subdivs_ = 0;
     int timeSteps_ = 0;

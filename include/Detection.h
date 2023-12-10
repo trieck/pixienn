@@ -48,7 +48,6 @@ using Detections = std::vector<Detection>;
 
 struct Detector
 {
-    virtual uint32_t truths() const noexcept = 0;
     virtual void addDetects(Detections& detects, int width, int height, float threshold) = 0;
 #ifdef USE_CUDA
     virtual void addDetectsGpu(Detections& detects, int width, int height, float threshold) = 0;

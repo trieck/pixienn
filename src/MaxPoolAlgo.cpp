@@ -39,6 +39,7 @@ void maxPoolForward(const MaxPoolContext& ctxt)
 
     const auto* pin = ctxt.input->data();
     auto* pout = ctxt.output->data();
+    auto* pindexes = ctxt.indexes->data();
 
     for (auto b = 0; b < ctxt.batch; ++b) {
         for (auto k = 0; k < c; ++k) {
@@ -46,6 +47,7 @@ void maxPoolForward(const MaxPoolContext& ctxt)
                 for (auto j = 0; j < ow; ++j) {
                     auto outIndex = j + ow * (i + oh * (k + c * b));
                     float max = min;
+                    auto maxIndex = -1;
 
                     for (auto n = 0; n < ctxt.kernel; ++n) {
                         for (auto m = 0; m < ctxt.kernel; ++m) {
@@ -54,14 +56,29 @@ void maxPoolForward(const MaxPoolContext& ctxt)
                             auto index = curW + iw * (curH + ih * (k + b * c));
                             auto valid = (curH >= 0 && curH < ih && curW >= 0 && curW < iw);
                             auto val = valid ? pin[index] : min;
+                            maxIndex = (val > max) ? index : maxIndex;
                             max = (val > max) ? val : max;
                         }
                     }
 
                     pout[outIndex] = max;
+                    pindexes[outIndex] = maxIndex;
                 }
             }
         }
+    }
+}
+
+void maxPoolBackward(const MaxPoolContext& ctxt)
+{
+    auto size = ctxt.batch * ctxt.channels * ctxt.outWidth * ctxt.outHeight;
+    auto* pindexes = ctxt.indexes->data();
+    auto* pNetDelta = ctxt.netDelta->data();
+    const auto* pDelta = ctxt.delta->data();
+
+    for (auto i = 0; i < size; ++i) {
+        auto index = pindexes[i];
+        pNetDelta[index] += pDelta[i];
     }
 }
 

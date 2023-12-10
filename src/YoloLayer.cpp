@@ -49,13 +49,6 @@ void YoloLayer::setup()
 #endif
 }
 
-uint32_t YoloLayer::truths() const noexcept
-{
-    auto result = 90 * (4 + 1); // FIXME:
-
-    return result;
-}
-
 std::ostream& YoloLayer::print(std::ostream& os)
 {
     Layer::print(os, "yolo", { height(), width(), channels() }, { outHeight(), outWidth(), outChannels() });
