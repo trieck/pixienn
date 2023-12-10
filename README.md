@@ -16,8 +16,6 @@ This project aims to provide a modern and optimized C++ implementation of the Da
 - **Performance:** Significantly reduced inference time on CPU compared to the original Darknet implementation.
 - **Modern C++ Features:** Leveraging modern C++ standards for improved readability and maintainability.
 
-## Getting Started
-
 ### Prerequisites
 
 - Boost (>= 1.74)
