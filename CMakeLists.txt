@@ -20,9 +20,8 @@ endif ()
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 include_directories(${CMAKE_SOURCE_DIR}/cmake)
 
-find_package(BLAS REQUIRED)
+find_package(OpenBLAS REQUIRED)
 find_package(Boost 1.74 REQUIRED)
-
 find_package(GLIB REQUIRED COMPONENTS gobject)
 find_package(HarfBuzz REQUIRED)
 find_package(OpenCV 4.5.4 REQUIRED COMPONENTS core imgproc highgui)
@@ -132,6 +131,7 @@ target_include_directories(pixienn PRIVATE
         ${Pango_INCLUDE_DIR}
         ${GLIB_INCLUDE_DIRS}
         ${HARFBUZZ_INCLUDE_DIR}
+        ${OpenBLAS_INCLUDE_DIR}
         include)
 
 if (Cairo_FOUND)

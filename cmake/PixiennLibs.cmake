@@ -3,7 +3,7 @@ list(APPEND PIXIENN_LIBS
         pixienn
         tiff
         yaml-cpp
-        ${BLAS_openblas_LIBRARY}
+        ${OpenBLAS_LIB}
         boost_filesystem
         boost_program_options
         ${CUDART_LIBRARY}
