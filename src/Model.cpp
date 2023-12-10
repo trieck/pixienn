@@ -277,7 +277,7 @@ std::vector<Detection> Model::predict(const std::string& imageFile)
         forward(image.data);
     }
 #else
-    forward(image.vector);
+    forward(image.data);
 #endif  // USE_CUDA
 
     std::vector<Detection> detections;
