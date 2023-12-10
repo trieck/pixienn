@@ -52,7 +52,7 @@ void MaxPoolLayer::setup()
     }
 #else
     output_ = PxCpuVector(outputSize, 0.0f);
-    indexes_ = PxCpuVector(outputSize, 0.0f);
+    indexes_ = PxCpuVectorT<int>(outputSize, 0.0f);
     delta_ = PxCpuVector(batch() * outputs(), 0.0f);
 #endif
 }
