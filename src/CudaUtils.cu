@@ -14,13 +14,14 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include "CudaUtils.cuh"
-#include <cuda_runtime.h>
 
+#include <cuda_runtime.h>
 #include <thrust/device_vector.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/random.h>
 #include <thrust/transform.h>
+
+#include "CudaUtils.cuh"
 
 namespace px {
 
@@ -64,6 +65,12 @@ __host__ __device__ float random_generator::operator()(std::size_t n) const
 void fillGpu(float* ptr, std::size_t n, float value)
 {
     thrust::device_ptr<float> dev_ptr = thrust::device_pointer_cast(ptr);
+    thrust::fill(dev_ptr, dev_ptr + n, value);
+}
+
+void fillGpu(int* ptr, std::size_t n, int value)
+{
+    thrust::device_ptr<int> dev_ptr = thrust::device_pointer_cast(ptr);
     thrust::fill(dev_ptr, dev_ptr + n, value);
 }
 

@@ -101,6 +101,9 @@ public:
     bool training() const;
     bool inferring() const;
     float cost() const noexcept;
+    float learningRate() const noexcept;
+    float momentum() const noexcept;
+    float decay() const noexcept;
 
     template<typename T>
     T option(const std::string& name) const;
@@ -116,8 +119,11 @@ public:
 #endif
 private:
     float trainBatch(ImageTruths&& batch);
+    float trainOnce(const PxCpuVector& input);
     void forward(const PxCpuVector& input);
     void backward(const PxCpuVector& input);
+    void update();
+
 #ifdef USE_CUDA
     void forwardGpu(const PxCpuVector& input) const;
     void setupGpu();

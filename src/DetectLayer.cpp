@@ -45,7 +45,6 @@ void DetectLayer::setup()
     coords_ = property<int>("coords", 1);
     forced_ = property<bool>("forced", false);
     jitter_ = property<float>("jitter", 0.2f);
-    maxBoxes_ = property<int>("max_boxes", 90);
     noObjectScale_ = property<float>("noobject_scale", 1.0f);
     num_ = property<int>("num", 1);
     objectScale_ = property<float>("object_scale", 1.0f);
@@ -113,7 +112,7 @@ void DetectLayer::forward(const PxCpuVector& input)
             auto bestIndex = -1;
             auto bestIou = -std::numeric_limits<float>::max();
             auto bestRmse = std::numeric_limits<float>::max();
-            const GroundTruth* bestTruth = nullptr;
+            const GroundTruth* truth = nullptr;
 
             for (auto j = 0; j < num_; ++j) {
                 auto pindex = index + locations * nclasses + i * num_ + j;
@@ -131,33 +130,41 @@ void DetectLayer::forward(const PxCpuVector& input)
                     pred.height *= pred.height;
                 }
 
-                for (const auto& truth: gts) {
-                    auto iou = boxIou(pred, truth.box);
-                    auto rmse = boxRmse(pred, truth.box);
+                for (const auto& gt: gts) {
+                    cv::Rect2f truthBox(gt.box);
+                    truthBox.x /= side_;
+                    truthBox.y /= side_;
+
+                    auto iou = boxIou(pred, truthBox);
+                    auto rmse = boxRmse(pred, truthBox);
                     if (iou > 0) {
                         if (iou > bestIou) {
                             bestIou = iou;
                             bestIndex = j;
-                            bestTruth = &truth;
+                            truth = &gt;
                         }
                     } else {
                         if (rmse < bestRmse) {
                             bestRmse = rmse;
                             bestIndex = j;
-                            bestTruth = &truth;
+                            truth = &gt;
                         }
                     }
                 }
             }
 
-            if (!bestTruth || bestIndex == -1) {
+            if (!truth || bestIndex == -1) {
                 continue;   // something really wrong happened
             }
 
+            cv::Rect2f truthBox(truth->box);
+            truthBox.x /= side_;
+            truthBox.y /= side_;
+
             auto row = i / side_;
             auto col = i % side_;
-            auto truthRow = (int) (bestTruth->box.x * side_);
-            auto truthCol = (int) (bestTruth->box.y * side_);
+            auto truthRow = (int) (truth->box.x * side_);
+            auto truthCol = (int) (truth->box.y * side_);
 
             // should we skip the rest if the truth box is not in the current grid cell?
             if (row != truthRow || col != truthCol) {
@@ -167,7 +174,7 @@ void DetectLayer::forward(const PxCpuVector& input)
             // Now, we can go back and compute the class loss, etc.
             auto classIndex = index + i * nclasses;
             for (auto j = 0; j < nclasses; ++j) {
-                float netTruth = bestTruth->classId == j ? 1.0f : 0.0f;
+                float netTruth = truth->classId == j ? 1.0f : 0.0f;
                 pdelta[classIndex + j] = classScale_ * (netTruth - poutput[classIndex + j]);
                 cost_ += classScale_ * pow(netTruth - poutput[classIndex + j], 2);
                 if (netTruth) avgCat += poutput[classIndex + j];
@@ -183,7 +190,7 @@ void DetectLayer::forward(const PxCpuVector& input)
                 pred.height *= pred.height;
             }
 
-            auto iou = boxIou(pred, bestTruth->box);
+            auto iou = boxIou(pred, truthBox);
             auto pindex = index + locations * nclasses + i * num_ + bestIndex;
             cost_ -= noObjectScale_ * std::pow(poutput[pindex], 2);
             cost_ += objectScale_ * std::pow(1 - poutput[pindex], 2);
@@ -194,14 +201,14 @@ void DetectLayer::forward(const PxCpuVector& input)
                 pdelta[pindex] = objectScale_ * (iou - poutput[pindex]);
             }
 
-            pdelta[boxIndex + 0] = coordScale_ * (bestTruth->box.x - poutput[boxIndex + 0]);
-            pdelta[boxIndex + 1] = coordScale_ * (bestTruth->box.y - poutput[boxIndex + 1]);
-            pdelta[boxIndex + 2] = coordScale_ * (bestTruth->box.width - poutput[boxIndex + 2]);
-            pdelta[boxIndex + 3] = coordScale_ * (bestTruth->box.height - poutput[boxIndex + 3]);
+            pdelta[boxIndex + 0] = coordScale_ * (truthBox.x - poutput[boxIndex + 0]);
+            pdelta[boxIndex + 1] = coordScale_ * (truthBox.y - poutput[boxIndex + 1]);
+            pdelta[boxIndex + 2] = coordScale_ * (truthBox.width - poutput[boxIndex + 2]);
+            pdelta[boxIndex + 3] = coordScale_ * (truthBox.height - poutput[boxIndex + 3]);
 
             if (sqrt_) {
-                pdelta[boxIndex + 2] = coordScale_ * (std::sqrt(bestTruth->box.width) - poutput[boxIndex + 2]);
-                pdelta[boxIndex + 3] = coordScale_ * (std::sqrt(bestTruth->box.height) - poutput[boxIndex + 3]);
+                pdelta[boxIndex + 2] = coordScale_ * (std::sqrt(truthBox.width) - poutput[boxIndex + 2]);
+                pdelta[boxIndex + 3] = coordScale_ * (std::sqrt(truthBox.height) - poutput[boxIndex + 3]);
             }
 
             cost_ += std::pow(1 - iou, 2);

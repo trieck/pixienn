@@ -41,6 +41,7 @@ protected:
     void SetUp(const MaxPoolTestParams& params)
     {
         output_ = PxCpuVector(params.batch * params.channels * params.outHeight * params.outWidth);
+        indexes_ = PxCpuVectorT<int>(params.batch * params.channels * params.outHeight * params.outWidth);
     }
 
     void MaxPoolTest(const PxCpuVector& input, const PxCpuVector& expected, const MaxPoolTestParams& params)
@@ -50,6 +51,7 @@ protected:
         MaxPoolContext ctxt;
         ctxt.input = &input;
         ctxt.output = &output_;
+        ctxt.indexes = &indexes_;
         ctxt.batch = params.batch;
         ctxt.channels = params.channels;
         ctxt.height = params.height;
@@ -67,6 +69,7 @@ protected:
 
 private:
     PxCpuVector output_;
+    PxCpuVectorT<int> indexes_;
 };
 
 TEST_F(MaxPoolCpuTest, SimpleMaxPoolCpu)
@@ -102,6 +105,7 @@ protected:
     void SetUp(const MaxPoolTestParams& params)
     {
         output_ = PxCudaVector(params.batch * params.channels * params.outHeight * params.outWidth);
+        indexes_ = PxCudaVectorT<int>(params.batch * params.channels * params.outHeight * params.outWidth);
     }
 
     void MaxPoolTest(const PxCudaVector& input, const PxCudaVector& expected, const MaxPoolTestParams& params)
@@ -111,6 +115,7 @@ protected:
         MaxPoolContext ctxt;
         ctxt.inputGpu = &input;
         ctxt.outputGpu = &output_;
+        ctxt.indexesGpu = &indexes_;
         ctxt.batch = params.batch;
         ctxt.channels = params.channels;
         ctxt.height = params.height;
@@ -128,6 +133,7 @@ protected:
 
 private:
     PxCudaVector output_;
+    PxCudaVectorT<int> indexes_;
 };
 
 

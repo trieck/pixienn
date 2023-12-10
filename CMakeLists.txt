@@ -107,6 +107,7 @@ list(APPEND SOURCES
         src/FileUtil.cpp
         src/GroundTruth.cpp
         src/Image.cpp
+        src/ImageVec.cpp
         src/Layer.cpp
         src/Math.cpp
         src/MaxPoolAlgo.cpp

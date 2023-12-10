@@ -1,5 +1,5 @@
 /********************************************************************************
-* Copyright 2023 Thomas A. Rieck, All Rights Reserved
+* Copyright 2020-2023 Thomas A. Rieck, All Rights Reserved
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -14,22 +14,45 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_CUDAUTILS_H
-#define PIXIENN_CUDAUTILS_H
-
 #include "Common.h"
-#include <vector_types.h>
+#include "ImageVec.h"
 
 namespace px {
 
-constexpr auto CUDA_BLOCK_SIZE = 512;
+ImageVec::ImageVec() : channels(0)
+{
+}
 
-void addBiasGpu(float* output, float* biases, int batch, int n, int size);
-dim3 cudaGridsize(std::uint32_t n);
-void fillGpu(float* ptr, std::size_t n, float value);
-void fillGpu(int* ptr, std::size_t n, int value);
-void randomGpu(float* ptr, std::size_t n, float a = 0.f, float b = 1.f);
+ImageVec::ImageVec(const ImageVec& rhs)
+{
+    *this = rhs;
+}
+
+ImageVec::ImageVec(ImageVec&& rhs)
+{
+    *this = std::move(rhs);
+}
+
+ImageVec& ImageVec::operator=(const ImageVec& rhs)
+{
+    if (this != &rhs) {
+        size = rhs.size;
+        originalSize = rhs.originalSize;
+        imagePath = rhs.imagePath;
+        data = rhs.data;
+    }
+
+    return *this;
+}
+
+ImageVec& ImageVec::operator=(ImageVec&& rhs)
+{
+    size = std::move(rhs.size);
+    originalSize = std::move(rhs.originalSize);
+    imagePath = std::move(rhs.imagePath);
+    data = std::move(rhs.data);
+
+    return *this;
+}
 
 }   // px
-
-#endif // PIXIENN_CUDAUTILS_H

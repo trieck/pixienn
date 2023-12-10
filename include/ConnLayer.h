@@ -42,6 +42,7 @@ public:
 
     void forward(const PxCpuVector& input) override;
     void backward(const PxCpuVector& input) override;
+    void update() override;
 
 #ifdef USE_CUDA
     void forwardGpu(const PxCudaVector& input) override;
@@ -61,11 +62,11 @@ private:
 
     PxCpuTensor<2> weights_, weightUpdates_;
     PxCpuTensor<1> biases_, biasUpdates_;
+    PxCpuTensor<1> scales_, scaleUpdates_, rollingMean_, rollingVar_;
 
     Activation::Ptr activationFnc_;
 
     Layer::Ptr batchNormalize_;
-    float scales_, rollingMean_, rollingVar_;
 
 #ifdef USE_CUDA
     CudnnTensorDesc::Ptr normDesc_, destDesc_;

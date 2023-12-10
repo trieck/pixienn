@@ -59,15 +59,9 @@ public:
 
     virtual std::ostream& print(std::ostream& os) = 0;
 
-    virtual inline std::streamoff loadWeights(std::istream& is)
-    {
-        return 0;
-    }
-
-    inline virtual bool hasCost() const noexcept
-    {
-        return false;
-    }
+    virtual std::streamoff loadWeights(std::istream& is);
+    virtual bool hasCost() const noexcept;
+    virtual void update();
 
     virtual void forward(const PxCpuVector& input) = 0;
     virtual void backward(const PxCpuVector& input) = 0;

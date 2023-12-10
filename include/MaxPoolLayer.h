@@ -44,6 +44,7 @@ private:
 
 #ifdef USE_CUDA
     MaxPoolContext makeContext(const PxCudaVector& input);
+    PxCudaVectorT<int> indexesGpu_;
 #endif // USE_CUDA
 
     friend LayerFactories;
