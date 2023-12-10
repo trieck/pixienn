@@ -15,6 +15,7 @@
 ********************************************************************************/
 
 #include "MaxPoolLayer.h"
+#include "Model.h"
 
 #ifdef USE_CUDA
 
@@ -38,15 +39,20 @@ void MaxPoolLayer::setup()
     setOutHeight((height() + padding_ - kernel_) / stride_ + 1);
     setOutWidth((width() + padding_ - kernel_) / stride_ + 1);
     setOutputs(outChannels() * outHeight() * outWidth());
+    auto outputSize = batch() * outputs();
 
 #ifdef USE_CUDA
     if (useGpu()) {
-        outputGpu_ = PxCudaVector(batch() * outputs());
+        outputGpu_ = PxCudaVector(outputSize, 0.0f);
     } else {
-        output_ = PxCpuVector(batch() * outputs());
+        output_ = PxCpuVector(outputSize, 0.0f);
+        indexes_ = PxCpuVectorT<int>(outputSize, 0);
+        delta_ = PxCpuVector(outputSize, 0.0f);
     }
 #else
-    output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
+    output_ = PxCpuVector(outputSize, 0.0f);
+    indexes_ = PxCpuVector(outputSize, 0.0f);
+    delta_ = PxCpuVector(batch() * outputs(), 0.0f);
 #endif
 }
 
@@ -66,6 +72,8 @@ void MaxPoolLayer::forward(const PxCpuVector& input)
 
 void MaxPoolLayer::backward(const PxCpuVector& input)
 {
+    auto ctxt = makeContext(input);
+    maxPoolBackward(ctxt);
 }
 
 MaxPoolContext MaxPoolLayer::makeContext(const PxCpuVector& input)
@@ -74,6 +82,9 @@ MaxPoolContext MaxPoolLayer::makeContext(const PxCpuVector& input)
 
     ctxt.input = &input;
     ctxt.output = &output_;
+    ctxt.delta = &delta_;
+    ctxt.netDelta = model().delta();
+    ctxt.indexes = &indexes_;
     ctxt.batch = batch();
     ctxt.channels = outChannels();
     ctxt.height = height();

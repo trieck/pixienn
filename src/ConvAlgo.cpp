@@ -62,8 +62,11 @@ void convolutionalBackward(const ConvContext& ctxt)
 
     int nweights = ctxt.weights->size();
     const auto* pweights = ctxt.weights->data();
+    auto* pweightUdates = ctxt.weightUpdates->data();
 
     const auto* pin = ctxt.input->data();
+    const auto* pdelta = ctxt.delta->data();
+    auto* pNetDelta = ctxt.netDelta->data();
     auto* pout = ctxt.output->data();
 
     auto alpha = 1.0f;
@@ -71,25 +74,31 @@ void convolutionalBackward(const ConvContext& ctxt)
 
     for (auto i = 0; i < ctxt.batch; ++i) {
         for (auto j = 0; j < ctxt.groups; ++j) {
-            auto* a = ctxt.delta + (i * ctxt.groups + j) * m * k;
-            float* b = ctxt.column->data(); // WTF ctxt.netWorkspace;
-            auto* c = ctxt.weightUpdates + j * ctxt.nweights / ctxt.groups;
-
-            auto* im = pin + (i * ctxt.groups + j) * ctxt.channels / ctxt.groups * ctxt.height * ctxt.width;
-
-            // float *imd = net.delta + (i*l.groups + j)*l.c/l.groups*l.h*l.w;
-
-            /*const auto* im = pin + (i * ctxt.groups + j) * ctxt.channels / ctxt.groups * ctxt.height * ctxt.width;
-            const auto* a = pweights + j * nweights / ctxt.groups;
+            const auto* im = pin + (i * ctxt.groups + j) * ctxt.channels / ctxt.groups * ctxt.height * ctxt.width;
+            const auto* a = pdelta + (i * ctxt.groups + j) * m * k;
             const auto* b = ctxt.kernel == 1 ? im : ctxt.column->data();
-            auto* c = pout + (i * ctxt.groups + j) * n * m;
+            auto* c = pweightUdates + j * nweights / ctxt.groups;
 
             if (ctxt.kernel != 1) {
                 im2ColCpu(im, ctxt.channels / ctxt.groups, ctxt.height, ctxt.width, ctxt.kernel, ctxt.stride,
                           ctxt.padding, ctxt.column->data());
             }
 
-            cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, alpha, a, k, b, n, beta, c, n);*/
+            cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, m, n, k, alpha, a, k, b, k, beta, c, n);
+
+            if (pNetDelta) {
+                auto* imd = pNetDelta + (i * ctxt.groups + j) * ctxt.channels / ctxt.groups * ctxt.height * ctxt.width;
+                a = pweights + j * nweights / ctxt.groups;
+                b = pdelta + (i * ctxt.groups + j) * m * k;
+                c = ctxt.kernel == 1 ? imd : ctxt.column->data();
+
+                cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, n, k, m, alpha, a, n, b, k, 0.0f, c, k);
+
+                if (ctxt.kernel != 1) {
+                    col2ImCpu(c, ctxt.channels / ctxt.groups, ctxt.height, ctxt.width, ctxt.kernel, ctxt.stride,
+                              ctxt.padding, imd);
+                }
+            }
         }
     }
 }

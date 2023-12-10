@@ -57,7 +57,7 @@ void connectedBackward(const ConnContext& ctxt)
     k = ctxt.outputs;
     n = ctxt.inputs;
     b = ctxt.weights->data();
-    c = ctxt.netDelta;
+    c = ctxt.netDelta->data();
 
     if (c) {
         cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, 1.0f, a, k, b, n, 1.0f, c, n);

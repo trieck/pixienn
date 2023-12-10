@@ -697,6 +697,7 @@ public:
     virtual const shape_type& shape() const noexcept;
     virtual const shape_type& strides() const noexcept;
     size_type size() const noexcept;
+    size_type size(size_type dim) const;
 
     virtual void copy(const PxTensor<T, N>& rhs) = 0;
     virtual const_pointer data() const noexcept = 0;
@@ -714,6 +715,14 @@ private:
     shape_type strides_{};
     Device dev_;
 };
+
+template<typename T, std::size_t N>
+PxTensor<T, N>::size_type PxTensor<T, N>::size(PxTensor::size_type dim) const
+{
+    PX_CHECK(dim < shape_.size(), "Element dim out of range");
+
+    return shape_[dim];
+}
 
 template<typename T, std::size_t N>
 PxTensor<T, N>::PxTensor(Device dev) : dev_(dev)

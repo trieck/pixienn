@@ -183,17 +183,15 @@ void Model::forward(const PxCpuVector& input)
 
     for (auto& layer: layers()) {
         layer->forward(*in);
-        if (layer->cost()) {
-            sum += *layer->cost();
+        if (layer->hasCost()) {
+            sum += layer->cost();
             ++count;
         }
 
         in = &layer->output();
     }
 
-    if (count) {
-        cost_ = sum / count;
-    }
+    cost_ = count ? sum / count : 0.0f;
 }
 
 /**
@@ -320,12 +318,22 @@ void Model::train()
     std::printf("\nTraining model...\n");
 
     parseTrainConfig();
+    loadTrainImages();
+
+    auto avgLoss = -std::numeric_limits<float>::max();
 
     Timer timer;
+
     std::printf("Learning Rate: %.5f, Momentum: %.5f, Decay: %.5f\n", learningRate_, momentum_, decay_);
 
-    loadTrainImages();
-    trainBatch(loadBatch());
+    for (auto i = 0; i < 2; ++i) {
+        Timer batchTimer;
+        auto loss = trainBatch(loadBatch());
+        avgLoss = avgLoss < 0 ? loss : (avgLoss * .9f + loss * .1f);
+
+        printf("%d: %.2f, %.2f avg, %.2f rate, %s, %d images\n", i, loss, avgLoss, learningRate_,
+               batchTimer.str().c_str(), 10);
+    }
 
     std::printf("trained in %s.\n", timer.str().c_str());
 }
@@ -592,14 +600,14 @@ int Model::timeSteps() const noexcept
     return timeSteps_;
 }
 
-PxCpuVector::pointer Model::delta() noexcept
+PxCpuVector* Model::delta() noexcept
 {
     return delta_;
 }
 
 float Model::cost() const noexcept
 {
-    return 0;
+    return cost_;
 }
 
 uint32_t Model::classes() const noexcept

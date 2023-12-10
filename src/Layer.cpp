@@ -194,9 +194,9 @@ const PxCpuVector& Layer::output() const noexcept
     return output_;
 }
 
-PxCpuVector::pointer Layer::delta() noexcept
+PxCpuVector* Layer::delta() noexcept
 {
-    return delta_.data();
+    return &delta_;
 }
 
 #ifdef USE_CUDA
@@ -273,13 +273,9 @@ bool Layer::inferring() const
     return model_.inferring();
 }
 
-PxCpuVector::const_pointer Layer::cost() const noexcept
+float Layer::cost() const noexcept
 {
-    if (cost_.size() == 0) {
-        return nullptr;
-    }
-
-    return cost_.data();
+    return cost_;
 }
 
 uint32_t Layer::classes() const noexcept

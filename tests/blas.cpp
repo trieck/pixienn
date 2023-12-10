@@ -205,3 +205,64 @@ TEST(BlasTests, NormalizeDeltaCpu)
     EXPECT_THAT(delta.asVector(), Pointwise(FloatNear(1e-4), expected.asVector()));
 }
 
+TEST(BlasTests, Im2ColCpu)
+{
+    constexpr int channels = 2;
+    constexpr int height = 3;
+    constexpr int width = 3;
+    constexpr int ksize = 2;
+    constexpr int stride = 1;
+    constexpr int pad = 0;
+
+    PxCpuTensor<3> input({ channels, height, width }, {
+            1.0f, 2.0f, 3.0f,
+            4.0f, 5.0f, 6.0f,
+            7.0f, 8.0f, 9.0f,
+            10.0f, 11.0f, 12.0f,
+            13.0f, 14.0f, 15.0f,
+            16.0f, 17.0f, 18.0f
+    });
+
+    PxCpuTensor<3> expected({ channels * ksize * ksize,
+                              (height - ksize + 2 * pad) / stride + 1,
+                              (width - ksize + 2 * pad) / stride + 1 },
+                            { 1.0f, 2.0f, 4.0f, 5.0f,
+                              2.0f, 3.0f, 5.0f, 6.0f,
+                              4.0f, 5.0f, 7.0f, 8.0f,
+                              5.0f, 6.0f, 8.0f, 9.0f,
+                              10.0f, 11.0f, 13.0f, 14.0f,
+                              11.0f, 12.0f, 14.0f, 15.0f,
+                              13.0f, 14.0f, 16.0f, 17.0f,
+                              14.0f, 15.0f, 17.0f, 18.0f });
+
+    PxCpuTensor<3> result(expected.shape(), 0.0f);
+
+    im2ColCpu(input.data(), channels, height, width, ksize, stride, pad, result.data());
+
+    EXPECT_THAT(result.asVector(), Pointwise(FloatNear(1e-4), expected.asVector()));
+}
+
+TEST(BlasTests, Col2ImCpu)
+{
+    constexpr int channels = 2;
+    constexpr int height = 2;
+    constexpr int width = 2;
+    constexpr int ksize = 2;
+    constexpr int stride = 1;
+    constexpr int pad = 0;
+
+    PxCpuTensor<3> input({ channels, height, width }, {
+            1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f
+    });
+
+    PxCpuTensor<3> colResult({ channels * ksize * ksize,
+                               (height - ksize + 2 * pad) / stride + 1,
+                               (width - ksize + 2 * pad) / stride + 1 }, 0.0f);
+
+    im2ColCpu(input.data(), channels, height, width, ksize, stride, pad, colResult.data());
+
+    PxCpuTensor<3> col2ImResult(input.shape(), 0.0f);
+    col2ImCpu(colResult.data(), channels, height, width, ksize, stride, pad, col2ImResult.data());
+
+    EXPECT_THAT(col2ImResult.asVector(), Pointwise(FloatNear(1e-4), input.asVector()));
+}

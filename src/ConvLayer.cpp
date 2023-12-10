@@ -18,6 +18,7 @@
 #include "ConvAlgo.h"
 #include "ConvLayer.h"
 #include "Error.h"
+#include "Model.h"
 
 #ifdef USE_CUDA
 
@@ -164,6 +165,7 @@ ConvContext ConvLayer::makeContext(const PxCpuVector& input)
     ctxt.channels = channels();
     ctxt.column = &column_;
     ctxt.delta = &delta_;
+    ctxt.netDelta = model().delta();
     ctxt.dilation = dilation_;
     ctxt.filters = filters_;
     ctxt.groups = groups_;

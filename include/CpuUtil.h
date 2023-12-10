@@ -27,6 +27,8 @@ float sumArray(const float* a, int n);
 void addBias(float* output, const float* biases, int batch, int n, int size);
 void backwardBias(float* biasUpdates, const float* delta, int batch, int n, int size);
 void backwardScaleCpu(const float* xNorm, const float* delta, int batch, int n, int size, float* scaleUpdates);
+void col2ImCpu(const float* dataCol, int channels, int height, int width, int ksize, int stride, int pad,
+               float* dataIm);
 void im2ColCpu(const float* im, int channels, int height, int width, int ksize, int stride, int pad, float* dataCol);
 void meanCpu(const float* x, int batch, int filters, int spatial, float* mean);
 void meanDeltaCpu(const float* delta, const float* variance, int batch, int filters, int spatial, float* meanDelta);

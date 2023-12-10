@@ -64,11 +64,16 @@ public:
         return 0;
     }
 
+    inline virtual bool hasCost() const noexcept
+    {
+        return false;
+    }
+
     virtual void forward(const PxCpuVector& input) = 0;
     virtual void backward(const PxCpuVector& input) = 0;
     const PxCpuVector& output() const noexcept;
-    PxCpuVector::pointer delta() noexcept;
-    PxCpuVector::const_pointer cost() const noexcept;
+    PxCpuVector* delta() noexcept;
+    float cost() const noexcept;
 
 #ifdef USE_CUDA
     virtual void forwardGpu(const PxCudaVector& input) = 0;
@@ -117,7 +122,8 @@ protected:
     PxCudaVector outputGpu_, deltaGpu_;
 #endif
 
-    PxCpuVector output_, delta_, cost_;
+    PxCpuVector output_, delta_;
+    float cost_ = 0.0f;
 
 private:
     friend LayerFactories;

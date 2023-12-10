@@ -36,6 +36,7 @@ struct ConvContext
     PxCpuTensor<2>* column = nullptr;
     PxCpuVector* output = nullptr;
     PxCpuVector* delta = nullptr;
+    PxCpuVector* netDelta = nullptr;
 
 #ifdef USE_CUDA
     const PxCudaVector* inputGpu = nullptr;

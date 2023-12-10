@@ -47,6 +47,8 @@ private:
 #endif // USE_CUDA
 
     friend LayerFactories;
+
+    PxCpuVectorT<int> indexes_;
     int kernel_ = 0, stride_ = 0, padding_;
 };
 

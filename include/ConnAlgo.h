@@ -33,7 +33,7 @@ struct ConnContext
     const PxCpuVector* input = nullptr;
     PxCpuVector* output = nullptr;
     const PxCpuVector* delta = nullptr;
-    PxCpuVector::pointer netDelta = nullptr;
+    PxCpuVector* netDelta = nullptr;
     const PxCpuTensor<2>* weights = nullptr;
     PxCpuTensor<2>* weightUpdates = nullptr;
 

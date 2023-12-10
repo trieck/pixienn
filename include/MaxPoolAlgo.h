@@ -32,6 +32,9 @@ struct MaxPoolContext
 {
     const PxCpuVector* input = nullptr;
     PxCpuVector* output = nullptr;
+    PxCpuVectorT<int>* indexes = nullptr;
+    const PxCpuVector* delta = nullptr;
+    PxCpuVector* netDelta = nullptr;
 
 #ifdef USE_CUDA
     const PxCudaVector* inputGpu = nullptr;
@@ -50,6 +53,7 @@ struct MaxPoolContext
 };
 
 void maxPoolForward(const MaxPoolContext& ctxt);
+void maxPoolBackward(const MaxPoolContext& ctxt);
 
 #ifdef USE_CUDA
 void maxPoolForwardGpu(const MaxPoolContext& ctxt);
