@@ -18,6 +18,7 @@
 #define PIXIENN_CONVLAYER_H
 
 #include "Activation.h"
+#include "BatchNormAlgo.h"
 #include "ConvAlgo.h"
 #include "Layer.h"
 
@@ -50,6 +51,7 @@ public:
 private:
     void setup() override;
     ConvContext makeContext(const PxCpuVector& input);
+    BNContext makeBNContext(const PxCpuVector& input);
 
 #ifdef USE_CUDA
     void setup_gpu();
@@ -58,11 +60,13 @@ private:
     friend LayerFactories;
 
     PxCpuTensor<4> weights_, weightUpdates_;
-    PxCpuTensor<1> biases_, biasUpdates_, scales_, scaleUpdates_;
+    PxCpuTensor<1> biases_, biasUpdates_, scales_, scaleUpdates_, rollingMean_, rollingVar_;
+    PxCpuTensor<1> mean_, meanDelta_, var_, varDelta_;
     PxCpuTensor<2> column_;
+    PxCpuVector x_, xNorm_;
 
     int dilation_ = 0, filters_, kernel_, padding_, stride_, groups_;
-    Layer::Ptr batchNormalize_;
+    bool batchNormalize_;
     Activation::Ptr activationFnc_;
 
 #ifdef USE_CUDA

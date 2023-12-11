@@ -41,7 +41,7 @@ void ConvLayer::setup()
     auto activation = property<std::string>("activation", "logistic");
     activationFnc_ = Activation::get(activation);
 
-    auto batchNormalize = property<bool>("batch_normalize", false);
+    batchNormalize_ = property<bool>("batch_normalize", false);
     dilation_ = property<int>("dilation", 1);
     filters_ = property<int>("filters", 1);
     kernel_ = property<int>("kernel", 1);
@@ -55,20 +55,21 @@ void ConvLayer::setup()
     setOutWidth((width() + 2 * padding_ - kernel_) / stride_ + 1);
     setOutputs(outHeight() * outWidth() * outChannels());
 
-    if (batchNormalize) {
-        auto def = layerDef();
-        def["type"] = "batchnorm";
-        def["inputs"] = outputs();
-        def["channels"] = outChannels();
-        def["height"] = outHeight();
-        def["width"] = outWidth();
-        batchNormalize_ = Layer::create(model(), def);
+    if (batchNormalize_) {
         scales_ = PxCpuTensor<1>({ (size_t) filters_ }, 1.0f);
         scaleUpdates_ = PxCpuTensor<1>({ (size_t) filters_ }, 0.0f);
-    } else {
-        biases_ = PxCpuTensor<1>({ (size_t) filters_ }, 0.0f);
-        biasUpdates_ = PxCpuTensor<1>({ (size_t) filters_ }, 0.0f);
+        rollingMean_ = PxCpuTensor<1>({ (size_t) filters_ }, 0.f);
+        rollingVar_ = PxCpuTensor<1>({ (size_t) filters_ }, 0.f);
+        x_ = PxCpuVector(batch() * outputs(), 0.0f);
+        xNorm_ = PxCpuVector(batch() * outputs(), 0.0f);
+        mean_ = PxCpuTensor<1>({ (size_t) filters_ }, 0.f);
+        meanDelta_ = PxCpuTensor<1>({ (size_t) filters_ }, 0.f);
+        var_ = PxCpuTensor<1>({ (size_t) filters_ }, 0.f);
+        varDelta_ = PxCpuTensor<1>({ (size_t) filters_ }, 0.f);
     }
+
+    biases_ = PxCpuTensor<1>({ (size_t) filters_ }, 0.0f);
+    biasUpdates_ = PxCpuTensor<1>({ (size_t) filters_ }, 0.0f);
 
     auto scale = std::sqrt(2.0f / (kernel_ * kernel_ * channels() / groups_));
     weights_ = random<PxCpuTensor<4>>({ (size_t) filters_,
@@ -84,14 +85,14 @@ void ConvLayer::setup()
     } else {
         column_ = PxCpuTensor<2>(
                 { (size_t) kernel_ * kernel_ * channels() / groups_, (size_t) outHeight() * outWidth() }, 0.0f);
-        output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
-        delta_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
+        output_ = PxCpuVector(batch() * outputs(), 0.0f);
+        delta_ = PxCpuVector(batch() * outputs(), 0.0f);
     }
 #else
     column_ = PxCpuTensor<2>(
             { (size_t) kernel_ * kernel_ * channels() / groups_, (size_t) outHeight() * outWidth() });
-    output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
-    delta_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
+    output_ = PxCpuVector(batch() * outputs(), 0.0f);
+    delta_ = PxCpuVector(batch() * outputs(), 0.0f);
 #endif
 }
 
@@ -108,7 +109,10 @@ std::streamoff ConvLayer::loadWeights(std::istream& is)
     auto start = is.tellg();
 
     if (batchNormalize_) {
-        batchNormalize_->loadWeights(is);
+        is.read((char*) biases_.data(), int(sizeof(float) * biases_.size()));
+        is.read((char*) scales_.data(), int(sizeof(float) * scales_.size()));
+        is.read((char*) rollingMean_.data(), int(sizeof(float) * rollingMean_.size()));
+        is.read((char*) rollingVar_.data(), int(sizeof(float) * rollingVar_.size()));
     } else {
         is.read((char*) biases_.data(), int(biases_.size() * sizeof(float)));
         PX_CHECK(is.good(), "Could not read biases");
@@ -134,12 +138,11 @@ std::streamoff ConvLayer::loadWeights(std::istream& is)
 void ConvLayer::forward(const PxCpuVector& input)
 {
     auto ctxt = makeContext(input);
-
     convolutionalForward(ctxt);
 
     if (batchNormalize_) {
-        batchNormalize_->forward(output_);
-        output_.copy(batchNormalize_->output());
+        auto bnContext = makeBNContext(output_);
+        batchNormForward(bnContext);
     } else {
         addBias(output_.data(), biases_.data(), batch(), filters_, outHeight() * outWidth());
     }
@@ -152,8 +155,8 @@ void ConvLayer::backward(const PxCpuVector& input)
     activationFnc_->gradient(output_, delta_);
 
     if (batchNormalize_) {
-        batchNormalize_->backward(output_);
-        output_.copy(batchNormalize_->output());
+        auto bnContext = makeBNContext(output_);
+        batchNormBackward(bnContext);
     } else {
         backwardBias(biasUpdates_.data(), delta_.data(), batch(), filters_, outHeight() * outWidth());
     }
@@ -191,22 +194,52 @@ ConvContext ConvLayer::makeContext(const PxCpuVector& input)
     ctxt.channels = channels();
     ctxt.column = &column_;
     ctxt.delta = &delta_;
-    ctxt.netDelta = model().delta();
     ctxt.dilation = dilation_;
     ctxt.filters = filters_;
     ctxt.groups = groups_;
     ctxt.height = height();
     ctxt.input = &input;
     ctxt.kernel = kernel_;
+    ctxt.netDelta = model().delta();
     ctxt.nweights = weights_.size();
     ctxt.outHeight = outHeight();
     ctxt.outWidth = outWidth();
     ctxt.output = &output_;
     ctxt.padding = padding_;
     ctxt.stride = stride_;
-    ctxt.weights = &weights_;
     ctxt.weightUpdates = &weightUpdates_;
+    ctxt.weights = &weights_;
     ctxt.width = width();
+
+    return ctxt;
+}
+
+BNContext ConvLayer::makeBNContext(const PxCpuVector& input)
+{
+    BNContext ctxt;
+
+    ctxt.input = &input;
+    ctxt.output = &output_;
+    ctxt.x = &x_;
+    ctxt.xNorm = &xNorm_;
+    ctxt.biases = &biases_;
+    ctxt.biasUpdates = &biasUpdates_;
+    ctxt.delta = &delta_;
+    ctxt.meanDelta = &meanDelta_;
+    ctxt.scales = &scales_;
+    ctxt.scaleUpdates = &scaleUpdates_;
+    ctxt.mean = &mean_;
+    ctxt.var = &var_;
+    ctxt.varDelta = &varDelta_;
+    ctxt.rollingMean = &rollingMean_;
+    ctxt.rollingVar = &rollingVar_;
+
+    ctxt.batch = batch();
+    ctxt.channels = outChannels();
+    ctxt.outHeight = outHeight();
+    ctxt.outWidth = outWidth();
+
+    ctxt.training = training();
 
     return ctxt;
 }
