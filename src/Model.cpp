@@ -342,11 +342,16 @@ float Model::trainBatch(ImageTruths&& batch)
 
 float Model::trainOnce(const PxCpuVector& input)
 {
+    seen_++;
+
     forward(input);
     backward(input);
+
     auto error = cost();
 
-    update(); // how often?
+    if ((seen_ / batch_) % subdivs_ == 0) {
+        update();
+    }
 
     return error;
 }

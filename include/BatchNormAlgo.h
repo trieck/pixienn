@@ -40,11 +40,11 @@ struct BNContext
     PxCpuTensor<1>* varDelta = nullptr;
     PxCpuVector* delta = nullptr;
     PxCpuVector* output = nullptr;
+    PxCpuVector* x = nullptr;
     PxCpuVector* xNorm = nullptr;
     const PxCpuTensor<1>* biases = nullptr;
     const PxCpuTensor<1>* scales = nullptr;
     const PxCpuVector* input = nullptr;
-    const PxCpuVector* x = nullptr;
 
 #ifdef USE_CUDA
     PxCudaTensor<1>* biasUpdatesGpu = nullptr;

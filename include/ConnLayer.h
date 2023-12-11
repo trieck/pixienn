@@ -17,15 +17,16 @@
 #ifndef PIXIENN_CONNLAYER_H
 #define PIXIENN_CONNLAYER_H
 
+#include "Activation.h"
+#include "BatchNormAlgo.h"
+#include "ConnAlgo.h"
+#include "Layer.h"
+
 #ifdef USE_CUDA
 
 #include "Cudnn.h"
 
 #endif
-
-#include "Activation.h"
-#include "ConnAlgo.h"
-#include "Layer.h"
 
 namespace px {
 
@@ -51,6 +52,7 @@ public:
 private:
     void setup() override;
     ConnContext makeContext(const PxCpuVector& input);
+    BNContext makeBNContext(const PxCpuVector& input);
 
 #ifdef USE_CUDA
     void setupGpu();
@@ -63,10 +65,12 @@ private:
     PxCpuTensor<2> weights_, weightUpdates_;
     PxCpuTensor<1> biases_, biasUpdates_;
     PxCpuTensor<1> scales_, scaleUpdates_, rollingMean_, rollingVar_;
+    PxCpuTensor<1> mean_, meanDelta_, var_, varDelta_;
+    PxCpuTensor<2> column_;
+    PxCpuVector x_, xNorm_;
+    bool batchNormalize_;
 
     Activation::Ptr activationFnc_;
-
-    Layer::Ptr batchNormalize_;
 
 #ifdef USE_CUDA
     CudnnTensorDesc::Ptr normDesc_, destDesc_;

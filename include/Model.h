@@ -162,7 +162,7 @@ private:
 
     int subdivs_ = 0;
     int timeSteps_ = 0;
-    int outputs_ = 0;
+    int seen_ = 0;
     float threshold_ = 0.0f;
     float learningRate_ = 0.0f;
     float momentum_ = 0.0f;
