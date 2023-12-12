@@ -91,6 +91,9 @@ void Model::parseModel()
     const auto model = modelDoc["model"];
     PX_CHECK(model.IsMap(), "Model is not a map.");
 
+    parsePolicy(model);
+    maxBatches_ = model["max_batches"].as<int>(0);
+
     batch_ = model["batch"].as<int>();
     channels_ = model["channels"].as<int>();
     height_ = model["height"].as<int>();
@@ -158,6 +161,18 @@ int Model::batch() const noexcept
 {
     return batch_;
 }
+
+int Model::currentBatch() const noexcept
+{
+    if (batch_ == 0 || subdivs_ == 0) {
+        return 0;
+    }
+
+    auto batchNum = seen_ / (batch_ * subdivs_);
+
+    return batchNum;
+}
+
 
 int Model::channels() const noexcept
 {
@@ -313,15 +328,14 @@ void Model::train()
     Timer timer;
     std::printf("Learning Rate: %.5f, Momentum: %.5f, Decay: %.5f\n", learningRate_, momentum_, decay_);
 
-    uint32_t images = 0;
-    for (auto i = 0; i < 10000; ++i) {
+    while (currentBatch() < maxBatches_) {
         Timer batchTimer;
         auto loss = trainBatch(loadBatch());
         avgLoss = avgLoss < 0 ? loss : (avgLoss * .9f + loss * .1f);
 
-        if (i > 0 && i % 100 == 0) {
-            printf("%d: %.2f, %.2f avg, %.2f rate, %s, %d images\n", i, loss, avgLoss, learningRate_,
-                   batchTimer.str().c_str(), i * batch_ + 1);
+        if (seen_ > 0 && seen_ % 10 == 0) {
+            printf("%d: %.5f, %.5f avg, %.5f rate, %s, %d images\n", seen_, loss, avgLoss, learningRate_,
+                   batchTimer.str().c_str(), seen_ * batch_);
         }
     }
 
@@ -636,6 +650,37 @@ float Model::momentum() const noexcept
 float Model::decay() const noexcept
 {
     return decay_;
+}
+
+Model::Policy Model::policy(const std::string& str)
+{
+    static std::unordered_map<std::string, Policy> map{
+            { "steps", Policy::STEPS }
+    };
+
+    const auto it = map.find(str);
+    PX_CHECK(it != map.end(), "Policy \"%s\" not supported.", str.c_str());
+
+    return it->second;
+}
+
+void Model::parsePolicy(const Node& model)
+{
+    if (model["policy"]) {
+        auto sPolicy = model["policy"].as<std::string>("constant");
+        policy_ = policy(sPolicy);
+        if (policy_ == Policy::STEPS) {
+            auto steps = model["steps"];
+            PX_CHECK(steps.IsSequence(), "steps must be a sequence of integers.");
+            steps_ = steps.as<std::vector<int>>();
+
+            auto scales = model["scales"];
+            PX_CHECK(scales.IsSequence(), "scales must be a sequence of floating point numbers.");
+            scales_ = scales.as<std::vector<float>>();
+
+            PX_CHECK(steps_.size() == scales_.size(), "steps and scales must have the same size.");
+        }
+    }
 }
 
 #ifdef USE_CUDA

@@ -128,14 +128,24 @@ private:
     void forwardGpu(const PxCpuVector& input) const;
     void setupGpu();
 #endif
+    enum class Policy : uint8_t
+    {
+        CONSTANT = 0,
+        STEPS
+    };
+
+    static Policy policy(const std::string& str);
+
     void parseConfig();
     void parseTrainConfig();
     void parseModel();
+    void parsePolicy(const YAML::Node& model);
     void loadWeights();
     void loadLabels();
     void loadTrainImages();
     ImageBatch loadBatch();
     GroundTruthVec groundTruth(const std::string& imagePath);
+    int currentBatch() const noexcept;
 
     // file paths
     std::string cfgFile_;
@@ -159,7 +169,10 @@ private:
     // training parameters
     ImageBatch imageBatch_;
     PxCpuVector* delta_ = nullptr;
-
+    Policy policy_ = Policy::CONSTANT;
+    std::vector<int> steps_;
+    std::vector<float> scales_;
+    int maxBatches_ = 0;
     int subdivs_ = 0;
     int timeSteps_ = 0;
     int seen_ = 0;

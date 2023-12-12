@@ -48,7 +48,7 @@ protected:
 
     void TearDown() override
     {
-        freopen(NULL, "w", stderr);
+        auto* fp2 = freopen(NULL, "w", stderr);
         fclose(fp_);
         remove(imagePath_);
     }
