@@ -64,12 +64,12 @@ void DetectLayer::setup()
     if (useGpu()) {
         outputGpu_ = PxCudaVector(outputs(), 0.0f);
     } else {
-        output_ = PxCpuVector(outputs(), 0.0f);
-        delta_ = PxCpuVector(outputs(), 0.0f);
+        output_ = PxCpuVector(batch() * outputs(), 0.0f);
+        delta_ = PxCpuVector(batch() * outputs(), 0.0f);
     }
 #else
-    output_ = PxCpuVector(outputs(), 0.0f);
-    delta_ = PxCpuVector(outputs(), 0.0f);
+    output_ = PxCpuVector(batch() * outputs(), 0.0f);
+    delta_ = PxCpuVector(batch() * outputs(), 0.0f);
 #endif
 }
 
@@ -98,7 +98,7 @@ void DetectLayer::forward(const PxCpuVector& input)
     auto count = 0;
     auto size = batch() * inputs();
     auto nclasses = classes();
-    const auto& truths = truth();
+    const auto& imgbatch = imageBatch();
 
     auto locations = side_ * side_;
     auto* poutput = output_.data();
@@ -106,7 +106,7 @@ void DetectLayer::forward(const PxCpuVector& input)
 
     for (auto b = 0; b < batch(); ++b) {
         auto index = b * inputs();
-        auto gts = truths.groundTruth(b);
+        auto gts = imgbatch.groundTruth(b);
         for (auto i = 0; i < locations; ++i) {
             auto bestIndex = -1;
             auto bestIou = -1.0f;

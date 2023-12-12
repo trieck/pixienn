@@ -313,29 +313,26 @@ void Model::train()
     Timer timer;
     std::printf("Learning Rate: %.5f, Momentum: %.5f, Decay: %.5f\n", learningRate_, momentum_, decay_);
 
-    for (auto i = 0; i < 1; ++i) {
+    uint32_t images = 0;
+    for (auto i = 0; i < 10000; ++i) {
         Timer batchTimer;
         auto loss = trainBatch(loadBatch());
         avgLoss = avgLoss < 0 ? loss : (avgLoss * .9f + loss * .1f);
 
-        printf("%d: %.2f, %.2f avg, %.2f rate, %s, %d images\n", i, loss, avgLoss, learningRate_,
-               batchTimer.str().c_str(), 10);
+        if (i > 0 && i % 100 == 0) {
+            printf("%d: %.2f, %.2f avg, %.2f rate, %s, %d images\n", i, loss, avgLoss, learningRate_,
+                   batchTimer.str().c_str(), i * batch_ + 1);
+        }
     }
 
     std::printf("trained in %s.\n", timer.str().c_str());
 }
 
-float Model::trainBatch(ImageTruths&& batch)
+float Model::trainBatch(ImageBatch&& batch)
 {
-    float error = 0;
+    imageBatch_ = std::move(batch);
 
-    std::printf("   training batch of size %zu....\n", batch.size());
-
-    truth_ = std::move(batch);
-
-    for (const auto& item: truth_) {
-        error += trainOnce(item.image.data);
-    }
+    auto error = trainOnce(imageBatch_.imageData());
 
     return error;
 }
@@ -356,6 +353,8 @@ float Model::trainOnce(const PxCpuVector& input)
 
 void Model::update()
 {
+    // TODO: calculate learning rate
+
     for (auto& layer: layers()) {
         layer->update();
     }
@@ -377,32 +376,30 @@ void Model::parseTrainConfig()
     trainGTPath_ = canonical(groundTruth, cfgPath.parent_path()).string();
 }
 
-auto Model::loadBatch() -> ImageTruths
+ImageBatch Model::loadBatch()
 {
-    ImageTruths batch;
+    ImageBatch batch(batch_, channels_, height_, width_);
 
     std::random_device rd;
     std::default_random_engine generator(rd());
     std::uniform_int_distribution<int> distribution(0, trainImages_.size() - 1);
 
-    auto n = std::min<std::size_t>(1000, trainImages_.size()); // FIXME: 1 image!
+    auto n = std::min<std::size_t>(batch_, trainImages_.size());
 
     for (auto i = 0; i < n; ++i) {
         auto j = distribution(generator);
-        const auto& imagePath = trainImages_[0/*j*/];
+        const auto& imagePath = trainImages_[j];
         auto image = imreadVector(imagePath.c_str(), width(), height());
         auto gts = groundTruth(imagePath);
 
-        ImageTruth truth;
-        truth.image = std::move(image);
-        truth.truth = std::move(gts);
-        batch.emplaceBack(std::move(truth));
+        batch.setImageData(i, image.data);  // the image data must be copied
+        batch.setGroundTruth(i, std::move(gts));
     }
 
     return batch;
 }
 
-auto Model::groundTruth(const std::string& imagePath) -> GroundTruthVec
+GroundTruthVec Model::groundTruth(const std::string& imagePath)
 {
     auto basePath = baseName(imagePath);
 
@@ -621,9 +618,9 @@ uint32_t Model::classes() const noexcept
     return labels_.size();
 }
 
-const ImageTruths& Model::truth() const noexcept
+const ImageBatch& Model::imageBatch() const noexcept
 {
-    return truth_;
+    return imageBatch_;
 }
 
 float Model::learningRate() const noexcept

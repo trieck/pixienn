@@ -104,7 +104,6 @@ list(APPEND SOURCES
         src/Detection.cpp
         src/Error.cpp
         src/FileUtil.cpp
-        src/GroundTruth.cpp
         src/Image.cpp
         src/ImageVec.cpp
         src/Layer.cpp
@@ -120,9 +119,11 @@ list(APPEND SOURCES
         src/UpsampleAlgo.cpp
         src/UpsampleLayer.cpp
         src/YoloLayer.cpp
+        src/ImageBatch.cpp
 )
 
 add_library(pixienn STATIC ${SOURCES})
+
 set_target_properties(pixienn PROPERTIES OUTPUT_NAME "pixienn")
 
 target_include_directories(pixienn PRIVATE

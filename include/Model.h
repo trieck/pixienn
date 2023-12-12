@@ -21,7 +21,7 @@
 #include <boost/program_options/variables_map.hpp>
 
 #include "Detection.h"
-#include "GroundTruth.h"
+#include "ImageBatch.h"
 #include "Layer.h"
 
 #ifdef USE_CUDA
@@ -110,7 +110,7 @@ public:
     PxCpuVector* delta() noexcept;
 
     uint32_t classes() const noexcept;
-    const ImageTruths& truth() const noexcept;
+    const ImageBatch& imageBatch() const noexcept;
 
 #ifdef USE_CUDA
     const CublasContext& cublasContext() const noexcept;
@@ -118,7 +118,7 @@ public:
     bool useGpu() const noexcept;
 #endif
 private:
-    float trainBatch(ImageTruths&& batch);
+    float trainBatch(ImageBatch&& batch);
     float trainOnce(const PxCpuVector& input);
     void forward(const PxCpuVector& input);
     void backward(const PxCpuVector& input);
@@ -134,7 +134,7 @@ private:
     void loadWeights();
     void loadLabels();
     void loadTrainImages();
-    ImageTruths loadBatch();
+    ImageBatch loadBatch();
     GroundTruthVec groundTruth(const std::string& imagePath);
 
     // file paths
@@ -157,7 +157,7 @@ private:
     int revision_ = 0;
 
     // training parameters
-    ImageTruths truth_;
+    ImageBatch imageBatch_;
     PxCpuVector* delta_ = nullptr;
 
     int subdivs_ = 0;
