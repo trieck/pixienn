@@ -47,20 +47,6 @@ TEST(BlasTests, SumArray)
     EXPECT_FLOAT_EQ(result, expected);
 }
 
-TEST(BlasTests, AddBias)
-{
-    constexpr auto batch = 2;
-    constexpr auto n = 3;
-    constexpr auto size = 4;
-
-    PxCpuTensor<3> output({ batch, n, size }, 1.0f);
-    PxCpuTensor<1> bias({ n }, 0.5f);
-
-    addBias(output.data(), bias.data(), batch, n, size);
-
-    EXPECT_THAT(output.asVector(), Each(FloatEq(1.5f)));
-}
-
 TEST(BlasTests, BackwardBias)
 {
     constexpr auto batch = 1;
@@ -73,6 +59,20 @@ TEST(BlasTests, BackwardBias)
     backwardBias(output.data(), bias.data(), batch, n, size);
 
     EXPECT_THAT(output.asVector(), ElementsAre(2, 1, 1, 1, 1, 1));
+}
+
+TEST(BlasTests, AddBias)
+{
+    constexpr auto batch = 2;
+    constexpr auto n = 3;
+    constexpr auto size = 4;
+
+    PxCpuTensor<3> output({ batch, n, size }, 1.0f);
+    PxCpuTensor<1> bias({ n }, 0.5f);
+
+    addBias(output.data(), bias.data(), batch, n, size);
+
+    EXPECT_THAT(output.asVector(), Each(FloatEq(1.5f)));
 }
 
 TEST(BlasTests, ScaleBias)

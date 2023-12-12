@@ -283,9 +283,9 @@ uint32_t Layer::classes() const noexcept
     return model_.classes();
 }
 
-const ImageTruths& Layer::truth() const noexcept
+const ImageBatch& Layer::imageBatch() const noexcept
 {
-    return model_.truth();
+    return model_.imageBatch();
 }
 
 std::streamoff Layer::loadWeights(std::istream& is)

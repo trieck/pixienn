@@ -12,10 +12,11 @@ find_package(GMock REQUIRED)
 
 add_executable(pixienn-test
         activations.cpp
-        blas.cpp
         batchnorm.cpp
+        blas.cpp
         connected.cpp
         convolve.cpp
+        imagebatch.cpp
         main.cpp
         math.cpp
         maxpool.cpp

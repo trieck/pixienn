@@ -1,8 +1,16 @@
 model:
-  batch: 1
+  batch: 2
   channels: 3
   height: 448
   width: 448
+
+  momentum: 0.9
+  decay: 0.0005
+  learning_rate: 0.0005
+  policy: steps
+  steps: 200,400,600,800,20000,30000
+  scales: 2.5,2,2,2,.1,.1
+  max_batches: 40000
 
   layers:
     - type: conv
