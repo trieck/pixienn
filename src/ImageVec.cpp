@@ -39,6 +39,7 @@ ImageVec& ImageVec::operator=(const ImageVec& rhs)
         size = rhs.size;
         originalSize = rhs.originalSize;
         imagePath = rhs.imagePath;
+        channels = rhs.channels;
         data = rhs.data;
     }
 
@@ -51,6 +52,7 @@ ImageVec& ImageVec::operator=(ImageVec&& rhs)
     originalSize = std::move(rhs.originalSize);
     imagePath = std::move(rhs.imagePath);
     data = std::move(rhs.data);
+    channels = std::move(rhs.channels);
 
     return *this;
 }

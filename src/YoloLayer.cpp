@@ -58,6 +58,8 @@ std::ostream& YoloLayer::print(std::ostream& os)
 
 void YoloLayer::forward(const PxCpuVector& input)
 {
+    Layer::forward(input);
+
     std::copy(input.begin(), input.end(), output_.begin());
 
     auto area = std::max(1, width() * height());

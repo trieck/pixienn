@@ -66,6 +66,8 @@ std::ostream& ShortcutLayer::print(std::ostream& os)
 
 void ShortcutLayer::forward(const PxCpuVector& input)
 {
+    Layer::forward(input);
+
     output_.copy(input);
 
     auto ctxt = makeContext(input);

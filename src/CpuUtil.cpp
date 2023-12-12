@@ -85,7 +85,7 @@ void col2ImCpu(const float* dataCol, int channels, int height, int width, int ks
                 auto imRow = hOffset + h * stride;
                 auto imCol = wOffset + w * stride;
                 auto colIndex = (c * heightCol + h) * widthCol + w;
-                double val = dataCol[colIndex];
+                auto val = dataCol[colIndex];
                 col2ImAddPixel(dataIm, height, width, channels,
                                imRow, imCol, cIm, pad, val);
             }

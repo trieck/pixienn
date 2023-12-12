@@ -302,6 +302,13 @@ void Layer::update()
 {
 }
 
+void Layer::forward(const PxCpuVector& input)
+{
+    delta_.fill(0);
+    output_.fill(0);
+    cost_ = 0;
+}
+
 #ifdef USE_CUDA
 
 const CublasContext& Layer::cublasContext() const noexcept

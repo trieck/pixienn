@@ -342,14 +342,12 @@ float Model::trainBatch(ImageTruths&& batch)
 
 float Model::trainOnce(const PxCpuVector& input)
 {
-    seen_++;
-
     forward(input);
     backward(input);
 
     auto error = cost();
 
-    if ((seen_ / batch_) % subdivs_ == 0) {
+    if ((++seen_ / batch_) % subdivs_ == 0) {
         update();
     }
 
@@ -383,13 +381,15 @@ auto Model::loadBatch() -> ImageTruths
 {
     ImageTruths batch;
 
-    auto rng = std::default_random_engine{};
-    std::shuffle(std::begin(trainImages_), std::end(trainImages_), rng);
+    std::random_device rd;
+    std::default_random_engine generator(rd());
+    std::uniform_int_distribution<int> distribution(0, trainImages_.size() - 1);
 
-    auto n = std::min<std::size_t>(10, trainImages_.size()); // FIXME: 1 image!
+    auto n = std::min<std::size_t>(1000, trainImages_.size()); // FIXME: 1 image!
 
     for (auto i = 0; i < n; ++i) {
-        const auto& imagePath = trainImages_[i];
+        auto j = distribution(generator);
+        const auto& imagePath = trainImages_[0/*j*/];
         auto image = imreadVector(imagePath.c_str(), width(), height());
         auto gts = groundTruth(imagePath);
 
@@ -398,8 +398,6 @@ auto Model::loadBatch() -> ImageTruths
         truth.truth = std::move(gts);
         batch.emplaceBack(std::move(truth));
     }
-
-    std::shuffle(std::begin(batch), std::end(batch), rng);
 
     return batch;
 }

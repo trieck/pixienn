@@ -39,8 +39,8 @@ end
 
 begin
   convert(ARGV[0], ARGV[1])
-rescue Exception => e
-  puts e, e.backtrace
+rescue StandardError => e
+  eputs e, e.backtrace
   exit(1)
 end
 

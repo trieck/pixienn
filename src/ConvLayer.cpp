@@ -21,6 +21,7 @@
 #include "ConvLayer.h"
 #include "Error.h"
 #include "Model.h"
+#include "SHA1.h"
 
 #ifdef USE_CUDA
 
@@ -71,7 +72,7 @@ void ConvLayer::setup()
     biases_ = PxCpuTensor<1>({ (size_t) filters_ }, 0.0f);
     biasUpdates_ = PxCpuTensor<1>({ (size_t) filters_ }, 0.0f);
 
-    auto scale = std::sqrt(2.0f / (kernel_ * kernel_ * channels() / groups_));
+    auto scale = std::sqrt(2.0f / (kernel_ * kernel_ * (channels() / groups_)));
     weights_ = random<PxCpuTensor<4>>({ (size_t) filters_,
                                         (size_t) (channels() / groups_),
                                         (size_t) kernel_,
@@ -137,6 +138,8 @@ std::streamoff ConvLayer::loadWeights(std::istream& is)
 
 void ConvLayer::forward(const PxCpuVector& input)
 {
+    Layer::forward(input);
+
     auto ctxt = makeContext(input);
     convolutionalForward(ctxt);
 

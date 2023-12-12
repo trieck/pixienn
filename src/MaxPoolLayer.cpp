@@ -67,6 +67,8 @@ std::ostream& MaxPoolLayer::print(std::ostream& os)
 
 void MaxPoolLayer::forward(const PxCpuVector& input)
 {
+    Layer::forward(input);
+
     auto ctxt = makeContext(input);
     maxPoolForward(ctxt);
 }
