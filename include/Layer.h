@@ -63,7 +63,7 @@ public:
     virtual bool hasCost() const noexcept;
     virtual void update();
 
-    virtual void forward(const PxCpuVector& input) = 0;
+    virtual void forward(const PxCpuVector& input);
     virtual void backward(const PxCpuVector& input) = 0;
     const PxCpuVector& output() const noexcept;
     PxCpuVector* delta() noexcept;

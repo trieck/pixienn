@@ -131,6 +131,8 @@ std::streamoff ConnLayer::loadWeights(std::istream& is)
 
 void ConnLayer::forward(const PxCpuVector& input)
 {
+    Layer::forward(input);
+    
     auto ctxt = makeContext(input);
     connectedForward(ctxt);
 

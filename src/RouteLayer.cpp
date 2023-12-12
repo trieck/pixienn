@@ -78,18 +78,20 @@ std::ostream& RouteLayer::print(std::ostream& os)
     return os;
 }
 
-void RouteLayer::forward(const PxCpuVector& /*input*/)
+void RouteLayer::forward(const PxCpuVector& input)
 {
+    Layer::forward(input);
+
     auto offset = 0;
 
     auto* output = output_.data();
 
     for (const auto& layer: layers_) {
-        const auto* input = layer->output().data();
+        const auto* pin = layer->output().data();
         auto inputSize = layer->outputs();
 
         for (auto i = 0; i < batch(); ++i) {
-            const auto* start = input + i * inputSize;
+            const auto* start = pin + i * inputSize;
             const auto* end = start + inputSize + 1;
             auto* out = output + offset + i * outputs();
 
@@ -102,7 +104,6 @@ void RouteLayer::forward(const PxCpuVector& /*input*/)
 
 void RouteLayer::backward(const PxCpuVector& input)
 {
-
 }
 
 #ifdef USE_CUDA

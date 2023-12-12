@@ -63,7 +63,7 @@ void batchNormForward(const BNContext& ctxt)
     auto outputs = c * size;
 
     if (ctxt.training) {
-        ctxt.x->copy(*ctxt.output);
+        cblas_scopy(b * outputs, ctxt.output->data(), 1, ctxt.x->data(), 1);
 
         meanCpu(ctxt.output->data(), b, c, size, ctxt.mean->data());
         varianceCpu(ctxt.output->data(), ctxt.mean->data(), b, c, size, ctxt.var->data());
@@ -75,8 +75,6 @@ void batchNormForward(const BNContext& ctxt)
 
         normalizeCpu(ctxt.output->data(), ctxt.mean->data(), ctxt.var->data(), b, c, size);
         cblas_scopy(b * outputs, ctxt.output->data(), 1, ctxt.xNorm->data(), 1);
-
-        ctxt.xNorm->copy(*ctxt.output);
     } else {
         normalizeCpu(ctxt.output->data(), ctxt.rollingMean->data(), ctxt.rollingVar->data(), b, c, size);
     }

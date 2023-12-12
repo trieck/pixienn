@@ -19,7 +19,7 @@
 namespace px {
 
 UpsampleLayer::UpsampleLayer(Model& model, const YAML::Node& layerDef) : Layer(model, layerDef),
-                                                                               stride_(0), scale_(0)
+                                                                         stride_(0), scale_(0)
 {
 }
 
@@ -53,6 +53,8 @@ std::ostream& UpsampleLayer::print(std::ostream& os)
 
 void UpsampleLayer::forward(const PxCpuVector& input)
 {
+    Layer::forward(input);
+
     auto ctxt = makeContext(input);
     upsampleForward(ctxt);
 }

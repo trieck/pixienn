@@ -66,6 +66,8 @@ std::ostream& BatchNormLayer::print(std::ostream& os)
 
 void BatchNormLayer::forward(const PxCpuVector& input)
 {
+    Layer::forward(input);
+
     auto ctxt = makeContext(input);
     batchNormForward(ctxt);
 }

@@ -32,8 +32,10 @@ float boxIou(const cv::Rect2f& a, const cv::Rect2f& b)
 {
     auto _inter = boxIntersection(a, b);
     auto _union = boxUnion(a, b);
-
     auto result = _inter / _union;
+    if (std::isnan(result) || std::isinf(result)) {
+        return 0.0f;
+    }
 
     return result;
 }
@@ -41,9 +43,9 @@ float boxIou(const cv::Rect2f& a, const cv::Rect2f& b)
 float boxRmse(const cv::Rect2f& a, const cv::Rect2f& b)
 {
     return std::sqrt(pow(a.x - b.x, 2) +
-                pow(a.y - b.y, 2) +
-                pow(a.width - b.width, 2) +
-                pow(a.height - b.height, 2));
+                     pow(a.y - b.y, 2) +
+                     pow(a.width - b.width, 2) +
+                     pow(a.height - b.height, 2));
 }
 
 void nms(Detections& detects, float threshold)

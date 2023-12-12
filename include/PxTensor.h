@@ -793,6 +793,7 @@ public:
     const_pointer data() const noexcept override;
     pointer data() noexcept override;
     std::vector<T> asVector() const override;
+    void fill(T value);
     void release();
 
     reference operator[](int i);
@@ -806,6 +807,12 @@ public:
 private:
     C container_;
 };
+
+template<typename T, Device D, typename C, std::size_t N>
+void PxTensorImpl<T, D, C, N>::fill(T value)
+{
+    container_.fill(value);
+}
 
 template<typename T, Device D, typename C, std::size_t N>
 auto PxTensorImpl<T, D, C, N>::operator[](int i) const -> const_reference
@@ -1009,7 +1016,7 @@ PxTensor<T, N>::Ptr makeTensor(Args&& ...args)
         p = std::make_unique<PxCpuTensorT<T, N>>(std::forward<Args>(args)...);
     }
 #else
-    p = std::make_unique<PxCpuTensorT< T, N>>(std::forward<Args>(args)...);
+    p = std::make_unique<PxCpuTensorT<T, N>>(std::forward<Args>(args)...);
 #endif
 
     return p;
@@ -1044,7 +1051,7 @@ T random(const typename T::shape_type& shape, typename T::value_type lo = 0, typ
         randomCpu(out.data(), out.size(), lo, hi);
     }
 #else
-    randomCpu(out.data(), out.size(), typename T::value_type(0), typename T::value_type(1));
+    randomCpu(out.data(), out.size(), lo, hi);
 #endif // USE_CUDA
 
     return out;
