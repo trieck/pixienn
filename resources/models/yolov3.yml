@@ -14,13 +14,8 @@ model:
   burn_in: 1000
   max_batches: 500200
   policy: steps
-  steps:
-    - 400000
-    - 450000
-  scales:
-    - 0.1
-    - 0.1
-
+  steps: [ 400000, 450000 ]
+  scales: [ - 0.1, - 0.1 ]
   layers:
     - type: conv
       batch_normalize: True
