@@ -23,6 +23,7 @@
 #include "Detection.h"
 #include "ImageBatch.h"
 #include "Layer.h"
+#include "SteppedLRPolicy.h"
 
 #ifdef USE_CUDA
 
@@ -101,7 +102,7 @@ public:
     bool training() const;
     bool inferring() const;
     float cost() const noexcept;
-    float learningRate() const noexcept;
+    float learningRate() const;
     float momentum() const noexcept;
     float decay() const noexcept;
 
@@ -123,19 +124,12 @@ private:
     void forward(const PxCpuVector& input);
     void backward(const PxCpuVector& input);
     void update();
+    void updateLR();
 
 #ifdef USE_CUDA
     void forwardGpu(const PxCpuVector& input) const;
     void setupGpu();
 #endif
-    enum class Policy : uint8_t
-    {
-        CONSTANT = 0,
-        STEPS
-    };
-
-    static Policy policy(const std::string& str);
-
     void parseConfig();
     void parseTrainConfig();
     void parseModel();
@@ -169,15 +163,12 @@ private:
     // training parameters
     ImageBatch imageBatch_;
     PxCpuVector* delta_ = nullptr;
-    Policy policy_ = Policy::CONSTANT;
-    std::vector<int> steps_;
-    std::vector<float> scales_;
+    SteppedLRPolicy policy_;
     int maxBatches_ = 0;
     int subdivs_ = 0;
     int timeSteps_ = 0;
     int seen_ = 0;
     float threshold_ = 0.0f;
-    float learningRate_ = 0.0f;
     float momentum_ = 0.0f;
     float decay_ = 0.0f;
     float jitter_ = 0.0f;
