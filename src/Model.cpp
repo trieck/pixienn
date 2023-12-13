@@ -100,7 +100,6 @@ void Model::parseModel()
     width_ = model["width"].as<int>();
     subdivs_ = model["subdivisions"].as<int>(1);
     timeSteps_ = model["time_steps"].as<int>(1);
-    learningRate_ = model["learning_rate"].as<float>(0.001f);
     momentum_ = model["momentum"].as<float>(0.9f);
     decay_ = model["decay"].as<float>(0.0001f);
     jitter_ = model["jitter"].as<float>(0.2f);
@@ -326,7 +325,7 @@ void Model::train()
     auto avgLoss = -std::numeric_limits<float>::max();
 
     Timer timer;
-    std::printf("Learning Rate: %.5f, Momentum: %.5f, Decay: %.5f\n", learningRate_, momentum_, decay_);
+    std::printf("Learning Rate: %.7f, Momentum: %.7f, Decay: %.7f\n", learningRate(), momentum_, decay_);
 
     while (currentBatch() < maxBatches_) {
         Timer batchTimer;
@@ -334,7 +333,7 @@ void Model::train()
         avgLoss = avgLoss < 0 ? loss : (avgLoss * .9f + loss * .1f);
 
         if (seen_ > 0 && seen_ % 10 == 0) {
-            printf("%d: %.5f, %.5f avg, %.5f rate, %s, %d images\n", seen_, loss, avgLoss, learningRate_,
+            printf("%d: %.7f, %.7f avg, %.7f rate, %s, %d images\n", seen_, loss, avgLoss, learningRate(),
                    batchTimer.str().c_str(), seen_ * batch_);
         }
     }
@@ -367,12 +366,18 @@ float Model::trainOnce(const PxCpuVector& input)
 
 void Model::update()
 {
-    // TODO: calculate learning rate
+    updateLR();
 
     for (auto& layer: layers()) {
         layer->update();
     }
 }
+
+void Model::updateLR()
+{
+    policy_.update(seen_);
+}
+
 
 void Model::parseTrainConfig()
 {
@@ -637,9 +642,9 @@ const ImageBatch& Model::imageBatch() const noexcept
     return imageBatch_;
 }
 
-float Model::learningRate() const noexcept
+float Model::learningRate() const
 {
-    return learningRate_;
+    return policy_.LR();
 }
 
 float Model::momentum() const noexcept
@@ -652,35 +657,21 @@ float Model::decay() const noexcept
     return decay_;
 }
 
-Model::Policy Model::policy(const std::string& str)
-{
-    static std::unordered_map<std::string, Policy> map{
-            { "steps", Policy::STEPS }
-    };
-
-    const auto it = map.find(str);
-    PX_CHECK(it != map.end(), "Policy \"%s\" not supported.", str.c_str());
-
-    return it->second;
-}
-
 void Model::parsePolicy(const Node& model)
 {
-    if (model["policy"]) {
-        auto sPolicy = model["policy"].as<std::string>("constant");
-        policy_ = policy(sPolicy);
-        if (policy_ == Policy::STEPS) {
-            auto steps = model["steps"];
-            PX_CHECK(steps.IsSequence(), "steps must be a sequence of integers.");
-            steps_ = steps.as<std::vector<int>>();
+    auto sPolicy = model["policy"].as<std::string>("steps");
+    PX_CHECK(sPolicy == "steps", "Only Stepped LR policy supported.");
 
-            auto scales = model["scales"];
-            PX_CHECK(scales.IsSequence(), "scales must be a sequence of floating point numbers.");
-            scales_ = scales.as<std::vector<float>>();
+    auto learningRate = model["learning_rate"].as<float>(0.001f);
+    auto steps = model["steps"];
+    PX_CHECK(steps.IsSequence(), "steps must be a sequence of integers.");
+    auto vSteps = steps.as<std::vector<int>>();
 
-            PX_CHECK(steps_.size() == scales_.size(), "steps and scales must have the same size.");
-        }
-    }
+    auto scales = model["scales"];
+    PX_CHECK(scales.IsSequence(), "scales must be a sequence of floating point numbers.");
+    auto vScales = scales.as<std::vector<float>>();
+
+    policy_.set(learningRate, vSteps, vScales);
 }
 
 #ifdef USE_CUDA

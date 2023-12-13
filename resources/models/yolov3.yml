@@ -4,6 +4,7 @@ model:
   width: 608
   height: 608
   channels: 3
+
   momentum: 0.9
   decay: 0.0005
   angle: 0
@@ -16,6 +17,7 @@ model:
   policy: steps
   steps: [ 400000, 450000 ]
   scales: [ - 0.1, - 0.1 ]
+
   layers:
     - type: conv
       batch_normalize: True
