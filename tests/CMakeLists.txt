@@ -16,6 +16,7 @@ add_executable(pixienn-test
         blas.cpp
         connected.cpp
         convolve.cpp
+        detect.cpp
         imagebatch.cpp
         main.cpp
         math.cpp

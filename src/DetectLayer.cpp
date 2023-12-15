@@ -23,17 +23,6 @@
 
 namespace px {
 
-static cv::Rect2f makeBox(const float* pbox)
-{
-    cv::Rect2f box;
-    box.x = *pbox++;
-    box.y = *pbox++;
-    box.width = *pbox++;
-    box.height = *pbox++;
-
-    return box;
-}
-
 DetectLayer::DetectLayer(Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
 }
@@ -80,159 +69,81 @@ std::ostream& DetectLayer::print(std::ostream& os)
     return os;
 }
 
+DetectContext DetectLayer::makeContext(const PxCpuVector& input)
+{
+    DetectContext ctxt{};
+
+    ctxt.avgAllCat = 0;
+    ctxt.avgAnyObj = 0;
+    ctxt.avgCat = 0;
+    ctxt.avgIoU = 0;
+    ctxt.avgObj = 0;
+    ctxt.batch = batch();
+    ctxt.classScale = classScale_;
+    ctxt.classes = classes();
+    ctxt.coordScale = coordScale_;
+    ctxt.coords = coords_;
+    ctxt.cost = &cost_;
+    ctxt.count = 0;
+    ctxt.delta = &delta_;
+    ctxt.forced = forced_;
+    ctxt.groundTruths = &groundTruth();
+    ctxt.input = &input;
+    ctxt.inputs = inputs();
+    ctxt.jitter = jitter_;
+    ctxt.netDelta = model().delta();
+    ctxt.noObjectScale = noObjectScale_;
+    ctxt.num = num_;
+    ctxt.objectScale = objectScale_;
+    ctxt.output = &output_;
+    ctxt.outputs = outputs();
+    ctxt.random = random_;
+    ctxt.reorg = reorg_;
+    ctxt.rescore = rescore_;
+    ctxt.side = side_;
+    ctxt.softmax = softmax_;
+    ctxt.sqrt = sqrt_;
+    ctxt.training = training();
+
+    return ctxt;
+}
+
 void DetectLayer::forward(const PxCpuVector& input)
 {
     Layer::forward(input);
+    auto ctxt = makeContext(input);
 
-    if (softmax_) {
-        output_ = softmax(input);
-    } else {
-        output_.copy(input);
-    }
+    detectForward(ctxt);
 
-    if (!training()) {
-        return;
-    }
-
-    float avgIou = 0, avgCat = 0, avgAllcat = 0, avgObj = 0, avgAnyObj = 0;
-    auto count = 0;
-    auto size = batch() * inputs();
-    auto nclasses = classes();
-    const auto& imgbatch = imageBatch();
-
-    auto locations = side_ * side_;
-    auto* poutput = output_.data();
-    auto* pdelta = delta_.data();
-
-    for (auto b = 0; b < batch(); ++b) {
-        auto index = b * inputs();
-        auto gts = imgbatch.groundTruth(b);
-        for (auto i = 0; i < locations; ++i) {
-            auto bestIndex = -1;
-            auto bestIou = -1.0f;
-            const GroundTruth* bestTruth = nullptr;
-
-            for (auto j = 0; j < num_; ++j) {
-                auto pindex = index + locations * nclasses + i * num_ + j;
-                pdelta[pindex] = noObjectScale_ * (0 - poutput[pindex]);
-                cost_ += noObjectScale_ * std::pow(poutput[pindex], 2);
-                avgAnyObj += poutput[pindex];
-
-                auto boxIndex = index + locations * (nclasses + num_) + (i * num_ + j) * coords_;
-                auto pred = makeBox(poutput + boxIndex);
-                pred.x /= side_;
-                pred.y /= side_;
-
-                if (sqrt_) {
-                    pred.width *= pred.width;
-                    pred.height *= pred.height;
-                }
-
-                for (const auto& gt: gts) {
-                    cv::Rect2f truthBox(gt.box);
-                    truthBox.x /= side_;
-                    truthBox.y /= side_;
-
-                    auto iou = boxIou(pred, truthBox);
-                    if (iou > bestIou) {
-                        bestIou = iou;
-                        bestIndex = j;
-                        bestTruth = &gt;
-                    }
-                }
-            }
-
-            if (bestTruth == nullptr) {
-                continue;
-            }
-
-            cv::Rect2f truthBox(bestTruth->box);
-            truthBox.x /= side_;
-            truthBox.y /= side_;
-
-            auto row = i / side_;
-            auto col = i % side_;
-            auto truthRow = (int) (bestTruth->box.y * side_);
-            auto truthCol = (int) (bestTruth->box.x * side_);
-
-            // Now, we can go back and compute the class loss, etc.
-            auto classIndex = index + i * nclasses;
-            for (auto j = 0; j < nclasses; ++j) {
-                float netTruth = bestTruth->classId == j ? 1.0f : 0.0f;
-                pdelta[classIndex + j] = classScale_ * (netTruth - poutput[classIndex + j]);
-                cost_ += classScale_ * pow(netTruth - poutput[classIndex + j], 2);
-                if (netTruth) avgCat += poutput[classIndex + j];
-                avgAllcat += poutput[classIndex + j];
-            }
-
-            auto boxIndex = index + locations * (nclasses + num_) + (i * num_ + bestIndex) * coords_;
-            auto pred = makeBox(poutput + boxIndex);
-            pred.x /= side_;
-            pred.y /= side_;
-            if (sqrt_) {
-                pred.width *= pred.width;
-                pred.height *= pred.height;
-            }
-
-            auto iou = boxIou(pred, truthBox);
-            auto pindex = index + locations * nclasses + i * num_ + bestIndex;
-            cost_ -= noObjectScale_ * std::pow(poutput[pindex], 2);
-            cost_ += objectScale_ * std::pow(1 - poutput[pindex], 2);
-            avgObj += poutput[pindex];
-            pdelta[pindex] = objectScale_ * (1. - poutput[pindex]);
-
-            if (rescore_) {
-                pdelta[pindex] = objectScale_ * (iou - poutput[pindex]);
-            }
-
-            pdelta[boxIndex + 0] = coordScale_ * (bestTruth->box.x - poutput[boxIndex + 0]);
-            pdelta[boxIndex + 1] = coordScale_ * (bestTruth->box.y - poutput[boxIndex + 1]);
-            pdelta[boxIndex + 2] = coordScale_ * (bestTruth->box.width - poutput[boxIndex + 2]);
-            pdelta[boxIndex + 3] = coordScale_ * (bestTruth->box.height - poutput[boxIndex + 3]);
-
-            if (sqrt_) {
-                pdelta[boxIndex + 2] = coordScale_ * (std::sqrt(bestTruth->box.width) - poutput[boxIndex + 2]);
-                pdelta[boxIndex + 3] = coordScale_ * (std::sqrt(bestTruth->box.height) - poutput[boxIndex + 3]);
-            }
-
-            cost_ += std::pow(1 - iou, 2);
-            avgIou += iou;
-            ++count;
-        }
-    }
-
-    // what was the point of all the cost stuff we just did???
-    cost_ = std::pow(magArray(pdelta, batch() * outputs()), 2);
-
-    if (count == 0) {
-        printf("Detection Avg IOU: -----, Pos Cat: -----, All Cat: -----, Pos Obj: -----, Any Obj: %.2f, Count: 0\n",
-               avgAnyObj / (batch() * locations * num_));
-    } else {
-        printf("Detection Avg IOU: %.3f, Pos Cat: %.3f, All Cat: %.3f, Pos Obj: %.3f, Any Obj: %.3f, Count: %d\n",
-               avgIou / count,
-               avgCat / count,
-               avgAllcat / (count * nclasses),
-               avgObj / count,
-               avgAnyObj / (batch() * locations * num_),
-               count);
+    if (training()) {
+        printStats(ctxt);
     }
 }
 
+void DetectLayer::printStats(const DetectContext& ctxt)
+{
+    auto locations = side_ * side_;
+
+    if (ctxt.count == 0) {
+        printf("Detection: Avg IoU: -----, Pos Cat: -----, All Cat: -----, Pos Obj: -----, Any Obj: %.2f, Count: 0\n",
+               ctxt.avgAnyObj / (batch() * locations * num_));
+    } else {
+        printf("Detection: Avg. IoU: %.3f, Pos Cat: %.3f, All Cat: %.3f, Pos Obj: %.3f, Any Obj: %.3f, Count: %d\n",
+               (ctxt.avgIoU / ctxt.count),
+               (ctxt.avgCat / ctxt.count),
+               (ctxt.avgAllCat / (ctxt.count * classes())),
+               (ctxt.avgObj / ctxt.count),
+               (ctxt.avgAnyObj / (batch() * locations * num_)),
+               ctxt.count);
+    }
+}
+
+
 void DetectLayer::backward(const PxCpuVector& input)
 {
-    auto* pDelta = delta_.data();
-    auto* pNetDelta = model().delta();
+    auto ctxt = makeContext(input);
 
-    PX_CHECK(pNetDelta != nullptr, "Model delta tensor is null");
-    PX_CHECK(pNetDelta->data() != nullptr, "Model delta tensor is null");
-    PX_CHECK(pDelta != nullptr, "Delta tensor is null");
-
-    const auto n = batch() * inputs();
-
-    PX_CHECK(delta_.size() >= n, "Delta tensor is too small");
-    PX_CHECK(pNetDelta->size() >= n, "Model tensor is too small");
-
-    cblas_saxpy(n, 1, pDelta, 1, pNetDelta->data(), 1);
+    detectBackward(ctxt);
 }
 
 #ifdef USE_CUDA
@@ -257,44 +168,23 @@ void DetectLayer::addDetectsGpu(Detections& detections, int width, int height, f
 
 #endif  // USE_CUDA
 
-void
-DetectLayer::addDetects(Detections& detections, int width, int height, float threshold, const float* predictions) const
+void DetectLayer::addDetects(Detections& detections, int width, int height, float threshold,
+                             const float* predictions) const
 {
-    auto nclasses = classes();
+    PredictContext ctxt{};
+    ctxt.classes = classes();
+    ctxt.coords = coords_;
+    ctxt.detections = &detections;
+    ctxt.height = height;
+    ctxt.num = num_;
+    ctxt.predictions = predictions;
+    ctxt.side = side_;
+    ctxt.sqrt = sqrt_;
+    ctxt.threshold = threshold;
+    ctxt.width = width;
 
-    const auto locations = side_ * side_;
-    for (auto i = 0; i < locations; ++i) {
-        auto row = i / side_;
-        auto col = i % side_;
-        for (auto n = 0; n < num_; ++n) {
-            auto pindex = locations * nclasses + i * num_ + n;
-            auto scale = predictions[pindex];
-            auto bindex = locations * (nclasses + num_) + (i * num_ + n) * 4;
-            auto x = (predictions[bindex + 0] + col) / side_ * width;
-            auto y = (predictions[bindex + 1] + row) / side_ * height;
-            auto w = pow(predictions[bindex + 2], (sqrt_ ? 2 : 1)) * width;
-            auto h = pow(predictions[bindex + 3], (sqrt_ ? 2 : 1)) * height;
-            auto left = std::max<int>(0, (x - w / 2));
-            auto right = std::min<int>(width - 1, (x + w / 2));
-            auto top = std::max<int>(0, (y - h / 2));
-            auto bottom = std::min<int>(height - 1, (y + h / 2));
-            cv::Rect b{ left, top, right - left, bottom - top };
-
-            Detection det(nclasses, b, scale);
-            int max = 0;
-            for (auto j = 0; j < nclasses; ++j) {
-                auto index = i * nclasses;
-                det[j] = scale * predictions[index + j];
-                if (det[j] > det[max]) {
-                    max = j;
-                }
-            }
-            if (det[max] >= threshold) {
-                det.setMaxClass(max);
-                detections.emplace_back(std::move(det));
-            }
-        }
-    }
+    detectAddPredictions(ctxt);
 }
+
 
 }   // px

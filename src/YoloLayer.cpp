@@ -187,7 +187,7 @@ YoloLayer::addDetects(Detections& detections, int width, int height, float thres
             auto boxIndex = entryIndex(0, n * area + i, 0);
             auto box = yoloBox(predictions, mask_[n], boxIndex, col, row, width, height);
 
-            Detection det(nclasses, box, objectness);
+            Detection det(nclasses, box);
 
             int max = 0;
             for (auto j = 0; j < nclasses; ++j) {

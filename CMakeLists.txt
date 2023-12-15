@@ -100,6 +100,7 @@ list(APPEND SOURCES
         src/ConvAlgo.cpp
         src/ConvLayer.cpp
         src/CpuUtil.cpp
+        src/DetectAlgo.cpp
         src/DetectLayer.cpp
         src/Detection.cpp
         src/Error.cpp
@@ -117,10 +118,10 @@ list(APPEND SOURCES
         src/SteppedLRPolicy.cpp
         src/TiffIO.cpp
         src/Timer.cpp
+        src/TrainBatch.cpp
         src/UpsampleAlgo.cpp
         src/UpsampleLayer.cpp
         src/YoloLayer.cpp
-        src/ImageBatch.cpp
 )
 
 add_library(pixienn STATIC ${SOURCES})

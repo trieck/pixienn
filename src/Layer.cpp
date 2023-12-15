@@ -283,9 +283,9 @@ uint32_t Layer::classes() const noexcept
     return model_.classes();
 }
 
-const ImageBatch& Layer::imageBatch() const noexcept
+const TrainBatch& Layer::trainingBatch() const noexcept
 {
-    return model_.imageBatch();
+    return model_.trainingBatch();
 }
 
 std::streamoff Layer::loadWeights(std::istream& is)
@@ -307,6 +307,16 @@ void Layer::forward(const PxCpuVector& input)
     delta_.fill(0);
     output_.fill(0);
     cost_ = 0;
+}
+
+const GroundTruths& Layer::groundTruth() const noexcept
+{
+    return trainingBatch().groundTruth();
+}
+
+const GroundTruthVec& Layer::groundTruth(uint32_t batch)
+{
+    return trainingBatch().groundTruth(batch);
 }
 
 #ifdef USE_CUDA

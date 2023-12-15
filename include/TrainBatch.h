@@ -14,8 +14,8 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_IMAGEBATCH_H
-#define PIXIENN_IMAGEBATCH_H
+#ifndef PIXIENN_TRAINBATCH_H
+#define PIXIENN_TRAINBATCH_H
 
 #include <opencv2/core/types.hpp>
 #include "PxTensor.h"
@@ -24,24 +24,24 @@ namespace px {
 
 struct GroundTruth
 {
-    std::size_t classId;
+    int classId;
     cv::Rect2f box;
 };
 
 using GroundTruthVec = std::vector<GroundTruth>;
 using GroundTruths = std::vector<GroundTruthVec>;
 
-class ImageBatch
+class TrainBatch
 {
 public:
-    ImageBatch();
-    ImageBatch(std::uint32_t batchSize, std::uint32_t channels, std::uint32_t height, std::uint32_t width);
-    ImageBatch(const ImageBatch& rhs);
-    ImageBatch(ImageBatch&& rhs);
-    ~ImageBatch() = default;
+    TrainBatch();
+    TrainBatch(std::uint32_t batchSize, std::uint32_t channels, std::uint32_t height, std::uint32_t width);
+    TrainBatch(const TrainBatch& rhs);
+    TrainBatch(TrainBatch&& rhs);
+    ~TrainBatch() = default;
 
-    ImageBatch& operator=(const ImageBatch& rhs);
-    ImageBatch& operator=(ImageBatch&& rhs);
+    TrainBatch& operator=(const TrainBatch& rhs);
+    TrainBatch& operator=(TrainBatch&& rhs);
 
     std::uint32_t batchSize() const noexcept;
     std::uint32_t channels() const noexcept;
@@ -50,8 +50,8 @@ public:
     const PxCpuVector& imageData() const;
     std::size_t imageDataSize() const noexcept;
     PxCpuVector::const_pointer slice(uint32_t batch) const;
-    GroundTruths groundTruth() const noexcept;
-    GroundTruthVec groundTruth(uint32_t batch) const;
+    const GroundTruths& groundTruth() const noexcept;
+    const GroundTruthVec& groundTruth(uint32_t batch) const;
 
     void allocate(std::uint32_t batchSize, std::uint32_t channels, std::uint32_t height, std::uint32_t width);
     void setImageData(std::uint32_t batch, const PxCpuVector& imageData);
@@ -68,7 +68,6 @@ private:
     std::uint32_t width_;
 };
 
-
 }   // px
 
-#endif // PIXIENN_IMAGEBATCH_H
+#endif // PIXIENN_TRAINBATCH_H

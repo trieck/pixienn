@@ -17,6 +17,7 @@
 #ifndef PIXIENN_DETECTLAYER_H
 #define PIXIENN_DETECTLAYER_H
 
+#include "DetectAlgo.h"
 #include "Detection.h"
 #include "Layer.h"
 
@@ -46,8 +47,11 @@ public:
 #endif
 
 private:
+    DetectContext makeContext(const PxCpuVector& input);
+
     void setup() override;
     void addDetects(Detections& detections, int width, int height, float threshold, const float* predictions) const;
+    void printStats(const DetectContext& ctxt);
 
     friend LayerFactories;
 

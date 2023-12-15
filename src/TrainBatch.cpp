@@ -15,32 +15,32 @@
 ********************************************************************************/
 
 #include "Error.h"
-#include "ImageBatch.h"
+#include "TrainBatch.h"
 
 namespace px {
 
-ImageBatch::ImageBatch() : batchSize_(0), channels_(0), height_(0), width_(0)
+TrainBatch::TrainBatch() : batchSize_(0), channels_(0), height_(0), width_(0)
 {
 }
 
-ImageBatch::ImageBatch(std::uint32_t batchSize, uint32_t channels, uint32_t height, uint32_t width)
+TrainBatch::TrainBatch(std::uint32_t batchSize, uint32_t channels, uint32_t height, uint32_t width)
         : batchSize_(batchSize), channels_(channels), height_(height), width_(width),
           groundTruth_(batchSize)
 {
     imageData_ = PxCpuVector(batchSize * height * channels * width, 0.0f);
 }
 
-ImageBatch::ImageBatch(const ImageBatch& rhs)
+TrainBatch::TrainBatch(const TrainBatch& rhs)
 {
     *this = rhs;
 }
 
-ImageBatch::ImageBatch(ImageBatch&& rhs)
+TrainBatch::TrainBatch(TrainBatch&& rhs)
 {
     *this = std::move(rhs);
 }
 
-ImageBatch& ImageBatch::operator=(const ImageBatch& rhs)
+TrainBatch& TrainBatch::operator=(const TrainBatch& rhs)
 {
     if (this != &rhs) {
         imageData_ = rhs.imageData_;
@@ -54,7 +54,7 @@ ImageBatch& ImageBatch::operator=(const ImageBatch& rhs)
     return *this;
 }
 
-ImageBatch& ImageBatch::operator=(ImageBatch&& rhs)
+TrainBatch& TrainBatch::operator=(TrainBatch&& rhs)
 {
     std::swap(imageData_, rhs.imageData_);
     std::swap(groundTruth_, rhs.groundTruth_);
@@ -66,7 +66,7 @@ ImageBatch& ImageBatch::operator=(ImageBatch&& rhs)
     return *this;
 }
 
-void ImageBatch::allocate(std::uint32_t batchSize, std::uint32_t channels, std::uint32_t height, std::uint32_t width)
+void TrainBatch::allocate(std::uint32_t batchSize, std::uint32_t channels, std::uint32_t height, std::uint32_t width)
 {
     batchSize_ = batchSize;
     channels_ = channels;
@@ -79,31 +79,31 @@ void ImageBatch::allocate(std::uint32_t batchSize, std::uint32_t channels, std::
     groundTruth_.reserve(batchSize);
 }
 
-std::uint32_t ImageBatch::batchSize() const noexcept
+std::uint32_t TrainBatch::batchSize() const noexcept
 {
     return batchSize_;
 }
 
-std::uint32_t ImageBatch::channels() const noexcept
+std::uint32_t TrainBatch::channels() const noexcept
 {
     return channels_;
 }
 
-std::uint32_t ImageBatch::height() const noexcept
+std::uint32_t TrainBatch::height() const noexcept
 {
     return height_;
 }
-std::uint32_t ImageBatch::width() const noexcept
+std::uint32_t TrainBatch::width() const noexcept
 {
     return width_;
 }
 
-const PxCpuVector& ImageBatch::imageData() const
+const PxCpuVector& TrainBatch::imageData() const
 {
     return imageData_;
 }
 
-PxCpuVector::const_pointer ImageBatch::slice(uint32_t batch) const
+PxCpuVector::const_pointer TrainBatch::slice(uint32_t batch) const
 {
     PX_CHECK(batch < batchSize_, "Index out of range.");
 
@@ -112,19 +112,19 @@ PxCpuVector::const_pointer ImageBatch::slice(uint32_t batch) const
     return imageData_.data() + index;
 }
 
-GroundTruths ImageBatch::groundTruth() const noexcept
+const GroundTruths& TrainBatch::groundTruth() const noexcept
 {
     return groundTruth_;
 }
 
-GroundTruthVec ImageBatch::groundTruth(uint32_t batch) const
+const GroundTruthVec& TrainBatch::groundTruth(uint32_t batch) const
 {
     PX_CHECK(batch < batchSize_, "Index out of range.");
 
     return groundTruth_[batch];
 }
 
-void ImageBatch::setImageData(std::uint32_t batch, const PxCpuVector& imageData)
+void TrainBatch::setImageData(std::uint32_t batch, const PxCpuVector& imageData)
 {
     PX_CHECK(batch < batchSize_, "Index out of range.");
 
@@ -133,19 +133,19 @@ void ImageBatch::setImageData(std::uint32_t batch, const PxCpuVector& imageData)
     std::copy(imageData.begin(), imageData.end(), imageData_.begin() + index);
 }
 
-void ImageBatch::setGroundTruth(std::uint32_t batch, GroundTruthVec&& groundTruthVec)
+void TrainBatch::setGroundTruth(std::uint32_t batch, GroundTruthVec&& groundTruthVec)
 {
     PX_CHECK(batch < batchSize_, "Index out of range.");
     groundTruth_[batch] = std::move(groundTruthVec);
 }
 
-void ImageBatch::addGroundTruth(std::uint32_t batch, GroundTruth&& groundTruth)
+void TrainBatch::addGroundTruth(std::uint32_t batch, GroundTruth&& groundTruth)
 {
     PX_CHECK(batch < batchSize_, "Index out of range.");
     groundTruth_[batch].emplace_back(std::move(groundTruth));
 }
 
-std::size_t ImageBatch::imageDataSize() const noexcept
+std::size_t TrainBatch::imageDataSize() const noexcept
 {
     return imageData_.size();
 }

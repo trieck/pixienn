@@ -27,7 +27,7 @@
 #endif
 
 #include "Error.h"
-#include "ImageBatch.h"
+#include "TrainBatch.h"
 #include "PxTensor.h"
 
 namespace px {
@@ -101,7 +101,9 @@ protected:
     void setOutWidth(int width);
 
     uint32_t classes() const noexcept;
-    const ImageBatch& imageBatch() const noexcept;
+    const GroundTruths& groundTruth() const noexcept;
+    const GroundTruthVec& groundTruth(uint32_t batch);
+    const TrainBatch& trainingBatch() const noexcept;
 
     void print(std::ostream& os, const std::string& name,
                std::array<int, 3>&& input,
