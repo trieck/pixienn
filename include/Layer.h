@@ -60,6 +60,8 @@ public:
     virtual std::ostream& print(std::ostream& os) = 0;
 
     virtual std::streamoff loadWeights(std::istream& is);
+    virtual std::streamoff saveWeights(std::ostream& os);
+
     virtual bool hasCost() const noexcept;
     virtual void update();
 

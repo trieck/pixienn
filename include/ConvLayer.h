@@ -40,6 +40,7 @@ public:
 
     std::ostream& print(std::ostream& os) override;
     std::streamoff loadWeights(std::istream& is) override;
+    std::streamoff saveWeights(std::ostream& os) override;
     void forward(const PxCpuVector& input) override;
     void backward(const PxCpuVector& input) override;
     void update() override;

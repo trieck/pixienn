@@ -136,6 +136,27 @@ std::streamoff ConvLayer::loadWeights(std::istream& is)
     return is.tellg() - start;
 }
 
+std::streamoff ConvLayer::saveWeights(std::ostream& os)
+{
+    auto start = os.tellp();
+
+    if (batchNormalize_) {
+        os.write((char*) biases_.data(), int(sizeof(float) * biases_.size()));
+        os.write((char*) scales_.data(), int(sizeof(float) * scales_.size()));
+        os.write((char*) rollingMean_.data(), int(sizeof(float) * rollingMean_.size()));
+        os.write((char*) rollingVar_.data(), int(sizeof(float) * rollingVar_.size()));
+    } else {
+        os.write((char*) biases_.data(), int(biases_.size() * sizeof(float)));
+        PX_CHECK(os.good(), "Could not write biases");
+    }
+
+    os.write((char*) weights_.data(), int(sizeof(float) * weights_.size()));
+    PX_CHECK(os.good(), "Could not write weights");
+
+    return os.tellp() - start;
+}
+
+
 void ConvLayer::forward(const PxCpuVector& input)
 {
     Layer::forward(input);

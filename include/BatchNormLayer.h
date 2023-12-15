@@ -43,6 +43,7 @@ public:
 
     std::ostream& print(std::ostream& os) override;
     std::streamoff loadWeights(std::istream& is) override;
+    std::streamoff saveWeights(std::ostream& os) override;
 
 private:
     void setup() override;
