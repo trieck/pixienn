@@ -325,27 +325,28 @@ void Model::train()
     auto avgLoss = -std::numeric_limits<float>::max();
 
     Timer timer;
-    std::printf("Learning Rate: %.7f, Momentum: %.7f, Decay: %.7f\n", learningRate(), momentum_, decay_);
+    std::printf("LR: %.8f, Momentum: %.8f, Decay: %.8f\n", learningRate(), momentum_, decay_);
 
     while (currentBatch() < maxBatches_) {
         Timer batchTimer;
         auto loss = trainBatch(loadBatch());
         avgLoss = avgLoss < 0 ? loss : (avgLoss * .9f + loss * .1f);
 
+        auto epoch = seen_ / trainImages_.size();
         if (seen_ > 0 && seen_ % 10 == 0) {
-            printf("%d: %.7f, %.7f avg, %.7f rate, %s, %d images\n", seen_, loss, avgLoss, learningRate(),
-                   batchTimer.str().c_str(), seen_ * batch_);
+            printf("Epoch: %zu, Batches seen: %d, Loss: %.2f, Avg. Loss: %.2f, LR: %.8f, %s, %d images\n",
+                   epoch, seen_, loss, avgLoss, learningRate(), batchTimer.str().c_str(), seen_ * batch_);
         }
     }
 
     std::printf("trained in %s.\n", timer.str().c_str());
 }
 
-float Model::trainBatch(ImageBatch&& batch)
+float Model::trainBatch(TrainBatch&& batch)
 {
-    imageBatch_ = std::move(batch);
+    trainBatch_ = std::move(batch);
 
-    auto error = trainOnce(imageBatch_.imageData());
+    auto error = trainOnce(trainBatch_.imageData());
 
     return error;
 }
@@ -395,9 +396,9 @@ void Model::parseTrainConfig()
     trainGTPath_ = canonical(groundTruth, cfgPath.parent_path()).string();
 }
 
-ImageBatch Model::loadBatch()
+TrainBatch Model::loadBatch()
 {
-    ImageBatch batch(batch_, channels_, height_, width_);
+    TrainBatch batch(batch_, channels_, height_, width_);
 
     std::random_device rd;
     std::default_random_engine generator(rd());
@@ -637,9 +638,9 @@ uint32_t Model::classes() const noexcept
     return labels_.size();
 }
 
-const ImageBatch& Model::imageBatch() const noexcept
+const TrainBatch& Model::trainingBatch() const noexcept
 {
-    return imageBatch_;
+    return trainBatch_;
 }
 
 float Model::learningRate() const

@@ -21,9 +21,9 @@
 #include <boost/program_options/variables_map.hpp>
 
 #include "Detection.h"
-#include "ImageBatch.h"
 #include "Layer.h"
 #include "SteppedLRPolicy.h"
+#include "TrainBatch.h"
 
 #ifdef USE_CUDA
 
@@ -111,7 +111,7 @@ public:
     PxCpuVector* delta() noexcept;
 
     uint32_t classes() const noexcept;
-    const ImageBatch& imageBatch() const noexcept;
+    const TrainBatch& trainingBatch() const noexcept;
 
 #ifdef USE_CUDA
     const CublasContext& cublasContext() const noexcept;
@@ -119,7 +119,7 @@ public:
     bool useGpu() const noexcept;
 #endif
 private:
-    float trainBatch(ImageBatch&& batch);
+    float trainBatch(TrainBatch&& batch);
     float trainOnce(const PxCpuVector& input);
     void forward(const PxCpuVector& input);
     void backward(const PxCpuVector& input);
@@ -137,7 +137,7 @@ private:
     void loadWeights();
     void loadLabels();
     void loadTrainImages();
-    ImageBatch loadBatch();
+    TrainBatch loadBatch();
     GroundTruthVec groundTruth(const std::string& imagePath);
     int currentBatch() const noexcept;
 
@@ -161,7 +161,7 @@ private:
     int revision_ = 0;
 
     // training parameters
-    ImageBatch imageBatch_;
+    TrainBatch trainBatch_;
     PxCpuVector* delta_ = nullptr;
     SteppedLRPolicy policy_;
     int maxBatches_ = 0;

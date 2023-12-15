@@ -24,7 +24,7 @@ namespace px {
 class Detection
 {
 public:
-    Detection(int classes, cv::Rect box, float objectness);
+    Detection(int classes, cv::Rect box);
 
     float& operator[](int clazz);
     const float& operator[](int clazz) const;
@@ -40,7 +40,6 @@ public:
 private:
     cv::Rect box_;
     std::vector<float> prob_;
-    float objectness_;
     int maxClass_ = 0;
 };
 

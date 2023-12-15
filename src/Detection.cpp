@@ -19,7 +19,7 @@
 
 namespace px {
 
-Detection::Detection(int classes, cv::Rect box, float objectness) : box_(std::move(box)), objectness_(objectness)
+Detection::Detection(int classes, cv::Rect box) : box_(std::move(box))
 {
     prob_.resize(classes);
 }
@@ -40,7 +40,7 @@ const float& Detection::operator[](int clazz) const
 
 int Detection::size() const noexcept
 {
-    return (int)prob_.size();
+    return (int) prob_.size();
 }
 
 const cv::Rect& Detection::box() const noexcept
