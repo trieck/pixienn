@@ -333,11 +333,18 @@ void Model::train()
         avgLoss = avgLoss < 0 ? loss : (avgLoss * .9f + loss * .1f);
 
         auto epoch = seen_ / trainImages_.size();
-        if (seen_ > 0 && seen_ % 10 == 0) {
-            printf("Epoch: %zu, Batches seen: %d, Loss: %.2f, Avg. Loss: %.2f, LR: %.8f, %s, %d images\n",
-                   epoch, seen_, loss, avgLoss, learningRate(), batchTimer.str().c_str(), seen_ * batch_);
+        if (seen_ > 0) {
+            if (seen_ % 10 == 0) {
+                printf("Epoch: %zu, Batches seen: %d, Loss: %.2f, Avg. Loss: %.2f, LR: %.8f, %s, %d images\n",
+                       epoch, seen_, loss, avgLoss, learningRate(), batchTimer.str().c_str(), seen_ * batch_);
+            }
+            if (seen_ % 1000 == 0 || (seen_ < 1000 && seen_ % 100 == 0)) {
+                saveWeights();
+            }
         }
     }
+
+    saveWeights(true);
 
     std::printf("trained in %s.\n", timer.str().c_str());
 }
@@ -363,6 +370,53 @@ float Model::trainOnce(const PxCpuVector& input)
     }
 
     return error;
+}
+
+void Model::saveWeights(bool final)
+{
+    auto dir = "backup";
+
+    if (!boost::filesystem::exists(dir)) {
+        boost::filesystem::create_directory(dir);
+    }
+
+    std::string fileName;
+    if (final) {
+        fileName = weightsFile_;
+    } else {
+        std::string base;
+        if (weightsFile_.empty()) {
+            base = modelName();
+        } else {
+            base = baseName(weightsFile_);
+        }
+        fileName = (boost::format("%s_%u.weights") % base % seen_).str();
+    }
+
+    boost::filesystem::path path(dir);
+    path /= fileName;
+
+    auto filePath = path.string();
+
+    std::ofstream ofs(filePath, std::ios::out | std::ios::binary);
+    PX_CHECK(ofs.good(), "Could not open file \"%s\".", filePath.c_str());
+
+    ofs.write((char*) &major_, sizeof(int));
+    ofs.write((char*) &minor_, sizeof(int));
+    ofs.write((char*) &revision_, sizeof(int));
+
+    for (const auto& layer: layers()) {
+        layer->saveWeights(ofs);
+    }
+
+    ofs.close();
+}
+
+std::string Model::modelName() const
+{
+    auto base = baseName(cfgFile_);
+
+    return base;
 }
 
 void Model::update()

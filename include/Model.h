@@ -123,6 +123,8 @@ private:
     float trainOnce(const PxCpuVector& input);
     void forward(const PxCpuVector& input);
     void backward(const PxCpuVector& input);
+    void saveWeights(bool final = false);
+    std::string modelName() const;
     void update();
     void updateLR();
 
@@ -157,7 +159,7 @@ private:
 
     // network version
     int major_ = 0;
-    int minor_ = 0;
+    int minor_ = 1;
     int revision_ = 0;
 
     // training parameters

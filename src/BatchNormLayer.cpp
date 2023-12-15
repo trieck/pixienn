@@ -123,9 +123,23 @@ std::streamoff BatchNormLayer::loadWeights(std::istream& is)
     }
 #endif
 
-    PX_CHECK(is.good(), "Could not read batch_normalize parameters");
+    PX_CHECK(is.good(), "Could not read batch normalize parameters");
 
     return is.tellg() - start;
+}
+
+std::streamoff BatchNormLayer::saveWeights(std::ostream& os)
+{
+    auto start = os.tellp();
+
+    os.write((char*) biases_.data(), int(sizeof(float) * biases_.size()));
+    os.write((char*) scales_.data(), int(sizeof(float) * scales_.size()));
+    os.write((char*) rollingMean_.data(), int(sizeof(float) * rollingMean_.size()));
+    os.write((char*) rollingVar_.data(), int(sizeof(float) * rollingVar_.size()));
+
+    PX_CHECK(os.good(), "Could not write batch normalize parameters");
+
+    return os.tellp() - start;
 }
 
 BNContext BatchNormLayer::makeContext(const PxCpuVector& input)

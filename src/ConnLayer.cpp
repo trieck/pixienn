@@ -123,16 +123,36 @@ std::streamoff ConnLayer::loadWeights(std::istream& is)
         is.read((char*) scales_.data(), outputs() * sizeof(float));
         is.read((char*) rollingMean_.data(), outputs() * sizeof(float));
         is.read((char*) rollingVar_.data(), outputs() * sizeof(float));
-        PX_CHECK(is.good(), "Could not read batch_normalize parameters");
+        PX_CHECK(is.good(), "Could not read connected layer parameters");
     }
 
     return is.tellg() - start;
 }
 
+std::streamoff ConnLayer::saveWeights(std::ostream& os)
+{
+    auto start = os.tellp();
+
+    os.write((char*) biases_.data(), biases_.size() * sizeof(float));
+    PX_CHECK(os.good(), "Could not write biases");
+
+    os.write((char*) weights_.data(), sizeof(float) * weights_.size());
+    PX_CHECK(os.good(), "Could not write weights");
+
+    if (batchNormalize_) {
+        os.write((char*) scales_.data(), outputs() * sizeof(float));
+        os.write((char*) rollingMean_.data(), outputs() * sizeof(float));
+        os.write((char*) rollingVar_.data(), outputs() * sizeof(float));
+        PX_CHECK(os.good(), "Could not write connected layer parameters");
+    }
+
+    return os.tellp() - start;
+}
+
 void ConnLayer::forward(const PxCpuVector& input)
 {
     Layer::forward(input);
-    
+
     auto ctxt = makeContext(input);
     connectedForward(ctxt);
 

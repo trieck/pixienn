@@ -293,6 +293,11 @@ std::streamoff Layer::loadWeights(std::istream& is)
     return 0;
 }
 
+std::streamoff Layer::saveWeights(std::ostream& is)
+{
+    return 0;
+}
+
 bool Layer::hasCost() const noexcept
 {
     return false;
