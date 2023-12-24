@@ -62,8 +62,8 @@ Model::Model(std::string cfgFile, var_map options)
 void Model::parseConfig()
 {
     struct timespec ts;
-    ts.tv_sec = 200 / 1000;
-    ts.tv_nsec = 200 * 1000000;
+    ts.tv_sec = 2000 / 1000;
+    ts.tv_nsec = 2000 * 1000000;
     nanosleep(&ts, NULL);
 
     config_ = LoadFile(cfgFile_);
@@ -381,9 +381,9 @@ void Model::train()
             saveWeights();
         }
 
-        /*if (seen_ % 1000 == 0) {
+        if (seen_ % 1000 == 0) {
             validate();
-        }*/
+        }
     }
 
     saveWeights(true);
@@ -822,6 +822,11 @@ void Model::setTraining(bool training) noexcept
 void Model::setThreshold(float threshold) noexcept
 {
     threshold_ = threshold;
+}
+
+size_t Model::seen() const noexcept
+{
+    return seen_;
 }
 
 #ifdef USE_CUDA

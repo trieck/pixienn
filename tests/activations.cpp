@@ -54,10 +54,10 @@ TEST_F(LeakyActivationTest, Gradient)
 
     activation->gradient(input, delta);
 
-    ASSERT_FLOAT_EQ(input[0], 1.0f);
-    ASSERT_FLOAT_EQ(input[1], -0.2f);
-    ASSERT_FLOAT_EQ(input[2], 3.0f);
-    ASSERT_FLOAT_EQ(input[3], -0.4f);
+    ASSERT_FLOAT_EQ(delta[0], 0.1f);
+    ASSERT_FLOAT_EQ(delta[1], -0.01f);
+    ASSERT_FLOAT_EQ(delta[2], 0.2f);
+    ASSERT_FLOAT_EQ(delta[3], -0.02f);
 }
 
 class LoggyActivationTest : public ::testing::Test
@@ -90,10 +90,10 @@ TEST_F(LoggyActivationTest, Gradient)
 
     activation->gradient(input, delta);
 
-    ASSERT_FLOAT_EQ(input[0], 0.495);
-    ASSERT_FLOAT_EQ(input[1], -0.99000001);
-    ASSERT_FLOAT_EQ(input[2], 1.4399999);
-    ASSERT_FLOAT_EQ(input[3], -1.9200001);
+    ASSERT_FLOAT_EQ(delta[0], 0.0);
+    ASSERT_FLOAT_EQ(delta[1], 0.15);
+    ASSERT_FLOAT_EQ(delta[2], -0.8);
+    ASSERT_FLOAT_EQ(delta[3], 1.5);
 }
 
 class LogisticActivationTest : public ::testing::Test
@@ -126,10 +126,10 @@ TEST_F(LogisticActivationTest, Gradient)
 
     activation->gradient(input, delta);
 
-    ASSERT_FLOAT_EQ(input[0], 9);
-    ASSERT_FLOAT_EQ(input[1], 22);
-    ASSERT_FLOAT_EQ(input[2], 12);
-    ASSERT_FLOAT_EQ(input[3], 24);
+    ASSERT_FLOAT_EQ(delta[0], 0);
+    ASSERT_FLOAT_EQ(delta[1], 0.6);
+    ASSERT_FLOAT_EQ(delta[2], -1.2);
+    ASSERT_FLOAT_EQ(delta[3], 4);
 }
 
 class ReluActivationTest : public ::testing::Test
@@ -164,8 +164,8 @@ TEST_F(ReluActivationTest, Gradient)
 
     activation->gradient(input, delta);
 
-    ASSERT_FLOAT_EQ(input[0], 1.0f);
-    ASSERT_FLOAT_EQ(input[1], 0.0f);
-    ASSERT_FLOAT_EQ(input[2], 3.0f);
-    ASSERT_FLOAT_EQ(input[3], 0.0f);
+    ASSERT_FLOAT_EQ(delta[0], 0.1f);
+    ASSERT_FLOAT_EQ(delta[1], 0.0f);
+    ASSERT_FLOAT_EQ(delta[2], 0.2f);
+    ASSERT_FLOAT_EQ(delta[3], 0.0f);
 }

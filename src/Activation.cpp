@@ -59,7 +59,7 @@ public:
     {
     }
 
-    void gradient(float* begin, float* end, float* delta) const override
+    void gradient(float *dbegin, float* dend, const float* x) const override
     {
     }
 
@@ -91,10 +91,10 @@ public:
         });
     }
 
-    void gradient(float* begin, float* end, float* dbegin) const override
+    void gradient(float *dbegin, float* dend, const float* x) const override
     {
-        std::transform(begin, end, dbegin, begin, [this](float x, float delta) {
-            return x * gradient(delta);
+        std::transform(dbegin, dend, x, dbegin, [this](float delta, float x) {
+            return delta * gradient(x);
         });
     }
 
@@ -127,10 +127,10 @@ public:
         });
     }
 
-    void gradient(float* begin, float* end, float* dbegin) const override
+    void gradient(float *dbegin, float* dend, const float* x) const override
     {
-        std::transform(begin, end, dbegin, begin, [this](float x, float delta) {
-            return x * gradient(delta);
+        std::transform(dbegin, dend, x, dbegin, [this](float delta, float x) {
+            return delta * gradient(x);
         });
     }
 
@@ -152,11 +152,7 @@ public:
 
     float gradient(float x) const override
     {
-        if (x == 0) {
-            return 0;
-        }
-
-        return (1 - x) / x;
+        return (1 - x) * x;
     }
 
     void apply(float* begin, float* end) const override
@@ -166,10 +162,10 @@ public:
         });
     }
 
-    void gradient(float* begin, float* end, float* dbegin) const override
+    void gradient(float* dbegin, float* dend, const float* x) const override
     {
-        std::transform(begin, end, dbegin, begin, [this](float x, float delta) {
-            return x * gradient(delta);
+        std::transform(dbegin, dend, x, dbegin, [this](float delta, float x) {
+            return delta * gradient(x);
         });
     }
 
@@ -201,10 +197,10 @@ public:
         });
     }
 
-    void gradient(float* begin, float* end, float* dbegin) const override
+    void gradient(float* dbegin, float* dend, const float* x) const override
     {
-        std::transform(begin, end, dbegin, begin, [this](float x, float delta) {
-            return x * gradient(delta);
+        std::transform(dbegin, dend, x, dbegin, [this](float delta, float x) {
+            return delta * gradient(x);
         });
     }
 
@@ -251,9 +247,9 @@ void Activation::apply(PxCpuVector& container) const
     apply(&(*container.begin()), &(*container.end()));
 }
 
-void Activation::gradient(PxCpuVector& container, PxCpuVector& delta) const
+void Activation::gradient(const PxCpuVector& container, PxCpuVector& delta) const
 {
-    gradient(&(*container.begin()), &(*container.end()), &(*delta.begin()));
+    gradient(&(*delta.begin()), &(*delta.end()), &(*container.begin()));
 }
 
 float Activation::operator()(float x) const
