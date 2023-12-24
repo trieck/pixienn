@@ -122,6 +122,7 @@ public:
 
     void setTraining(bool training) noexcept;
     void setThreshold(float threshold) noexcept;
+    size_t seen() const noexcept;
 
 #ifdef USE_CUDA
     const CublasContext& cublasContext() const noexcept;
@@ -210,7 +211,6 @@ private:
     float exposure_ = 0.0f;                // Exposure for data augmentation
     float hue_ = 0.0f;                     // Hue for data augmentation
     float cost_ = 0.0f;                    // Cost associated with the training process
-
 
     // configuration
     YAML::Node config_;

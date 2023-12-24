@@ -91,7 +91,7 @@ std::ostream& RegionLayer::print(std::ostream& os)
 
 void RegionLayer::resetStats()
 {
-    avgAnyObj_ = avgCat_ = avgObj_, avgIoU_ = recall = 0;
+    avgAnyObj_ = avgCat_ = avgObj_ = avgIoU_ = recall = 0;
     count_ = classCount_ = 0;
 }
 
@@ -153,7 +153,6 @@ void RegionLayer::processObjects(int b)
     auto size = coords_ + classes() + 1;
 
     for (const auto& gt: groundTruth(b)) {
-
         auto bestIoU = -std::numeric_limits<float>::max();
         auto bestIndex = 0;
         auto bestN = 0;
@@ -184,7 +183,7 @@ void RegionLayer::processObjects(int b)
             }
         }
 
-        float iou = deltaRegionBox(gt, bestN, bestIndex, i, j);
+        float iou = deltaRegionBox(gt.box, bestN, bestIndex, i, j, coordScale_);
         if (iou > 0.5) {
             recall += 1;
         }
@@ -200,14 +199,14 @@ void RegionLayer::processObjects(int b)
                                     * activation_->gradient(poutput[bestIndex + 4]);
         }
 
-        deltaRegionClass(gt, bestIndex);
+        deltaRegionClass(gt, bestIndex + 5, classScale_);
 
         ++count_;
         ++classCount_;
     }
 }
 
-void RegionLayer::deltaRegionClass(const GroundTruth& truth, int index)
+void RegionLayer::deltaRegionClass(const GroundTruth& truth, int index, float scale)
 {
     auto* output = output_.data();
     auto* delta = delta_.data();
@@ -215,35 +214,36 @@ void RegionLayer::deltaRegionClass(const GroundTruth& truth, int index)
     // TODO: focal loss
 
     for (auto n = 0; n < classes(); ++n) {
-        delta[index + n] = classScale_ * (((n == truth.classId) ? 1 : 0) - output[index + n]);
+        float netTruth = (n == truth.classId) ? 1.0f : 0.0f;
+        delta[index + n] = scale * (netTruth - output[index + n]);
         if (n == truth.classId) {
             avgCat_ += output[index + n];
         }
     }
 }
 
-float RegionLayer::deltaRegionBox(const GroundTruth& truth, int n, int index, int i, int j)
+float RegionLayer::deltaRegionBox(const cv::Rect2f& truth, int n, int index, int i, int j, float scale)
 {
     auto pred = regionBox(n, index, i, j);
-    auto iou = boxIou(pred, truth.box);
+    auto iou = boxIou(pred, truth);
 
     auto* x = output_.data();
     auto* biases = biases_.data();
     auto* delta = delta_.data();
 
-    auto tx = truth.box.x * width() - i;
-    auto ty = truth.box.y * height() - j;
-    auto tw = std::log(truth.box.width * width() / biases[2 * n]);
-    auto th = std::log(truth.box.height * height() / biases[2 * n + 1]);
+    auto tx = truth.x * width() - i;
+    auto ty = truth.y * height() - j;
+    auto tw = std::log(truth.width * width() / biases[2 * n]);
+    auto th = std::log(truth.height * height() / biases[2 * n + 1]);
 
-    delta[index + 0] = coordScale_ * (tx - (*activation_)(x[index + 0]))
-                       * activation_->gradient((*activation_)(x[index + 0]));
+    delta[index + 0] = scale * (tx - activation_->apply(x[index + 0]))
+                       * activation_->gradient(activation_->apply(x[index + 0]));
 
-    delta[index + 1] = coordScale_ * (ty - (*activation_)(x[index + 1]))
-                       * activation_->gradient((*activation_)(x[index + 1]));
+    delta[index + 1] = scale * (ty - activation_->apply(x[index + 1]))
+                       * activation_->gradient(activation_->apply(x[index + 1]));
 
-    delta[index + 2] = coordScale_ * (tw - x[index + 2]);
-    delta[index + 3] = coordScale_ * (th - x[index + 3]);
+    delta[index + 2] = scale * (tw - x[index + 2]);
+    delta[index + 3] = scale * (th - x[index + 3]);
 
     return iou;
 }
@@ -258,16 +258,28 @@ void RegionLayer::processRegion(int b, int i, int j)
 
     auto* poutput = output_.data();
     auto* pdelta = delta_.data();
+    auto* pbias = biases_.data();
 
     for (auto n = 0; n < num_; ++n) {
         auto index = size * (j * width() * num_ + i * num_ + n) + b * outputs();
         avgAnyObj_ += poutput[index + 4];
-        pdelta[index + 4] = noObjectScale_ * ((0 - poutput[index + 4]) * (*activation_)(poutput[index + 4]));
+
+        pdelta[index + 4] = noObjectScale_ * ((0 - poutput[index + 4]) * activation_->gradient(poutput[index + 4]));
 
         gtCtxt.pred = regionBox(n, index, i, j);
         auto result = findGT(gtCtxt);
         if (result.iou > thresh_) {
             pdelta[index + 4] = 0;
+        }
+
+        if (model().seen() < 12800) {   // magic!
+            cv::Rect2f truth;
+            truth.x = (i + .5) / width();
+            truth.y = (j + .5) / height();
+            truth.width = pbias[2 * n] / width();
+            truth.height = pbias[2 * n + 1] / height();
+
+            deltaRegionBox(truth, n, index, i, j, 0.01f);
         }
     }
 }
@@ -305,6 +317,35 @@ void RegionLayer::backward(const PxCpuVector& input)
 
 void RegionLayer::addDetects(Detections& detections, float threshold)
 {
+    const auto* predictions = output_.data();
+
+    for (auto i = 0; i < width() * height(); ++i) {
+        auto row = i / width();
+        auto col = i % width();
+
+        for (auto n = 0; n < num_; ++n) {
+            auto index = i * num_ + n;
+            auto pindex = index * (classes() + coords_ + 1) + coords_;
+            auto scale = predictions[pindex];
+            auto boxIndex = index * (classes() + coords_ + 1);
+
+            auto box = regionBox(n, boxIndex, col, row);
+            int left = box.x - box.width / 2;
+            int right = box.x + box.width / 2;
+            int top = box.y - box.height / 2;
+            int bottom = box.y + box.height / 2;
+
+            auto clsIndex = index * (classes() + coords_ + 1) + coords_ + 1;
+            for (auto j = 0; j < classes(); ++j) {
+                auto prob = scale * predictions[clsIndex + j];
+                if (prob >= threshold) {
+                    cv::Rect b{ left, top, right - left, bottom - top };
+                    Detection det(b, j, prob);
+                    detections.emplace_back(std::move(det));
+                }
+            }
+        }
+    }
 }
 
 void RegionLayer::addDetects(Detections& detections, int w, int h, float threshold)
@@ -348,6 +389,7 @@ void RegionLayer::addDetects(Detections& detections, int w, int h, float thresho
 GroundTruthResult findGT(const GroundTruthContext& ctxt)
 {
     GroundTruthResult result;
+    result.gt = nullptr;
     result.iou = -std::numeric_limits<float>::max();
 
     const auto& gts = *ctxt.groundTruths;

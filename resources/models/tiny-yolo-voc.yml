@@ -19,7 +19,7 @@ model:
 
   policy: steps
   steps: [ -1, 100, 20000, 30000 ]
-  scales: [ 0.1, 10, 0.1, 0.1 ]
+  scales: [ 0.1, 0.1, 0.1, 0.1 ]
 
   layers:
     - type: conv

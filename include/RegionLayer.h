@@ -54,8 +54,8 @@ private:
     void processRegion(int b, int i, int j);
     void processObjects(int i);
     cv::Rect2f regionBox(int n, int index, int i, int j);
-    float deltaRegionBox(const GroundTruth& truth, int n, int index, int i, int j);
-    void deltaRegionClass(const GroundTruth& truth, int index);
+    float deltaRegionBox(const cv::Rect2f& truth, int n, int index, int i, int j, float scale);
+    void deltaRegionClass(const GroundTruth& truth, int index, float scale);
 
     void resetStats();
 
