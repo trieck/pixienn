@@ -76,7 +76,7 @@ void ConvLayer::setup()
     weights_ = random<PxCpuTensor<4>>({ (size_t) filters_,
                                         (size_t) (channels() / groups_),
                                         (size_t) kernel_,
-                                        (size_t) kernel_ }) * scale;
+                                        (size_t) kernel_ }, -1.0f, 1.0f) * scale;
 
     weightUpdates_ = PxCpuTensor<4>(weights_.shape(), 0.0f);
 
@@ -156,7 +156,6 @@ std::streamoff ConvLayer::saveWeights(std::ostream& os)
     return os.tellp() - start;
 }
 
-
 void ConvLayer::forward(const PxCpuVector& input)
 {
     Layer::forward(input);
@@ -196,6 +195,10 @@ void ConvLayer::update()
     auto momentum = net.momentum();
     auto decay = net.decay();
 
+    cblas_saxpy(weights_.size(), -decay * batch(), weights_.data(), 1, weightUpdates_.data(), 1);
+    cblas_saxpy(weights_.size(), learningRate / batch(), weightUpdates_.data(), 1, weights_.data(), 1);
+    cblas_sscal(weights_.size(), momentum, weightUpdates_.data(), 1);
+
     if (!batchNormalize_) {
         cblas_saxpy(filters_, learningRate / batch(), biasUpdates_.data(), 1, biases_.data(), 1);
         cblas_sscal(filters_, momentum, biasUpdates_.data(), 1);
@@ -205,10 +208,6 @@ void ConvLayer::update()
         cblas_saxpy(filters_, learningRate / batch(), scaleUpdates_.data(), 1, scales_.data(), 1);
         cblas_sscal(filters_, momentum, scaleUpdates_.data(), 1);
     }
-
-    cblas_saxpy(weights_.size(), -decay * batch(), weights_.data(), 1, weightUpdates_.data(), 1);
-    cblas_saxpy(weights_.size(), learningRate / batch(), weightUpdates_.data(), 1, weights_.data(), 1);
-    cblas_sscal(weights_.size(), momentum, weightUpdates_.data(), 1);
 }
 
 ConvContext ConvLayer::makeContext(const PxCpuVector& input)

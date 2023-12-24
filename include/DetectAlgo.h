@@ -80,7 +80,8 @@ struct PredictContext
 
 void detectForward(DetectContext& ctxt);
 void detectBackward(DetectContext& ctxt);
-void detectAddPredictions(const PredictContext& ctxt);
+void detectAddPredicts(const PredictContext& ctxt);
+void detectAddRawPredicts(const PredictContext& ctxt);
 
 }   // px
 

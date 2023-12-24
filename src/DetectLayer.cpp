@@ -111,6 +111,7 @@ DetectContext DetectLayer::makeContext(const PxCpuVector& input)
 void DetectLayer::forward(const PxCpuVector& input)
 {
     Layer::forward(input);
+
     auto ctxt = makeContext(input);
 
     detectForward(ctxt);
@@ -158,6 +159,11 @@ void DetectLayer::addDetects(Detections& detections, int width, int height, floa
     addDetects(detections, width, height, threshold, output_.data());
 }
 
+void DetectLayer::addDetects(Detections& detections, float threshold)
+{
+    addDetects(detections, threshold, output_.data());
+}
+
 #ifdef USE_CUDA
 
 void DetectLayer::addDetectsGpu(Detections& detections, int width, int height, float threshold)
@@ -183,8 +189,21 @@ void DetectLayer::addDetects(Detections& detections, int width, int height, floa
     ctxt.threshold = threshold;
     ctxt.width = width;
 
-    detectAddPredictions(ctxt);
+    detectAddPredicts(ctxt);
 }
 
+void DetectLayer::addDetects(Detections& detections, float threshold, const float* predictions) const
+{
+    PredictContext ctxt{};
+    ctxt.classes = classes();
+    ctxt.coords = coords_;
+    ctxt.detections = &detections;
+    ctxt.num = num_;
+    ctxt.side = side_;
+    ctxt.predictions = predictions;
+    ctxt.threshold = threshold;
+
+    detectAddRawPredicts(ctxt);
+}
 
 }   // px

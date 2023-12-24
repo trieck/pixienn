@@ -12,8 +12,10 @@ find_package(GMock REQUIRED)
 
 add_executable(pixienn-test
         activations.cpp
+        augment.cpp
         batchnorm.cpp
         blas.cpp
+        confuse.cpp
         connected.cpp
         convolve.cpp
         detect.cpp

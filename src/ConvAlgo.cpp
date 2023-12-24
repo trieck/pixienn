@@ -31,7 +31,7 @@ void convolutionalForward(const ConvContext& ctxt)
     int nweights = ctxt.weights->size();
     const auto* pweights = ctxt.weights->data();
 
-    const auto* pin = ctxt.input->data();
+    auto* pin = const_cast<float*>(ctxt.input->data()); // FIXME: don't do this
     auto* pout = ctxt.output->data();
 
     auto alpha = 1.0f;
@@ -39,15 +39,18 @@ void convolutionalForward(const ConvContext& ctxt)
 
     for (auto i = 0; i < ctxt.batch; ++i) {
         for (auto j = 0; j < ctxt.groups; ++j) {
-            const auto* im = pin + (i * ctxt.groups + j) * ctxt.channels / ctxt.groups * ctxt.height * ctxt.width;
+            auto* im = pin + (i * ctxt.groups + j) * ctxt.channels / ctxt.groups * ctxt.height * ctxt.width;
             const auto* a = pweights + j * nweights / ctxt.groups;
-            const auto* b = ctxt.kernel == 1 ? im : ctxt.column->data();
+            auto* b = ctxt.column->data();
             auto* c = pout + (i * ctxt.groups + j) * n * m;
 
-            if (ctxt.kernel != 1) {
-                im2ColCpu(im, ctxt.channels / ctxt.groups, ctxt.height, ctxt.width, ctxt.kernel, ctxt.stride,
-                          ctxt.padding, ctxt.column->data());
+            if (ctxt.kernel == 1 && ctxt.stride == 1 && ctxt.dilation == 1) {
+                b = im;
             }
+
+            im2ColCpuExt(im, ctxt.channels / ctxt.groups, ctxt.height, ctxt.width, ctxt.kernel, ctxt.kernel,
+                         ctxt.padding * ctxt.dilation, ctxt.padding * ctxt.dilation,
+                         ctxt.stride, ctxt.stride, ctxt.dilation, ctxt.dilation, b);
 
             cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, alpha, a, k, b, n, beta, c, n);
         }
@@ -65,7 +68,7 @@ void convolutionalBackward(const ConvContext& ctxt)
     auto* pweightUdates = ctxt.weightUpdates->data();
 
     const auto* pin = ctxt.input->data();
-    const auto* pdelta = ctxt.delta->data();
+    auto* pdelta = ctxt.delta->data();
     auto* pNetDelta = ctxt.netDelta->data();
     auto* pout = ctxt.output->data();
 
@@ -76,13 +79,12 @@ void convolutionalBackward(const ConvContext& ctxt)
         for (auto j = 0; j < ctxt.groups; ++j) {
             const auto* im = pin + (i * ctxt.groups + j) * ctxt.channels / ctxt.groups * ctxt.height * ctxt.width;
             const auto* a = pdelta + (i * ctxt.groups + j) * m * k;
-            const auto* b = ctxt.kernel == 1 ? im : ctxt.column->data();
+            auto* b = ctxt.column->data();
             auto* c = pweightUdates + j * nweights / ctxt.groups;
 
-            if (ctxt.kernel != 1) {
-                im2ColCpu(im, ctxt.channels / ctxt.groups, ctxt.height, ctxt.width, ctxt.kernel, ctxt.stride,
-                          ctxt.padding, ctxt.column->data());
-            }
+            im2ColCpuExt(im, ctxt.channels / ctxt.groups, ctxt.height, ctxt.width, ctxt.kernel, ctxt.kernel,
+                         ctxt.padding * ctxt.dilation, ctxt.padding * ctxt.dilation,
+                         ctxt.stride, ctxt.stride, ctxt.dilation, ctxt.dilation, b);
 
             cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, m, n, k, alpha, a, k, b, k, beta, c, n);
 
@@ -90,14 +92,13 @@ void convolutionalBackward(const ConvContext& ctxt)
                 auto* imd = pNetDelta + (i * ctxt.groups + j) * ctxt.channels / ctxt.groups * ctxt.height * ctxt.width;
                 a = pweights + j * nweights / ctxt.groups;
                 b = pdelta + (i * ctxt.groups + j) * m * k;
-                c = ctxt.kernel == 1 ? imd : ctxt.column->data();
+                c = ctxt.column->data();
 
                 cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, n, k, m, alpha, a, n, b, k, 0.0f, c, k);
 
-                if (ctxt.kernel != 1) {
-                    col2ImCpu(c, ctxt.channels / ctxt.groups, ctxt.height, ctxt.width, ctxt.kernel, ctxt.stride,
-                              ctxt.padding, imd);
-                }
+                col2ImCpuExt(c, ctxt.channels / ctxt.groups, ctxt.height, ctxt.width, ctxt.kernel, ctxt.kernel,
+                             ctxt.padding * ctxt.dilation, ctxt.padding * ctxt.dilation,
+                             ctxt.stride, ctxt.stride, ctxt.dilation, ctxt.dilation, imd);
             }
         }
     }

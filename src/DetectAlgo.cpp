@@ -256,7 +256,7 @@ void detectBackward(DetectContext& ctxt)
     cblas_saxpy(n, 1, pDelta, 1, pNetDelta->data(), 1);
 }
 
-void detectAddPredictions(const PredictContext& ctxt)
+void detectAddPredicts(const PredictContext& ctxt)
 {
     auto nclasses = ctxt.classes;
 
@@ -270,25 +270,60 @@ void detectAddPredictions(const PredictContext& ctxt)
             auto bindex = locations * (nclasses + ctxt.num) + (i * ctxt.num + n) * ctxt.coords;
             auto x = (ctxt.predictions[bindex + 0] + col) / ctxt.side * ctxt.width;
             auto y = (ctxt.predictions[bindex + 1] + row) / ctxt.side * ctxt.height;
-            auto w = pow(ctxt.predictions[bindex + 2], (ctxt.sqrt ? 2 : 1)) * ctxt.width;
-            auto h = pow(ctxt.predictions[bindex + 3], (ctxt.sqrt ? 2 : 1)) * ctxt.height;
+            auto w = std::pow<float>(ctxt.predictions[bindex + 2], (ctxt.sqrt ? 2.0f : 1.0f)) * ctxt.width;
+            auto h = std::pow<float>(ctxt.predictions[bindex + 3], (ctxt.sqrt ? 2.0f : 1.0f)) * ctxt.height;
             auto left = std::max<int>(0, (x - w / 2));
             auto right = std::min<int>(ctxt.width - 1, (x + w / 2));
             auto top = std::max<int>(0, (y - h / 2));
             auto bottom = std::min<int>(ctxt.height - 1, (y + h / 2));
-            cv::Rect b{ left, top, right - left, bottom - top };
 
-            Detection det(nclasses, b);
-            int max = 0;
+            int maxClass = 0;
+            float maxProb = -std::numeric_limits<float>::max();
             for (auto j = 0; j < nclasses; ++j) {
                 auto index = i * nclasses;
-                det[j] = scale * ctxt.predictions[index + j];
-                if (det[j] > det[max]) {
-                    max = j;
+                auto prob = scale * ctxt.predictions[index + j];
+                if (prob > maxProb) {
+                    maxClass = j;
+                    maxProb = prob;
                 }
             }
-            if (det[max] >= ctxt.threshold) {
-                det.setMaxClass(max);
+            if (maxProb >= ctxt.threshold) {
+                cv::Rect b{ left, top, right - left, bottom - top };
+                Detection det(b, maxClass, maxProb);
+                ctxt.detections->emplace_back(std::move(det));
+            }
+        }
+    }
+}
+
+void detectAddRawPredicts(const PredictContext& ctxt)
+{
+    auto nclasses = ctxt.classes;
+
+    const auto locations = ctxt.side * ctxt.side;
+    for (auto i = 0; i < locations; ++i) {
+        for (auto n = 0; n < ctxt.num; ++n) {
+            auto pindex = locations * nclasses + i * ctxt.num + n;
+            auto scale = ctxt.predictions[pindex];
+            auto bindex = locations * (nclasses + ctxt.num) + (i * ctxt.num + n) * ctxt.coords;
+            auto x = ctxt.predictions[bindex + 0];
+            auto y = ctxt.predictions[bindex + 1];
+            auto w = ctxt.predictions[bindex + 2];
+            auto h = ctxt.predictions[bindex + 3];
+
+            int maxClass = 0;
+            float maxProb = -std::numeric_limits<float>::max();
+            for (auto j = 0; j < nclasses; ++j) {
+                auto index = i * nclasses;
+                auto prob = scale * ctxt.predictions[index + j];
+                if (prob > maxProb) {
+                    maxClass = j;
+                    maxProb = prob;
+                }
+            }
+            if (maxProb >= ctxt.threshold) {
+                cv::Rect2f b{ x, y, w, h };
+                Detection det(b, maxClass, maxProb);
                 ctxt.detections->emplace_back(std::move(det));
             }
         }

@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstring>
 #include <exception>
+#include <fstream>
 #include <functional>
 #include <iomanip>
 #include <iostream>
@@ -28,10 +29,10 @@
 #include <limits>
 #include <memory>
 #include <optional>
-#include <fstream>
 #include <random>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #endif // PIXIENN_COMMON_H

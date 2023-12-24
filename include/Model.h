@@ -22,8 +22,9 @@
 
 #include "Detection.h"
 #include "Layer.h"
-#include "SteppedLRPolicy.h"
+#include "LRPolicy.h"
 #include "TrainBatch.h"
+#include "Validator.h"
 
 #ifdef USE_CUDA
 
@@ -95,6 +96,12 @@ public:
      */
     void overlay(const std::string& imageFile, const Detections& detects) const;
 
+    void forward(const PxCpuVector& input);
+    void backward(const PxCpuVector& input);
+
+    std::vector<Detection> detections(const cv::Size& imageSize) const;
+    std::vector<Detection> detections() const;
+
     std::string asJson(const Detections& detects) const noexcept;
     const std::vector<std::string>& labels() const noexcept;
 
@@ -113,18 +120,25 @@ public:
     uint32_t classes() const noexcept;
     const TrainBatch& trainingBatch() const noexcept;
 
+    void setTraining(bool training) noexcept;
+    void setThreshold(float threshold) noexcept;
+
 #ifdef USE_CUDA
     const CublasContext& cublasContext() const noexcept;
     const CudnnContext& cudnnContext() const noexcept;
     bool useGpu() const noexcept;
 #endif
 private:
-    float trainBatch(TrainBatch&& batch);
+    enum class BatchType
+    {
+        TRAIN = 0,
+        VAL = 1
+    };
+
+    float trainBatch();
     float trainOnce(const PxCpuVector& input);
-    void forward(const PxCpuVector& input);
-    void backward(const PxCpuVector& input);
+
     void saveWeights(bool final = false);
-    std::string modelName() const;
     void update();
     void updateLR();
 
@@ -139,9 +153,17 @@ private:
     void loadWeights();
     void loadLabels();
     void loadTrainImages();
-    TrainBatch loadBatch();
+    void loadValImages();
+
+    using ImageVecLabels = std::pair<PxCpuVector, GroundTruthVec>;
+    ImageVecLabels loadImage(const std::string& imagePath, bool augment);
+
+    TrainBatch loadBatch(BatchType type, int size, bool augment);
+    TrainBatch loadBatch(BatchType type, bool augment);
     GroundTruthVec groundTruth(const std::string& imagePath);
     int currentBatch() const noexcept;
+    std::string weightsFileName(bool final) const;
+    void validate();
 
     // file paths
     std::string cfgFile_;
@@ -149,7 +171,9 @@ private:
     std::string weightsFile_;
     std::string labelsFile_;
     std::string trainImagePath_;
+    std::string valImagePath_;
     std::string trainGTPath_;
+    std::string backupDir_;
 
     // network dimensions
     int batch_ = 0;
@@ -162,24 +186,31 @@ private:
     int minor_ = 1;
     int revision_ = 0;
 
-    // training parameters
-    TrainBatch trainBatch_;
-    PxCpuVector* delta_ = nullptr;
-    SteppedLRPolicy policy_;
-    int maxBatches_ = 0;
-    int subdivs_ = 0;
-    int timeSteps_ = 0;
-    int seen_ = 0;
-    float threshold_ = 0.0f;
-    float momentum_ = 0.0f;
-    float decay_ = 0.0f;
-    float jitter_ = 0.0f;
-    float angle_ = 0.0f;
-    float aspect_ = 0.0f;
-    float saturation_ = 0.0f;
-    float exposure_ = 0.0f;
-    float hue_ = 0.0f;
-    float cost_ = 0.0f;
+    // Training parameters
+    bool training_ = false;               // Flag indicating whether the model is in training mode
+    TrainBatch trainBatch_;               // Instance of TrainBatch class for managing training batches
+    PxCpuVector* delta_ = nullptr;        // Pointer to a PxCpuVector for storing delta values (nullptr by default)
+    LRPolicy::Ptr policy_;                // Pointer to an LRPolicy object for managing learning rate policies
+    bool augment_ = false;                // Flag indicating whether data augmentation is enabled
+
+    // Optimization parameters
+    int maxBatches_ = 0;                   // Maximum number of batches for training
+    int subdivs_ = 0;                      // Number of subdivisions for training batches
+    int timeSteps_ = 0;                    // Number of time steps for training
+    size_t seen_ = 0;                      // Total number of batches seen during training
+
+    // Hyperparameters for data augmentation
+    float threshold_ = 0.0f;               // Threshold for data augmentation
+    float momentum_ = 0.0f;                // Momentum for optimization
+    float decay_ = 0.0f;                   // Decay rate for optimization
+    float jitter_ = 0.0f;                  // Jitter for data augmentation
+    float angle_ = 0.0f;                   // Angle for data augmentation
+    float aspect_ = 0.0f;                  // Aspect ratio for data augmentation
+    float saturation_ = 0.0f;              // Saturation for data augmentation
+    float exposure_ = 0.0f;                // Exposure for data augmentation
+    float hue_ = 0.0f;                     // Hue for data augmentation
+    float cost_ = 0.0f;                    // Cost associated with the training process
+
 
     // configuration
     YAML::Node config_;
@@ -190,9 +221,12 @@ private:
     // labels and training data
     std::vector<std::string> labels_;
     std::vector<std::string> trainImages_;
+    std::vector<std::string> valImages_;
 
     // program options
     var_map options_;
+
+    Validator validator_;
 
 #ifdef USE_CUDA
     CublasContext::Ptr cublasCtxt_;

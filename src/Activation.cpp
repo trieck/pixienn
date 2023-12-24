@@ -45,6 +45,16 @@ private:
 class LinearActivation : public Activation
 {
 public:
+    float apply(float x) const override
+    {
+        return x;
+    }
+
+    float gradient(float x) const override
+    {
+        return x;
+    }
+
     void apply(float* begin, float* end) const override
     {
     }
@@ -64,17 +74,27 @@ public:
 class LeakyActivation : public Activation
 {
 public:
+    float apply(float x) const override
+    {
+        return (x > 0) ? x : .1f * x;
+    }
+
+    float gradient(float x) const override
+    {
+        return (x > 0) ? 1.0f : 0.1f;
+    }
+
     void apply(float* begin, float* end) const override
     {
-        std::for_each(begin, end, [](float& x) {
-            x = (x > 0) ? x : .1f * x;
+        std::for_each(begin, end, [this](float& x) {
+            x = apply(x);
         });
     }
 
     void gradient(float* begin, float* end, float* dbegin) const override
     {
-        std::transform(begin, end, dbegin, begin, [](float x, float delta) {
-            return x * ((delta > 0) ? 1.0f : 0.1f);
+        std::transform(begin, end, dbegin, begin, [this](float x, float delta) {
+            return x * gradient(delta);
         });
     }
 
@@ -89,18 +109,28 @@ public:
 class LoggyActivation : public Activation
 {
 public:
+    float apply(float x) const override
+    {
+        return 2.0f / (1.0f + std::exp(-x)) - 1;
+    }
+
+    float gradient(float x) const override
+    {
+        auto y = (x + 1.0f) / 2.0f;
+        return 2 * (1 - y) * y;
+    }
+
     void apply(float* begin, float* end) const override
     {
-        std::for_each(begin, end, [](float& x) {
-            x = 2.0f / (1.0f + std::exp(-x)) - 1;
+        std::for_each(begin, end, [this](float& x) {
+            x = apply(x);
         });
     }
 
     void gradient(float* begin, float* end, float* dbegin) const override
     {
-        std::transform(begin, end, dbegin, begin, [](float x, float delta) {
-            auto y = (delta + 1.0f) / 2.0f;
-            return x * 2 * (1 - y) * y;
+        std::transform(begin, end, dbegin, begin, [this](float x, float delta) {
+            return x * gradient(delta);
         });
     }
 
@@ -115,17 +145,31 @@ public:
 class LogisticActivation : public Activation
 {
 public:
+    float apply(float x) const override
+    {
+        return 1.f / (1.f + std::exp(-x));
+    }
+
+    float gradient(float x) const override
+    {
+        if (x == 0) {
+            return 0;
+        }
+
+        return (1 - x) / x;
+    }
+
     void apply(float* begin, float* end) const override
     {
-        std::for_each(begin, end, [](float& x) {
-            x = 1.f / (1.f + std::exp(-x));
+        std::for_each(begin, end, [this](float& x) {
+            x = apply(x);
         });
     }
 
     void gradient(float* begin, float* end, float* dbegin) const override
     {
-        std::transform(begin, end, dbegin, begin, [](float x, float delta) {
-            return x * ((1 - delta) / delta);
+        std::transform(begin, end, dbegin, begin, [this](float x, float delta) {
+            return x * gradient(delta);
         });
     }
 
@@ -140,17 +184,27 @@ public:
 class ReluActivation : public Activation
 {
 public:
+    float apply(float x) const override
+    {
+        return x * float(x > 0);
+    }
+
+    float gradient(float x) const override
+    {
+        return float(x > 0);
+    }
+
     void apply(float* begin, float* end) const override
     {
-        std::for_each(begin, end, [](float& x) {
-            x = x * float(x > 0);
+        std::for_each(begin, end, [this](float& x) {
+            x = apply(x);
         });
     }
 
     void gradient(float* begin, float* end, float* dbegin) const override
     {
-        std::transform(begin, end, dbegin, begin, [](float x, float delta) {
-            return x * float(delta > 0);
+        std::transform(begin, end, dbegin, begin, [this](float x, float delta) {
+            return x * gradient(delta);
         });
     }
 
@@ -200,6 +254,11 @@ void Activation::apply(PxCpuVector& container) const
 void Activation::gradient(PxCpuVector& container, PxCpuVector& delta) const
 {
     gradient(&(*container.begin()), &(*container.end()), &(*delta.begin()));
+}
+
+float Activation::operator()(float x) const
+{
+    return apply(x);
 }
 
 #ifdef USE_CUDA

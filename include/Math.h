@@ -24,6 +24,7 @@ namespace px {
 PxCpuVector exp(const PxCpuVector& input);
 PxCpuVector log(const PxCpuVector& input);
 PxCpuVector softmax(const PxCpuVector& input);
+void softmax(const float *input, int n, float temp, float *output, int stride);
 
 }   // px
 

@@ -150,4 +150,10 @@ std::size_t TrainBatch::imageDataSize() const noexcept
     return imageData_.size();
 }
 
+void TrainBatch::release()
+{
+    groundTruth_.clear();
+    imageData_.release();
+}
+
 }   // px

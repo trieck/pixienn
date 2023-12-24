@@ -23,6 +23,7 @@
 #include "Layer.h"
 #include "MaxPoolLayer.h"
 #include "Model.h"
+#include "RegionLayer.h"
 #include "RouteLayer.h"
 #include "ShortcutLayer.h"
 #include "Singleton.h"
@@ -53,6 +54,7 @@ LayerFactories::LayerFactories()
     registerFactory<ConvLayer>("conv");
     registerFactory<DetectLayer>("detection");
     registerFactory<MaxPoolLayer>("maxpool");
+    registerFactory<RegionLayer>("region");
     registerFactory<RouteLayer>("route");
     registerFactory<ShortcutLayer>("shortcut");
     registerFactory<UpsampleLayer>("upsample");

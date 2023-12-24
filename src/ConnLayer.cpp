@@ -190,17 +190,23 @@ void ConnLayer::update()
     auto momentum = net.momentum();
     auto decay = net.decay();
 
+    // update biases
     cblas_saxpy(outputs(), learningRate / batch(), biasUpdates_.data(), 1, biases_.data(), 1);
     cblas_sscal(outputs(), momentum, biasUpdates_.data(), 1);
 
+    // update scales (if batch normalized)
     if (batchNormalize_) {
         cblas_saxpy(outputs(), learningRate / batch(), scaleUpdates_.data(), 1, scales_.data(), 1);
         cblas_sscal(outputs(), momentum, scaleUpdates_.data(), 1);
     }
 
+    // update weights with weight decay
     auto size = inputs() * outputs();
+
     cblas_saxpy(size, -decay * batch(), weights_.data(), 1, weightUpdates_.data(), 1);
     cblas_saxpy(size, learningRate / batch(), weightUpdates_.data(), 1, weights_.data(), 1);
+
+    // FIXME:
     cblas_sscal(size, momentum, weightUpdates_.data(), 1);
 }
 

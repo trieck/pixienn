@@ -18,6 +18,7 @@
 #include <cmath>
 
 #include "CpuUtil.h"
+#include "PxTensor.h"
 
 namespace px {
 
@@ -69,6 +70,54 @@ void im2ColCpu(const float* im, int channels, int height, int width, int ksize, 
     }
 }
 
+// Function uses casting from int to unsigned to compare if value of
+// parameter "a" is greater or equal to zero and lower than value of
+// parameter b. The b parameter is of type signed and is always positive,
+// therefore its value is always lower than 0x800... where casting
+// negative value of a parameter converts it to value higher than 0x800...
+// The casting allows to use one condition instead of two.
+inline static int isAGeZeroAndALtB(int a, int b)
+{
+    return (unsigned) (a) < (unsigned) (b);
+}
+
+// https://github.com/BVLC/caffe/blob/master/src/caffe/util/im2col.cpp
+void im2ColCpuExt(const float* im, const int channels, const int height, const int width, const int kernelH,
+                  const int kernelW, const int padH, const int padW, const int strideH, const int strideW,
+                  const int dilationH, const int dilationW, float* dataCol)
+{
+    const auto outputH = (height + 2 * padH - (dilationH * (kernelH - 1) + 1)) / strideH + 1;
+    const auto outputW = (width + 2 * padW - (dilationW * (kernelW - 1) + 1)) / strideW + 1;
+    const auto channelSize = height * width;
+    int channel, kernelRow, kernelCol, outputRows, outputCol;
+
+    for (channel = channels; channel--; im += channelSize) {
+        for (kernelRow = 0; kernelRow < kernelH; kernelRow++) {
+            for (kernelCol = 0; kernelCol < kernelW; kernelCol++) {
+                auto inputRow = -padH + kernelRow * dilationH;
+                for (outputRows = outputH; outputRows; outputRows--) {
+                    if (!isAGeZeroAndALtB(inputRow, height)) {
+                        for (outputCol = outputW; outputCol; outputCol--) {
+                            *(dataCol++) = 0;
+                        }
+                    } else {
+                        auto inputCol = -padW + kernelCol * dilationW;
+                        for (outputCol = outputW; outputCol; outputCol--) {
+                            if (isAGeZeroAndALtB(inputCol, width)) {
+                                *(dataCol++) = im[inputRow * width + inputCol];
+                            } else {
+                                *(dataCol++) = 0;
+                            }
+                            inputCol += strideW;
+                        }
+                    }
+                    inputRow += strideH;
+                }
+            }
+        }
+    }
+}
+
 void col2ImCpu(const float* dataCol, int channels, int height, int width, int ksize, int stride, int pad,
                float* dataIm)
 {
@@ -93,12 +142,57 @@ void col2ImCpu(const float* dataCol, int channels, int height, int width, int ks
     }
 }
 
+inline static int aGeZeroAndALtB(int a, int b)
+{
+    return (unsigned) (a) < (unsigned) (b);
+}
+
+// https://github.com/BVLC/caffe/blob/master/src/caffe/util/im2col.cpp
+void col2ImCpuExt(const float* dataCol, const int channels,
+                  const int height, const int width, const int kernelH, const int kernelW,
+                  const int padH, const int padW,
+                  const int strideH, const int strideW,
+                  const int dilationH, const int dilationW,
+                  float* dataIm)
+{
+    memset(dataIm, 0, sizeof(float) * height * width * channels);
+
+    const auto outputH = (height + 2 * padH - (dilationH * (kernelH - 1) + 1)) / strideH + 1;
+    const auto outputW = (width + 2 * padW - (dilationW * (kernelW - 1) + 1)) / strideW + 1;
+    const auto channelSize = height * width;
+
+    int channel, kernelRow, kernelCol, outputRows, outputCol;
+
+    for (channel = channels; channel--; dataIm += channelSize) {
+        for (kernelRow = 0; kernelRow < kernelH; kernelRow++) {
+            for (kernelCol = 0; kernelCol < kernelW; kernelCol++) {
+                auto inputRow = -padH + kernelRow * dilationH;
+                for (outputRows = outputH; outputRows; outputRows--) {
+                    if (!aGeZeroAndALtB(inputRow, height)) {
+                        dataCol += outputW;
+                    } else {
+                        auto inputCol = -padW + kernelCol * dilationW;
+                        for (outputCol = outputW; outputCol; outputCol--) {
+                            if (aGeZeroAndALtB(inputCol, width)) {
+                                dataIm[inputRow * width + inputCol] += *dataCol;
+                            }
+                            dataCol++;
+                            inputCol += strideW;
+                        }
+                    }
+                    inputRow += strideH;
+                }
+            }
+        }
+    }
+}
+
 void addBias(float* output, const float* biases, int batch, int n, int size)
 {
     for (auto b = 0; b < batch; ++b) {
         for (auto i = 0; i < n; ++i) {
             auto offset = b * n + i;
-            cblas_saxpy(size, 1.0f, biases + i, 0, output + (b * n + i) * size, 1);
+            cblas_saxpy(size, 1.0f, biases + i, 0, output + offset * size, 1);
         }
     }
 }
@@ -224,7 +318,7 @@ void varianceDeltaCpu(const float* x, const float* delta, const float* mean, con
 void normalizeDeltaCpu(const float* x, const float* mean, const float* variance, const float* meanDelta,
                        const float* varianceDelta, int batch, int filters, int spatial, float* delta)
 {
-    const int spatialSize = batch * spatial;
+    const auto spatialSize = batch * spatial;
 
     for (auto j = 0; j < batch; ++j) {
         for (auto f = 0; f < filters; ++f) {
@@ -245,5 +339,26 @@ void constrain(int n, float alpha, float* x, int incX)
     }
 }
 
+void flatten(float* x, int size, int layers, int batch, bool forward)
+{
+    PxCpuVector swap(size * layers * batch, 0.0f);
+    auto* pswap = swap.data();
+
+    for (auto b = 0; b < batch; ++b) {
+        for (auto c = 0; c < layers; ++c) {
+            for (auto i = 0; i < size; ++i) {
+                auto i1 = b * layers * size + c * size + i;
+                auto i2 = b * layers * size + i * layers + c;
+                if (forward) {
+                    pswap[i2] = x[i1];
+                } else {
+                    pswap[i1] = x[i2];
+                }
+            }
+        }
+    }
+
+    memcpy(x, pswap, size * layers * batch * sizeof(float));
+}
 
 }   // px
