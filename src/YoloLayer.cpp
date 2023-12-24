@@ -162,13 +162,16 @@ YoloLayer::yoloBox(const float* p, int mask, int index, int col, int row, int w,
 
 void YoloLayer::addDetects(Detections& detections, int width, int height, float threshold)
 {
-    const auto* predictions = output_.data();
-    addDetects(detections, width, height, threshold, predictions);
+    addDetects(detections, width, height, threshold, output_.data());
 }
 
-void
-YoloLayer::addDetects(Detections& detections, int width, int height, float threshold,
-                      const float* predictions) const
+void YoloLayer::addDetects(Detections& detections, float threshold)
+{
+    addDetects(detections, threshold, output_.data());
+}
+
+void YoloLayer::addDetects(Detections& detections, int width, int height, float threshold,
+                           const float* predictions) const
 {
     auto area = std::max(1, this->width() * this->height());
     auto nclasses = classes();
@@ -187,23 +190,29 @@ YoloLayer::addDetects(Detections& detections, int width, int height, float thres
             auto boxIndex = entryIndex(0, n * area + i, 0);
             auto box = yoloBox(predictions, mask_[n], boxIndex, col, row, width, height);
 
-            Detection det(nclasses, box);
+            int maxClass = 0;
+            float maxProb = -std::numeric_limits<float>::max();
 
-            int max = 0;
             for (auto j = 0; j < nclasses; ++j) {
                 int clsIndex = entryIndex(0, n * area + i, 5 + j);
-                det[j] = objectness * predictions[clsIndex];
-                if (det[j] > det[max]) {
-                    max = j;
+                auto prob = objectness * predictions[clsIndex];
+                if (prob > maxProb) {
+                    maxClass = j;
+                    maxProb = prob;
                 }
             }
 
-            if (det[max] >= threshold) {
-                det.setMaxClass(max);
+            if (maxProb >= threshold) {
+                Detection det(box, maxClass, maxProb);
                 detections.emplace_back(std::move(det));
             }
         }
     }
+}
+
+void YoloLayer::addDetects(Detections& detections, float threshold, const float* predictions) const
+{
+    // TODO:
 }
 
 #ifdef USE_CUDA

@@ -15,6 +15,7 @@
 ********************************************************************************/
 
 #include "Box.h"
+#include "Timer.h"
 
 namespace px {
 
@@ -48,21 +49,36 @@ float boxRmse(const cv::Rect2f& a, const cv::Rect2f& b)
                      pow(a.height - b.height, 2));
 }
 
-void nms(Detections& detects, float threshold)
+Detections nms(const Detections& detects, float threshold)
 {
+    Timer t;
+    Detections output(detects);
+
+    std::vector<bool> discard(detects.size(), false);
+
     for (auto i = 0; i < detects.size(); ++i) {
         for (auto j = i + 1; j < detects.size(); ++j) {
+            if (discard[j]) {
+                continue;
+            }
+
             if (boxIou(detects[i].box(), detects[j].box()) > threshold) {
-                for (auto k = 0; k < detects[i].size(); ++k) {
-                    if (detects[i][k] < detects[j][k]) {
-                        detects[i][k] = 0;
-                    } else {
-                        detects[j][k] = 0;
-                    }
+                if (detects[i].prob() < detects[j].prob()) {
+                    discard[i] = true;
+                } else {
+                    discard[j] = true;
                 }
             }
         }
     }
+
+    auto pred = [&discard, &output](const auto& detection) {
+        return discard[&detection - &output[0]];
+    };
+
+    output.erase(std::remove_if(output.begin(), output.end(), pred), output.end());
+
+    return output;
 }
 
 }   // px

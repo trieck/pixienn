@@ -19,14 +19,19 @@
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <utility>
+#include <opencv2/imgproc/types_c.h>
 
 #include "ColorMaps.h"
 #include "Error.h"
 #include "FileUtil.h"
 #include "Image.h"
+#include "ImageAugmenter.h"
+#include "InvLRPolicy.h"
 #include "Layer.h"
 #include "Model.h"
+#include "SteppedLRPolicy.h"
 #include "Timer.h"
+#include "Utility.h"
 
 using namespace YAML;
 using namespace boost::filesystem;
@@ -36,8 +41,11 @@ namespace po = boost::program_options;
 
 namespace px {
 
-Model::Model(std::string cfgFile, var_map options) : options_(std::move(options)), cfgFile_(std::move(cfgFile))
+Model::Model(std::string cfgFile, var_map options)
+        : options_(std::move(options)), cfgFile_(std::move(cfgFile)), validator_(*this)
 {
+    training_ = hasOption("train");
+
 #ifdef USE_CUDA
     gpu_ = !hasOption("no-gpu");
     if (gpu_) {
@@ -53,6 +61,11 @@ Model::Model(std::string cfgFile, var_map options) : options_(std::move(options)
 
 void Model::parseConfig()
 {
+    struct timespec ts;
+    ts.tv_sec = 200 / 1000;
+    ts.tv_nsec = 200 * 1000000;
+    nanosleep(&ts, NULL);
+
     config_ = LoadFile(cfgFile_);
 
     PX_CHECK(config_.IsMap(), "Document not a map.");
@@ -70,6 +83,8 @@ void Model::parseConfig()
     auto model = config["model"].as<std::string>();
     modelFile_ = canonical(model, cfgPath.parent_path()).string();
     parseModel();
+
+    backupDir_ = config["backup-dir"].as<std::string>("backup");
 
     if (inferring()) {
         auto weights = config["weights"].as<std::string>();
@@ -92,6 +107,7 @@ void Model::parseModel()
     PX_CHECK(model.IsMap(), "Model is not a map.");
 
     parsePolicy(model);
+
     maxBatches_ = model["max_batches"].as<int>(0);
 
     batch_ = model["batch"].as<int>();
@@ -102,6 +118,7 @@ void Model::parseModel()
     timeSteps_ = model["time_steps"].as<int>(1);
     momentum_ = model["momentum"].as<float>(0.9f);
     decay_ = model["decay"].as<float>(0.0001f);
+    augment_ = model["augment"].as<bool>(true);
     jitter_ = model["jitter"].as<float>(0.2f);
     angle_ = model["angle"].as<float>(0.0f);
     aspect_ = model["aspect"].as<float>(1.0f);
@@ -191,7 +208,7 @@ int Model::width() const noexcept
 void Model::forward(const PxCpuVector& input)
 {
     auto sum = 0.0f;
-    auto i = 0, count = 0;
+    auto count = 0;
 
     const auto* in = &input;
 
@@ -256,12 +273,11 @@ void Model::loadWeights()
         ifs.read((char*) &minor_, sizeof(int));
         ifs.read((char*) &revision_, sizeof(int));
 
+        seen_ = 0;
         if ((major_ * 10 + minor_) >= 2 && major_ < 1000 && minor_ < 1000) {
-            size_t seen;
-            ifs.read((char*) &seen, sizeof(size_t));
+            ifs.read((char*) &seen_, sizeof(size_t));
         } else {
-            int iseen = 0;
-            ifs.read((char*) &iseen, sizeof(int));
+            ifs.read((char*) &seen_, sizeof(int));
         }
 
         std::streamoff pos = ifs.tellg();
@@ -294,23 +310,45 @@ std::vector<Detection> Model::predict(const std::string& imageFile)
     forward(image.data);
 #endif  // USE_CUDA
 
+    auto detects = detections(image.originalSize);
+
+    std::printf("predicted in %s.\n", timer.str().c_str());
+
+    return detects;
+}
+
+std::vector<Detection> Model::detections(const cv::Size& imageSize) const
+{
     std::vector<Detection> detections;
+
     for (auto& layer: layers()) {
         auto* detector = dynamic_cast<Detector*>(layer.get());
         if (detector) {
 #ifdef USE_CUDA
             if (useGpu()) {
-                detector->addDetectsGpu(detections, image.originalSize.width, image.originalSize.height, threshold_);
+                detector->addDetectsGpu(detections, imageSize.width, imageSize.height, threshold_);
             } else {
-                detector->addDetects(detections, image.originalSize.width, image.originalSize.height, threshold_);
+                detector->addDetects(detections, imageSize.width, imageSize.height, threshold_);
             }
 #else
-            detector->addDetects(detections, image.originalSize.width, image.originalSize.height, threshold_);
+            detector->addDetects(detections, imageSize.width, imageSize.height, threshold_);
 #endif // USE_CUDA
         }
     }
 
-    std::printf("predicted in %s.\n", timer.str().c_str());
+    return detections;
+}
+
+std::vector<Detection> Model::detections() const
+{
+    std::vector<Detection> detections;
+
+    for (auto& layer: layers()) {
+        auto* detector = dynamic_cast<Detector*>(layer.get());
+        if (detector) {
+            detector->addDetects(detections, threshold_);
+        }
+    }
 
     return detections;
 }
@@ -321,6 +359,7 @@ void Model::train()
 
     parseTrainConfig();
     loadTrainImages();
+    loadValImages();
 
     auto avgLoss = -std::numeric_limits<float>::max();
 
@@ -329,19 +368,22 @@ void Model::train()
 
     while (currentBatch() < maxBatches_) {
         Timer batchTimer;
-        auto loss = trainBatch(loadBatch());
+        auto loss = trainBatch();
         avgLoss = avgLoss < 0 ? loss : (avgLoss * .9f + loss * .1f);
 
         auto epoch = seen_ / trainImages_.size();
-        if (seen_ > 0) {
-            if (seen_ % 10 == 0) {
-                printf("Epoch: %zu, Batches seen: %d, Loss: %.2f, Avg. Loss: %.2f, LR: %.8f, %s, %d images\n",
-                       epoch, seen_, loss, avgLoss, learningRate(), batchTimer.str().c_str(), seen_ * batch_);
-            }
-            if (seen_ % 1000 == 0 || (seen_ < 1000 && seen_ % 100 == 0)) {
-                saveWeights();
-            }
+
+        if (seen_ % 10 == 0) {
+            printf("Epoch: %zu, Batches seen: %zu, Loss: %.2f, Avg. Loss: %.2f, LR: %.8f, %s, %zu images\n",
+                   epoch, seen_, loss, avgLoss, learningRate(), batchTimer.str().c_str(), seen_ * batch_);
         }
+        if (seen_ % 1000 == 0 || (seen_ < 1000 && seen_ % 100 == 0)) {
+            saveWeights();
+        }
+
+        /*if (seen_ % 1000 == 0) {
+            validate();
+        }*/
     }
 
     saveWeights(true);
@@ -349,9 +391,9 @@ void Model::train()
     std::printf("trained in %s.\n", timer.str().c_str());
 }
 
-float Model::trainBatch(TrainBatch&& batch)
+float Model::trainBatch()
 {
-    trainBatch_ = std::move(batch);
+    trainBatch_ = loadBatch(BatchType::TRAIN, augment_);
 
     auto error = trainOnce(trainBatch_.imageData());
 
@@ -374,49 +416,25 @@ float Model::trainOnce(const PxCpuVector& input)
 
 void Model::saveWeights(bool final)
 {
-    auto dir = "backup";
-
-    if (!boost::filesystem::exists(dir)) {
-        boost::filesystem::create_directory(dir);
+    if (!boost::filesystem::exists(backupDir_)) {
+        boost::filesystem::create_directory(backupDir_);
     }
 
-    std::string fileName;
-    if (final) {
-        fileName = weightsFile_;
-    } else {
-        std::string base;
-        if (weightsFile_.empty()) {
-            base = modelName();
-        } else {
-            base = baseName(weightsFile_);
-        }
-        fileName = (boost::format("%s_%u.weights") % base % seen_).str();
-    }
+    auto fileName = weightsFileName(final);
 
-    boost::filesystem::path path(dir);
-    path /= fileName;
-
-    auto filePath = path.string();
-
-    std::ofstream ofs(filePath, std::ios::out | std::ios::binary);
-    PX_CHECK(ofs.good(), "Could not open file \"%s\".", filePath.c_str());
+    std::ofstream ofs(fileName, std::ios::out | std::ios::trunc | std::ios::binary);
+    PX_CHECK(ofs.good(), "Could not open file \"%s\". %s", fileName.c_str(), std::strerror(errno));
 
     ofs.write((char*) &major_, sizeof(int));
     ofs.write((char*) &minor_, sizeof(int));
     ofs.write((char*) &revision_, sizeof(int));
+    ofs.write((char*) &seen_, sizeof(int));
 
     for (const auto& layer: layers()) {
         layer->saveWeights(ofs);
     }
 
     ofs.close();
-}
-
-std::string Model::modelName() const
-{
-    auto base = baseName(cfgFile_);
-
-    return base;
 }
 
 void Model::update()
@@ -430,9 +448,8 @@ void Model::update()
 
 void Model::updateLR()
 {
-    policy_.update(seen_);
+    policy_->update(seen_);
 }
-
 
 void Model::parseTrainConfig()
 {
@@ -441,36 +458,65 @@ void Model::parseTrainConfig()
     const auto training = config_["training"];
     PX_CHECK(training.IsMap(), "training is not a map.");
 
-    auto trainImages = training["train-images"].as<std::string>();
-
     auto cfgPath = path(cfgFile_);
+
+    auto trainImages = training["train-images"].as<std::string>();
     trainImagePath_ = canonical(trainImages, cfgPath.parent_path()).string();
+
+    auto valImages = training["val-images"].as<std::string>();
+    valImagePath_ = canonical(valImages, cfgPath.parent_path()).string();
 
     auto groundTruth = training["ground-truth"].as<std::string>();
     trainGTPath_ = canonical(groundTruth, cfgPath.parent_path()).string();
 }
 
-TrainBatch Model::loadBatch()
+TrainBatch Model::loadBatch(BatchType type, bool augment)
 {
-    TrainBatch batch(batch_, channels_, height_, width_);
+    return loadBatch(type, batch_, augment);
+}
+
+TrainBatch Model::loadBatch(BatchType type, int size, bool augment)
+{
+    TrainBatch batch(size, channels_, height_, width_);
+
+    const auto& images = type == BatchType::TRAIN ?
+                         trainImages_ : valImages_;
 
     std::random_device rd;
     std::default_random_engine generator(rd());
-    std::uniform_int_distribution<int> distribution(0, trainImages_.size() - 1);
+    std::uniform_int_distribution<int> distribution(0, images.size() - 1);
 
-    auto n = std::min<std::size_t>(batch_, trainImages_.size());
+    auto n = std::min<std::size_t>(size, images.size());
 
     for (auto i = 0; i < n; ++i) {
         auto j = distribution(generator);
-        const auto& imagePath = trainImages_[j];
-        auto image = imreadVector(imagePath.c_str(), width(), height());
-        auto gts = groundTruth(imagePath);
+        const auto& imagePath = images[j];
+        auto imgLabels = loadImage(imagePath, augment);
 
-        batch.setImageData(i, image.data);  // the image data must be copied
-        batch.setGroundTruth(i, std::move(gts));
+        batch.setImageData(i, imgLabels.first);  // the image data must be copied
+        batch.setGroundTruth(i, std::move(imgLabels.second));
     }
 
     return batch;
+}
+
+auto Model::loadImage(const std::string& imagePath, bool augment) -> ImageVecLabels
+{
+    auto gts = groundTruth(imagePath);
+
+    if (!augment) {
+        auto image = imreadVector(imagePath.c_str(), width(), height());
+        return { image.data, gts };
+    }
+
+    auto orig = imreadNormalize(imagePath.c_str());
+
+    ImageAugmenter augmenter(jitter_, hue_, saturation_, exposure_);
+    auto augmented = augmenter.augment(orig, { width(), height() }, gts);
+
+    auto vector = imvector(augmented.first);
+
+    return { vector, augmented.second };
 }
 
 GroundTruthVec Model::groundTruth(const std::string& imagePath)
@@ -528,6 +574,18 @@ void Model::loadTrainImages()
     }
 }
 
+void Model::loadValImages()
+{
+    std::ifstream ifs(valImagePath_, std::ios::in | std::ios::binary);
+    PX_CHECK(ifs.good(), "Could not open file \"%s\".", valImagePath_.c_str());
+
+    valImages_.clear();
+
+    for (std::string label; std::getline(ifs, label);) {
+        valImages_.push_back(label);
+    }
+}
+
 int Model::layerSize() const
 {
     return layers_.size();
@@ -566,12 +624,7 @@ void Model::overlay(const std::string& imageFile, const Detections& detects) con
     auto thickness = std::max(1, option<int>("line-thickness"));
 
     for (const auto& detect: detects) {
-        auto max = detect.max();
-        if (max == 0) {
-            continue;   // suppressed
-        }
-
-        auto index = detect.maxClass();
+        auto index = detect.classIndex();
         const auto& label = labels_[index];
 
         auto bgColor = colors.color(index);
@@ -580,7 +633,7 @@ void Model::overlay(const std::string& imageFile, const Detections& detects) con
         const auto& box = detect.box();
         imrect(img, box, bgColor, thickness);
 
-        auto text = boost::format("%1%: %2$.2f%%") % label % (max * 100);
+        auto text = boost::format("%1%: %2$.2f%%") % label % (detect.prob() * 100);
         std::cout << text << std::endl;
 
         if (!hasOption("no-labels")) {
@@ -604,12 +657,7 @@ std::string Model::asJson(const Detections& detects) const noexcept
     auto features = json::array();
 
     for (const auto& detect: detects) {
-        auto max = detect.max();
-        if (max == 0) {
-            continue;   // suppressed
-        }
-
-        auto index = detect.maxClass();
+        auto index = detect.classIndex();
 
         auto feature = json::object();
         auto geometry = json::object();
@@ -635,7 +683,7 @@ std::string Model::asJson(const Detections& detects) const noexcept
         geometry["coordinates"] = json::array({ coords });
 
         props["class"] = labels_[index];
-        props["confidence"] = max;
+        props["confidence"] = detect.prob();
 
         feature["geometry"] = geometry;
         feature["properties"] = props;
@@ -659,7 +707,7 @@ bool Model::hasOption(const std::string& option) const
 
 bool Model::training() const
 {
-    return hasOption("train");
+    return training_;
 }
 
 bool Model::inferring() const
@@ -699,7 +747,7 @@ const TrainBatch& Model::trainingBatch() const noexcept
 
 float Model::learningRate() const
 {
-    return policy_.LR();
+    return policy_->LR();
 }
 
 float Model::momentum() const noexcept
@@ -715,18 +763,65 @@ float Model::decay() const noexcept
 void Model::parsePolicy(const Node& model)
 {
     auto sPolicy = model["policy"].as<std::string>("steps");
-    PX_CHECK(sPolicy == "steps", "Only Stepped LR policy supported.");
+    if (sPolicy == "steps") {
+        auto learningRate = model["learning_rate"].as<float>(0.001f);
+        auto steps = model["steps"];
+        PX_CHECK(steps.IsSequence(), "steps must be a sequence of integers.");
+        auto vSteps = steps.as<std::vector<int>>();
 
-    auto learningRate = model["learning_rate"].as<float>(0.001f);
-    auto steps = model["steps"];
-    PX_CHECK(steps.IsSequence(), "steps must be a sequence of integers.");
-    auto vSteps = steps.as<std::vector<int>>();
+        auto scales = model["scales"];
+        PX_CHECK(scales.IsSequence(), "scales must be a sequence of floating point numbers.");
+        auto vScales = scales.as<std::vector<float>>();
 
-    auto scales = model["scales"];
-    PX_CHECK(scales.IsSequence(), "scales must be a sequence of floating point numbers.");
-    auto vScales = scales.as<std::vector<float>>();
+        policy_ = std::make_unique<SteppedLRPolicy>(learningRate, vSteps, vScales);
+    } else if (sPolicy == "inv") {
+        auto learningRate = model["learning_rate"].as<float>(0.001f);
+        auto gamma = model["gamma"].as<float>(0.9f);
+        auto power = model["power"].as<float>(1.0f);
 
-    policy_.set(learningRate, vSteps, vScales);
+        policy_ = std::make_unique<InvLRPolicy>(learningRate, gamma, power);
+    } else {
+        PX_ERROR_THROW("Unknown policy \"%s\".", sPolicy.c_str());
+    }
+}
+
+std::string Model::weightsFileName(bool final) const
+{
+    if (final) {
+        return weightsFile_;
+    }
+
+    auto base = baseName(weightsFile_);
+
+    auto fileName = (boost::format("%s_%u.weights") % base % seen_).str();
+    boost::filesystem::path path(backupDir_);
+    path /= fileName;
+    fileName = path.string();
+
+    return fileName;
+}
+
+void Model::validate()
+{
+    std::cout << "Pausing training to validate..." << std::flush;
+
+    auto batch = loadBatch(BatchType::VAL, 100, false);
+    validator_.validate(std::move(batch));
+
+    std::printf("\n%zu: mAP: %.4f, Avg. Recall: %.4f, micro-Avg. F1: %.4f\n",
+                seen_, validator_.mAP(), validator_.avgRecall(), validator_.microAvgF1());
+
+    std::cout << "Resuming training..." << std::endl << std::flush;
+}
+
+void Model::setTraining(bool training) noexcept
+{
+    training_ = training;
+}
+
+void Model::setThreshold(float threshold) noexcept
+{
+    threshold_ = threshold;
 }
 
 #ifdef USE_CUDA

@@ -53,12 +53,12 @@ TEST(BlasTests, BackwardBias)
     constexpr auto n = 2;
     constexpr auto size = 3;
 
-    PxCpuTensor<3> output({ batch, n, size }, 1.0f);
-    PxCpuTensor<1> bias({ n }, 0.5f);
+    PxCpuTensor<1> biasUpdates({ n }, 1.0f);
+    PxCpuTensor<3> delta({ batch, n, size }, 0.5f);
 
-    backwardBias(output.data(), bias.data(), batch, n, size);
+    backwardBias(biasUpdates.data(), delta.data(), batch, n, size);
 
-    EXPECT_THAT(output.asVector(), ElementsAre(2, 1, 1, 1, 1, 1));
+    EXPECT_THAT(biasUpdates.asVector(), ElementsAre(2.5, 2.5));
 }
 
 TEST(BlasTests, AddBias)
@@ -82,7 +82,7 @@ TEST(BlasTests, ScaleBias)
     constexpr auto size = 4;
 
     PxCpuTensor<3> output({ batch, n, size }, 2.0f);
-    PxCpuTensor<1> bias({ n }, 0.2f);
+    PxCpuTensor<3> bias({ batch, n, size }, 0.2f);
 
     scaleBias(output.data(), bias.data(), batch, n, size);
 

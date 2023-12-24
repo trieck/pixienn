@@ -28,6 +28,13 @@ find_package(OpenCV 4.5.4 REQUIRED COMPONENTS core imgproc highgui)
 find_package(TIFF REQUIRED)
 find_package(nlohmann_json 3.10.5 REQUIRED)
 find_package(yaml-cpp REQUIRED)
+find_package(Protobuf REQUIRED)
+
+set(PROTOBUF_OUTPUT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tensorboard)
+set(Protobuf_PROTOC_EXECUTABLE /usr/bin/protoc)
+
+protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS --cpp_out=${PROTOBUF_OUTPUT_DIR} proto/*.proto)
+SET_SOURCE_FILES_PROPERTIES(${PROTO_SRCS} ${PROTO_HDRS} PROPERTIES GENERATED TRUE)
 
 if (USE_CAIRO)
     find_package(Cairo 1.16.0)
@@ -95,6 +102,7 @@ list(APPEND SOURCES
         src/BatchNormLayer.cpp
         src/Box.cpp
         src/ColorMaps.cpp
+        src/ConfusionMatrix.cpp
         src/ConnAlgo.cpp
         src/ConnLayer.cpp
         src/ConvAlgo.cpp
@@ -106,12 +114,15 @@ list(APPEND SOURCES
         src/Error.cpp
         src/FileUtil.cpp
         src/Image.cpp
+        src/ImageAugmenter.cpp
         src/ImageVec.cpp
+        src/InvLRPolicy.cpp
         src/Layer.cpp
         src/Math.cpp
         src/MaxPoolAlgo.cpp
         src/MaxPoolLayer.cpp
         src/Model.cpp
+        src/RegionLayer.cpp
         src/RouteLayer.cpp
         src/ShortcutAlgo.cpp
         src/ShortcutLayer.cpp
@@ -121,10 +132,13 @@ list(APPEND SOURCES
         src/TrainBatch.cpp
         src/UpsampleAlgo.cpp
         src/UpsampleLayer.cpp
+        src/Utility.cpp
+        src/Validator.cpp
         src/YoloLayer.cpp
 )
 
-add_library(pixienn STATIC ${SOURCES})
+add_library(pixienn STATIC ${SOURCES}
+        include/RegionLayer.h)
 
 set_target_properties(pixienn PROPERTIES OUTPUT_NAME "pixienn")
 

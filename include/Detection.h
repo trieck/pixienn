@@ -24,30 +24,25 @@ namespace px {
 class Detection
 {
 public:
-    Detection(int classes, cv::Rect box);
+    Detection(cv::Rect2f box, int classIndex, float prob);
 
-    float& operator[](int clazz);
-    const float& operator[](int clazz) const;
-
-    const std::vector<float>& prob() const noexcept;
-    int size() const noexcept;
-    const cv::Rect& box() const noexcept;
-    float max() const noexcept;
-    int maxClass() const noexcept;
-
-    void setMaxClass(int max);
+    float prob() const noexcept;
+    const cv::Rect2f& box() const noexcept;
+    int classIndex() const noexcept;
 
 private:
-    cv::Rect box_;
-    std::vector<float> prob_;
-    int maxClass_ = 0;
+    cv::Rect2f box_;
+    float prob_;
+    int classIndex_ = 0;
 };
 
 using Detections = std::vector<Detection>;
 
 struct Detector
 {
+    virtual void addDetects(Detections& detects, float threshold) = 0;
     virtual void addDetects(Detections& detects, int width, int height, float threshold) = 0;
+
 #ifdef USE_CUDA
     virtual void addDetectsGpu(Detections& detects, int width, int height, float threshold) = 0;
 #endif // USE_CUDA

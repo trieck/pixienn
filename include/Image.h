@@ -24,11 +24,22 @@
 
 namespace px {
 
+
+// Distort image with hue, saturation and exposure
+void imdistort(cv::Mat& image, float hue, float saturation, float exposure);
+
 // Resize image with letterboxing
 cv::Mat imletterbox(const cv::Mat& image, int width, int height);
 
 // Normalize image pixel values
 cv::Mat imnormalize(const cv::Mat& image);
+
+cv::Mat imdenormalize(const cv::Mat& image);
+
+// Place an image on a background
+void implace(const cv::Mat& image, int w, int h, int dx, int dy, cv::Mat& canvas);
+void implace(const cv::Mat& image, int w, int h, const cv::Rect& roiSrc, cv::Rect& roiDest, cv::Mat& canvas);
+void calculateROI(int w, int h, int dx, int dy, cv::Rect& roiSrc, cv::Rect& roiDest, const cv::Mat& canvas);
 
 // Read an image from a file
 cv::Mat imread(const char* path);

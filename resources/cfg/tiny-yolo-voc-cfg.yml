@@ -1,0 +1,9 @@
+configuration:
+  model: ../models/tiny-yolo-voc.yml
+  weights: ../weights/tiny-yolo-voc_final.weights
+  labels: ../data/voc.names
+
+training:
+  train-images: ../data/voc/train-200.txt
+  val-images: ../data/voc/val-40.txt
+  ground-truth: ../data/voc/ground-truth

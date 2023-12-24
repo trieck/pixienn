@@ -18,30 +18,82 @@
 #define PIXIENN_STEPPEDLRPOLICY_H__
 
 #include "Common.h"
+#include "LRPolicy.h"
 
 namespace px {
 
-class SteppedLRPolicy
+/**
+ * @brief A class representing a learning rate policy based on a stepped schedule.
+ *
+ * This class provides functionality to update the learning rate based on a stepped schedule
+ * during training iterations. It also allows resetting the learning rate to its original value.
+ */
+class SteppedLRPolicy : public LRPolicy
 {
 public:
+    /**
+     * @brief Default constructor.
+     */
     SteppedLRPolicy();
-    SteppedLRPolicy(float lr, std::vector<int> steps, const std::vector<float> scales);
 
-    float LR() const noexcept;
+    /**
+     * @brief Parameterized constructor to initialize the learning rate policy.
+     * @param lr The initial learning rate.
+     * @param steps A vector of batch numbers at which the learning rate will be adjusted.
+     * @param scales A vector of scaling factors corresponding to each step.
+     */
+    SteppedLRPolicy(float lr, std::vector<int> steps, std::vector<float> scales);
+
+    /**
+     * @brief Get the current learning rate.
+     * @return The current learning rate.
+     */
+    float LR() const noexcept override;
+
+    /**
+     * @brief Get the original (initial) learning rate.
+     * @return The original learning rate.
+     */
     float origLR() const noexcept;
+
+    /**
+     * @brief Get the scaling factor for the current step.
+     * @return The scaling factor for the current step.
+     */
     float scale() const noexcept;
-    float update(int batchNum);
+
+    /**
+     * @brief Update the learning rate based on the stepped schedule.
+     * @param batchNum The current batch number or iteration count.
+     * @return The updated learning rate.
+     */
+    float update(int batchNum) override;
+
+    /**
+     * @brief Get the current step number.
+     * @return The current step number.
+     */
     int step() const noexcept;
 
-    void set(float lr, std::vector<int> steps, const std::vector<float> scales);
-    void reset();
+    /**
+     * @brief Set the learning rate, steps, and scales.
+     * @param lr The initial learning rate.
+     * @param steps A vector of batch numbers at which the learning rate will be adjusted.
+     * @param scales A vector of scaling factors corresponding to each step.
+     */
+    void set(float lr, std::vector<int> steps, std::vector<float> scales);
+
+    /**
+     * @brief Reset the learning rate to its original value and the step count to zero.
+     */
+    void reset() override;
 
 private:
-    int step_ = 0;
-    float lr_ = 0, origLr_ = 0;
-
-    std::vector<int> steps_;
-    std::vector<float> scales_;
+    int step_ = 0;                /**< The current step number. */
+    float lr_ = 0;                /**< The current learning rate. */
+    float origLr_ = 0;            /**< The original (initial) learning rate. */
+    std::vector<int> steps_;      /**< A vector of batch numbers at which the learning rate will be adjusted. */
+    std::vector<float> scales_;   /**< A vector of scaling factors corresponding to each step. */
 };
 
 }   // px

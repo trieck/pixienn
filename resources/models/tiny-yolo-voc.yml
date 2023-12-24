@@ -1,0 +1,135 @@
+model:
+  batch: 1
+  subdivisions: 1
+
+  width: 416
+  height: 416
+  channels: 3
+
+  augment: False # crash crash crash!!!
+
+  momentum: 0.9
+  decay: 0.0005
+  angle: 0
+  saturation: 1.5
+  exposure: 1.5
+  hue: 0.1
+  learning_rate: 0.001
+  max_batches: 40200
+
+  policy: steps
+  steps: [ -1, 100, 20000, 30000 ]
+  scales: [ 0.1, 10, 0.1, 0.1 ]
+
+  layers:
+    - type: conv
+      batch_normalize: True
+      filters: 16
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+
+    - type: maxpool
+      kernel: 2
+      stride: 2
+
+    - type: conv
+      batch_normalize: True
+      filters: 32
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+
+    - type: maxpool
+      kernel: 2
+      stride: 2
+
+    - type: conv
+      batch_normalize: True
+      filters: 64
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+
+    - type: maxpool
+      kernel: 2
+      stride: 2
+
+    - type: conv
+      batch_normalize: True
+      filters: 128
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+
+    - type: maxpool
+      kernel: 2
+      stride: 2
+
+    - type: conv
+      batch_normalize: True
+      filters: 256
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+
+    - type: maxpool
+      kernel: 2
+      stride: 2
+
+    - type: conv
+      batch_normalize: True
+      filters: 512
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+
+    - type: maxpool
+      kernel: 2
+      stride: 1
+
+    - type: conv
+      batch_normalize: True
+      filters: 1024
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: leaky
+
+    - type: conv
+      batch_normalize: True
+      kernel: 3
+      stride: 1
+      pad: True
+      filters: 1024
+      activation: leaky
+
+    - type: conv
+      kernel: 1
+      stride: 1
+      pad: True
+      filters: 125
+      activation: linear
+
+    - type: region
+      anchors: [ 1.08, 1.19, 3.42, 4.41, 6.63, 11.38, 9.42, 5.11, 16.62, 10.52 ]
+      bias_match: True
+      classes: 20
+      coords: 4
+      num: 5
+      softmax: True
+      jitter: 0.2
+      rescore: True
+      object_scale: 5
+      noobject_scale: 1
+      class_scale: 1
+      coord_scale: 1
+      absolute: True
+      thresh: 0.6
+      random: 1

@@ -4,13 +4,19 @@ model:
   height: 448
   width: 448
 
-  momentum: 0.9
+  saturation: .75
+  exposure: .75
+  hue: .1
+
   decay: 0.0005
+  gamma: 0.0001
   learning_rate: 0.0005
+  max_batches: 2500000
+  momentum: 0.9
   policy: steps
-  steps: [ 200,400,600,800,20000,30000 ]
-  scales: [ 0.5,0.5,0.5,0.5,.1,.1 ]
-  max_batches: 40000
+  power: 1
+  scales: [ .5, .5, .5, .5, .1, .1 ]
+  steps: [ 200, 400, 600, 800, 20000, 30000 ]
 
   layers:
     - type: conv

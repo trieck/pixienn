@@ -17,19 +17,10 @@
 #ifndef PIXIENN_TRAINBATCH_H
 #define PIXIENN_TRAINBATCH_H
 
-#include <opencv2/core/types.hpp>
+#include "GroundTruth.h"
 #include "PxTensor.h"
 
 namespace px {
-
-struct GroundTruth
-{
-    int classId;
-    cv::Rect2f box;
-};
-
-using GroundTruthVec = std::vector<GroundTruth>;
-using GroundTruths = std::vector<GroundTruthVec>;
 
 class TrainBatch
 {
@@ -58,6 +49,7 @@ public:
     void setGroundTruth(std::uint32_t batch, GroundTruthVec&& groundTruthVec);
     void addGroundTruth(std::uint32_t batch, GroundTruth&& groundTruth);
 
+    void release();
 private:
     GroundTruths groundTruth_;
     PxCpuVector imageData_;

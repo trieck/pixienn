@@ -4,11 +4,11 @@ require 'yaml'
 require './darknet'
 
 def convert(cfgfile, ymlfile)
-  cfg2 = Darknet.load_config(cfgfile)
+  cfg = Darknet.load_config(cfgfile)
 
   model = { model: { layers: [] } }
 
-  cfg2.each do |section, i|
+  cfg.each do |section, i|
     name = section.name
     if name == "convolutional"
       name = "conv" # pixienn shortens

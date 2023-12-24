@@ -29,8 +29,13 @@ public:
 
     static Activation::Ptr get(const std::string& s);
 
+    virtual float apply(float x) const = 0;
     virtual void apply(float* begin, float* end) const = 0;
+
+    virtual float gradient(float x) const = 0;
     virtual void gradient(float* begin, float* end, float* dbegin) const = 0;
+
+    float operator()(float x) const;
 
     void apply(PxCpuVector& container) const;
     void gradient(PxCpuVector& container, PxCpuVector& delta) const;

@@ -36,6 +36,7 @@ public:
     void backward(const PxCpuVector& input) override;
 
     void addDetects(Detections& detections, int width, int height, float threshold) override;
+    void addDetects(Detections& detections, float threshold) override;
 
 #ifdef USE_CUDA
     void forwardGpu(const PxCudaVector& input) override;
@@ -46,6 +47,8 @@ private:
 
     void setup() override;
     void addDetects(Detections& detections, int width, int height, float threshold, const float* predictions) const;
+    void addDetects(Detections& detections, float threshold, const float* predictions) const;
+
     int entryIndex(int batch, int location, int entry) const noexcept;
     cv::Rect yoloBox(const float* p, int mask, int index, int col, int row, int w, int h) const;
 

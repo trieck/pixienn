@@ -35,7 +35,9 @@ public:
     void forward(const PxCpuVector& input) override;
     void backward(const PxCpuVector& input) override;
 
+    void addDetects(Detections& detections, float threshold) override;
     void addDetects(Detections& detections, int width, int height, float threshold) override;
+
     inline bool hasCost() const noexcept override
     {
         return true;
@@ -51,6 +53,7 @@ private:
 
     void setup() override;
     void addDetects(Detections& detections, int width, int height, float threshold, const float* predictions) const;
+    void addDetects(Detections& detections, float threshold, const float* predictions) const;
     void printStats(const DetectContext& ctxt);
 
     friend LayerFactories;

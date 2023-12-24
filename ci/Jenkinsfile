@@ -1,0 +1,45 @@
+pipeline {
+    agent any
+
+   options {
+        pipelineTriggers([
+            [
+                $class: 'GitHubPushTrigger'
+            ]
+        ])
+    }
+
+    stages {
+        stage('Build') {
+            steps {
+                script {
+                    sh 'mkdir -p build'
+                    dir('build') {
+                        sh 'cmake -DUSE_CUDA=0 ..'
+                        sh 'make -j2'
+                    }
+                }
+            }
+        }
+
+        stage('Unit Tests) {
+            steps {
+                script {
+                    dir('build') {
+                        sh 'bin/pixienn-test'
+                    }
+                }
+            }
+        }
+
+        stage('Integration Tests') {
+            steps {
+                script {
+                    dir('ruby') {
+                        sh 'rake'
+                    }
+                }
+            }
+        }
+    }
+}

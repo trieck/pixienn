@@ -29,23 +29,27 @@ Timer::~Timer() = default;
 std::string Timer::str() const
 {
     using std::chrono::duration_cast;
+
     auto now = Clock::now();
 
-    auto elapsed = duration_cast<std::chrono::milliseconds>(now - start_).count();
-
-    auto hours = (elapsed / 1000) / 3600;
-    auto minutes = ((elapsed / 1000) % 3600) / 60;
-    auto seconds = (elapsed / 1000) % 60;
-    auto millis = elapsed % 1000;
+    auto elapsed = duration_cast<std::chrono::nanoseconds>(now - start_);
+    auto hours = duration_cast<std::chrono::hours>(elapsed);
+    auto minutes = duration_cast<std::chrono::minutes>(elapsed) % 3600 / 60;
+    auto seconds = duration_cast<std::chrono::seconds>(elapsed) % 60;
+    auto millis = duration_cast<std::chrono::milliseconds>(elapsed) % 1000;
+    auto micros = duration_cast<std::chrono::microseconds>(elapsed) % 1000;
+    auto nanos = elapsed % 1000;
 
     boost::format fmt;
 
-    if (hours)
-        fmt = boost::format("%d:%02d:%02d hours") % hours % minutes % seconds;
-    else if (minutes)
-        fmt = boost::format("%d:%02d minutes") % minutes % seconds;
+    if (hours.count())
+        fmt = boost::format("%d:%02d:%02d hours") % hours.count() % minutes.count() % seconds.count();
+    else if (minutes.count())
+        fmt = boost::format("%d:%02d minutes") % minutes.count() % seconds.count();
+    else if (millis.count())
+        fmt = boost::format("%d.%03d seconds") % seconds.count() % millis.count();
     else
-        fmt = boost::format("%d.%03d seconds") % seconds % millis;
+        fmt = boost::format("%d.%03d microseconds") % micros.count() % nanos.count();
 
     return fmt.str();
 }

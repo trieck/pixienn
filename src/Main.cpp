@@ -37,7 +37,7 @@ void predict(const std::string& cfgFile, const std::string& imageFile,
     auto detects = model.predict(imageFile);
 
     auto nmsThreshold = options["nms"].as<float>();
-    nms(detects, nmsThreshold);
+    detects = nms(detects, nmsThreshold);
 
     model.overlay(imageFile, detects);
     auto json = model.asJson(detects);

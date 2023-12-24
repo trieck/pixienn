@@ -20,6 +20,7 @@
 #include "Box.h"
 #include "Common.h"
 #include "DetectAlgo.h"
+#include "Utility.h"
 
 using namespace px;
 using namespace testing;
@@ -40,15 +41,7 @@ float darkIoU(int gridSize, cv::Rect2f box1, cv::Rect2f box2)
     return iou;
 }
 
-template<typename T>
-T rand(T min = 0, T max = 1)
-{
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<T> distribution(min, max);
 
-    return distribution(gen);
-}
 
 cv::Rect2f darkBox(int gridSize, int row, int col)
 {
@@ -57,10 +50,10 @@ cv::Rect2f darkBox(int gridSize, int row, int col)
     auto minRow = float(row) / gridSize;
     auto maxRow = float(row + 0.999) / gridSize;
 
-    auto x = rand(minCol, maxCol);
-    auto y = rand(minRow, maxRow);
-    auto width = rand<float>();
-    auto height = rand<float>();
+    auto x = randomUniform(minCol, maxCol);
+    auto y = randomUniform(minRow, maxRow);
+    auto width = randomUniform<float>();
+    auto height = randomUniform<float>();
 
     auto ncol = int(x * gridSize);
     EXPECT_TRUE(ncol == col);
@@ -78,7 +71,7 @@ std::pair<cv::Rect2f, cv::Rect2f> makeBoxes(int gridSize, int gridRow, int gridC
     cv::Rect2f box1, box2;
     box1 = darkBox(gridSize, gridRow, gridCol);
 
-    constexpr auto maxIterations = 10000;
+    constexpr auto maxIterations = 100000;
     auto iterations = 0;
 
     do {
@@ -140,20 +133,20 @@ protected:
         pctxt.num = ctxt.num;
         pctxt.side = ctxt.side;
 
-        detectAddPredictions(pctxt);
+        detectAddPredicts(pctxt);
 
         EXPECT_EQ(dets.size(), 1);
         const auto& detect = dets[0];
 
-        EXPECT_FLOAT_EQ(detect.maxClass(), clazz);
-        EXPECT_FLOAT_EQ(detect.max(), prob);
+        EXPECT_FLOAT_EQ(detect.classIndex(), clazz);
+        EXPECT_FLOAT_EQ(detect.prob(), prob);
 
-        auto bbox = detect.box();
+        auto bbox = cv::Rect(detect.box());
 
         auto x = (pred.x + col) / ctxt.side * IMAGE_SIZE.width;
         auto y = (pred.y + row) / ctxt.side * IMAGE_SIZE.height;
-        auto w = pow(pred.width, (ctxt.sqrt ? 2 : 1)) * IMAGE_SIZE.width;
-        auto h = pow(pred.height, (ctxt.sqrt ? 2 : 1)) * IMAGE_SIZE.height;
+        auto w = std::pow(pred.width, (ctxt.sqrt ? 2 : 1)) * IMAGE_SIZE.width;
+        auto h = std::pow(pred.height, (ctxt.sqrt ? 2 : 1)) * IMAGE_SIZE.height;
 
         auto left = std::max<int>(0, (x - w / 2));
         auto right = std::min<int>(IMAGE_SIZE.width - 1, (x + w / 2));
@@ -174,7 +167,7 @@ protected:
     static constexpr auto COORDS = 4;                                       // number of coordinates
     static constexpr auto S = 7;                                            // size of the side of a grid cell
     static constexpr auto LOCATIONS = S * S;                                // number of grid cells
-    static constexpr auto TENSOR_SIZE = LOCATIONS * (B * (COORDS + 1) + C); // the size of the tensor
+    static constexpr auto TENSOR_SIZE = LOCATIONS * (B * (COORDS + 1) + C); // the size of the output tensor
     const cv::Size IMAGE_SIZE{ S * 64, S * 64 };
 
     PxCpuVector input, output, delta;

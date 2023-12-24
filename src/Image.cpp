@@ -85,6 +85,7 @@ ImageVec imreadVector(const char* path)
     return imageVec;
 }
 
+// FIXME: I want this function to go away
 ImageVec imreadVector(const char* path, int width, int height)
 {
     auto image = imreadNormalize(path);
@@ -128,6 +129,16 @@ cv::Mat imnormalize(const cv::Mat& image)
     out /= 255.0f;
 
     return out;
+}
+
+Mat imdenormalize(const Mat& image)
+{
+    Mat swapped;
+
+    cvtColor(image, swapped, CV_RGB2BGR);
+    swapped.convertTo(swapped, CV_8UC3, 255.0);
+
+    return swapped;
 }
 
 // read an image and normalize
@@ -227,6 +238,46 @@ PxCpuVector imvector(const cv::Mat& image)
     }
 
     return vector;
+}
+
+void calculateROI(int w, int h, int dx, int dy, cv::Rect& roiSrc, cv::Rect& roiDest, const cv::Mat& canvas)
+{
+    int xStart = std::max(0, dx);
+    int yStart = std::max(0, dy);
+    int xEnd = std::min(canvas.cols, dx + w);
+    int yEnd = std::min(canvas.rows, dy + h);
+
+    roiSrc = { xStart - dx, yStart - dy, xEnd - xStart, yEnd - yStart };
+    roiDest = { xStart, yStart, xEnd - xStart, yEnd - yStart };
+}
+
+void implace(const cv::Mat& image, int w, int h, const cv::Rect& roiSrc, cv::Rect& roiDest, cv::Mat& canvas)
+{
+    cv::Mat resized;
+    cv::resize(image, resized, cv::Size(w, h), cv::INTER_AREA);
+
+    resized(roiSrc).copyTo(canvas(roiDest));
+}
+
+void implace(const cv::Mat& image, int w, int h, int dx, int dy, cv::Mat& canvas)
+{
+    cv::Rect roiSrc, roiDest;
+    calculateROI(w, h, dx, dy, roiSrc, roiDest, canvas);
+
+    implace(image, w, h, roiSrc, roiDest, canvas);
+}
+
+void imdistort(cv::Mat& image, float hue, float saturation, float exposure)
+{
+    cv::cvtColor(image, image, cv::COLOR_BGR2HSV);
+
+    for (auto it = image.begin<cv::Vec3f>(); it != image.end<cv::Vec3f>(); ++it) {
+        (*it)[0] = std::max(0.0f, std::min(1.0f, (*it)[0] + hue));
+        (*it)[1] = std::max(0.0f, std::min(1.0f, (*it)[1] * saturation));
+        (*it)[2] = std::max(0.0f, std::min(1.0f, (*it)[2] * exposure));
+    }
+
+    cv::cvtColor(image, image, cv::COLOR_HSV2BGR);
 }
 
 void imrect(cv::Mat& image, const cv::Rect& rect, uint32_t rgb, int thickness, int lineType)
