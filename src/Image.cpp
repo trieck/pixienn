@@ -269,15 +269,19 @@ void implace(const cv::Mat& image, int w, int h, int dx, int dy, cv::Mat& canvas
 
 void imdistort(cv::Mat& image, float hue, float saturation, float exposure)
 {
-    cv::cvtColor(image, image, cv::COLOR_BGR2HSV);
+    cv::cvtColor(image, image, cv::COLOR_RGB2HSV);
 
-    for (auto it = image.begin<cv::Vec3f>(); it != image.end<cv::Vec3f>(); ++it) {
-        (*it)[0] = std::max(0.0f, std::min(1.0f, (*it)[0] + hue));
-        (*it)[1] = std::max(0.0f, std::min(1.0f, (*it)[1] * saturation));
-        (*it)[2] = std::max(0.0f, std::min(1.0f, (*it)[2] * exposure));
-    }
+    std::vector<cv::Mat> hsv;
+    cv::split(image, hsv);
 
-    cv::cvtColor(image, image, cv::COLOR_HSV2BGR);
+    hsv[0] = cv::max(0.0f, cv::min(hsv[0] + 360 * hue, 360.0f));
+    hsv[1] = cv::max(0.0f, cv::min(hsv[1] * saturation, 1.0f));
+    hsv[2] = cv::max(0.0f, cv::min(hsv[2] * exposure, 1.0f));
+
+    cv::Mat merged;
+    cv::merge(hsv, merged);
+
+    cv::cvtColor(merged, image, cv::COLOR_HSV2RGB);
 }
 
 void imrect(cv::Mat& image, const cv::Rect& rect, uint32_t rgb, int thickness, int lineType)
