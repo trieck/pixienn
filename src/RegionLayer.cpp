@@ -26,37 +26,17 @@
 
 namespace px {
 
-struct GroundTruthContext
-{
-    const GroundTruthVec* groundTruths;
-    const float* biases;
-    cv::Rect2f pred;
-};
-
-struct GroundTruthResult
-{
-    const GroundTruth* gt;
-    float iou;
-};
-
-static GroundTruthResult findGT(const GroundTruthContext& ctxt);
-
 RegionLayer::RegionLayer(Model& model, const YAML::Node& layerDef) : Layer(model, layerDef)
 {
 }
 
 void RegionLayer::setup()
 {
-    activation_ = Activation::get("logistic");
-
-    absolute_ = property<bool>("absolute", false);
     anchors_ = property<std::vector<float>>("anchors");
     biasMatch_ = property<bool>("bias_match", false);
     classScale_ = property<float>("class_scale", 1.0f);
     coordScale_ = property<float>("coord_scale", 1.0f);
     coords_ = property<int>("coords", 4);
-    focalLoss_ = property<bool>("focal_loss", false);
-    jitter_ = property<float>("jitter", 0.2f);
     noObjectScale_ = property<float>("noobject_scale", 1.0f);
     num_ = property<int>("num", 1);
     objectScale_ = property<float>("object_scale", 1.0f);
@@ -91,7 +71,7 @@ std::ostream& RegionLayer::print(std::ostream& os)
 
 void RegionLayer::resetStats()
 {
-    avgAnyObj_ = avgCat_ = avgObj_ = avgIoU_ = recall = 0;
+    avgAnyObj_ = avgCat_ = avgObj_ = avgIoU_ = recall_ = 0;
     count_ = classCount_ = 0;
 }
 
@@ -109,7 +89,7 @@ void RegionLayer::forward(const PxCpuVector& input)
     for (auto b = 0; b < batch(); ++b) {
         for (auto i = 0; i < height() * width() * num_; ++i) {
             auto index = size * i + b * outputs();
-            poutput[index + 4] = (*activation_)(poutput[index + 4]);
+            poutput[index + 4] = logistic_.apply(poutput[index + 4]);
 
             if (softmax_) {
                 softmax(poutput + index + 5, classes(), 1, poutput + index + 5, 1);
@@ -141,7 +121,7 @@ void RegionLayer::forward(const PxCpuVector& input)
            avgCat_ / classCount_,
            avgObj_ / count_,
            avgAnyObj_ / (width() * height() * num_ * batch()),
-           recall / count_,
+           recall_ / count_,
            count_);
 }
 
@@ -185,28 +165,28 @@ void RegionLayer::processObjects(int b)
 
         float iou = deltaRegionBox(gt.box, bestN, bestIndex, i, j, coordScale_);
         if (iou > 0.5) {
-            recall += 1;
+            recall_ += 1;
         }
 
         avgIoU_ += iou;
         avgObj_ += poutput[bestIndex + 4];
 
         pdelta[bestIndex + 4] = objectScale_ * (1 - poutput[bestIndex + 4])
-                                * activation_->gradient(poutput[bestIndex + 4]);
+                                * logistic_.gradient(poutput[bestIndex + 4]);
 
         if (rescore_) {
             pdelta[bestIndex + 4] = objectScale_ * (iou - poutput[bestIndex + 4])
-                                    * activation_->gradient(poutput[bestIndex + 4]);
+                                 * logistic_.gradient(poutput[bestIndex + 4]);
         }
 
-        deltaRegionClass(gt, bestIndex + 5, classScale_);
+        deltaRegionClass(bestIndex + 5, gt.classId, classScale_);
 
         ++count_;
         ++classCount_;
     }
 }
 
-void RegionLayer::deltaRegionClass(const GroundTruth& truth, int index, float scale)
+void RegionLayer::deltaRegionClass(int index, int classId, float scale)
 {
     auto* output = output_.data();
     auto* delta = delta_.data();
@@ -214,9 +194,9 @@ void RegionLayer::deltaRegionClass(const GroundTruth& truth, int index, float sc
     // TODO: focal loss
 
     for (auto n = 0; n < classes(); ++n) {
-        float netTruth = (n == truth.classId) ? 1.0f : 0.0f;
+        float netTruth = (n == classId) ? 1.0f : 0.0f;
         delta[index + n] = scale * (netTruth - output[index + n]);
-        if (n == truth.classId) {
+        if (n == classId) {
             avgCat_ += output[index + n];
         }
     }
@@ -236,11 +216,11 @@ float RegionLayer::deltaRegionBox(const cv::Rect2f& truth, int n, int index, int
     auto tw = std::log(truth.width * width() / biases[2 * n]);
     auto th = std::log(truth.height * height() / biases[2 * n + 1]);
 
-    delta[index + 0] = scale * (tx - activation_->apply(x[index + 0]))
-                       * activation_->gradient(activation_->apply(x[index + 0]));
+    delta[index + 0] = scale * (tx - logistic_.apply(x[index + 0]))
+                       * logistic_.gradient(logistic_.apply(x[index + 0]));
 
-    delta[index + 1] = scale * (ty - activation_->apply(x[index + 1]))
-                       * activation_->gradient(activation_->apply(x[index + 1]));
+    delta[index + 1] = scale * (ty - logistic_.apply(x[index + 1]))
+                       * logistic_.gradient(logistic_.apply(x[index + 1]));
 
     delta[index + 2] = scale * (tw - x[index + 2]);
     delta[index + 3] = scale * (th - x[index + 3]);
@@ -252,10 +232,6 @@ void RegionLayer::processRegion(int b, int i, int j)
 {
     const auto size = coords_ + classes() + 1;
 
-    GroundTruthContext gtCtxt;
-    gtCtxt.biases = biases_.data();
-    gtCtxt.groundTruths = &groundTruth(b);
-
     auto* poutput = output_.data();
     auto* pdelta = delta_.data();
     auto* pbias = biases_.data();
@@ -264,11 +240,11 @@ void RegionLayer::processRegion(int b, int i, int j)
         auto index = size * (j * width() * num_ + i * num_ + n) + b * outputs();
         avgAnyObj_ += poutput[index + 4];
 
-        pdelta[index + 4] = noObjectScale_ * ((0 - poutput[index + 4]) * activation_->gradient(poutput[index + 4]));
+        pdelta[index + 4] = noObjectScale_ * ((0 - poutput[index + 4]) * logistic_.gradient(poutput[index + 4]));
 
-        gtCtxt.pred = regionBox(n, index, i, j);
-        auto result = findGT(gtCtxt);
-        if (result.iou > thresh_) {
+        auto pred = regionBox(n, index, i, j);
+        auto iou = bestIoU(b, pred);
+        if (iou > thresh_) {
             pdelta[index + 4] = 0;
         }
 
@@ -290,8 +266,8 @@ cv::Rect2f RegionLayer::regionBox(int n, int index, int i, int j)
     auto* biases = biases_.data();
 
     cv::Rect2f box;
-    box.x = (i + activation_->apply(x[index + 0])) / width();
-    box.y = (j + activation_->apply(x[index + 1])) / height();
+    box.x = (i + logistic_.apply(x[index + 0])) / width();
+    box.y = (j + logistic_.apply(x[index + 1])) / height();
     box.width = std::exp(x[index + 2]) * biases[2 * n] / width();
     box.height = std::exp(x[index + 3]) * biases[2 * n + 1] / height();
 
@@ -386,23 +362,20 @@ void RegionLayer::addDetects(Detections& detections, int w, int h, float thresho
     }
 }
 
-GroundTruthResult findGT(const GroundTruthContext& ctxt)
+float RegionLayer::bestIoU(int b, const cv::Rect2f& pred)
 {
-    GroundTruthResult result;
-    result.gt = nullptr;
-    result.iou = -std::numeric_limits<float>::max();
+    const auto& gt = groundTruth(b);
 
-    const auto& gts = *ctxt.groundTruths;
+    auto bestIoU = -std::numeric_limits<float>::max();
 
-    for (const auto& gt: gts) {
-        auto iou = boxIou(ctxt.pred, gt.box);
-        if (iou > result.iou) {
-            result.iou = iou;
-            result.gt = &gt;
+    for (const auto& g: gt) {
+        auto iou = boxIou(pred, g.box);
+        if (iou > bestIoU) {
+            bestIoU = iou;
         }
     }
 
-    return result;
+    return bestIoU;
 }
 
 }   // px

@@ -19,31 +19,184 @@
 
 #include "Common.h"
 #include "PxTensor.h"
+#include "Singleton.h"
 
 namespace px {
 
-class Activation
+template<typename T>
+class Algorithm
 {
 public:
-    using Ptr = std::shared_ptr<Activation>;
+    using Type = T;
 
-    static Activation::Ptr get(const std::string& s);
+    virtual T apply(T x) const = 0;
+    virtual T gradient(T x) const = 0;
+};
 
-    virtual float apply(float x) const = 0;
-    virtual void apply(float* begin, float* end) const = 0;
+template<typename T>
+class IActivation
+{
+public:
+    virtual T apply(T x) const = 0;
+    virtual void apply(T* begin, T* end) const = 0;
+    virtual void apply(PxCpuVectorT<T>& container) const = 0;
 
-    virtual float gradient(float x) const = 0;
-    virtual void gradient(float* dbegin, float* dend, const float* x) const = 0;
+    virtual T gradient(T x) const = 0;
+    virtual void gradient(T* dbegin, T* dend, const T* x) const = 0;
+    virtual void gradient(const PxCpuVectorT<T>& container, PxCpuVectorT<T>& delta) const = 0;
+};
 
-    float operator()(float x) const;
+template<typename U>
+class Activation : public IActivation<typename U::Type>
+{
+public:
+    using T = typename U::Type;
 
-    void apply(PxCpuVector& container) const;
-    void gradient(const PxCpuVector& container, PxCpuVector& delta) const;
+    T apply(T x) const override;
+    void apply(T* begin, T* end) const override;
+    void apply(PxCpuVectorT<T>& container) const override;
 
-#ifdef USE_CUDA
-    virtual void applyGpu(float* begin, std::size_t n) const = 0;
-    void applyGpu(PxCudaVector&) const;
-#endif // USE_CUDA
+    T gradient(T x) const override;
+    void gradient(T* dbegin, T* dend, const T* x) const override;
+    void gradient(const PxCpuVectorT<T>& container, PxCpuVectorT<T>& delta) const override;
+
+private:
+    U algo_;
+};
+
+template<typename U>
+auto Activation<U>::apply(T x) const -> T
+{
+    return algo_.apply(x);
+}
+
+template<typename U>
+void Activation<U>::apply(T* begin, T* end) const
+{
+    std::for_each(begin, end, [this](T& x) {
+        x = this->apply(x);
+    });
+}
+
+template<typename U>
+void Activation<U>::apply(PxCpuVectorT<T>& container) const
+{
+    apply(&(*container.begin()), &(*container.end()));
+}
+
+template<typename U>
+auto Activation<U>::gradient(T x) const -> T
+{
+    return algo_.gradient(x);
+}
+
+template<typename U>
+void Activation<U>::gradient(T* dbegin, T* dend, const T* x) const
+{
+    std::transform(dbegin, dend, x, dbegin, [this](T d, T x) {
+        return d * this->gradient(x);
+    });
+}
+
+template<typename U>
+void Activation<U>::gradient(const PxCpuVectorT<T>& container, PxCpuVectorT<T>& delta) const
+{
+    gradient(&(*delta.begin()), &(*delta.end()), &(*container.begin()));
+}
+
+template<typename T>
+class Linear : public Algorithm<T>
+{
+public:
+    T apply(T x) const override
+    {
+        return x;
+    }
+
+    T gradient(T x) const override
+    {
+        return 1;
+    }
+};
+
+template<typename T>
+class LeakyReLU : public Algorithm<T>
+{
+public:
+    LeakyReLU(T alpha = 0.1) : alpha_(alpha)
+    {
+    }
+
+    T apply(T x) const override
+    {
+        return (x > 0) ? x : alpha_ * x;
+    }
+
+    T gradient(T x) const override
+    {
+        return (x > 0) ? 1 : alpha_;
+    }
+private:
+    T alpha_;
+};
+
+template<typename T>
+class Loggy : public Algorithm<T>
+{
+public:
+    T apply(T x) const override
+    {
+        return 2. / (1. + std::exp(-x)) - 1;
+    }
+
+    T gradient(T x) const override
+    {
+        auto y = (x + 1.) / 2.;
+        return 2 * (1 - y) * y;
+    }
+};
+
+template<typename T>
+class Logistic : public Algorithm<T>
+{
+public:
+    T apply(T x) const override
+    {
+        return 1. / (1. + std::exp(-x));
+    }
+
+    T gradient(T x) const override
+    {
+        auto y = apply(x);
+        return y * (1 - y);
+    }
+};
+
+template<typename T>
+class ReLU : public Algorithm<T>
+{
+public:
+    T apply(T x) const override
+    {
+        return (x > 0) ? x : 0;
+    }
+
+    T gradient(T x) const override
+    {
+        return (x > 0);
+    }
+};
+
+class Activations : public Singleton<Activations>
+{
+public:
+    using Type = float;
+    using Ptr = std::shared_ptr<IActivation<Type>>;
+
+    static Ptr get(const std::string& name);
+
+    Ptr at(const std::string& s) const;
+    bool hasActivation(const std::string& s) const;
 };
 
 }   // px

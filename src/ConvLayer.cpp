@@ -40,7 +40,7 @@ ConvLayer::ConvLayer(Model& model, const YAML::Node& layerDef) : Layer(model, la
 void ConvLayer::setup()
 {
     auto activation = property<std::string>("activation", "logistic");
-    activationFnc_ = Activation::get(activation);
+    activationFnc_ = Activations::get(activation);
 
     batchNormalize_ = property<bool>("batch_normalize", false);
     dilation_ = property<int>("dilation", 1);

@@ -55,23 +55,24 @@ private:
     void processObjects(int i);
     cv::Rect2f regionBox(int n, int index, int i, int j);
     float deltaRegionBox(const cv::Rect2f& truth, int n, int index, int i, int j, float scale);
-    void deltaRegionClass(const GroundTruth& truth, int index, float scale);
+    void deltaRegionClass(int index, int classId, float scale);
+    float bestIoU(int b, const cv::Rect2f& pred);
 
     void resetStats();
 
     PxCpuTensor<1> biases_, biasUpdates_;
-    Activation::Ptr activation_;
+    Activation<Logistic<Activations::Type>> logistic_;
 
     std::vector<float> anchors_;
-    bool biasMatch_, softmax_, rescore_, absolute_, random_, focalLoss_;
+    bool biasMatch_, softmax_, rescore_;
     int coords_, num_;
-    float jitter_, objectScale_, noObjectScale_, classScale_, coordScale_, thresh_;
+    float objectScale_, noObjectScale_, classScale_, coordScale_, thresh_;
 
     float avgAnyObj_ = 0.0f;
     float avgCat_ = 0.0f;
     float avgIoU_ = 0.0f;
     float avgObj_ = 0.0f;
-    float recall = 0.0f;
+    float recall_ = 0.0f;
     int count_ = 0, classCount_ = 0;
 };
 

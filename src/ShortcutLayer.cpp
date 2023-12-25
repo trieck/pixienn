@@ -26,7 +26,7 @@ ShortcutLayer::ShortcutLayer(Model& model, const YAML::Node& layerDef) : Layer(m
 void ShortcutLayer::setup()
 {
     auto activation = property<std::string>("activation", "linear");
-    activationFnc_ = Activation::get(activation);
+    activationFnc_ = Activations::get(activation);
 
     alpha_ = property<float>("alpha", 1.0f);
     beta_ = property<float>("beta", 1.0f);

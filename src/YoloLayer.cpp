@@ -25,7 +25,6 @@ YoloLayer::YoloLayer(Model& model, const YAML::Node& layerDef) : Layer(model, la
 
 void YoloLayer::setup()
 {
-    activation_ = Activation::get("logistic");
     anchors_ = property<std::vector<int>>("anchors");
     mask_ = property<std::vector<int>>("mask");
     total_ = property<int>("num", 1);
@@ -71,11 +70,11 @@ void YoloLayer::forward(const PxCpuVector& input)
             auto index = entryIndex(b, n * area, 0);
             auto* start = poutput + index;
             auto* end = start + 2 * area + 1;
-            activation_->apply(start, end);
+            logistic_.apply(start, end);
             index = entryIndex(b, n * area, 4);
             start = poutput + index;
             end = start + (1 + nclasses) * area + 1;
-            activation_->apply(start, end);
+            logistic_.apply(start, end);
         }
     }
 }
