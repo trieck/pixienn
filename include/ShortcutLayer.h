@@ -49,7 +49,7 @@ private:
 #endif
     friend LayerFactories;
 
-    Activation::Ptr activationFnc_;
+    Activations::Ptr activationFnc_;
     Layer::Ptr from_;
     float alpha_, beta_;
 };

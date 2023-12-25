@@ -71,7 +71,7 @@ private:
     PxCpuVector x_, xNorm_;
     bool batchNormalize_;
 
-    Activation::Ptr activationFnc_;
+    Activations::Ptr activationFnc_;
 
 #ifdef USE_CUDA
     CudnnTensorDesc::Ptr normDesc_, destDesc_;

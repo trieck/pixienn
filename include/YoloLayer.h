@@ -52,7 +52,8 @@ private:
     int entryIndex(int batch, int location, int entry) const noexcept;
     cv::Rect yoloBox(const float* p, int mask, int index, int col, int row, int w, int h) const;
 
-    Activation::Ptr activation_;
+    Activation<Logistic<Activations::Type>> logistic_;
+
     int total_ = 0;
     std::vector<int> mask_, anchors_;
 };

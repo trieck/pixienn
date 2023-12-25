@@ -68,7 +68,7 @@ private:
 
     int dilation_ = 0, filters_, kernel_, padding_, stride_, groups_;
     bool batchNormalize_;
-    Activation::Ptr activationFnc_;
+    Activations::Ptr activationFnc_;
 
 #ifdef USE_CUDA
     PxCudaTensor<4> weightsGpu_;

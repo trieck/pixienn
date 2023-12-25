@@ -35,7 +35,7 @@ ConnLayer::ConnLayer(Model& model, const YAML::Node& layerDef) : Layer(model, la
 void ConnLayer::setup()
 {
     auto activation = property<std::string>("activation", "logistic");
-    activationFnc_ = Activation::get(activation);
+    activationFnc_ = Activations::get(activation);
 
     batchNormalize_ = property<bool>("batch_normalize", false);
 
@@ -205,8 +205,6 @@ void ConnLayer::update()
 
     cblas_saxpy(size, -decay * batch(), weights_.data(), 1, weightUpdates_.data(), 1);
     cblas_saxpy(size, learningRate / batch(), weightUpdates_.data(), 1, weights_.data(), 1);
-
-    // FIXME:
     cblas_sscal(size, momentum, weightUpdates_.data(), 1);
 }
 

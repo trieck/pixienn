@@ -27,12 +27,12 @@ class LeakyActivationTest : public ::testing::Test
 protected:
     void SetUp() override;
 
-    Activation::Ptr activation;
+    Activations::Ptr activation;
 };
 
 void LeakyActivationTest::SetUp()
 {
-    activation = Activation::get("leaky");
+    activation = Activations::get("leaky");
 }
 
 TEST_F(LeakyActivationTest, Apply)
@@ -65,10 +65,10 @@ class LoggyActivationTest : public ::testing::Test
 protected:
     void SetUp() override
     {
-        activation = Activation::get("loggy");
+        activation = Activations::get("loggy");
     }
 
-    Activation::Ptr activation;
+    Activations::Ptr activation;
 };
 
 TEST_F(LoggyActivationTest, Apply)
@@ -101,10 +101,10 @@ class LogisticActivationTest : public ::testing::Test
 protected:
     void SetUp() override
     {
-        activation = Activation::get("logistic");
+        activation = Activations::get("logistic");
     }
 
-    Activation::Ptr activation;
+    Activations::Ptr activation;
 };
 
 TEST_F(LogisticActivationTest, Apply)
@@ -126,10 +126,10 @@ TEST_F(LogisticActivationTest, Gradient)
 
     activation->gradient(input, delta);
 
-    ASSERT_FLOAT_EQ(delta[0], 0);
-    ASSERT_FLOAT_EQ(delta[1], 0.6);
-    ASSERT_FLOAT_EQ(delta[2], -1.2);
-    ASSERT_FLOAT_EQ(delta[3], 4);
+    ASSERT_FLOAT_EQ(delta[0], 0.019661194);
+    ASSERT_FLOAT_EQ(delta[1], -0.010499358);
+    ASSERT_FLOAT_EQ(delta[2], 0.0090353312);
+    ASSERT_FLOAT_EQ(delta[3], -0.0035325412);
 }
 
 class ReluActivationTest : public ::testing::Test
@@ -137,12 +137,12 @@ class ReluActivationTest : public ::testing::Test
 protected:
     void SetUp() override;
 
-    Activation::Ptr activation;
+    Activations::Ptr activation;
 };
 
 void ReluActivationTest::SetUp()
 {
-    activation = Activation::get("relu");
+    activation = Activations::get("relu");
 }
 
 TEST_F(ReluActivationTest, Apply)
