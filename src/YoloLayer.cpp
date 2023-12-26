@@ -63,7 +63,7 @@ void YoloLayer::setup()
         output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
     }
 #else
-    output_ = PxCpuVector(batch() * outputs());
+    output_ = PxCpuVector(batch() * outputs(), 0.0f);
     delta_ = PxCpuVector(batch() * outputs(), 0.0f);
 
     biases_ = PxCpuTensor<1>({ (size_t) num_ * 2 }, 0.5f);
@@ -163,7 +163,8 @@ void YoloLayer::processObjects(int b)
         auto maskN = maskIndex(bestN);
         if (maskN >= 0) {
             auto boxIndex = entryIndex(b, maskN * width() * height() + j * width() + i, 0);
-            auto iou = deltaYoloBox(gt, boxIndex, bestN, i, j);
+            auto iou = deltaYoloBox(gt, bestN, boxIndex, i, j);
+
             auto objIndex = entryIndex(b, maskN * width() * height() + j * width() + i, 4);
             avgObj_ += poutput[objIndex];
             pdelta[objIndex] = 1 - poutput[objIndex];
@@ -205,7 +206,7 @@ void YoloLayer::processRegion(int b, int i, int j)
 
     for (auto n = 0; n < num_; ++n) {
         auto boxIndex = entryIndex(b, n * width() * height() + j * width() + i, 0);
-        ctxt.pred = yoloBox(poutput, mask_[n], boxIndex, i, j, width(), height());
+        ctxt.pred = yoloBox(poutput, mask_[n], boxIndex, i, j);
 
         auto result = bestGT(ctxt);
         const auto* gt = result.gt;
@@ -227,26 +228,29 @@ void YoloLayer::processRegion(int b, int i, int j)
 
             auto clsIndex = entryIndex(b, n * width() * height() + j * width() + i, 4 + 1);
             deltaYoloClass(clsIndex, gt->classId);
-            deltaYoloBox(*gt, boxIndex, mask_[n], i, j);
+            deltaYoloBox(*gt, mask_[n], boxIndex, i, j);
         }
     }
 }
 
-float YoloLayer::deltaYoloBox(const GroundTruth& truth, int index, int mask, int i, int j)
+float YoloLayer::deltaYoloBox(const GroundTruth& truth, int mask, int index, int i, int j)
 {
-    auto stride = width() * height();
     auto* delta = delta_.data();
     auto* x = output_.data();
 
-    auto scale = (2 - truth.box.width * truth.box.height);
+    auto w = model().width();
+    auto h = model().height();
 
-    auto pred = yoloBox(x, mask, index, i, j, width(), height());
+    auto pred = yoloBox(x, mask, index, i, j);
     auto iou = boxIoU(pred, truth.box);
 
     auto tx = (truth.box.x * width()) - i;
     auto ty = (truth.box.y * height()) - j;
-    auto tw = std::log(truth.box.width * width() / biases_[2 * mask]);
-    auto th = std::log(truth.box.height * height() / biases_[2 * mask + 1]);
+    auto tw = std::log(truth.box.width * w / biases_[2 * mask]);
+    auto th = std::log(truth.box.height * h / biases_[2 * mask + 1]);
+
+    auto scale = 2 - truth.box.width * truth.box.height;
+    auto stride = width() * height();
 
     delta[index + 0 * stride] = scale * (tx - x[index + 0 * stride]);
     delta[index + 1 * stride] = scale * (ty - x[index + 1 * stride]);
@@ -342,23 +346,63 @@ int YoloLayer::entryIndex(int batch, int location, int entry) const noexcept
     auto n = location / area;
     int loc = location % area;
 
-    return batch * outputs() + n * area * (classes() + 5) + entry * area + loc;
+    return batch * outputs() + n * area * (4 + classes() + 1) + entry * area + loc;
 }
 
-cv::Rect2f YoloLayer::yoloBox(const float* p, int mask, int index, int i, int j, int w, int h) const
+cv::Rect2f YoloLayer::yoloBox(const float* p, int mask, int index, int i, int j) const
 {
-    // FIXME: this is definitely now broken for detects!
+    auto stride = width() * height();
 
-    const auto stride = w * h;
+    auto w = model().width();
+    auto h = model().height();
+
+    auto x = (i + p[index + 0 * stride]) / width();
+    auto y = (j + p[index + 1 * stride]) / height();
+    auto width = std::exp(p[index + 2 * stride]) * biases_[2 * mask] / w;
+    auto height = std::exp(p[index + 3 * stride]) * biases_[2 * mask + 1] / h;
+
+    return { x, y, width, height };
+}
+
+cv::Rect YoloLayer::scaledYoloBox(const float* p, int mask, int index, int i, int j, int w, int h) const
+{
+    const auto stride = width() * height();
     const auto netW = model().width();
     const auto netH = model().height();
 
-    auto x = (i + p[index + 0 * stride]) / w;
-    auto y = (j + p[index + 1 * stride]) / h;
-    auto width = std::exp(p[index + 2 * stride]) * biases_[2 * mask] / netW;
-    auto height = std::exp(p[index + 3 * stride]) * biases_[2 * mask + 1] / netH;
+    int newW, newH;
+    if (((float) netW / w) < ((float) netH / h)) {
+        newW = netW;
+        newH = (h * netW) / w;
+    } else {
+        newH = netH;
+        newW = (w * netH) / h;
+    }
 
-    return { x, y, width, height };
+    auto x = (i + p[index + 0 * stride]) / width();
+    x = (x - (netW - newW) / 2.0f / netW) / ((float) newW / netW);
+
+    auto y = (j + p[index + 1 * stride]) / height();
+    y = (y - (netH - newH) / 2.0f / netH) / ((float) newH / netH);
+
+    auto width = std::exp(p[index + 2 * stride]) * biases_[2 * mask] / netW;
+    width *= (float) netW / newW;
+
+    auto height = std::exp(p[index + 3 * stride]) * biases_[2 * mask + 1] / netH;
+    height *= (float) netH / newH;
+
+    auto left = std::max<int>(0, (x - width / 2) * w);
+    auto right = std::min<int>(w - 1, (x + width / 2) * w);
+    auto top = std::max<int>(0, (y - height / 2) * h);
+    auto bottom = std::min<int>(h - 1, (y + height / 2) * h);
+
+    cv::Rect b;
+    b.x = left;
+    b.y = top;
+    b.width = right - left;
+    b.height = bottom - top;
+
+    return b;
 }
 
 void YoloLayer::addDetects(Detections& detections, int width, int height, float threshold)
@@ -389,7 +433,7 @@ void YoloLayer::addDetects(Detections& detections, int width, int height, float 
             }
 
             auto boxIndex = entryIndex(0, n * area + i, 0);
-            auto box = yoloBox(predictions, mask_[n], boxIndex, col, row, width, height);
+            auto box = scaledYoloBox(predictions, mask_[n], boxIndex, col, row, width, height);
 
             int maxClass = 0;
             float maxProb = -std::numeric_limits<float>::max();

@@ -38,6 +38,11 @@ public:
     void addDetects(Detections& detections, int width, int height, float threshold) override;
     void addDetects(Detections& detections, float threshold) override;
 
+    inline bool hasCost() const noexcept override
+    {
+        return true;
+    }
+
 #ifdef USE_CUDA
     void forwardGpu(const PxCudaVector& input) override;
     void addDetectsGpu(Detections& detections, int width, int height, float threshold) override;
@@ -50,11 +55,12 @@ private:
     void addDetects(Detections& detections, float threshold, const float* predictions) const;
 
     int entryIndex(int batch, int location, int entry) const noexcept;
-    cv::Rect2f yoloBox(const float* p, int mask, int index, int i, int j, int w, int h) const;
+    cv::Rect2f yoloBox(const float* p, int mask, int index, int i, int j) const;
+    cv::Rect scaledYoloBox(const float* p, int mask, int index, int i, int j, int w, int h) const;
     void resetStats();
     void processRegion(int b, int i, int j);
     void deltaYoloClass(int index, int classId);
-    float deltaYoloBox(const GroundTruth& truth, int index, int mask, int i, int j);
+    float deltaYoloBox(const GroundTruth& truth, int mask, int index, int i, int j);
     void processObjects(int b);
     int maskIndex(int n);
 

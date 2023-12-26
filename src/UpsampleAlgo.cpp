@@ -25,22 +25,8 @@
 
 namespace px {
 
-static void upsampleForward(const float* in, int w, int h, int c, int batch, int stride, float scale, float* out);
-static void upsampleBackward(float* in, int w, int h, int c, int batch, int stride, float scale, const float* out);
-
-void upsampleForward(const UpsampleContext& ctxt)
-{
-    upsampleForward(ctxt.input->data(), ctxt.width, ctxt.height, ctxt.channels, ctxt.batch, ctxt.stride,
-                    ctxt.scale, ctxt.output->data());
-}
-
-void upsampleBackward(const UpsampleContext& ctxt)
-{
-    upsampleBackward(ctxt.netDelta->data(), ctxt.width, ctxt.height, ctxt.channels, ctxt.batch, ctxt.stride,
-                    ctxt.scale, ctxt.delta->data());
-}
-
-void upsampleForward(const float* in, int w, int h, int c, int batch, int stride, float scale, float* out)
+static void upsampleCommon(const float* in, int w, int h, int c, int batch, int stride, float scale, float* out,
+                           float* acc, bool forward)
 {
     for (auto b = 0; b < batch; ++b) {
         for (auto k = 0; k < c; ++k) {
@@ -48,26 +34,29 @@ void upsampleForward(const float* in, int w, int h, int c, int batch, int stride
                 for (auto i = 0; i < w * stride; ++i) {
                     auto inIndex = b * w * h * c + k * w * h + (j / stride) * w + i / stride;
                     auto outIndex = b * w * h * c * stride * stride + k * w * h * stride * stride + j * w * stride + i;
-                    out[outIndex] = scale * in[inIndex];
+
+                    if (forward) {
+                        out[outIndex] = scale * in[inIndex];
+                    } else {
+                        acc[inIndex] += scale * out[outIndex];
+                    }
                 }
             }
         }
     }
 }
 
-void upsampleBackward(float* in, int w, int h, int c, int batch, int stride, float scale, const float* out)
+void upsampleForward(const UpsampleContext& ctxt)
 {
-    for (auto b = 0; b < batch; ++b) {
-        for (auto k = 0; k < c; ++k) {
-            for (auto j = 0; j < h * stride; ++j) {
-                for (auto i = 0; i < w * stride; ++i) {
-                    auto inIndex = b * w * h * c * stride * stride + k * w * h * stride * stride + j * w * stride + i;
-                    auto outIndex = b * w * h * c + k * w * h + (j / stride) * w + i / stride;
-                    in[inIndex] += scale * out[outIndex];
-                }
-            }
-        }
-    }
+    upsampleCommon(ctxt.input->data(), ctxt.width, ctxt.height, ctxt.channels, ctxt.batch, ctxt.stride,
+                   ctxt.scale, ctxt.output->data(), nullptr, true);
+}
+
+void upsampleBackward(const UpsampleContext& ctxt)
+{
+    upsampleCommon(nullptr, ctxt.width, ctxt.height, ctxt.channels, ctxt.batch, ctxt.stride,
+                   ctxt.scale, ctxt.delta->data(), ctxt.netDelta->data(), false);
+
 }
 
 #ifdef USE_CUDA

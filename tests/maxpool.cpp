@@ -40,8 +40,8 @@ class MaxPoolCpuTest : public Test
 protected:
     void SetUp(const MaxPoolTestParams& params)
     {
-        output_ = PxCpuVector(params.batch * params.channels * params.outHeight * params.outWidth);
-        indexes_ = PxCpuVectorT<int>(params.batch * params.channels * params.outHeight * params.outWidth);
+        output_ = PxCpuVector(params.batch * params.channels * params.outHeight * params.outWidth, 0.0f);
+        indexes_ = PxCpuVectorT<int>(params.batch * params.channels * params.outHeight * params.outWidth, 0.0f);
     }
 
     void MaxPoolTest(const PxCpuVector& input, const PxCpuVector& expected, const MaxPoolTestParams& params)

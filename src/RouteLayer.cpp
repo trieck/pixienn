@@ -69,8 +69,8 @@ void RouteLayer::setup()
         output_ = PxCpuVector(batch() * outChannels * outHeight * outWidth);
     }
 #else
-    output_ = PxCpuVector(batch() * outputs);
-    delta_ = PxCpuVector(batch() * outputs);
+    output_ = PxCpuVector(batch() * outputs, 0.0f);
+    delta_ = PxCpuVector(batch() * outputs, 0.0f);
 #endif // USE_CUDA
 }
 
@@ -96,6 +96,7 @@ void RouteLayer::forward(const PxCpuVector& input)
         for (auto i = 0; i < batch(); ++i) {
             const auto* in = pin + i * inputSize;
             auto* out = output + offset + i * outputs();
+
             cblas_scopy(inputSize, in, 1, out, 1);
         }
 
@@ -106,20 +107,21 @@ void RouteLayer::forward(const PxCpuVector& input)
 void RouteLayer::backward(const PxCpuVector& input)
 {
     auto offset = 0;
-
     auto* pdelta = delta_.data();
 
     for (const auto& layer: layers_) {
         auto* ldelta = layer->delta()->data();
-        auto inputSize = layer->outputs();
+        auto outputSize = layer->outputs();
 
         for (auto i = 0; i < batch(); ++i) {
-            cblas_saxpy(inputSize, 1, pdelta + offset + i * outputs(), 1, ldelta + i * inputSize, 1);
+            auto* in = pdelta + offset + i * outputs();
+            auto* out = ldelta + i * outputSize;
+
+            cblas_saxpy(outputSize, 1, in, 1, out, 1);
         }
 
-        offset += inputSize;
+        offset += outputSize;
     }
-
 }
 
 #ifdef USE_CUDA

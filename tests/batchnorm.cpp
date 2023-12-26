@@ -45,7 +45,7 @@ protected:
         scales_ = PxCpuTensor<1>({ (size_t) params.channels }, params.scales);
         rollingMean_ = PxCpuTensor<1>({ (size_t) params.channels }, params.rollingMean);
         rollingVar_ = PxCpuTensor<1>({ (size_t) params.channels }, params.rollingVar);
-        output_ = PxCpuVector(params.batch * params.channels * params.outHeight * params.outWidth);
+        output_ = PxCpuVector(params.batch * params.channels * params.outHeight * params.outWidth, 0.0f);
     }
 
     void BNTest(const PxCpuVector& input, const PxCpuVector& expected, const BNTestParams& params)
