@@ -50,12 +50,30 @@ private:
     void addDetects(Detections& detections, float threshold, const float* predictions) const;
 
     int entryIndex(int batch, int location, int entry) const noexcept;
-    cv::Rect yoloBox(const float* p, int mask, int index, int col, int row, int w, int h) const;
+    cv::Rect2f yoloBox(const float* p, int mask, int index, int i, int j, int w, int h) const;
+    void resetStats();
+    void processRegion(int b, int i, int j);
+    void deltaYoloClass(int index, int classId);
+    float deltaYoloBox(const GroundTruth& truth, int index, int mask, int i, int j);
+    void processObjects(int b);
+    int maskIndex(int n);
 
     Activation<Logistic<Activations::Type>> logistic_;
+    PxCpuTensor<1> biases_, biasUpdates_;
 
-    int total_ = 0;
+    int num_ = 0;
     std::vector<int> mask_, anchors_;
+    float ignoreThresh_ = 0.0f;
+    float truthThresh_ = 0.0f;
+
+    float avgIoU = 0.0f;
+    float recall_ = 0.0f;
+    float recall75_ = 0.0f;
+    float avgCat_ = 0.0f;
+    float avgObj_ = 0.0f;
+    float avgAnyObj_ = 0.0f;
+    int count_ = 0;
+    int classCount_ = 0;
 };
 
 } // px

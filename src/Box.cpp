@@ -29,7 +29,7 @@ static float boxUnion(const cv::Rect2f& a, const cv::Rect2f& b)
     return float((a | b).area());
 }
 
-float boxIou(const cv::Rect2f& a, const cv::Rect2f& b)
+float boxIoU(const cv::Rect2f& a, const cv::Rect2f& b)
 {
     auto _inter = boxIntersection(a, b);
     auto _union = boxUnion(a, b);
@@ -62,7 +62,7 @@ Detections nms(const Detections& detects, float threshold)
                 continue;
             }
 
-            if (boxIou(detects[i].box(), detects[j].box()) > threshold) {
+            if (boxIoU(detects[i].box(), detects[j].box()) > threshold) {
                 if (detects[i].prob() < detects[j].prob()) {
                     discard[i] = true;
                 } else {

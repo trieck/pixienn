@@ -151,7 +151,7 @@ void processDetects(DetectContext& ctxt, int b, int i)
     auto boxIndex = index + locations * (nclasses + ctxt.num) + (i * ctxt.num + bestJ) * ctxt.coords;
 
     auto pred = predBox(ctxt, poutput + boxIndex);
-    auto iou = boxIou(pred, truthBox);
+    auto iou = boxIoU(pred, truthBox);
 
     *(ctxt.cost) -= ctxt.noObjectScale * std::pow(poutput[pobject], 2);
     *(ctxt.cost) += ctxt.objectScale * std::pow(1 - poutput[pobject], 2);
@@ -198,7 +198,7 @@ GroundTruthResult groundTruth(const GroundTruthContext& ctxt)
         truthBox.x /= ctxt.ctxt->side;
         truthBox.y /= ctxt.ctxt->side;
 
-        auto iou = boxIou(ctxt.pred, truthBox);
+        auto iou = boxIoU(ctxt.pred, truthBox);
         if (iou > result.bestIoU) {
             result.bestIoU = iou;
             result.gt = &gt;

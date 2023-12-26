@@ -1,12 +1,11 @@
 model:
   batch: 1
   subdivisions: 1
-
   width: 416
   height: 416
   channels: 3
 
-  augment: False # crash crash crash!!!
+  augment: False
 
   momentum: 0.9
   decay: 0.0005
@@ -19,7 +18,7 @@ model:
 
   policy: steps
   steps: [ -1, 100, 20000, 30000 ]
-  scales: [ 0.1, 0.1, 0.1, 0.1 ]
+  scales: [ 0.1, 10, 0.1, 0.1 ]
 
   layers:
     - type: conv
@@ -124,12 +123,10 @@ model:
       coords: 4
       num: 5
       softmax: True
-      jitter: 0.2
       rescore: True
       object_scale: 5
       noobject_scale: 1
       class_scale: 1
       coord_scale: 1
-      absolute: True
       thresh: 0.6
-      random: 1
+

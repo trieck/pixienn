@@ -393,7 +393,7 @@ void Model::train()
 
 float Model::trainBatch()
 {
-    trainBatch_ = loadBatch(BatchType::TRAIN, augment_);
+    trainBatch_ = loadBatch(Category::TRAIN, augment_);
 
     auto error = trainOnce(trainBatch_.imageData());
 
@@ -466,20 +466,23 @@ void Model::parseTrainConfig()
     auto valImages = training["val-images"].as<std::string>();
     valImagePath_ = canonical(valImages, cfgPath.parent_path()).string();
 
-    auto groundTruth = training["ground-truth"].as<std::string>();
-    trainGTPath_ = canonical(groundTruth, cfgPath.parent_path()).string();
+    auto trainLabels = training["train-labels"].as<std::string>();
+    trainLabelPath_ = canonical(trainLabels, cfgPath.parent_path()).string();
+
+    auto valLabels = training["val-labels"].as<std::string>();
+    valLabelPath_ = canonical(valLabels, cfgPath.parent_path()).string();
 }
 
-TrainBatch Model::loadBatch(BatchType type, bool augment)
+TrainBatch Model::loadBatch(Category type, bool augment)
 {
     return loadBatch(type, batch_, augment);
 }
 
-TrainBatch Model::loadBatch(BatchType type, int size, bool augment)
+TrainBatch Model::loadBatch(Category category, int size, bool augment)
 {
     TrainBatch batch(size, channels_, height_, width_);
 
-    const auto& images = type == BatchType::TRAIN ?
+    const auto& images = category == Category::TRAIN ?
                          trainImages_ : valImages_;
 
     std::random_device rd;
@@ -491,7 +494,7 @@ TrainBatch Model::loadBatch(BatchType type, int size, bool augment)
     for (auto i = 0; i < n; ++i) {
         auto j = distribution(generator);
         const auto& imagePath = images[j];
-        auto imgLabels = loadImage(imagePath, augment);
+        auto imgLabels = loadImgLabels(category, imagePath, augment);
 
         batch.setImageData(i, imgLabels.first);  // the image data must be copied
         batch.setGroundTruth(i, std::move(imgLabels.second));
@@ -500,9 +503,9 @@ TrainBatch Model::loadBatch(BatchType type, int size, bool augment)
     return batch;
 }
 
-auto Model::loadImage(const std::string& imagePath, bool augment) -> ImageVecLabels
+auto Model::loadImgLabels(Category category, const std::string& imagePath, bool augment) -> ImageLabels
 {
-    auto gts = groundTruth(imagePath);
+    auto gts = groundTruth(category, imagePath);
 
     if (!augment) {
         auto image = imreadVector(imagePath.c_str(), width(), height());
@@ -519,11 +522,13 @@ auto Model::loadImage(const std::string& imagePath, bool augment) -> ImageVecLab
     return { vector, augmented.second };
 }
 
-GroundTruthVec Model::groundTruth(const std::string& imagePath)
+GroundTruthVec Model::groundTruth(Category category, const std::string& imagePath)
 {
     auto basePath = baseName(imagePath);
 
-    boost::filesystem::path gtFile(trainGTPath_);
+    const auto& path = category == Category::TRAIN ? trainLabelPath_ : valLabelPath_;
+
+    boost::filesystem::path gtFile(path);
     gtFile /= basePath + ".txt";
     gtFile = canonical(gtFile);
 
@@ -805,7 +810,7 @@ void Model::validate()
 {
     std::cout << "Pausing training to validate..." << std::flush;
 
-    auto batch = loadBatch(BatchType::VAL, 100, false);
+    auto batch = loadBatch(Category::VAL, 100, false);
     validator_.validate(std::move(batch));
 
     std::printf("\n%zu: mAP: %.4f, Avg. Recall: %.4f, micro-Avg. F1: %.4f\n",

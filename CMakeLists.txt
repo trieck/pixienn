@@ -137,8 +137,7 @@ list(APPEND SOURCES
         src/YoloLayer.cpp
 )
 
-add_library(pixienn STATIC ${SOURCES}
-        include/RegionLayer.h)
+add_library(pixienn STATIC ${SOURCES})
 
 set_target_properties(pixienn PROPERTIES OUTPUT_NAME "pixienn")
 

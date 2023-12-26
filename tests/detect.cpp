@@ -36,7 +36,7 @@ float darkIoU(int gridSize, cv::Rect2f box1, cv::Rect2f box2)
     dbox2.x /= gridSize;
     dbox2.y /= gridSize;
 
-    auto iou = boxIou(dbox1, dbox2);
+    auto iou = boxIoU(dbox1, dbox2);
 
     return iou;
 }
@@ -76,7 +76,7 @@ std::pair<cv::Rect2f, cv::Rect2f> makeBoxes(int gridSize, int gridRow, int gridC
 
     do {
         box2 = darkBox(gridSize, gridRow, gridCol);
-        iou = boxIou(box1, box2);
+        iou = boxIoU(box1, box2);
 
         if (++iterations == maxIterations) {
             PX_ERROR_THROW("Unable to generate bounding boxes in %d iterations.", iterations);
@@ -194,7 +194,7 @@ TEST_F(DetectionTest, BoxConversion)
     EXPECT_EQ(row1, 2);
 
     // ensure the IoU is within bounds
-    auto iou = boxIou(box1, box2);
+    auto iou = boxIoU(box1, box2);
     EXPECT_TRUE(minIoU <= iou);
 }
 

@@ -14,6 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
+#include "Model.h"
 #include "UpsampleLayer.h"
 
 namespace px {
@@ -40,7 +41,8 @@ void UpsampleLayer::setup()
         output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
     }
 #else
-    output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
+    output_ = PxCpuVector(batch() * outputs());
+    delta_ = PxCpuVector(batch() * outputs());
 #endif
 }
 
@@ -61,6 +63,8 @@ void UpsampleLayer::forward(const PxCpuVector& input)
 
 void UpsampleLayer::backward(const PxCpuVector& input)
 {
+    auto ctxt = makeContext(input);
+    upsampleBackward(ctxt);
 }
 
 #ifdef USE_CUDA
@@ -99,9 +103,11 @@ UpsampleContext UpsampleLayer::makeContext(const PxCpuVector& input)
 
     ctxt.batch = batch();
     ctxt.channels = channels();
+    ctxt.delta = &delta_;
     ctxt.forward = true;
     ctxt.height = height();
     ctxt.input = &input;
+    ctxt.netDelta = model().delta();
     ctxt.outChannels = outChannels();
     ctxt.outHeight = outHeight();
     ctxt.outWidth = outWidth();

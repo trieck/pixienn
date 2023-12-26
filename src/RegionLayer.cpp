@@ -155,7 +155,7 @@ void RegionLayer::processObjects(int b)
             pred.x = 0;
             pred.y = 0;
 
-            auto iou = boxIou(pred, truthShift);
+            auto iou = boxIoU(pred, truthShift);
             if (iou > bestIoU) {
                 bestIoU = iou;
                 bestIndex = index;
@@ -191,8 +191,6 @@ void RegionLayer::deltaRegionClass(int index, int classId, float scale)
     auto* output = output_.data();
     auto* delta = delta_.data();
 
-    // TODO: focal loss
-
     for (auto n = 0; n < classes(); ++n) {
         float netTruth = (n == classId) ? 1.0f : 0.0f;
         delta[index + n] = scale * (netTruth - output[index + n]);
@@ -205,7 +203,7 @@ void RegionLayer::deltaRegionClass(int index, int classId, float scale)
 float RegionLayer::deltaRegionBox(const cv::Rect2f& truth, int n, int index, int i, int j, float scale)
 {
     auto pred = regionBox(n, index, i, j);
-    auto iou = boxIou(pred, truth);
+    auto iou = boxIoU(pred, truth);
 
     auto* x = output_.data();
     auto* biases = biases_.data();
@@ -369,7 +367,7 @@ float RegionLayer::bestIoU(int b, const cv::Rect2f& pred)
     auto bestIoU = -std::numeric_limits<float>::max();
 
     for (const auto& g: gt) {
-        auto iou = boxIou(pred, g.box);
+        auto iou = boxIoU(pred, g.box);
         if (iou > bestIoU) {
             bestIoU = iou;
         }

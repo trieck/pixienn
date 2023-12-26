@@ -21,13 +21,15 @@
 
 namespace px {
 
-void upsampleGpu(const float *in, int w, int h, int c, int batch, int stride, int forward, float scale, float *out);
+void upsampleGpu(const float* in, int w, int h, int c, int batch, int stride, int forward, float scale, float* out);
 
 // Represents the context needed for an upsample operation
 struct UpsampleContext
 {
     const PxCpuVector* input = nullptr;
     PxCpuVector* output = nullptr;
+    PxCpuVector* delta = nullptr;
+    PxCpuVector* netDelta = nullptr;
 
 #ifdef USE_CUDA
     const PxCudaVector* inputGpu = nullptr;
@@ -48,6 +50,7 @@ struct UpsampleContext
 };
 
 void upsampleForward(const UpsampleContext& ctxt);
+void upsampleBackward(const UpsampleContext& ctxt);
 
 #ifdef USE_CUDA
 void upsampleForwardGpu(const UpsampleContext& ctxt);

@@ -130,7 +130,7 @@ public:
     bool useGpu() const noexcept;
 #endif
 private:
-    enum class BatchType
+    enum class Category
     {
         TRAIN = 0,
         VAL = 1
@@ -156,12 +156,11 @@ private:
     void loadTrainImages();
     void loadValImages();
 
-    using ImageVecLabels = std::pair<PxCpuVector, GroundTruthVec>;
-    ImageVecLabels loadImage(const std::string& imagePath, bool augment);
-
-    TrainBatch loadBatch(BatchType type, int size, bool augment);
-    TrainBatch loadBatch(BatchType type, bool augment);
-    GroundTruthVec groundTruth(const std::string& imagePath);
+    using ImageLabels = std::pair<PxCpuVector, GroundTruthVec>;
+    ImageLabels loadImgLabels(Category category, const std::string& imagePath, bool augment);
+    TrainBatch loadBatch(Category category, int size, bool augment);
+    TrainBatch loadBatch(Category category, bool augment);
+    GroundTruthVec groundTruth(Category category, const std::string& imagePath);
     int currentBatch() const noexcept;
     std::string weightsFileName(bool final) const;
     void validate();
@@ -173,7 +172,8 @@ private:
     std::string labelsFile_;
     std::string trainImagePath_;
     std::string valImagePath_;
-    std::string trainGTPath_;
+    std::string trainLabelPath_;
+    std::string valLabelPath_;
     std::string backupDir_;
 
     // network dimensions
