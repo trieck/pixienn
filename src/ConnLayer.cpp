@@ -76,8 +76,8 @@ void ConnLayer::setup()
         delta_ = PxCpuVector(batch() * outputs());
     }
 #else
-    output_ = PxCpuVector(batch() * outputs());
-    delta_ = PxCpuVector(batch() * outputs());
+    output_ = PxCpuVector(batch() * outputs(), 0.0f);
+    delta_ = PxCpuVector(batch() * outputs(), 0.0f);
 #endif
 }
 

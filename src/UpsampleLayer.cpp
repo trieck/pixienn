@@ -41,8 +41,8 @@ void UpsampleLayer::setup()
         output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
     }
 #else
-    output_ = PxCpuVector(batch() * outputs());
-    delta_ = PxCpuVector(batch() * outputs());
+    output_ = PxCpuVector(batch() * outputs(), 0.0f);
+    delta_ = PxCpuVector(batch() * outputs(), 0.0f);
 #endif
 }
 

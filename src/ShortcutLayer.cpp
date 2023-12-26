@@ -53,7 +53,7 @@ void ShortcutLayer::setup()
         output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
     }
 #else
-    output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
+    output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
 #endif
 }
 
