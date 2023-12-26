@@ -527,7 +527,7 @@ model:
       num: 9
       jitter: 0.3
       ignore_thresh: 0.7
-      truth_thresh: True
+      truth_thresh: 1.0
       random: True
     - type: route
       layers: [ -4 ]
@@ -617,7 +617,7 @@ model:
       num: 9
       jitter: 0.3
       ignore_thresh: 0.7
-      truth_thresh: True
+      truth_thresh: 1.0
       random: True
     - type: route
       layers: [ -4 ]
@@ -707,5 +707,5 @@ model:
       num: 9
       jitter: 0.3
       ignore_thresh: 0.7
-      truth_thresh: True
+      truth_thresh: 1.0
       random: True

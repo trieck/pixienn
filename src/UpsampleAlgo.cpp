@@ -25,24 +25,45 @@
 
 namespace px {
 
+static void upsampleForward(const float* in, int w, int h, int c, int batch, int stride, float scale, float* out);
+static void upsampleBackward(float* in, int w, int h, int c, int batch, int stride, float scale, const float* out);
+
 void upsampleForward(const UpsampleContext& ctxt)
 {
-    auto inputs = ctxt.channels * ctxt.height * ctxt.width;
-    auto outputs = ctxt.outChannels * ctxt.outHeight * ctxt.outWidth;
+    upsampleForward(ctxt.input->data(), ctxt.width, ctxt.height, ctxt.channels, ctxt.batch, ctxt.stride,
+                    ctxt.scale, ctxt.output->data());
+}
 
-    for (auto b = 0; b < ctxt.batch; ++b) {
-        auto* pinput = ctxt.input->data() + b * inputs;
-        auto* poutput = ctxt.output->data() + b * outputs;
+void upsampleBackward(const UpsampleContext& ctxt)
+{
+    upsampleBackward(ctxt.netDelta->data(), ctxt.width, ctxt.height, ctxt.channels, ctxt.batch, ctxt.stride,
+                    ctxt.scale, ctxt.delta->data());
+}
 
-        for (int yIn = 0; yIn < ctxt.height; ++yIn) {
-            for (int xIn = 0; xIn < ctxt.width; ++xIn) {
-                float value = pinput[yIn * ctxt.width + xIn];
-                for (int yStride = 0; yStride < ctxt.stride; ++yStride) {
-                    for (int xStride = 0; xStride < ctxt.stride; ++xStride) {
-                        int yOut = std::min(yIn * ctxt.stride + yStride, ctxt.outHeight - 1);
-                        int xOut = std::min(xIn * ctxt.stride + xStride, ctxt.outWidth - 1);
-                        poutput[yOut * ctxt.outWidth + xOut] = ctxt.scale * value;
-                    }
+void upsampleForward(const float* in, int w, int h, int c, int batch, int stride, float scale, float* out)
+{
+    for (auto b = 0; b < batch; ++b) {
+        for (auto k = 0; k < c; ++k) {
+            for (auto j = 0; j < h * stride; ++j) {
+                for (auto i = 0; i < w * stride; ++i) {
+                    auto inIndex = b * w * h * c + k * w * h + (j / stride) * w + i / stride;
+                    auto outIndex = b * w * h * c * stride * stride + k * w * h * stride * stride + j * w * stride + i;
+                    out[outIndex] = scale * in[inIndex];
+                }
+            }
+        }
+    }
+}
+
+void upsampleBackward(float* in, int w, int h, int c, int batch, int stride, float scale, const float* out)
+{
+    for (auto b = 0; b < batch; ++b) {
+        for (auto k = 0; k < c; ++k) {
+            for (auto j = 0; j < h * stride; ++j) {
+                for (auto i = 0; i < w * stride; ++i) {
+                    auto inIndex = b * w * h * c * stride * stride + k * w * h * stride * stride + j * w * stride + i;
+                    auto outIndex = b * w * h * c + k * w * h + (j / stride) * w + i / stride;
+                    in[inIndex] += scale * out[outIndex];
                 }
             }
         }

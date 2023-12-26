@@ -14,6 +14,8 @@
 * limitations under the License.
 ********************************************************************************/
 
+#include <cblas.h>
+
 #include "Model.h"
 #include "RouteLayer.h"
 
@@ -67,7 +69,8 @@ void RouteLayer::setup()
         output_ = PxCpuVector(batch() * outChannels * outHeight * outWidth);
     }
 #else
-    output_ = PxCpuVector(batch() * outChannels * outHeight * outWidth);
+    output_ = PxCpuVector(batch() * outputs);
+    delta_ = PxCpuVector(batch() * outputs);
 #endif // USE_CUDA
 }
 
@@ -91,11 +94,9 @@ void RouteLayer::forward(const PxCpuVector& input)
         auto inputSize = layer->outputs();
 
         for (auto i = 0; i < batch(); ++i) {
-            const auto* start = pin + i * inputSize;
-            const auto* end = start + inputSize + 1;
+            const auto* in = pin + i * inputSize;
             auto* out = output + offset + i * outputs();
-
-            std::copy(start, end, out);
+            cblas_scopy(inputSize, in, 1, out, 1);
         }
 
         offset += inputSize;
@@ -104,6 +105,21 @@ void RouteLayer::forward(const PxCpuVector& input)
 
 void RouteLayer::backward(const PxCpuVector& input)
 {
+    auto offset = 0;
+
+    auto* pdelta = delta_.data();
+
+    for (const auto& layer: layers_) {
+        auto* ldelta = layer->delta()->data();
+        auto inputSize = layer->outputs();
+
+        for (auto i = 0; i < batch(); ++i) {
+            cblas_saxpy(inputSize, 1, pdelta + offset + i * outputs(), 1, ldelta + i * inputSize, 1);
+        }
+
+        offset += inputSize;
+    }
+
 }
 
 #ifdef USE_CUDA

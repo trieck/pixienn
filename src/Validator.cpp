@@ -126,7 +126,7 @@ float Validator::iou(const Detection& detection, const GroundTruth& truth)
         pred.width *= pred.width;
     }*/
 
-    auto iou = boxIou(pred, gtBox);
+    auto iou = boxIoU(pred, gtBox);
 
     return iou;
 }
