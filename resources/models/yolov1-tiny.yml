@@ -10,17 +10,21 @@ model:
 
   augment: False
 
-  gamma: 0.0001
-  power: 1
-
-  learning_rate: 0.001
   max_batches: 100
   momentum: 0.9
   decay: 0.0005
 
-  policy: steps
-  steps: [ -1, 100, 20000, 30000 ]
-  scales: [ 0.1, 10, 0.1, 0.1 ]
+  learning_rate:
+    initial_learning_rate: 0.001
+    policy: stepped
+
+    stepped:
+      steps: [ -1, 100, 20000, 30000 ]
+      scales: [ 0.1, 10, 0.1, 0.1 ]
+
+    inverse:
+      gamma: 0.0001
+      power: 1
 
   layers:
     - type: conv

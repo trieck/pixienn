@@ -37,7 +37,6 @@ float SmoothSteppedLRPolicy::update(int batchNum)
         if (steps_[i] > batchNum) {
             break;
         }
-
         index = i;
     }
 
