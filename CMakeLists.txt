@@ -105,6 +105,7 @@ list(APPEND SOURCES
         src/ConfusionMatrix.cpp
         src/ConnAlgo.cpp
         src/ConnLayer.cpp
+        src/ConstantLRPolicy.cpp
         src/ConvAlgo.cpp
         src/ConvLayer.cpp
         src/CpuUtil.cpp

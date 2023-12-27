@@ -22,6 +22,7 @@
 #include <opencv2/imgproc/types_c.h>
 
 #include "ColorMaps.h"
+#include "ConstantLRPolicy.h"
 #include "Error.h"
 #include "FileUtil.h"
 #include "Image.h"
@@ -768,22 +769,40 @@ float Model::decay() const noexcept
 
 void Model::parsePolicy(const Node& model)
 {
-    auto sPolicy = model["policy"].as<std::string>("steps");
-    if (sPolicy == "steps") {
-        auto learningRate = model["learning_rate"].as<float>(0.001f);
-        auto steps = model["steps"];
+    auto lrNode = model["learning_rate"];
+    PX_CHECK(lrNode.IsMap(), "learning_rate must be a map.");
+
+    auto learningRate = lrNode["initial_learning_rate"].as<float>(0.001f);
+    auto sPolicy = lrNode["policy"].as<std::string>("constant");
+
+    if (sPolicy == "constant") {
+        policy_ = std::make_unique<ConstantLRPolicy>(learningRate);
+    } else if (sPolicy == "smooth_stepped") {
+        auto smoothNode = lrNode["smooth_stepped"];
+        auto steps = smoothNode["steps"];
         PX_CHECK(steps.IsSequence(), "steps must be a sequence of integers.");
         auto vSteps = steps.as<std::vector<int>>();
 
-        auto scales = model["scales"];
+        auto targets = smoothNode["targets"];
+        PX_CHECK(targets.IsSequence(), "targets must be a sequence of floating point numbers.");
+        auto vTargets = targets.as<std::vector<float>>();
+
+        policy_ = std::make_unique<SmoothSteppedLRPolicy>(learningRate, vSteps, vTargets);
+    } else if (sPolicy == "stepped") {
+        auto steppedNode = lrNode["stepped"];
+        auto steps = steppedNode["steps"];
+        PX_CHECK(steps.IsSequence(), "steps must be a sequence of integers.");
+        auto vSteps = steps.as<std::vector<int>>();
+
+        auto scales = steppedNode["scales"];
         PX_CHECK(scales.IsSequence(), "scales must be a sequence of floating point numbers.");
         auto vScales = scales.as<std::vector<float>>();
 
         policy_ = std::make_unique<SteppedLRPolicy>(learningRate, vSteps, vScales);
-    } else if (sPolicy == "inv") {
-        auto learningRate = model["learning_rate"].as<float>(0.001f);
-        auto gamma = model["gamma"].as<float>(0.9f);
-        auto power = model["power"].as<float>(1.0f);
+    } else if (sPolicy == "inverse") {
+        auto invNode = lrNode["inverse"];
+        auto gamma = invNode["gamma"].as<float>(0.9f);
+        auto power = invNode["power"].as<float>(1.0f);
 
         policy_ = std::make_unique<InvLRPolicy>(learningRate, gamma, power);
     } else {
