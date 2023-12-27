@@ -175,6 +175,8 @@ void ConvLayer::forward(const PxCpuVector& input)
 
 void ConvLayer::backward(const PxCpuVector& input)
 {
+    Layer::backward(input);
+
     activationFnc_->gradient(output_, delta_);
 
     if (batchNormalize_) {

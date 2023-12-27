@@ -74,6 +74,8 @@ void BatchNormLayer::forward(const PxCpuVector& input)
 
 void BatchNormLayer::backward(const PxCpuVector& input)
 {
+    Layer::backward(input);
+
     auto ctxt = makeContext(input);
     batchNormBackward(ctxt);
 }

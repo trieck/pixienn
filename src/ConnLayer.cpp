@@ -168,7 +168,7 @@ void ConnLayer::forward(const PxCpuVector& input)
 
 void ConnLayer::backward(const PxCpuVector& input)
 {
-    constrain(outputs() * batch(), 1, delta_.data(), 1);
+    Layer::backward(input);
 
     activationFnc_->gradient(output_, delta_);
 

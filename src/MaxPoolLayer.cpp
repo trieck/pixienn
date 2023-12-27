@@ -75,6 +75,8 @@ void MaxPoolLayer::forward(const PxCpuVector& input)
 
 void MaxPoolLayer::backward(const PxCpuVector& input)
 {
+    Layer::backward(input);
+
     auto ctxt = makeContext(input);
     maxPoolBackward(ctxt);
 }

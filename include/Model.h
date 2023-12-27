@@ -124,6 +124,9 @@ public:
     void setThreshold(float threshold) noexcept;
     size_t seen() const noexcept;
 
+    bool gradRescaling() const noexcept;
+    float gradThreshold() const noexcept;
+
 #ifdef USE_CUDA
     const CublasContext& cublasContext() const noexcept;
     const CudnnContext& cudnnContext() const noexcept;
@@ -187,30 +190,32 @@ private:
     int minor_ = 1;
     int revision_ = 0;
 
-    // Training parameters
+    // training parameters
     bool training_ = false;               // Flag indicating whether the model is in training mode
     TrainBatch trainBatch_;               // Instance of TrainBatch class for managing training batches
     PxCpuVector* delta_ = nullptr;        // Pointer to a PxCpuVector for storing delta values (nullptr by default)
     LRPolicy::Ptr policy_;                // Pointer to an LRPolicy object for managing learning rate policies
     bool augment_ = false;                // Flag indicating whether data augmentation is enabled
 
-    // Optimization parameters
+    // optimization parameters
     int maxBatches_ = 0;                   // Maximum number of batches for training
     int subdivs_ = 0;                      // Number of subdivisions for training batches
     int timeSteps_ = 0;                    // Number of time steps for training
     size_t seen_ = 0;                      // Total number of batches seen during training
 
-    // Hyperparameters for data augmentation
+    // hyperparameters for data augmentation
     float threshold_ = 0.0f;               // Threshold for data augmentation
     float momentum_ = 0.0f;                // Momentum for optimization
     float decay_ = 0.0f;                   // Decay rate for optimization
     float jitter_ = 0.0f;                  // Jitter for data augmentation
-    float angle_ = 0.0f;                   // Angle for data augmentation
-    float aspect_ = 0.0f;                  // Aspect ratio for data augmentation
     float saturation_ = 0.0f;              // Saturation for data augmentation
     float exposure_ = 0.0f;                // Exposure for data augmentation
     float hue_ = 0.0f;                     // Hue for data augmentation
     float cost_ = 0.0f;                    // Cost associated with the training process
+
+    // gradient rescaling parameters
+    bool gradRescaling_ = false;           // Flag indicating whether gradient rescaling is enabled
+    float gradThreshold_ = 0.0f;           // Threshold for gradient rescaling
 
     // configuration
     YAML::Node config_;

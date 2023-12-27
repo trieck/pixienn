@@ -211,6 +211,14 @@ float ConfusionMatrix::microAvgF1() const
         }
     }
 
+    if (truePositives + falsePositives == 0) {
+        return 0.0f;
+    }
+
+    if (truePositives + falseNegatives == 0) {
+        return 0.0f;
+    }
+
     float precision = truePositives / (truePositives + falsePositives);
     float recall = truePositives / (truePositives + falseNegatives);
 

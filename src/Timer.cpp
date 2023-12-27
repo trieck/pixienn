@@ -34,7 +34,7 @@ std::string Timer::str() const
 
     auto elapsed = duration_cast<std::chrono::nanoseconds>(now - start_);
     auto hours = duration_cast<std::chrono::hours>(elapsed);
-    auto minutes = duration_cast<std::chrono::minutes>(elapsed) % 3600 / 60;
+    auto minutes = duration_cast<std::chrono::minutes>(elapsed) % 60;
     auto seconds = duration_cast<std::chrono::seconds>(elapsed) % 60;
     auto millis = duration_cast<std::chrono::milliseconds>(elapsed) % 1000;
     auto micros = duration_cast<std::chrono::microseconds>(elapsed) % 1000;

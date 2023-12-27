@@ -5,7 +5,7 @@ model:
   height: 416
   width: 416
 
-  max_batches: 50000
+  max_batches: 100
 
   augment: False
 
@@ -17,8 +17,12 @@ model:
   exposure: 1.5
   hue: .1
 
+  gradient_rescale:
+    enabled: True
+    threshold: 100
+
   learning_rate:
-    initial_learning_rate: 0.0005
+    initial_learning_rate: 0.005
     policy: smooth_stepped
 
     inverse:
@@ -26,8 +30,8 @@ model:
       power: 1
 
     smooth_stepped:
-      steps: [ 100, 200, 300, 1000 ]
-      targets: [ 0.00025, 0.000125, 0.0001, 0.00001 ]
+      steps: [ 10, 100, 200, 300 ]
+      targets: [ 0.001, 0.0005, 0.0004, 0.0003 ]
 
     stepped:
       steps: [ 100, 200, 300, 20000, 30000 ]
@@ -153,10 +157,8 @@ model:
       mask: [ 3,4,5 ]
       anchors: [ 10,14,23,27,37,58,81,82,135,169,344,319 ]
       num: 6
-      jitter: 0.3
       ignore_thresh: 0.7
       truth_thresh: 1.0
-      random: True
 
     - type: route
       layers: [ -4 ]
@@ -197,7 +199,5 @@ model:
       mask: [ 0,1,2 ]
       anchors: [ 10,14,23,27,37,58,81,82,135,169,344,319 ]
       num: 6
-      jitter: .3
       ignore_thresh: .7
       truth_thresh: 1.0
-      random: True
