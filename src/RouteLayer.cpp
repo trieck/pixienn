@@ -106,6 +106,8 @@ void RouteLayer::forward(const PxCpuVector& input)
 
 void RouteLayer::backward(const PxCpuVector& input)
 {
+    Layer::backward(input);
+
     auto offset = 0;
     auto* pdelta = delta_.data();
 

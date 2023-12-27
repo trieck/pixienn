@@ -79,6 +79,7 @@ void ShortcutLayer::forward(const PxCpuVector& input)
 
 void ShortcutLayer::backward(const PxCpuVector& input)
 {
+    Layer::backward(input);
 }
 
 ShortcutContext ShortcutLayer::makeContext(const PxCpuVector&)

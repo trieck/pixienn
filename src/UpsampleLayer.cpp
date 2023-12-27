@@ -63,6 +63,8 @@ void UpsampleLayer::forward(const PxCpuVector& input)
 
 void UpsampleLayer::backward(const PxCpuVector& input)
 {
+    Layer::backward(input);
+
     auto ctxt = makeContext(input);
     upsampleBackward(ctxt);
 }

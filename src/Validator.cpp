@@ -115,17 +115,6 @@ float Validator::iou(const Detection& detection, const GroundTruth& truth)
     cv::Rect2f pred(detection.box());
     cv::Rect2f gtBox(truth.box);
 
-/*    if (1) {  // I DO NOT UNDERSTAND WHY YOLOV1 DETECTION DOES THIS!!!
-        pred.x /= 7;
-        pred.y /= 7;
-
-        gtBox.x /= 7;
-        gtBox.y /= 7;
-
-        pred.width *= pred.width;
-        pred.width *= pred.width;
-    }*/
-
     auto iou = boxIoU(pred, gtBox);
 
     return iou;

@@ -122,11 +122,15 @@ void Model::parseModel()
     decay_ = model["decay"].as<float>(0.0001f);
     augment_ = model["augment"].as<bool>(true);
     jitter_ = model["jitter"].as<float>(0.2f);
-    angle_ = model["angle"].as<float>(0.0f);
-    aspect_ = model["aspect"].as<float>(1.0f);
     saturation_ = model["saturation"].as<float>(1.0f);
     exposure_ = model["exposure"].as<float>(1.0f);
     hue_ = model["hue"].as<float>(0.0f);
+
+    auto grNode = model["gradient_rescale"];
+    if (grNode && grNode.IsMap()) {
+        gradRescaling_ = grNode["enabled"].as<bool>(false);
+        gradThreshold_ = grNode["threshold"].as<float>(0.0f);
+    }
 
     batch_ /= subdivs_;
     batch_ *= timeSteps_;
@@ -770,43 +774,45 @@ float Model::decay() const noexcept
 void Model::parsePolicy(const Node& model)
 {
     auto lrNode = model["learning_rate"];
-    PX_CHECK(lrNode.IsMap(), "learning_rate must be a map.");
+    if (lrNode) {
+        PX_CHECK(lrNode.IsMap(), "learning_rate must be a map.");
 
-    auto learningRate = lrNode["initial_learning_rate"].as<float>(0.001f);
-    auto sPolicy = lrNode["policy"].as<std::string>("constant");
+        auto learningRate = lrNode["initial_learning_rate"].as<float>(0.001f);
+        auto sPolicy = lrNode["policy"].as<std::string>("constant");
 
-    if (sPolicy == "constant") {
-        policy_ = std::make_unique<ConstantLRPolicy>(learningRate);
-    } else if (sPolicy == "smooth_stepped") {
-        auto smoothNode = lrNode["smooth_stepped"];
-        auto steps = smoothNode["steps"];
-        PX_CHECK(steps.IsSequence(), "steps must be a sequence of integers.");
-        auto vSteps = steps.as<std::vector<int>>();
+        if (sPolicy == "constant") {
+            policy_ = std::make_unique<ConstantLRPolicy>(learningRate);
+        } else if (sPolicy == "smooth_stepped") {
+            auto smoothNode = lrNode["smooth_stepped"];
+            auto steps = smoothNode["steps"];
+            PX_CHECK(steps.IsSequence(), "steps must be a sequence of integers.");
+            auto vSteps = steps.as<std::vector<int>>();
 
-        auto targets = smoothNode["targets"];
-        PX_CHECK(targets.IsSequence(), "targets must be a sequence of floating point numbers.");
-        auto vTargets = targets.as<std::vector<float>>();
+            auto targets = smoothNode["targets"];
+            PX_CHECK(targets.IsSequence(), "targets must be a sequence of floating point numbers.");
+            auto vTargets = targets.as<std::vector<float>>();
 
-        policy_ = std::make_unique<SmoothSteppedLRPolicy>(learningRate, vSteps, vTargets);
-    } else if (sPolicy == "stepped") {
-        auto steppedNode = lrNode["stepped"];
-        auto steps = steppedNode["steps"];
-        PX_CHECK(steps.IsSequence(), "steps must be a sequence of integers.");
-        auto vSteps = steps.as<std::vector<int>>();
+            policy_ = std::make_unique<SmoothSteppedLRPolicy>(learningRate, vSteps, vTargets);
+        } else if (sPolicy == "stepped") {
+            auto steppedNode = lrNode["stepped"];
+            auto steps = steppedNode["steps"];
+            PX_CHECK(steps.IsSequence(), "steps must be a sequence of integers.");
+            auto vSteps = steps.as<std::vector<int>>();
 
-        auto scales = steppedNode["scales"];
-        PX_CHECK(scales.IsSequence(), "scales must be a sequence of floating point numbers.");
-        auto vScales = scales.as<std::vector<float>>();
+            auto scales = steppedNode["scales"];
+            PX_CHECK(scales.IsSequence(), "scales must be a sequence of floating point numbers.");
+            auto vScales = scales.as<std::vector<float>>();
 
-        policy_ = std::make_unique<SteppedLRPolicy>(learningRate, vSteps, vScales);
-    } else if (sPolicy == "inverse") {
-        auto invNode = lrNode["inverse"];
-        auto gamma = invNode["gamma"].as<float>(0.9f);
-        auto power = invNode["power"].as<float>(1.0f);
+            policy_ = std::make_unique<SteppedLRPolicy>(learningRate, vSteps, vScales);
+        } else if (sPolicy == "inverse") {
+            auto invNode = lrNode["inverse"];
+            auto gamma = invNode["gamma"].as<float>(0.9f);
+            auto power = invNode["power"].as<float>(1.0f);
 
-        policy_ = std::make_unique<InvLRPolicy>(learningRate, gamma, power);
-    } else {
-        PX_ERROR_THROW("Unknown policy \"%s\".", sPolicy.c_str());
+            policy_ = std::make_unique<InvLRPolicy>(learningRate, gamma, power);
+        } else {
+            PX_ERROR_THROW("Unknown policy \"%s\".", sPolicy.c_str());
+        }
     }
 }
 
@@ -852,6 +858,16 @@ void Model::setThreshold(float threshold) noexcept
 size_t Model::seen() const noexcept
 {
     return seen_;
+}
+
+bool Model::gradRescaling() const noexcept
+{
+    return gradRescaling_;
+}
+
+float Model::gradThreshold() const noexcept
+{
+    return gradThreshold_;
 }
 
 #ifdef USE_CUDA

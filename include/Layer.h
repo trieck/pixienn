@@ -66,7 +66,7 @@ public:
     virtual void update();
 
     virtual void forward(const PxCpuVector& input);
-    virtual void backward(const PxCpuVector& input) = 0;
+    virtual void backward(const PxCpuVector& input);
     const PxCpuVector& output() const noexcept;
     PxCpuVector* delta() noexcept;
     float cost() const noexcept;
@@ -115,6 +115,7 @@ protected:
 
     bool training() const;
     bool inferring() const;
+    void scaleGradients();
 
 #ifdef USE_CUDA
     PxCudaVector outputGpu_, deltaGpu_;
@@ -122,6 +123,9 @@ protected:
 
     PxCpuVector output_, delta_;
     float cost_ = 0.0f;
+
+    bool gradientRescaling_ = false;
+    float gradientThreshold_ = 0.0f;
 
 private:
     friend LayerFactories;

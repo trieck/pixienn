@@ -1,7 +1,7 @@
 configuration:
   model: ../models/tiny-yolo-voc.yml
   #weights: ../weights/tiny-yolo-voc_final.weights
-  weights: /home/trieck/src/pixienn/cmake-build-release/bin/backup/tiny-yolov1-voc_300.weights
+  weights: /home/trieck/src/pixienn/cmake-build-release/bin/backup/tiny-yolov1-voc.weights
 
   labels: ../data/voc.names
 

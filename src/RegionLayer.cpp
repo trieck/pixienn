@@ -279,6 +279,8 @@ cv::Rect2f RegionLayer::regionBox(int n, int index, int i, int j)
 
 void RegionLayer::backward(const PxCpuVector& input)
 {
+    Layer::backward(input);
+
     auto* pDelta = delta_.data();
     auto* pNetDelta = model().delta();
 

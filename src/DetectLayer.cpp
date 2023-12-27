@@ -142,6 +142,8 @@ void DetectLayer::printStats(const DetectContext& ctxt)
 
 void DetectLayer::backward(const PxCpuVector& input)
 {
+    Layer::backward(input);
+
     auto ctxt = makeContext(input);
 
     detectBackward(ctxt);

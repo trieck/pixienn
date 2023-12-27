@@ -168,24 +168,27 @@ void YoloLayer::processObjects(int b)
 
         auto maskN = maskIndex(bestN);
         if (maskN >= 0) {
-            auto boxIndex = entryIndex(b, maskN * width() * height() + j * width() + i, 0);
+            auto offset = maskN * width() * height() + j * width() + i;
+            auto boxIndex = entryIndex(b, offset, 0);
             auto iou = deltaYoloBox(gt, bestN, boxIndex, i, j);
 
-            auto objIndex = entryIndex(b, maskN * width() * height() + j * width() + i, 4);
+            auto objIndex = entryIndex(b, offset, 4);
             avgObj_ += poutput[objIndex];
             pdelta[objIndex] = 1 - poutput[objIndex];
 
-            auto clsIndex = entryIndex(b, maskN * width() * height() + j * width() + i, 4 + 1);
+            auto clsIndex = entryIndex(b, offset, 4 + 1);
             deltaYoloClass(clsIndex, gt.classId);
 
             ++count_;
             ++classCount_;
+
             if (iou > .5) {
                 ++recall_;
             }
             if (iou > .75) {
                 ++recall75_;
             }
+
             avgIoU += iou;
         }
     }
@@ -211,13 +214,15 @@ void YoloLayer::processRegion(int b, int i, int j)
     ctxt.gt = &groundTruth(b);
 
     for (auto n = 0; n < num_; ++n) {
-        auto boxIndex = entryIndex(b, n * width() * height() + j * width() + i, 0);
+        auto offset = n * width() * height() + j * width() + i;
+
+        auto boxIndex = entryIndex(b, offset, 0);
         ctxt.pred = yoloBox(poutput, mask_[n], boxIndex, i, j);
 
         auto result = bestGT(ctxt);
         const auto* gt = result.gt;
 
-        auto objIndex = entryIndex(b, n * width() * height() + j * width() + i, 4);
+        auto objIndex = entryIndex(b, offset, 4);
         avgAnyObj_ += poutput[objIndex];
 
         if (gt == nullptr) {
@@ -232,7 +237,7 @@ void YoloLayer::processRegion(int b, int i, int j)
         if (result.bestIoU > truthThresh_) {
             pdelta[objIndex] = 1 - poutput[objIndex];
 
-            auto clsIndex = entryIndex(b, n * width() * height() + j * width() + i, 4 + 1);
+            auto clsIndex = entryIndex(b, offset, 4 + 1);
             deltaYoloClass(clsIndex, gt->classId);
             deltaYoloBox(*gt, mask_[n], boxIndex, i, j);
         }
@@ -308,6 +313,8 @@ GroundTruthResult bestGT(const GroundTruthContext& ctxt)
 
 void YoloLayer::backward(const PxCpuVector& input)
 {
+    Layer::backward(input);
+
     auto* pDelta = delta_.data();
     auto* pNetDelta = model().delta();
 

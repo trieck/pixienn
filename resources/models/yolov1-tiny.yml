@@ -14,9 +14,17 @@ model:
   momentum: 0.9
   decay: 0.0005
 
+  gradient_rescale:
+    enabled: True
+    threshold: 100
+
   learning_rate:
-    initial_learning_rate: 0.001
-    policy: stepped
+    initial_learning_rate: 0.0003
+    policy: smooth_stepped
+
+    smooth_stepped:
+      steps: [ 10, 100, 200, 300 ]
+      targets: [ 0.0002, 0.0001, 0.0001, 0.0001 ]
 
     stepped:
       steps: [ -1, 100, 20000, 30000 ]

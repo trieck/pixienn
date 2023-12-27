@@ -14,6 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
+#include <cblas.h>
 #include "BatchNormLayer.h"
 #include "Common.h"
 #include "ConnLayer.h"
@@ -95,6 +96,9 @@ Layer::Layer(Model& model, const YAML::Node& layerDef) : model_(model), layerDef
     index_ = property<int>("index");
     inputs_ = property<int>("inputs");
     width_ = property<int>("width");
+
+    gradientRescaling_ = model.gradRescaling();
+    gradientThreshold_ = model.gradThreshold();
 
     outChannels_ = outHeight_ = outWidth_ = outputs_ = 0;
 }
@@ -314,6 +318,24 @@ void Layer::forward(const PxCpuVector& input)
     delta_.fill(0);
     output_.fill(0);
     cost_ = 0;
+}
+
+void Layer::backward(const PxCpuVector& input)
+{
+    if (gradientRescaling_) {
+        scaleGradients();
+    }
+}
+
+void Layer::scaleGradients()
+{
+    auto norm = magArray(delta_.data(), delta_.size());
+    if (norm > gradientThreshold_) {
+
+        float scale = gradientThreshold_ / norm;
+
+        cblas_sscal(delta_.size(), scale, delta_.data(), 1);
+    }
 }
 
 const GroundTruths& Layer::groundTruth() const noexcept
