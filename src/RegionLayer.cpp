@@ -116,13 +116,18 @@ void RegionLayer::forward(const PxCpuVector& input)
 
     cost_ = std::pow(magArray(delta_.data(), delta_.size()), 2);
 
-    printf("Region Avg IOU: %f, Class: %f, Obj: %f, No Obj: %f, Avg Recall: %f,  count: %d\n",
-           avgIoU_ / count_,
-           avgCat_ / classCount_,
-           avgObj_ / count_,
-           avgAnyObj_ / (width() * height() * num_ * batch()),
-           recall_ / count_,
-           count_);
+    if (count_ == 0) {
+        printf("Region Avg. IoU: -----, Class: -----, Obj: -----, No Obj: %f, Avg. Recall: -----, count: 0\n",
+               avgAnyObj_ / (width() * height() * num_ * batch()));
+    } else {
+        printf("Region Avg. IoU: %f, Class: %f, Obj: %f, No Obj: %f, Avg. Recall: %f, count: %d\n",
+               avgIoU_ / count_,
+               avgCat_ / classCount_,
+               avgObj_ / count_,
+               avgAnyObj_ / (width() * height() * num_ * batch()),
+               recall_ / count_,
+               count_);
+    }
 }
 
 void RegionLayer::processObjects(int b)
@@ -176,7 +181,7 @@ void RegionLayer::processObjects(int b)
 
         if (rescore_) {
             pdelta[bestIndex + 4] = objectScale_ * (iou - poutput[bestIndex + 4])
-                                 * logistic_.gradient(poutput[bestIndex + 4]);
+                                    * logistic_.gradient(poutput[bestIndex + 4]);
         }
 
         deltaRegionClass(bestIndex + 5, gt.classId, classScale_);

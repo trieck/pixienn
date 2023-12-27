@@ -121,15 +121,21 @@ void YoloLayer::forward(const PxCpuVector& input)
 
     cost_ = std::pow(magArray(delta_.data(), delta_.size()), 2);
 
-    printf("Region %d Avg IOU: %f, Class: %f, Obj: %f, No Obj: %f, .5R: %f, .75R: %f,  count: %d\n",
-           index(),
-           avgIoU / count_,
-           avgCat_ / classCount_,
-           avgObj_ / count_,
-           avgAnyObj_ / (batch() * width() * height() * num_),
-           recall_ / count_,
-           recall75_ / count_,
-           count_);
+    if (count_ == 0) {
+        printf("Region %d Avg. IoU: -----, Class: -----, Obj: -----, No Obj: %f, .5R: -----, .75R: -----,  count: 0\n",
+               index(),
+               avgAnyObj_ / (batch() * width() * height() * num_));
+    } else {
+        printf("Region %d Avg. IoU: %f, Class: %f, Obj: %f, No Obj: %f, .5R: %f, .75R: %f,  count: %d\n",
+               index(),
+               avgIoU / count_,
+               avgCat_ / classCount_,
+               avgObj_ / count_,
+               avgAnyObj_ / (batch() * width() * height() * num_),
+               recall_ / count_,
+               recall75_ / count_,
+               count_);
+    }
 }
 
 void YoloLayer::processObjects(int b)

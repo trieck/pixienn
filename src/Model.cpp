@@ -29,6 +29,7 @@
 #include "InvLRPolicy.h"
 #include "Layer.h"
 #include "Model.h"
+#include "SmoothSteppedLRPolicy.h"
 #include "SteppedLRPolicy.h"
 #include "Timer.h"
 #include "Utility.h"
