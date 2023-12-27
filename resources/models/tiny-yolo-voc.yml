@@ -14,7 +14,7 @@ model:
   exposure: 1.5
   hue: 0.1
   learning_rate: 0.001
-  max_batches: 40200
+  max_batches: 1000
 
   policy: steps
   steps: [ -1, 100, 20000, 30000 ]

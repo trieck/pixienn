@@ -126,6 +126,7 @@ list(APPEND SOURCES
         src/RouteLayer.cpp
         src/ShortcutAlgo.cpp
         src/ShortcutLayer.cpp
+        src/SmoothSteppedLRPolicy.cpp
         src/SteppedLRPolicy.cpp
         src/TiffIO.cpp
         src/Timer.cpp

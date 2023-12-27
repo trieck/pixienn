@@ -23,6 +23,7 @@ add_executable(pixienn-test
         main.cpp
         math.cpp
         maxpool.cpp
+        smoothsteps.cpp
         steppedlr.cpp
         tensor.cpp
         tiff.cpp
