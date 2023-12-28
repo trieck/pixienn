@@ -65,7 +65,7 @@ private:
     int maskIndex(int n);
 
     Activation<Logistic<Activations::Type>> logistic_;
-    PxCpuTensor<1> biases_, biasUpdates_;
+    PxCpuTensor<1> biases_;
 
     int num_ = 0;
     std::vector<int> mask_, anchors_;
