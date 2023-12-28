@@ -100,6 +100,9 @@ Layer::Layer(Model& model, const YAML::Node& layerDef) : model_(model), layerDef
     gradientRescaling_ = model.gradRescaling();
     gradientThreshold_ = model.gradThreshold();
 
+    gradientClipping_ = model.gradClipping();
+    gradientClipValue_ = model.gradClipValue();
+
     outChannels_ = outHeight_ = outWidth_ = outputs_ = 0;
 }
 
@@ -325,15 +328,17 @@ void Layer::backward(const PxCpuVector& input)
     if (gradientRescaling_) {
         scaleGradients();
     }
+
+    if (gradientClipping_) {
+        clipGradients();
+    }
 }
 
 void Layer::scaleGradients()
 {
     auto norm = magArray(delta_.data(), delta_.size());
     if (norm > gradientThreshold_) {
-
         float scale = gradientThreshold_ / norm;
-
         cblas_sscal(delta_.size(), scale, delta_.data(), 1);
     }
 }
@@ -346,6 +351,11 @@ const GroundTruths& Layer::groundTruth() const noexcept
 const GroundTruthVec& Layer::groundTruth(uint32_t batch)
 {
     return trainingBatch().groundTruth(batch);
+}
+
+void Layer::clipGradients()
+{
+    constrain(delta_.size(), gradientClipValue_, delta_.data(), 1);
 }
 
 #ifdef USE_CUDA
