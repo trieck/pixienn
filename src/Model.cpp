@@ -21,6 +21,7 @@
 #include <utility>
 #include <opencv2/imgproc/types_c.h>
 
+#include "BurnInLRPolicy.h"
 #include "ColorMaps.h"
 #include "ConstantLRPolicy.h"
 #include "Error.h"
@@ -112,24 +113,24 @@ void Model::parseModel()
 
     maxBatches_ = model["max_batches"].as<int>(0);
 
+    augment_ = model["augment"].as<bool>(true);
     batch_ = model["batch"].as<int>();
     channels_ = model["channels"].as<int>();
+    decay_ = model["decay"].as<float>(0.0001f);
+    exposure_ = model["exposure"].as<float>(1.0f);
     height_ = model["height"].as<int>();
-    width_ = model["width"].as<int>();
+    hue_ = model["hue"].as<float>(0.0f);
+    jitter_ = model["jitter"].as<float>(0.2f);
+    momentum_ = model["momentum"].as<float>(0.9f);
+    saturation_ = model["saturation"].as<float>(1.0f);
     subdivs_ = model["subdivisions"].as<int>(1);
     timeSteps_ = model["time_steps"].as<int>(1);
-    momentum_ = model["momentum"].as<float>(0.9f);
-    decay_ = model["decay"].as<float>(0.0001f);
-    augment_ = model["augment"].as<bool>(true);
-    jitter_ = model["jitter"].as<float>(0.2f);
-    saturation_ = model["saturation"].as<float>(1.0f);
-    exposure_ = model["exposure"].as<float>(1.0f);
-    hue_ = model["hue"].as<float>(0.0f);
+    width_ = model["width"].as<int>();
 
-    auto grNode = model["gradient_rescale"];
-    if (grNode && grNode.IsMap()) {
-        gradRescaling_ = grNode["enabled"].as<bool>(false);
-        gradThreshold_ = grNode["threshold"].as<float>(0.0f);
+    auto gr = model["gradient_rescale"];
+    if (gr && gr.IsMap()) {
+        gradRescaling_ = gr["enabled"].as<bool>(false);
+        gradThreshold_ = gr["threshold"].as<float>(0.0f);
     }
 
     batch_ /= subdivs_;
@@ -194,7 +195,6 @@ int Model::currentBatch() const noexcept
 
     return batchNum;
 }
-
 
 int Model::channels() const noexcept
 {
@@ -370,7 +370,7 @@ void Model::train()
     auto avgLoss = -std::numeric_limits<float>::max();
 
     Timer timer;
-    std::printf("LR: %.8f, Momentum: %.8f, Decay: %.8f\n", learningRate(), momentum_, decay_);
+    std::printf("LR: %f, Momentum: %f, Decay: %f\n", learningRate(), momentum_, decay_);
 
     while (currentBatch() < maxBatches_) {
         Timer batchTimer;
@@ -380,9 +380,12 @@ void Model::train()
         auto epoch = seen_ / trainImages_.size();
 
         if (seen_ % 10 == 0) {
-            printf("Epoch: %zu, Batches seen: %zu, Loss: %.2f, Avg. Loss: %.2f, LR: %.8f, %s, %zu images\n",
-                   epoch, seen_, loss, avgLoss, learningRate(), batchTimer.str().c_str(), seen_ * batch_);
+            printf("Epoch: %zu, Seen: %zu, Loss: %f, Avg. Loss: %.2f, LR: %f%s, %s, %zu images\n",
+                   epoch, seen_, loss, avgLoss, learningRate(),
+                   burnIn() ? " (burn-in)" : "",
+                   batchTimer.str().c_str(), seen_ * batch_);
         }
+
         if (seen_ % 1000 == 0 || (seen_ < 1000 && seen_ % 100 == 0)) {
             saveWeights();
         }
@@ -454,7 +457,10 @@ void Model::update()
 
 void Model::updateLR()
 {
-    policy_->update(seen_);
+    auto batchNum = currentBatch();
+    auto* pPolicy = currentPolicy();
+
+    pPolicy->update(batchNum);
 }
 
 void Model::parseTrainConfig()
@@ -758,7 +764,28 @@ const TrainBatch& Model::trainingBatch() const noexcept
 
 float Model::learningRate() const
 {
-    return policy_->LR();
+    return currentPolicy()->LR();
+}
+
+LRPolicy* Model::currentPolicy() const noexcept
+{
+    auto batchNum = currentBatch();
+
+    LRPolicy* policy;
+    if (batchNum < burnInBatches_) {
+        policy = burnInPolicy_.get();
+    } else {
+        policy = policy_.get();
+    }
+
+    return policy;
+}
+
+bool Model::burnIn() const noexcept
+{
+    auto batchNum = currentBatch();
+
+    return batchNum < burnInBatches_;
 }
 
 float Model::momentum() const noexcept
@@ -776,8 +803,14 @@ void Model::parsePolicy(const Node& model)
     auto lrNode = model["learning_rate"];
     if (lrNode) {
         PX_CHECK(lrNode.IsMap(), "learning_rate must be a map.");
-
         auto learningRate = lrNode["initial_learning_rate"].as<float>(0.001f);
+
+        burnInBatches_ = lrNode["burn_in_batches"].as<int>(0);
+        if (burnInBatches_ > 0) {
+            auto burnInPower = lrNode["burn_in_power"].as<float>(1.0f);
+            burnInPolicy_ = std::make_unique<BurnInLRPolicy>(learningRate, burnInBatches_, burnInPower);
+        }
+
         auto sPolicy = lrNode["policy"].as<std::string>("constant");
 
         if (sPolicy == "constant") {

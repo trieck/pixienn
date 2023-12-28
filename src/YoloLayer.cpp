@@ -51,7 +51,7 @@ void YoloLayer::setup()
     PX_CHECK(anchors_.size() == num_ * 2, "Anchors size must be twice num size.");
 
     auto nclasses = classes();
-    setOutChannels(mask_.size() * (nclasses + 5));
+    setOutChannels(num_ * (nclasses + 4 + 1));
     setOutHeight(height());
     setOutWidth(width());
     setOutputs(outHeight() * outWidth() * outChannels() * (nclasses + 4 + 1));
@@ -65,9 +65,8 @@ void YoloLayer::setup()
 #else
     output_ = PxCpuVector(batch() * outputs(), 0.0f);
     delta_ = PxCpuVector(batch() * outputs(), 0.0f);
-
     biases_ = PxCpuTensor<1>({ (size_t) num_ * 2 }, 0.5f);
-    biasUpdates_ = PxCpuTensor<1>({ (size_t) num_ * 2 }, 0.0f);
+
 #endif
     for (auto i = 0; i < num_ * 2; ++i) {
         biases_[i] = anchors_[i];
@@ -85,7 +84,7 @@ void YoloLayer::forward(const PxCpuVector& input)
 {
     Layer::forward(input);
 
-    std::copy(input.begin(), input.end(), output_.begin());
+    output_.copy(input);
 
     auto area = std::max(1, width() * height());
     auto nclasses = classes();
@@ -138,6 +137,45 @@ void YoloLayer::forward(const PxCpuVector& input)
     }
 }
 
+void YoloLayer::processRegion(int b, int i, int j)
+{
+    auto* poutput = output_.data();
+    auto* pdelta = delta_.data();
+
+    GroundTruthContext ctxt;
+    ctxt.gt = &groundTruth(b);
+
+    for (auto n = 0; n < num_; ++n) {
+        auto entry = n * width() * height() + j * width() + i;
+
+        auto boxIndex = entryIndex(b, entry, 0);
+        ctxt.pred = yoloBox(poutput, mask_[n], boxIndex, i, j);
+
+        auto result = bestGT(ctxt);
+        const auto* gt = result.gt;
+
+        auto objIndex = entryIndex(b, entry, 4);
+        avgAnyObj_ += poutput[objIndex];
+
+        pdelta[objIndex] = 0 - poutput[objIndex];
+        if (result.bestIoU > ignoreThresh_) {
+            pdelta[objIndex] = 0;
+        }
+
+        if (gt == nullptr) {
+            continue;   // no ground truth
+        }
+
+        if (result.bestIoU > truthThresh_) {
+            pdelta[objIndex] = 1 - poutput[objIndex];
+
+            auto clsIndex = entryIndex(b, entry, 4 + 1);
+            deltaYoloClass(clsIndex, gt->classId);
+            deltaYoloBox(*gt, mask_[n], boxIndex, i, j);
+        }
+    }
+}
+
 void YoloLayer::processObjects(int b)
 {
     auto* poutput = output_.data();
@@ -168,15 +206,15 @@ void YoloLayer::processObjects(int b)
 
         auto maskN = maskIndex(bestN);
         if (maskN >= 0) {
-            auto offset = maskN * width() * height() + j * width() + i;
-            auto boxIndex = entryIndex(b, offset, 0);
+            auto location = maskN * width() * height() + j * width() + i;
+            auto boxIndex = entryIndex(b, location, 0);
             auto iou = deltaYoloBox(gt, bestN, boxIndex, i, j);
 
-            auto objIndex = entryIndex(b, offset, 4);
+            auto objIndex = entryIndex(b, location, 4);
             avgObj_ += poutput[objIndex];
             pdelta[objIndex] = 1 - poutput[objIndex];
 
-            auto clsIndex = entryIndex(b, offset, 4 + 1);
+            auto clsIndex = entryIndex(b, location, 4 + 1);
             deltaYoloClass(clsIndex, gt.classId);
 
             ++count_;
@@ -205,45 +243,6 @@ int YoloLayer::maskIndex(int n)
     return -1;
 }
 
-void YoloLayer::processRegion(int b, int i, int j)
-{
-    auto* poutput = output_.data();
-    auto* pdelta = delta_.data();
-
-    GroundTruthContext ctxt;
-    ctxt.gt = &groundTruth(b);
-
-    for (auto n = 0; n < num_; ++n) {
-        auto offset = n * width() * height() + j * width() + i;
-
-        auto boxIndex = entryIndex(b, offset, 0);
-        ctxt.pred = yoloBox(poutput, mask_[n], boxIndex, i, j);
-
-        auto result = bestGT(ctxt);
-        const auto* gt = result.gt;
-
-        auto objIndex = entryIndex(b, offset, 4);
-        avgAnyObj_ += poutput[objIndex];
-
-        if (gt == nullptr) {
-            continue;   // no ground truth
-        }
-
-        pdelta[objIndex] = 0 - poutput[objIndex];
-        if (result.bestIoU > ignoreThresh_) {
-            pdelta[objIndex] = 0;
-        }
-
-        if (result.bestIoU > truthThresh_) {
-            pdelta[objIndex] = 1 - poutput[objIndex];
-
-            auto clsIndex = entryIndex(b, offset, 4 + 1);
-            deltaYoloClass(clsIndex, gt->classId);
-            deltaYoloBox(*gt, mask_[n], boxIndex, i, j);
-        }
-    }
-}
-
 float YoloLayer::deltaYoloBox(const GroundTruth& truth, int mask, int index, int i, int j)
 {
     auto* delta = delta_.data();
@@ -255,8 +254,8 @@ float YoloLayer::deltaYoloBox(const GroundTruth& truth, int mask, int index, int
     auto pred = yoloBox(x, mask, index, i, j);
     auto iou = boxIoU(pred, truth.box);
 
-    auto tx = (truth.box.x * width()) - i;
-    auto ty = (truth.box.y * height()) - j;
+    auto tx = truth.box.x * width() - i;
+    auto ty = truth.box.y * height() - j;
     auto tw = std::log(truth.box.width * w / biases_[2 * mask]);
     auto th = std::log(truth.box.height * h / biases_[2 * mask + 1]);
 

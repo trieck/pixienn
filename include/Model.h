@@ -167,6 +167,8 @@ private:
     int currentBatch() const noexcept;
     std::string weightsFileName(bool final) const;
     void validate();
+    LRPolicy* currentPolicy() const noexcept;
+    bool burnIn() const noexcept;
 
     // file paths
     std::string cfgFile_;
@@ -195,6 +197,7 @@ private:
     TrainBatch trainBatch_;               // Instance of TrainBatch class for managing training batches
     PxCpuVector* delta_ = nullptr;        // Pointer to a PxCpuVector for storing delta values (nullptr by default)
     LRPolicy::Ptr policy_;                // Pointer to an LRPolicy object for managing learning rate policies
+    LRPolicy::Ptr burnInPolicy_;          // Burn-in policy
     bool augment_ = false;                // Flag indicating whether data augmentation is enabled
 
     // optimization parameters
@@ -212,6 +215,7 @@ private:
     float exposure_ = 0.0f;                // Exposure for data augmentation
     float hue_ = 0.0f;                     // Hue for data augmentation
     float cost_ = 0.0f;                    // Cost associated with the training process
+    size_t burnInBatches_ = 0;                // Number of burn-in batches
 
     // gradient rescaling parameters
     bool gradRescaling_ = false;           // Flag indicating whether gradient rescaling is enabled

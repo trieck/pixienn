@@ -101,6 +101,7 @@ list(APPEND SOURCES
         src/BatchNormAlgo.cpp
         src/BatchNormLayer.cpp
         src/Box.cpp
+        src/BurnInLRPolicy.cpp
         src/ColorMaps.cpp
         src/ConfusionMatrix.cpp
         src/ConnAlgo.cpp
