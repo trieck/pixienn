@@ -44,6 +44,7 @@ void YoloLayer::setup()
 {
     anchors_ = property<std::vector<int>>("anchors");
     mask_ = property<std::vector<int>>("mask");
+    n_ = mask_.size();
     num_ = property<int>("num", 1);
     ignoreThresh_ = property<float>("ignore_thresh", 0.5f);
     truthThresh_ = property<float>("truth_thresh", 1.0f);
@@ -51,10 +52,10 @@ void YoloLayer::setup()
     PX_CHECK(anchors_.size() == num_ * 2, "Anchors size must be twice num size.");
 
     auto nclasses = classes();
-    setOutChannels(num_ * (nclasses + 4 + 1));
+    setOutChannels(channels());
     setOutHeight(height());
     setOutWidth(width());
-    setOutputs(outHeight() * outWidth() * outChannels() * (nclasses + 4 + 1));
+    setOutputs(outHeight() * outWidth() * n_ * (nclasses + 4 + 1));
 
 #ifdef USE_CUDA
     if (useGpu()) {
@@ -91,7 +92,7 @@ void YoloLayer::forward(const PxCpuVector& input)
 
     auto* poutput = output_.data();
     for (auto b = 0; b < batch(); ++b) {
-        for (auto n = 0; n < mask_.size(); ++n) {
+        for (auto n = 0; n < n_; ++n) {
             auto index = entryIndex(b, n * area, 0);
             auto* start = poutput + index;
             auto* end = start + 2 * area + 1;
@@ -123,14 +124,14 @@ void YoloLayer::forward(const PxCpuVector& input)
     if (count_ == 0) {
         printf("Region %d Avg. IoU: -----, Class: -----, Obj: -----, No Obj: %f, .5R: -----, .75R: -----,  count: 0\n",
                index(),
-               avgAnyObj_ / (batch() * width() * height() * num_));
+               avgAnyObj_ / (batch() * width() * height() * n_));
     } else {
         printf("Region %d Avg. IoU: %f, Class: %f, Obj: %f, No Obj: %f, .5R: %f, .75R: %f,  count: %d\n",
                index(),
                avgIoU / count_,
                avgCat_ / classCount_,
                avgObj_ / count_,
-               avgAnyObj_ / (batch() * width() * height() * num_),
+               avgAnyObj_ / (batch() * width() * height() * n_),
                recall_ / count_,
                recall75_ / count_,
                count_);
@@ -145,7 +146,7 @@ void YoloLayer::processRegion(int b, int i, int j)
     GroundTruthContext ctxt;
     ctxt.gt = &groundTruth(b);
 
-    for (auto n = 0; n < num_; ++n) {
+    for (auto n = 0; n < n_; ++n) {
         auto entry = n * width() * height() + j * width() + i;
 
         auto boxIndex = entryIndex(b, entry, 0);
@@ -339,7 +340,7 @@ void YoloLayer::forwardGpu(const PxCudaVector& input)
 
     auto* poutput = outputGpu_.data();
     for (auto b = 0; b < batch(); ++b) {
-        for (auto n = 0; n < mask_.size(); ++n) {
+        for (auto n = 0; n < n_; ++n) {
             auto index = entryIndex(b, n * area, 0);
             auto* start = poutput + index;
             activation_->applyGpu(start, 2 * area);
@@ -437,7 +438,7 @@ void YoloLayer::addDetects(Detections& detections, int width, int height, float 
         auto row = i / this->width();
         auto col = i % this->width();
 
-        for (auto n = 0; n < mask_.size(); ++n) {
+        for (auto n = 0; n < n_; ++n) {
             auto objIndex = entryIndex(0, n * area + i, 4);
             auto objectness = predictions[objIndex];
             if (objectness < threshold) {

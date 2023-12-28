@@ -116,6 +116,7 @@ protected:
     bool training() const;
     bool inferring() const;
     void scaleGradients();
+    void clipGradients();
 
 #ifdef USE_CUDA
     PxCudaVector outputGpu_, deltaGpu_;
@@ -126,6 +127,9 @@ protected:
 
     bool gradientRescaling_ = false;
     float gradientThreshold_ = 0.0f;
+
+    bool gradientClipping_ = false;
+    float gradientClipValue_ = 0.0f;
 
 private:
     friend LayerFactories;

@@ -127,6 +127,9 @@ public:
     bool gradRescaling() const noexcept;
     float gradThreshold() const noexcept;
 
+    bool gradClipping() const noexcept;
+    float gradClipValue() const noexcept;
+
 #ifdef USE_CUDA
     const CublasContext& cublasContext() const noexcept;
     const CudnnContext& cudnnContext() const noexcept;
@@ -220,6 +223,10 @@ private:
     // gradient rescaling parameters
     bool gradRescaling_ = false;           // Flag indicating whether gradient rescaling is enabled
     float gradThreshold_ = 0.0f;           // Threshold for gradient rescaling
+
+    // gradient clipping parameters
+    bool gradClipping_ = false;            // Flag indicating whether gradient clipping is enabled
+    float gradClipValue_ = 0.0f;           // Value for gradient clipping
 
     // configuration
     YAML::Node config_;

@@ -67,7 +67,7 @@ private:
     Activation<Logistic<Activations::Type>> logistic_;
     PxCpuTensor<1> biases_;
 
-    int num_ = 0;
+    int num_ = 0, n_ = 0;
     std::vector<int> mask_, anchors_;
     float ignoreThresh_ = 0.0f;
     float truthThresh_ = 0.0f;

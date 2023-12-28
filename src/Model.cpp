@@ -133,6 +133,12 @@ void Model::parseModel()
         gradThreshold_ = gr["threshold"].as<float>(0.0f);
     }
 
+    auto gc = model["gradient_clipping"];
+    if (gc && gc.IsMap()) {
+        gradClipping_ = gc["enabled"].as<bool>(false);
+        gradClipValue_ = gc["value"].as<float>(1.0f);
+    }
+
     batch_ /= subdivs_;
     batch_ *= timeSteps_;
 
@@ -265,6 +271,10 @@ void Model::forwardGpu(const PxCpuVector& input) const
 
 void Model::loadWeights()
 {
+    if (training() && hasOption("clear-weights")) {
+        boost::filesystem::remove(weightsFile_);
+    }
+
     std::ifstream ifs(weightsFile_, std::ios::in | std::ios::binary);
     if (inferring() && ifs.bad()) { // it is not an error for training weights to not exist.
         PX_ERROR_THROW("Could not open file \"%s\".", weightsFile_.c_str());
@@ -901,6 +911,16 @@ bool Model::gradRescaling() const noexcept
 float Model::gradThreshold() const noexcept
 {
     return gradThreshold_;
+}
+
+bool Model::gradClipping() const noexcept
+{
+    return gradClipping_;
+}
+
+float Model::gradClipValue() const noexcept
+{
+    return gradClipValue_;
 }
 
 #ifdef USE_CUDA
