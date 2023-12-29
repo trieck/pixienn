@@ -24,29 +24,50 @@
 
 namespace px {
 
+static void shortcutCpu(int batch, int w1, int h1, int c1, const float* add, int w2, int h2, int c2, float s1,
+                        float s2, float* out);
+
 void shortcutForward(const ShortcutContext& ctxt)
 {
-    int stride = ctxt.width / ctxt.outWidth;
-    int sample = ctxt.outWidth / ctxt.width;
+    shortcutCpu(ctxt.batch, ctxt.width, ctxt.height, ctxt.channels, ctxt.from->data(), ctxt.outWidth, ctxt.outHeight,
+                ctxt.outChannels, ctxt.alpha, ctxt.beta, ctxt.output->data());
+}
 
-    if (stride < 1) stride = 1;
-    if (sample < 1) sample = 1;
-    int minw = (ctxt.width < ctxt.outWidth) ? ctxt.width : ctxt.outWidth;
-    int minh = (ctxt.height < ctxt.outHeight) ? ctxt.height : ctxt.outHeight;
-    int minc = (ctxt.channels < ctxt.outChannels) ? ctxt.channels : ctxt.outChannels;
+void shortcutBackward(const ShortcutContext& ctxt)
+{
+    shortcutCpu(ctxt.batch, ctxt.outWidth, ctxt.outHeight, ctxt.outChannels, ctxt.delta->data(), ctxt.width,
+                ctxt.height, ctxt.channels, ctxt.alpha, ctxt.beta, ctxt.fromDelta->data());
+}
 
-    const auto* add = ctxt.add->data();
-    auto* out = ctxt.output->data();
+void shortcutCpu(int batch, int w1, int h1, int c1, const float* add, int w2, int h2, int c2, float s1, float s2,
+                 float* out)
+{
+    auto stride = w1 / w2;
+    auto sample = w2 / w1;
 
-    int i, j, k, b;
-    for (b = 0; b < ctxt.batch; ++b) {
-        for (k = 0; k < minc; ++k) {
-            for (j = 0; j < minh; ++j) {
-                for (i = 0; i < minw; ++i) {
-                    int outIndex =
-                            i * sample + ctxt.outWidth * (j * sample + ctxt.outWidth * (k + ctxt.outChannels * b));
-                    int addIndex = i * stride + ctxt.width * (j * stride + ctxt.height * (k + ctxt.channels * b));
-                    out[outIndex] = ctxt.alpha * out[outIndex] + ctxt.beta * add[addIndex];
+    PX_CHECK(stride == h1 / h2, "Stride mismatch.");
+    PX_CHECK(sample == h2 / h1, "Sample mismatch.");
+
+    if (stride < 1) {
+        stride = 1;
+    }
+
+    if (sample < 1) {
+        sample = 1;
+    }
+
+    auto minw = (w1 < w2) ? w1 : w2;
+    auto minh = (h1 < h2) ? h1 : h2;
+    auto minc = (c1 < c2) ? c1 : c2;
+
+    for (auto b = 0; b < batch; ++b) {
+        for (auto k = 0; k < minc; ++k) {
+            for (auto j = 0; j < minh; ++j) {
+                for (auto i = 0; i < minw; ++i) {
+                    auto outIndex = i * sample + w2 * (j * sample + h2 * (k + c2 * b));
+                    auto addIndex = i * stride + w1 * (j * stride + h1 * (k + c1 * b));
+
+                    out[outIndex] = s1 * out[outIndex] + s2 * add[addIndex];
                 }
             }
         }

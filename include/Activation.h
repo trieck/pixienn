@@ -199,6 +199,12 @@ public:
     bool hasActivation(const std::string& s) const;
 };
 
+using LeakyActivation = Activation<LeakyReLU<Activations::Type>>;
+using LinearActivation = Activation<Linear<Activations::Type>>;
+using LoggyActivation = Activation<Loggy<Activations::Type>>;
+using LogisticActivation = Activation<Logistic<Activations::Type>>;
+using ReLUActivation = Activation<ReLU<Activations::Type>>;
+
 }   // px
 
 #endif // PIXIENN_ACTIVATION_H

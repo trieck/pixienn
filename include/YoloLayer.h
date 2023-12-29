@@ -64,7 +64,7 @@ private:
     void processObjects(int b);
     int maskIndex(int n);
 
-    Activation<Logistic<Activations::Type>> logistic_;
+    LogisticActivation logistic_;
     PxCpuTensor<1> biases_;
 
     int num_ = 0, n_ = 0;

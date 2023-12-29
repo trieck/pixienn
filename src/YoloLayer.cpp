@@ -196,6 +196,7 @@ void YoloLayer::processObjects(int b)
 
         for (auto n = 0; n < num_; ++n) {
             cv::Rect2f pred;
+
             pred.width = biases_[2 * n] / model().width();
             pred.height = biases_[2 * n + 1] / model().height();
             auto iou = boxIoU(pred, truthShift);
@@ -285,7 +286,7 @@ void YoloLayer::deltaYoloClass(int index, int classId)
     }
 
     for (auto i = 0; i < classes(); ++i) {
-        auto netTruth = (i == classId) ? 1 : 0;
+        auto netTruth = (i == classId) ? 1.0f : 0.0f;
         pdelta[index + i * stride] = netTruth - poutput[index + i * stride];
 
         if (netTruth) {
