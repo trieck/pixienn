@@ -14,6 +14,8 @@
 * limitations under the License.
 ********************************************************************************/
 
+#include <cblas.h>
+
 #include "Model.h"
 #include "ShortcutLayer.h"
 
@@ -53,7 +55,8 @@ void ShortcutLayer::setup()
         output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth());
     }
 #else
-    output_ = PxCpuVector(batch() * outChannels() * outHeight() * outWidth(), 0.0f);
+    output_ = PxCpuVector(batch() * outHeight() * outWidth() * outChannels(), 0.0f);
+    delta_ = PxCpuVector(batch() * outHeight() * outWidth() * outChannels(), 0.0f);
 #endif
 }
 
@@ -80,13 +83,23 @@ void ShortcutLayer::forward(const PxCpuVector& input)
 void ShortcutLayer::backward(const PxCpuVector& input)
 {
     Layer::backward(input);
+
+    activationFnc_->gradient(output_, delta_);
+
+    cblas_saxpy(batch() * outputs(), alpha_, delta_.data(), 1, model().delta()->data(), 1);
+
+    auto ctxt = makeContext(input);
+
+    shortcutBackward(ctxt);
 }
 
 ShortcutContext ShortcutLayer::makeContext(const PxCpuVector&)
 {
     ShortcutContext ctxt;
     ctxt.output = &output_;
-    ctxt.add = &from_->output();
+    ctxt.delta = &delta_;
+    ctxt.from = &from_->output();
+    ctxt.fromDelta = from_->delta();
     ctxt.alpha = alpha_;
     ctxt.beta = beta_;
     ctxt.batch = batch();

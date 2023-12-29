@@ -61,7 +61,7 @@ private:
     void resetStats();
 
     PxCpuTensor<1> biases_, biasUpdates_;
-    Activation<Logistic<Activations::Type>> logistic_;
+    LogisticActivation logistic_;
 
     std::vector<float> anchors_;
     bool biasMatch_, softmax_, rescore_;

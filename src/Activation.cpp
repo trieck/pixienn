@@ -18,12 +18,6 @@
 
 namespace px {
 
-using LeakyActivation = Activation<LeakyReLU<Activations::Type>>;
-using LinearActivation = Activation<Linear<Activations::Type>>;
-using LoggyActivation = Activation<Loggy<Activations::Type>>;
-using LogisticActivation = Activation<Logistic<Activations::Type>>;
-using ReLUActivation = Activation<ReLU<Activations::Type>>;
-
 static std::unordered_map<std::string, Activations::Ptr> activations = {
         { "leaky",    std::make_shared<LeakyActivation>() },
         { "linear",   std::make_shared<LinearActivation>() },

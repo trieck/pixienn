@@ -30,8 +30,10 @@ namespace px {
 // Represents the context needed for a shortcut operation
 struct ShortcutContext
 {
-    const PxCpuVector* add = nullptr;
+    const PxCpuVector* from = nullptr;
     PxCpuVector* output = nullptr;
+    const PxCpuVector* delta = nullptr;
+    PxCpuVector* fromDelta = nullptr;
 
 #ifdef USE_CUDA
     const PxCudaVector* addGpu = nullptr;
@@ -51,6 +53,7 @@ struct ShortcutContext
 };
 
 void shortcutForward(const ShortcutContext& ctxt);
+void shortcutBackward(const ShortcutContext& ctxt);
 
 #ifdef USE_CUDA
 
