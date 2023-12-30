@@ -23,7 +23,11 @@ static std::unordered_map<std::string, Activations::Ptr> activations = {
         { "linear",   std::make_shared<LinearActivation>() },
         { "loggy",    std::make_shared<LoggyActivation>() },
         { "logistic", std::make_shared<LogisticActivation>() },
+        { "mish",     std::make_shared<MishActivation>() },
         { "relu",     std::make_shared<ReLUActivation>() },
+        { "softplus", std::make_shared<SoftplusActivation>() },
+        { "swish",    std::make_shared<SwishActivation>() },
+        { "tanh",     std::make_shared<TanhActivation>() }
 };
 
 Activations::Ptr Activations::get(const std::string& name)
