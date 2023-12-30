@@ -187,6 +187,96 @@ public:
     }
 };
 
+template<typename T>
+class Softplus : public Algorithm<T>
+{
+public:
+    Softplus(T threshold = 20) : threshold_(threshold)
+    {}
+
+    T apply(T x) const override
+    {
+        if (x > threshold_) {
+            return x;
+        } else if (x < -threshold_) {
+            return std::exp(x);
+        } else {
+            return std::log(std::exp(x) + 1);
+        }
+    }
+
+    T gradient(T x) const override
+    {
+        return 1. / (1. + std::exp(-x));
+    }
+
+private:
+    T threshold_;
+};
+
+template<typename T>
+class Swish : public Algorithm<T>
+{
+public:
+    Swish(T beta = 1) : beta_(beta)
+    {}
+
+    T apply(T x) const override
+    {
+        return x / (1 + std::exp(-beta_ * x));
+    }
+
+    T gradient(T x) const override
+    {
+        auto val = 1 / (1 + std::exp(-x));
+        return x * val + beta_ * val * (1 - x * val);
+    }
+
+private:
+    T beta_;
+};
+
+template<typename T>
+class Mish : public Algorithm<T>
+{
+public:
+    T apply(T x) const override
+    {
+        auto spx = softplus_.apply(x);
+        auto tanhSpx = std::tanh(spx);
+
+        return x * tanhSpx;
+    }
+
+    T gradient(T x) const override
+    {
+        auto sp = softplus_.apply(x);
+        auto gradSp = 1 - std::exp(-sp);
+        auto tsp = std::tanh(sp);
+        auto gradTsp = (1 - tsp * tsp) * gradSp;
+        auto grad = x * gradTsp + tsp;
+        return grad;
+    }
+
+private:
+    Softplus<T> softplus_;
+};
+
+template<typename T>
+class Tanh : public Algorithm<T>
+{
+public:
+    T apply(T x) const override
+    {
+        return std::tanh(x);
+    }
+
+    T gradient(T x) const override
+    {
+        return 1 - std::pow(std::tanh(x), 2);
+    }
+};
+
 class Activations : public Singleton<Activations>
 {
 public:
@@ -203,7 +293,11 @@ using LeakyActivation = Activation<LeakyReLU<Activations::Type>>;
 using LinearActivation = Activation<Linear<Activations::Type>>;
 using LoggyActivation = Activation<Loggy<Activations::Type>>;
 using LogisticActivation = Activation<Logistic<Activations::Type>>;
+using MishActivation = Activation<Mish<Activations::Type>>;
 using ReLUActivation = Activation<ReLU<Activations::Type>>;
+using SoftplusActivation = Activation<Softplus<Activations::Type>>;
+using SwishActivation = Activation<Swish<Activations::Type>>;
+using TanhActivation = Activation<Tanh<Activations::Type>>;
 
 }   // px
 
