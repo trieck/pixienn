@@ -24,8 +24,8 @@
 namespace px {
 
 std::string fmtInt(int number);
-cv::Rect2f darkBox(const cv::Rect& box, const cv::Size& size);
-cv::Rect lightBox(const cv::Rect2f& darkBox, const cv::Size& size);
+cv::Rect2f darkBox(const cv::Rect2f& box, const cv::Size& size);
+cv::Rect2f lightBox(const cv::Rect2f& darkBox, const cv::Size& size);
 
 template<typename T>
 T randomUniform(T min = 0, T max = 1)

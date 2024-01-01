@@ -19,7 +19,7 @@
 
 namespace px {
 
-ImageVec::ImageVec() : channels(0)
+ImageVec::ImageVec() : channels(0), ax(0.0f), ay(0.0f), dx(0.0f), dy(0.0f)
 {
 }
 
@@ -41,6 +41,10 @@ ImageVec& ImageVec::operator=(const ImageVec& rhs)
         imagePath = rhs.imagePath;
         channels = rhs.channels;
         data = rhs.data;
+        ax = rhs.ax;
+        ay = rhs.ay;
+        dx = rhs.dx;
+        dy = rhs.dy;
     }
 
     return *this;
@@ -53,6 +57,10 @@ ImageVec& ImageVec::operator=(ImageVec&& rhs)
     imagePath = std::move(rhs.imagePath);
     data = std::move(rhs.data);
     channels = std::move(rhs.channels);
+    ax = std::move(rhs.ax);
+    ay = std::move(rhs.ay);
+    dx = std::move(rhs.dx);
+    dy = std::move(rhs.dy);
 
     return *this;
 }

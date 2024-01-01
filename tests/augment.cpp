@@ -67,11 +67,6 @@ protected:
         return { IMAGE_WIDTH, IMAGE_HEIGHT, CV_8UC3, Scalar::all(192) };
     }
 
-    Mat makeNormalImage()
-    {
-        return imnormalize(makeImage());
-    }
-
     void SetUp() override
     {
         image = makeImage();
@@ -83,7 +78,7 @@ protected:
         auto w = randomUniform(IMAGE_WIDTH / 8, IMAGE_WIDTH / 4);
         auto h = randomUniform(IMAGE_HEIGHT / 8, IMAGE_HEIGHT / 4);
 
-        Rect box(x, y, w, h);
+        Rect2f box(x, y, w, h);
 
         gt.classId = 0;
         gt.box = darkBox(box, image.size());
@@ -207,3 +202,4 @@ TEST_F(AugmentationTest, TransformGT)
 
     // EXPECT_TRUE(matched); won't work for boxes not fully contained in the image
 }
+

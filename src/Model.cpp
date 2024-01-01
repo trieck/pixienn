@@ -20,6 +20,7 @@
 #include <nlohmann/json.hpp>
 #include <utility>
 #include <opencv2/imgproc/types_c.h>
+#include <opencv2/highgui.hpp>
 
 #include "BurnInLRPolicy.h"
 #include "ColorMaps.h"
@@ -525,23 +526,96 @@ TrainBatch Model::loadBatch(Category category, int size, bool augment)
     return batch;
 }
 
+void Model::viewImageGT(const std::string& imagePath, const GroundTruthVec& gt, bool augment) const
+{
+    ColorMaps colors("plasma");
+
+    cv::Mat image;
+
+    if (augment) {
+        auto orig = imread(imagePath.c_str());
+
+        ImageAugmenter augmenter(jitter_, hue_, saturation_, exposure_);
+        auto augmented = augmenter.augment(orig, { width(), height() }, gt);
+
+        image = augmented.first;
+        augmenter.distort(image);
+
+        cv::cvtColor(image, image, cv::COLOR_BGR2BGRA);
+
+        for (const auto& g: augmented.second) {
+            auto index = g.classId;
+            const auto& label = labels_[index];
+
+            auto bgColor = colors.color(index);
+            auto textColor = imtextcolor(bgColor);
+
+            auto lb = lightBox(g.box, { width(), height() });
+
+            imrect(image, lb, bgColor, 2);
+            imtabbedText(image, label.c_str(), lb.tl(), textColor, bgColor, 2);
+        }
+    } else {
+        auto mat = imread(imagePath.c_str(), width(), height());
+        image = mat.image;
+
+        cv::cvtColor(image, image, cv::COLOR_BGR2BGRA);
+
+        for (const auto& g: gt) {
+            auto index = g.classId;
+            const auto& label = labels_[index];
+
+            auto bgColor = colors.color(index);
+            auto textColor = imtextcolor(bgColor);
+
+            cv::Rect2f box;
+            box.x = (g.box.x * mat.ax) + mat.dx;
+            box.y = (g.box.y * mat.ay) + mat.dy;
+            box.width = g.box.width * mat.ax;
+            box.height = g.box.height * mat.ay;
+
+            auto lb = lightBox(box, { width(), height() });
+
+            imrect(image, lb, bgColor, 2);
+            imtabbedText(image, label.c_str(), lb.tl(), textColor, bgColor, 2);
+        }
+    }
+
+    cv::imshow("image", image);
+    cv::waitKey();
+}
+
 auto Model::loadImgLabels(Category category, const std::string& imagePath, bool augment) -> ImageLabels
 {
     auto gts = groundTruth(category, imagePath);
 
-    if (!augment) {
-        auto image = imreadVector(imagePath.c_str(), width(), height());
-        return { image.data, gts };
+    if (augment) {
+        auto orig = imreadNormalize(imagePath.c_str());
+
+        ImageAugmenter augmenter(jitter_, hue_, saturation_, exposure_);
+        auto augmented = augmenter.augment(orig, { width(), height() }, gts);
+        augmenter.distort(augmented.first);
+
+        auto vector = imvector(augmented.first);
+
+        return { vector, augmented.second };
+    } else {
+        auto vec = imreadVector(imagePath.c_str(), width(), height());
+
+        GroundTruthVec newGts;
+
+        for (const auto& gt: gts) {
+            GroundTruth newGt(gt);
+            newGt.box.x = (gt.box.x * vec.ax) + vec.dx;
+            newGt.box.y = (gt.box.y * vec.ay) + vec.dy;
+            newGt.box.width *= vec.ax;
+            newGt.box.height *= vec.ay;
+
+            newGts.emplace_back(std::move(newGt));
+        }
+
+        return { vec.data, newGts };
     }
-
-    auto orig = imreadNormalize(imagePath.c_str());
-
-    ImageAugmenter augmenter(jitter_, hue_, saturation_, exposure_);
-    auto augmented = augmenter.augment(orig, { width(), height() }, gts);
-
-    auto vector = imvector(augmented.first);
-
-    return { vector, augmented.second };
 }
 
 GroundTruthVec Model::groundTruth(Category category, const std::string& imagePath)

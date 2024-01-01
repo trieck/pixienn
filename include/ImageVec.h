@@ -35,7 +35,11 @@ struct ImageVec
     PxCpuVector data;
     cv::Size size;
     cv::Size originalSize;
-    int channels;
+    int channels = 0;
+    float ax = 0.0f;
+    float ay = 0.0f;
+    float dx = 0.0f;
+    float dy = 0.0f;
 };
 
 }   // px

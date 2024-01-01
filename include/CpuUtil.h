@@ -37,6 +37,7 @@ void col2ImCpuExt(const float* dataCol, const int channels,
                   float* dataIm);
 
 void constrain(int n, float alpha, float* x, int incX);
+float constrain(float min, float max, float a);
 
 void im2ColCpu(const float* im, int channels, int height, int width, int ksize, int stride, int pad, float* dataCol);
 
