@@ -109,6 +109,7 @@ list(APPEND SOURCES
         src/ConstantLRPolicy.cpp
         src/ConvAlgo.cpp
         src/ConvLayer.cpp
+        src/CosineLRPolicy.cpp
         src/CpuUtil.cpp
         src/DetectAlgo.cpp
         src/DetectLayer.cpp

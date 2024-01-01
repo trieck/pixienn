@@ -18,6 +18,7 @@ add_executable(pixienn-test
         confuse.cpp
         connected.cpp
         convolve.cpp
+        cosine.cpp
         detect.cpp
         imagebatch.cpp
         main.cpp

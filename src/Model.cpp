@@ -25,6 +25,7 @@
 #include "BurnInLRPolicy.h"
 #include "ColorMaps.h"
 #include "ConstantLRPolicy.h"
+#include "CosineLRPolicy.h"
 #include "Error.h"
 #include "FileUtil.h"
 #include "Image.h"
@@ -899,6 +900,12 @@ void Model::parsePolicy(const Node& model)
 
         if (sPolicy == "constant") {
             policy_ = std::make_unique<ConstantLRPolicy>(learningRate);
+        } else if (sPolicy == "cosine_annealing") {
+            auto cosineNode = lrNode["cosine_annealing"];
+            auto minLR = cosineNode["min_learning_rate"].as<float>(0.0f);
+            auto batchesPerCycle = cosineNode["batches_per_cycle"].as<int>(1000);
+
+            policy_ = std::make_unique<CosineAnnealingLRPolicy>(learningRate, minLR, batchesPerCycle);
         } else if (sPolicy == "smooth_stepped") {
             auto smoothNode = lrNode["smooth_stepped"];
             auto steps = smoothNode["steps"];
