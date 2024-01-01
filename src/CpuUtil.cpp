@@ -332,6 +332,19 @@ void normalizeDeltaCpu(const float* x, const float* mean, const float* variance,
     }
 }
 
+float constrain(float min, float max, float a)
+{
+    if (a < min) {
+        a = min;
+    }
+
+    if (a > max) {
+        a = max;
+    }
+
+    return a;
+}
+
 void constrain(int n, float alpha, float* x, int incX)
 {
     for (auto i = 0; i < n; ++i) {

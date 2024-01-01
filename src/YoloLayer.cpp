@@ -122,11 +122,9 @@ void YoloLayer::forward(const PxCpuVector& input)
     cost_ = std::pow(magArray(delta_.data(), delta_.size()), 2);
 
     if (count_ == 0) {
-        printf("Region %d Avg. IoU: -----, Class: -----, Obj: -----, No Obj: %f, .5R: -----, .75R: -----,  count: 0\n",
-               index(),
-               avgAnyObj_ / (batch() * width() * height() * n_));
+        printf("Region %d: WARNING! No ground truth objects associated with anchor boxes during forward pass.\n", index());
     } else {
-        printf("Region %d Avg. IoU: %f, Class: %f, Obj: %f, No Obj: %f, .5R: %f, .75R: %f,  count: %d\n",
+        printf("Region %d: Avg. IoU: %f, Class: %f, Obj: %f, No Obj: %f, .5R: %f, .75R: %f,  count: %d\n",
                index(),
                avgIoU / count_,
                avgCat_ / classCount_,
@@ -184,7 +182,6 @@ void YoloLayer::processObjects(int b)
 
     for (const auto& gt: groundTruth(b)) {
         auto bestIoU = -std::numeric_limits<float>::max();
-        auto bestIndex = 0;
         auto bestN = 0;
 
         auto i = static_cast<int>(gt.box.x * width());
@@ -358,7 +355,7 @@ int YoloLayer::entryIndex(int batch, int location, int entry) const noexcept
     auto area = std::max(1, width() * height());
 
     auto n = location / area;
-    int loc = location % area;
+    auto loc = location % area;
 
     return batch * outputs() + n * area * (4 + classes() + 1) + entry * area + loc;
 }

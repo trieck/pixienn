@@ -24,16 +24,29 @@
 
 namespace px {
 
+struct LBMat
+{
+    cv::Mat image;
+    int originalWidth;
+    int originalHeight;
+    float ax;
+    float ay;
+    float dx;
+    float dy;
+};
 
-// Distort image with hue, saturation and exposure
+cv::Scalar immidpoint(const cv::Mat& image);
+
+// Distort the image with hue, saturation and exposure
 void imdistort(cv::Mat& image, float hue, float saturation, float exposure);
 
 // Resize image with letterboxing
-cv::Mat imletterbox(const cv::Mat& image, int width, int height);
+LBMat imletterbox(const cv::Mat& image, int width, int height);
 
 // Normalize image pixel values
 cv::Mat imnormalize(const cv::Mat& image);
 
+// Denormalize image pixel values
 cv::Mat imdenormalize(const cv::Mat& image);
 
 // Place an image on a background
@@ -44,8 +57,14 @@ void calculateROI(int w, int h, int dx, int dy, cv::Rect& roiSrc, cv::Rect& roiD
 // Read an image from a file
 cv::Mat imread(const char* path);
 
-// Read an image and resize with normalization
+// Read an image from a file with a specific height and width
+LBMat imread(const char* path, int width, int height);
+
+// Read an image and normalize pixel values
 cv::Mat imreadNormalize(const char* path);
+
+// Read an image and normalize pixel values with a specific height and width
+LBMat imreadNormalize(const char* path, int width, int height);
 
 // Read an image in TIFF format
 cv::Mat imreadTiff(const char* path);

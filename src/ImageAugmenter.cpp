@@ -66,33 +66,40 @@ Augmentation ImageAugmenter::augment(Mat& image, const cv::Size& targetSize) con
         cv::flip(image, image, 1);
     }
 
-    Mat canvas{ targetSize.height, targetSize.width, CV_32FC(image.channels()), Scalar_<float>::all(0.5f) };
+    auto midpoint = immidpoint(image);
+
+    Mat canvas{ targetSize.height, targetSize.width, image.type(), midpoint };
 
     cv::Rect roiSrc, roiDst;
     calculateROI(nw, nh, dx, dy, roiSrc, roiDst, canvas);
+
     implace(image, nw, nh, roiSrc, roiDst, canvas);
 
-    cv::Size srcSize = image.size();
+    auto w = targetSize.width;
+    auto h = targetSize.height;
 
-    BoxTransform transform = [nw, nh, roiSrc, roiDst, srcSize, targetSize, flip](const cv::Rect2f& box) -> cv::Rect2f {
+    BoxTransform transform = [dx, dy, nw, nh, w, h, flip](const cv::Rect2f& box) -> cv::Rect2f {
 
-        auto lbox = lightBox(box, srcSize);
+        auto ddx = -dx / w;
+        auto ddy = -dy / h;
+        auto sx = nw / w;
+        auto sy = nh / h;
 
-        auto xr = nw / srcSize.width;
-        auto yr = nh / srcSize.height;
+        cv::Rect2f dbox;
+        dbox.x = (flip ? (1.0f - box.x) : box.x) * sx - ddx;
+        dbox.y = box.y * sy - ddy;
+        dbox.width = box.width * sx;
+        dbox.height = box.height * sy;
 
-        float x;
-        auto y = lbox.y * yr + roiDst.y - roiSrc.y;
-        auto w = lbox.width * xr;
-        auto h = lbox.height * yr;
+        auto left = dbox.x;
+        auto right = dbox.x + dbox.width;
+        auto top = dbox.y;
+        auto bottom = dbox.y + dbox.height;
 
-        if (flip) {
-            x = (srcSize.width - lbox.x - lbox.width) * xr + roiDst.x - roiSrc.x;
-        } else {
-            x = lbox.x * xr + roiDst.x - roiSrc.x;
-        }
-
-        auto dbox = darkBox(Rect2f{ x, y, w, h }, targetSize);
+        dbox.x = constrain(0, 1, left);
+        dbox.y = constrain(0, 1, top);
+        dbox.width = constrain(0, 1, right - dbox.x);
+        dbox.height = constrain(0, 1, bottom - dbox.y);
 
         return dbox;
     };

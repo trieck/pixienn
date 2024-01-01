@@ -68,6 +68,16 @@ Mat imread(const char* path)
     return image;
 }
 
+LBMat imread(const char* path, int width, int height)
+{
+    auto image = imread(path);
+
+    // size image to match width and height
+    auto lbmat = imletterbox(image, width, height);
+
+    return lbmat;
+}
+
 ImageVec imreadVector(const char* path)
 {
     auto image = imreadNormalize(path);
@@ -81,27 +91,31 @@ ImageVec imreadVector(const char* path)
     imageVec.channels = image.channels();
     imageVec.size = { image.cols, image.rows };
     imageVec.originalSize = imageVec.size;
+    imageVec.ax = 1.0f;
+    imageVec.ay = 1.0f;
+    imageVec.dx = 0.0f;
+    imageVec.dy = 0.0f;
 
     return imageVec;
 }
 
-// FIXME: I want this function to go away
 ImageVec imreadVector(const char* path, int width, int height)
 {
-    auto image = imreadNormalize(path);
-
-    // size image to match width and height
-    auto sized = imletterbox(image, width, height);
+    auto lbmat = imreadNormalize(path, width, height);
 
     // convert the image from interleaved to planar
-    auto vector = imvector(sized);
+    auto vector = imvector(lbmat.image);
 
     ImageVec imageVec;
     imageVec.imagePath = path;
     imageVec.data = std::move(vector);
-    imageVec.channels = image.channels();
-    imageVec.size = { sized.cols, sized.rows };
-    imageVec.originalSize = { image.cols, image.rows };
+    imageVec.channels = lbmat.image.channels();
+    imageVec.size = { lbmat.image.cols, lbmat.image.rows };
+    imageVec.originalSize = { lbmat.originalWidth, lbmat.originalHeight };
+    imageVec.ax = lbmat.ax;
+    imageVec.ay = lbmat.ay;
+    imageVec.dx = lbmat.dx;
+    imageVec.dy = lbmat.dy;
 
     return imageVec;
 }
@@ -151,6 +165,15 @@ Mat imreadNormalize(const char* path)
     return normal.clone();
 }
 
+LBMat imreadNormalize(const char* path, int width, int height)
+{
+    auto image = imreadNormalize(path);
+
+    auto lbmat = imletterbox(image, width, height);
+
+    return lbmat;
+}
+
 void imsave(const char* path, const cv::Mat& image)
 {
     auto result = imwrite(path, image);
@@ -187,7 +210,23 @@ void imsaveTiff(const char* path, const cv::Mat& image)
     writeTIFF(path, tiffImage);
 }
 
-Mat imletterbox(const Mat& image, int width, int height)
+cv::Scalar immidpoint(const cv::Mat& image)
+{
+    int depth = image.depth();
+    double midpoint;
+
+    if (depth == CV_8U) {
+        midpoint = 255.0 / 2.0;
+    } else if (depth == CV_32F) {
+        midpoint = 0.5;
+    } else {
+        PX_ERROR_THROW("Unsupported image depth.");
+    }
+
+    return cv::Scalar::all(midpoint);
+}
+
+LBMat imletterbox(const Mat& image, int width, int height)
 {
     int newWidth, newHeight;
     auto imageWidth = image.cols;
@@ -204,14 +243,24 @@ Mat imletterbox(const Mat& image, int width, int height)
     Mat resized;
     resize(image, resized, { newWidth, newHeight });
 
-    Mat boxed{ height, width, CV_32FC(image.channels()), Scalar_<float>::all(0.5f) };
+    auto midpoint = immidpoint(image);
+    Mat boxed{ height, width, image.type(), midpoint };
 
     auto x = (width - newWidth) / 2;
     auto y = (height - newHeight) / 2;
 
     resized.copyTo(boxed(Rect(x, y, resized.cols, resized.rows)));
 
-    return boxed;
+    LBMat lbmat;
+    lbmat.image = boxed;
+    lbmat.originalWidth = imageWidth;
+    lbmat.originalHeight = imageHeight;
+    lbmat.ax = newWidth / (float) width;
+    lbmat.ay = newHeight / (float) height;
+    lbmat.dx = x / static_cast<float>(width);
+    lbmat.dy = y / static_cast<float>(height);
+
+    return lbmat;
 }
 
 PxCpuVector imvector(const cv::Mat& image)
@@ -269,6 +318,15 @@ void implace(const cv::Mat& image, int w, int h, int dx, int dy, cv::Mat& canvas
 
 void imdistort(cv::Mat& image, float hue, float saturation, float exposure)
 {
+    auto imageType = image.type();
+
+    PX_CHECK(imageType == CV_32FC3 || imageType == CV_8UC3,
+             "Only 32-bit floating point and 8-bit unsigned integer images supported.");
+
+    if (imageType == CV_8UC3) {
+        image.convertTo(image, CV_32FC3, 1.0 / 255.0);
+    }
+
     cv::cvtColor(image, image, cv::COLOR_RGB2HSV);
 
     std::vector<cv::Mat> hsv;
@@ -282,6 +340,10 @@ void imdistort(cv::Mat& image, float hue, float saturation, float exposure)
     cv::merge(hsv, merged);
 
     cv::cvtColor(merged, image, cv::COLOR_HSV2RGB);
+
+    if (imageType == CV_8UC3) {
+        image.convertTo(image, CV_8UC3, 255.0);
+    }
 }
 
 void imrect(cv::Mat& image, const cv::Rect& rect, uint32_t rgb, int thickness, int lineType)
@@ -353,11 +415,25 @@ void imtabbedText(cv::Mat& image, const char* text, const cv::Point& ptOrg, uint
     textSize.width += xpad;
 
     auto yoffset = thickness / 2;
-    Point ptStart(ptOrg.x, ptOrg.y - yoffset);
-    Point ptEnd(ptStart.x + textSize.width + xpad, ptStart.y - textSize.height);
 
-    auto x = ptStart.x + xpad;
-    auto y = ptStart.y - textSize.height;
+    auto x0 = std::max(0, std::min(ptOrg.x, image.cols - 1));
+    auto y0 = std::max(0, std::min(ptOrg.y - yoffset, image.rows - 1));
+
+    auto x1 = std::max(0, std::min(x0 + textSize.width, image.cols - 1));
+    auto y1 = std::max(0, std::min(y0 - textSize.height, image.rows - 1));
+
+    if (x1 - x0 < textSize.width) {
+        x0 = std::max(x1 - textSize.width, 0);
+    }
+
+    if (y0 - y1 < textSize.height) {
+        y0 = std::min(y1 + textSize.height, image.rows - 1);
+    }
+
+    Point ptStart(x0, y0);
+    Point ptEnd(x1, y1);
+
+    auto x = std::min(ptStart.x + xpad, image.cols - 1);
 
     imtabbedRect(image, ptStart, ptEnd, bgColor, thickness, FILLED);
 
@@ -366,7 +442,7 @@ void imtabbedText(cv::Mat& image, const char* text, const cv::Point& ptOrg, uint
     auto blue = COLOR_BLUEF(textColor);
     cairo_set_source_rgb(cr, red, green, blue);
 
-    cairo_move_to(cr, x, y);
+    cairo_move_to(cr, x, y1);
     pango_cairo_show_layout(cr, layout);
 
     g_object_unref(layout);

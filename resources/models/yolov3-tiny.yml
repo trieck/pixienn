@@ -5,7 +5,7 @@ model:
   height: 416
   width: 416
 
-  max_batches: 300
+  max_batches: 5000
 
   augment: False
 
@@ -26,10 +26,10 @@ model:
     value: 1.0
 
   learning_rate:
-    initial_learning_rate: 0.0005
-    policy: constant
+    initial_learning_rate: 0.001
+    policy: smooth_stepped
 
-    burn_in_batches: 300
+    burn_in_batches: 0
     burn_in_power: 4.0
 
     inverse:
@@ -37,8 +37,8 @@ model:
       power: 1
 
     smooth_stepped:
-      steps: [ 10, 25, 50, 75, 90, 100, 200, 300 ]
-      targets: [ 0.00002, 0.00004, 0.00006, 0.00008, 0.00009, 0.0001, 0.0005, 0.001 ]
+      steps: [ 10, 25, 50, 75, 90, 100, 200, 300, 1000, 5000 ]
+      targets: [ 0.0005, 0.0004, 0.0002, 0.0001, 0.00009, 0.00008, 0.00007, 0.00006, 0.00005,  0.00001 ]
 
     stepped:
       steps: [ 100, 200, 300, 20000, 30000 ]
@@ -204,7 +204,7 @@ model:
 
     - type: yolo
       mask: [ 0, 1, 2 ]
-      anchors: [ 10,14, 23,27, 37,58, 81,82, 135,169, 344,319 ]
+      anchors: [ 10,14, 23,27, 37,58, 81,82, 135,169, 344, 319 ]
       num: 6
-      ignore_thresh: .7
+      ignore_thresh: 0.7
       truth_thresh: 1.0

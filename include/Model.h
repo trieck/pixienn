@@ -172,6 +172,7 @@ private:
     void validate();
     LRPolicy* currentPolicy() const noexcept;
     bool burnIn() const noexcept;
+    void viewImageGT(const std::string& imgPath, const GroundTruthVec& gt, bool augment) const;
 
     // file paths
     std::string cfgFile_;
