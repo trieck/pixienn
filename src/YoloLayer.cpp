@@ -468,7 +468,41 @@ void YoloLayer::addDetects(Detections& detections, int width, int height, float 
 
 void YoloLayer::addDetects(Detections& detections, float threshold, const float* predictions) const
 {
-    // TODO:
+    auto area = std::max(1, this->width() * this->height());
+    auto nclasses = classes();
+
+    for (auto i = 0; i < area; ++i) {
+        auto row = i / this->width();
+        auto col = i % this->width();
+
+        for (auto n = 0; n < n_; ++n) {
+            auto objIndex = entryIndex(0, n * area + i, 4);
+            auto objectness = predictions[objIndex];
+            if (objectness < threshold) {
+                continue;
+            }
+
+            auto boxIndex = entryIndex(0, n * area + i, 0);
+            auto box = yoloBox(predictions, mask_[n], boxIndex, col, row);
+
+            int maxClass = 0;
+            float maxProb = -std::numeric_limits<float>::max();
+
+            for (auto j = 0; j < nclasses; ++j) {
+                int clsIndex = entryIndex(0, n * area + i, 5 + j);
+                auto prob = objectness * predictions[clsIndex];
+                if (prob > maxProb) {
+                    maxClass = j;
+                    maxProb = prob;
+                }
+            }
+
+            if (maxProb >= threshold) {
+                Detection det(box, maxClass, maxProb);
+                detections.emplace_back(std::move(det));
+            }
+        }
+    }
 }
 
 void YoloLayer::resetStats()

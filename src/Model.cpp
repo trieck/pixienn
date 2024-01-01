@@ -33,6 +33,7 @@
 #include "InvLRPolicy.h"
 #include "Layer.h"
 #include "Model.h"
+#include "SigmoidLRPolicy.h"
 #include "SmoothSteppedLRPolicy.h"
 #include "SteppedLRPolicy.h"
 #include "Timer.h"
@@ -111,9 +112,8 @@ void Model::parseModel()
     const auto model = modelDoc["model"];
     PX_CHECK(model.IsMap(), "Model is not a map.");
 
-    parsePolicy(model);
-
     maxBatches_ = model["max_batches"].as<int>(0);
+    parsePolicy(model);
 
     augment_ = model["augment"].as<bool>(true);
     batch_ = model["batch"].as<int>();
@@ -906,6 +906,13 @@ void Model::parsePolicy(const Node& model)
             auto batchesPerCycle = cosineNode["batches_per_cycle"].as<int>(1000);
 
             policy_ = std::make_unique<CosineAnnealingLRPolicy>(learningRate, minLR, batchesPerCycle);
+        } else if (sPolicy == "sigmoid") {
+            auto sigmoidNode = lrNode["sigmoid"];
+            auto targetLR = sigmoidNode["target_learning_rate"].as<float>(0.001f);
+            auto factor = sigmoidNode["factor"].as<float>(12.0f);
+
+            policy_ = std::make_unique<SigmoidLRPolicy>(learningRate, targetLR, factor, maxBatches_);
+
         } else if (sPolicy == "smooth_stepped") {
             auto smoothNode = lrNode["smooth_stepped"];
             auto steps = smoothNode["steps"];
@@ -963,7 +970,7 @@ void Model::validate()
     auto batch = loadBatch(Category::VAL, 100, false);
     validator_.validate(std::move(batch));
 
-    std::printf("\n%zu: mAP: %.4f, Avg. Recall: %.4f, micro-Avg. F1: %.4f\n",
+    std::printf("\n%zu: mAP: %f, Avg. Recall: %f, micro-Avg. F1: %f\n",
                 seen_, validator_.mAP(), validator_.avgRecall(), validator_.microAvgF1());
 
     std::cout << "Resuming training..." << std::endl << std::flush;
