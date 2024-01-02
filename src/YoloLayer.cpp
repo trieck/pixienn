@@ -95,11 +95,12 @@ void YoloLayer::forward(const PxCpuVector& input)
         for (auto n = 0; n < n_; ++n) {
             auto index = entryIndex(b, n * area, 0);
             auto* start = poutput + index;
-            auto* end = start + 2 * area + 1;
+            auto* end = start + 2 * area;
+
             logistic_.apply(start, end);
             index = entryIndex(b, n * area, 4);
             start = poutput + index;
-            end = start + (1 + nclasses) * area + 1;
+            end = start + (1 + nclasses) * area;
             logistic_.apply(start, end);
         }
     }
