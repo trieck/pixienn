@@ -38,9 +38,6 @@ void batchNormBackward(const BNContext& ctxt)
     normalizeDeltaCpu(ctxt.x->data(), ctxt.mean->data(), ctxt.var->data(), ctxt.meanDelta->data(),
                       ctxt.varDelta->data(), ctxt.batch, ctxt.channels, ctxt.outHeight * ctxt.outWidth,
                       ctxt.delta->data());
-
-    // FIXME: we need another way
-    //  if(l.type == BATCHNORM) copy_cpu(l.outputs*l.batch, l.delta, 1, net.delta, 1);
 }
 
 void batchNormForward(const BNContext& ctxt)

@@ -121,9 +121,7 @@ void YoloLayer::forward(const PxCpuVector& input)
 
     cost_ = std::pow(magArray(delta_.data(), delta_.size()), 2);
 
-    if (count_ == 0) {
-        printf("Region %d: WARNING! No ground truth objects associated with anchor boxes during forward pass.\n", index());
-    } else {
+    if (count_ > 0) {
         printf("Region %d: Avg. IoU: %f, Class: %f, Obj: %f, No Obj: %f, .5R: %f, .75R: %f,  count: %d\n",
                index(),
                avgIoU / count_,

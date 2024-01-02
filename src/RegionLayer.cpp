@@ -116,10 +116,7 @@ void RegionLayer::forward(const PxCpuVector& input)
 
     cost_ = std::pow(magArray(delta_.data(), delta_.size()), 2);
 
-    if (count_ == 0) {
-        printf("Region Avg. IoU: -----, Class: -----, Obj: -----, No Obj: %f, Avg. Recall: -----, count: 0\n",
-               avgAnyObj_ / (width() * height() * num_ * batch()));
-    } else {
+    if (count_ > 0) {
         printf("Region Avg. IoU: %f, Class: %f, Obj: %f, No Obj: %f, Avg. Recall: %f, count: %d\n",
                avgIoU_ / count_,
                avgCat_ / classCount_,
