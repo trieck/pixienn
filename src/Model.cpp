@@ -382,7 +382,7 @@ void Model::train()
     auto avgLoss = -std::numeric_limits<float>::max();
 
     Timer timer;
-    std::printf("LR: %f, Momentum: %f, Decay: %f\n", learningRate(), momentum_, decay_);
+    std::printf("LR: %f%s, Momentum: %f, Decay: %f\n", learningRate(), burnIn() ? " (burn-in)" : "", momentum_, decay_);
 
     while (currentBatch() < maxBatches_) {
         Timer batchTimer;
@@ -392,7 +392,7 @@ void Model::train()
         auto epoch = seen_ / trainImages_.size();
 
         if (seen_ % 10 == 0) {
-            printf("Epoch: %zu, Seen: %zu, Loss: %f, Avg. Loss: %.2f, LR: %f%s, %s, %zu images\n",
+            printf("Epoch: %zu, Seen: %zu, Loss: %f, Avg. Loss: %.2f, LR: %.12f%s, %s, %zu images\n",
                    epoch, seen_, loss, avgLoss, learningRate(),
                    burnIn() ? " (burn-in)" : "",
                    batchTimer.str().c_str(), seen_ * batch_);

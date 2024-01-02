@@ -125,10 +125,7 @@ void DetectLayer::printStats(const DetectContext& ctxt)
 {
     auto locations = side_ * side_;
 
-    if (ctxt.count == 0) {
-        printf("Detection: Avg IoU: -----, Pos Cat: -----, All Cat: -----, Pos Obj: -----, Any Obj: %f, count: 0\n",
-               ctxt.avgAnyObj / (batch() * locations * num_));
-    } else {
+    if (ctxt.count > 0) {
         printf("Detection: Avg. IoU: %f, Pos Cat: %f, All Cat: %f, Pos Obj: %f, Any Obj: %f, count: %d\n",
                (ctxt.avgIoU / ctxt.count),
                (ctxt.avgCat / ctxt.count),
