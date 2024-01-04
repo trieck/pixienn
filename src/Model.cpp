@@ -384,10 +384,13 @@ void Model::train()
     Timer timer;
     std::printf("LR: %f%s, Momentum: %f, Decay: %f\n", learningRate(), burnIn() ? " (burn-in)" : "", momentum_, decay_);
 
+    const auto windowSize = 100;
+    const float alpha = 2.0 / (windowSize + 1);
+
     while (currentBatch() < maxBatches_) {
         Timer batchTimer;
         auto loss = trainBatch();
-        avgLoss = avgLoss < 0 ? loss : (avgLoss * .9f + loss * .1f);
+        avgLoss = avgLoss < 0 ? loss : (avgLoss * (1 - alpha) + loss * alpha);
 
         auto epoch = seen_ / trainImages_.size();
 

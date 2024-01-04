@@ -72,7 +72,7 @@ float Validator::avgRecall() const noexcept
 void Validator::processDetects(const GroundTruthVec& gts)
 {
     auto detects = model_.detections();
-    detects = nms(detects, 0.5f);
+    detects = nms(detects, 0.45f);
 
     GroundTruthVec gtsCopy(gts);
 

@@ -40,25 +40,21 @@ float SmoothSteppedLRPolicy::update(int batchNum)
         index = i;
     }
 
-    if (index == steps_.size() - 1) {
-        currentLR_ = targets_[index];
-    } else {
-        auto t = 0.0f;
-        auto start = currentLR_;
-        auto end = targets_[index];
+    auto t = 0.0f;
+    auto start = currentLR_;
+    auto end = targets_[index];
 
-        if (batchNum < steps_[index]) {
-            auto diff = steps_[index] - batchNum;
-            t = 1 - static_cast<float>(diff) / steps_[index];
-        } else if (batchNum >= steps_[index]) {
-            auto diff = batchNum - steps_[index];
-            t = static_cast<float>(diff) / (steps_[index + 1] - steps_[index]);
-            start = targets_[index];
-            end = targets_[index + 1];
-        }
-
-        currentLR_ = smoothStepTransition(t, start, end);
+    if (batchNum < steps_[index]) {
+        auto diff = steps_[index] - batchNum;
+        t = 1 - static_cast<float>(diff) / steps_[index];
+    } else if (batchNum >= steps_[index]) {
+        auto diff = batchNum - steps_[index];
+        t = static_cast<float>(diff) / (steps_[index + 1] - steps_[index]);
+        start = targets_[index];
+        end = targets_[index + 1];
     }
+
+    currentLR_ = smoothStepTransition(t, start, end);
 
     return currentLR_;
 }
