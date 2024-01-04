@@ -24,6 +24,9 @@ namespace px {
 
 void batchNormBackward(const BNContext& ctxt)
 {
+    backwardBias(ctxt.biasUpdates->data(), ctxt.delta->data(), ctxt.batch, ctxt.channels,
+                 ctxt.outHeight * ctxt.outWidth);
+
     backwardScaleCpu(ctxt.xNorm->data(), ctxt.delta->data(), ctxt.batch, ctxt.channels,
                      ctxt.outWidth * ctxt.outHeight, ctxt.scaleUpdates->data());
 

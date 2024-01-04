@@ -201,10 +201,8 @@ void ConvLayer::update()
     cblas_saxpy(weights_.size(), learningRate / batch(), weightUpdates_.data(), 1, weights_.data(), 1);
     cblas_sscal(weights_.size(), momentum, weightUpdates_.data(), 1);
 
-    if (!batchNormalize_) {
-        cblas_saxpy(filters_, learningRate / batch(), biasUpdates_.data(), 1, biases_.data(), 1);
-        cblas_sscal(filters_, momentum, biasUpdates_.data(), 1);
-    }
+    cblas_saxpy(filters_, learningRate / batch(), biasUpdates_.data(), 1, biases_.data(), 1);
+    cblas_sscal(filters_, momentum, biasUpdates_.data(), 1);
 
     if (scales_.size()) {
         cblas_saxpy(filters_, learningRate / batch(), scaleUpdates_.data(), 1, scales_.data(), 1);

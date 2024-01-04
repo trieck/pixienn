@@ -320,8 +320,9 @@ void imdistort(cv::Mat& image, float hue, float saturation, float exposure)
 {
     auto imageType = image.type();
 
-    PX_CHECK(imageType == CV_32FC3 || imageType == CV_8UC3,
-             "Only 32-bit floating point and 8-bit unsigned integer images supported.");
+    if (image.channels() != 3) {
+        return;
+    }
 
     if (imageType == CV_8UC3) {
         image.convertTo(image, CV_32FC3, 1.0 / 255.0);

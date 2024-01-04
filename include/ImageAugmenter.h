@@ -40,7 +40,7 @@ public:
 
 private:
     float jitter_, hue_, saturation_, exposure_;
-    float minScale_ = 0.25f, maxScale_ = 2.0f;
+    float minScale_ = 1.0f, maxScale_ = 1.0f;
 };
 
 }   // px

@@ -120,6 +120,8 @@ void YoloLayer::forward(const PxCpuVector& input)
         processObjects(b);
     }
 
+    constrain(delta_.size(), 1.0f, delta_.data(), 1.0f);
+
     cost_ = std::pow(magArray(delta_.data(), delta_.size()), 2);
 
     if (count_ > 0) {
@@ -185,6 +187,8 @@ void YoloLayer::processObjects(int b)
 
         auto i = static_cast<int>(gt.box.x * width());
         auto j = static_cast<int>(gt.box.y * height());
+        i = std::max(0, std::min(i, width() - 1));
+        j = std::max(0, std::min(j, height() - 1));
 
         auto truthShift(gt.box);
         truthShift.x = 0;
