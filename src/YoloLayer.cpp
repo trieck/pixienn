@@ -120,7 +120,7 @@ void YoloLayer::forward(const PxCpuVector& input)
         processObjects(b);
     }
 
-    //constrain(delta_.size(), 1.0f, delta_.data(), 1.0f);
+    constrain(delta_.size(), 1.0f, delta_.data(), 1.0f);
 
     cost_ = std::pow(magArray(delta_.data(), delta_.size()), 2);
 

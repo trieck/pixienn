@@ -90,7 +90,7 @@ void convolutionalBackward(const ConvContext& ctxt)
 
             if (pNetDelta) {
                 auto* imd =
-                        pNetDelta + (i * ctxt.groups + j) * (ctxt.channels / ctxt.groups * ctxt.height * ctxt.width);
+                        pNetDelta + (i * ctxt.groups + j) * (ctxt.channels / ctxt.groups) * ctxt.height * ctxt.width;
                 a = pweights + j * nweights / ctxt.groups;
                 b = pdelta + (i * ctxt.groups + j) * m * k;
                 c = ctxt.column->data();
