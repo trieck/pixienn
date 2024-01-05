@@ -384,7 +384,7 @@ void Model::train()
     Timer timer;
     std::printf("LR: %f%s, Momentum: %f, Decay: %f\n", learningRate(), burnIn() ? " (burn-in)" : "", momentum_, decay_);
 
-    const auto windowSize = 100;
+    const auto windowSize = 10;
     const float alpha = 2.0 / (windowSize + 1);
 
     while (currentBatch() < maxBatches_) {
@@ -395,7 +395,7 @@ void Model::train()
         auto epoch = seen_ / trainImages_.size();
 
         if (seen_ % 10 == 0) {
-            printf("Epoch: %zu, Seen: %zu, Loss: %f, Avg. Loss: %.2f, LR: %.12f%s, %s, %zu images\n",
+            printf("Epoch: %zu, Seen: %zu, Loss: %f, Avg. Loss: %f, LR: %.12f%s, %s, %zu images\n",
                    epoch, seen_, loss, avgLoss, learningRate(),
                    burnIn() ? " (burn-in)" : "",
                    batchTimer.str().c_str(), seen_ * batch_);
@@ -572,13 +572,12 @@ void Model::viewImageGT(const std::string& imagePath, const GroundTruthVec& gt, 
             auto bgColor = colors.color(index);
             auto textColor = imtextcolor(bgColor);
 
-            cv::Rect2f box;
-            box.x = (g.box.x * mat.ax) + mat.dx;
-            box.y = (g.box.y * mat.ay) + mat.dy;
-            box.width = g.box.width * mat.ax;
-            box.height = g.box.height * mat.ay;
+            auto x = (g.box.x() * mat.ax) + mat.dx;
+            auto y = (g.box.y() * mat.ay) + mat.dy;
+            auto w = g.box.w() * mat.ax;
+            auto h = g.box.h() * mat.ay;
 
-            auto lb = lightBox(box, { width(), height() });
+            auto lb = lightBox({ x, y, w, h }, { width(), height() });
 
             imrect(image, lb, bgColor, 2);
             imtabbedText(image, label.c_str(), lb.tl(), textColor, bgColor, 2);
@@ -591,6 +590,8 @@ void Model::viewImageGT(const std::string& imagePath, const GroundTruthVec& gt, 
 
 auto Model::loadImgLabels(Category category, const std::string& imagePath, bool augment) -> ImageLabels
 {
+    //viewImageGT(imagePath, groundTruth(category, imagePath), augment);
+
     auto gts = groundTruth(category, imagePath);
 
     if (augment) {
@@ -610,10 +611,10 @@ auto Model::loadImgLabels(Category category, const std::string& imagePath, bool 
 
         for (const auto& gt: gts) {
             GroundTruth newGt(gt);
-            newGt.box.x = (gt.box.x * vec.ax) + vec.dx;
-            newGt.box.y = (gt.box.y * vec.ay) + vec.dy;
-            newGt.box.width *= vec.ax;
-            newGt.box.height *= vec.ay;
+            newGt.box.x() = (gt.box.x() * vec.ax) + vec.dx;
+            newGt.box.y() = (gt.box.y() * vec.ay) + vec.dy;
+            newGt.box.w() *= vec.ax;
+            newGt.box.h() *= vec.ay;
 
             newGts.emplace_back(std::move(newGt));
         }
@@ -645,21 +646,10 @@ GroundTruthVec Model::groundTruth(Category category, const std::string& imagePat
         GroundTruth gt;
         gt.classId = id;
 
-        auto left = x - w / 2;
-        auto right = x + w / 2;
-        auto top = y - h / 2;
-        auto bottom = y + h / 2;
-
-        id = std::min<std::size_t>(id, nclasses - 1);
-        left = std::max(0.0f, std::min(left, 1.0f));
-        right = std::max(0.0f, std::min(right, 1.0f));
-        top = std::max(0.0f, std::min(top, 1.0f));
-        bottom = std::max(0.0f, std::min(bottom, 1.0f));
-
-        gt.box.x = (left + right) / 2;
-        gt.box.y = (top + bottom) / 2;
-        gt.box.width = right - left;
-        gt.box.height = bottom - top;
+        gt.box.x() = constrain(0.0f, 1.0f, x);
+        gt.box.y() = constrain(0.0f, 1.0f, y);
+        gt.box.w() = constrain(0.0f, 1.0f, w);
+        gt.box.h() = constrain(0.0f, 1.0f, h);
 
         vector.emplace_back(std::move(gt));
     }

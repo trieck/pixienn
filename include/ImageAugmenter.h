@@ -19,11 +19,12 @@
 
 #include <opencv2/core/types.hpp>
 #include "Common.h"
+#include "DarkBox.h"
 #include "GroundTruth.h"
 
 namespace px {
 
-using BoxTransform = std::function<cv::Rect2f(const cv::Rect2f&)>;
+using BoxTransform = std::function<DarkBox(const DarkBox&)>;
 using Augmentation = std::pair<cv::Mat, BoxTransform>;
 using ImageLabel = std::pair<cv::Mat, GroundTruthVec>;
 

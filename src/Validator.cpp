@@ -112,10 +112,9 @@ GroundTruthVec::size_type Validator::findGroundTruth(const Detection& detection,
 
 float Validator::iou(const Detection& detection, const GroundTruth& truth)
 {
-    cv::Rect2f pred(detection.box());
-    cv::Rect2f gtBox(truth.box);
+    auto dbox = DarkBox(detection.box());
 
-    auto iou = boxIoU(pred, gtBox);
+    auto iou = dbox.iou(truth.box);
 
     return iou;
 }

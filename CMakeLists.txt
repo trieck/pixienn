@@ -111,6 +111,7 @@ list(APPEND SOURCES
         src/ConvLayer.cpp
         src/CosineLRPolicy.cpp
         src/CpuUtil.cpp
+        src/DarkBox.cpp
         src/DetectAlgo.cpp
         src/DetectLayer.cpp
         src/Detection.cpp

@@ -17,6 +17,7 @@
 #ifndef PIXIENN_REGIONLAYER_H
 #define PIXIENN_REGIONLAYER_H
 
+#include "DarkBox.h"
 #include "Detection.h"
 #include "Layer.h"
 
@@ -53,10 +54,10 @@ private:
     void setup() override;
     void processRegion(int b, int i, int j);
     void processObjects(int i);
-    cv::Rect2f regionBox(int n, int index, int i, int j);
-    float deltaRegionBox(const cv::Rect2f& truth, int n, int index, int i, int j, float scale);
+    DarkBox regionBox(int n, int index, int i, int j);
+    float deltaRegionBox(const DarkBox& truth, int n, int index, int i, int j, float scale);
     void deltaRegionClass(int index, int classId, float scale);
-    float bestIoU(int b, const cv::Rect2f& pred);
+    float bestIoU(int b, const DarkBox& pred);
 
     void resetStats();
 

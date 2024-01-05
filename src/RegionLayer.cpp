@@ -139,25 +139,23 @@ void RegionLayer::processObjects(int b)
         auto bestIndex = 0;
         auto bestN = 0;
 
-        auto i = static_cast<int>(gt.box.x * width());
-        auto j = static_cast<int>(gt.box.y * height());
+        auto i = static_cast<int>(gt.box.x() * width());
+        auto j = static_cast<int>(gt.box.y() * height());
 
         auto truthShift(gt.box);
-        truthShift.x = 0;
-        truthShift.y = 0;
+        truthShift.x() = 0;
+        truthShift.y() = 0;
 
         for (auto n = 0; n < num_; ++n) {
             auto index = size * (j * width() * num_ + i * num_ + n) + b * outputs();
             auto pred = regionBox(n, index, i, j);
             if (biasMatch_) {
-                pred.width = biases_[2 * n] / width();
-                pred.height = biases_[2 * n + 1] / height();
+                pred.w() = biases_[2 * n] / width();
+                pred.h() = biases_[2 * n + 1] / height();
             }
 
-            pred.x = 0;
-            pred.y = 0;
-
-            auto iou = boxIoU(pred, truthShift);
+            pred.x() = pred.y() = 0;
+            auto iou = pred.iou(truthShift);
             if (iou > bestIoU) {
                 bestIoU = iou;
                 bestIndex = index;
@@ -202,19 +200,19 @@ void RegionLayer::deltaRegionClass(int index, int classId, float scale)
     }
 }
 
-float RegionLayer::deltaRegionBox(const cv::Rect2f& truth, int n, int index, int i, int j, float scale)
+float RegionLayer::deltaRegionBox(const DarkBox& truth, int n, int index, int i, int j, float scale)
 {
     auto pred = regionBox(n, index, i, j);
-    auto iou = boxIoU(pred, truth);
+    auto iou = pred.iou(truth);
 
     auto* x = output_.data();
     auto* biases = biases_.data();
     auto* delta = delta_.data();
 
-    auto tx = truth.x * width() - i;
-    auto ty = truth.y * height() - j;
-    auto tw = std::log(truth.width * width() / biases[2 * n]);
-    auto th = std::log(truth.height * height() / biases[2 * n + 1]);
+    auto tx = truth.x() * width() - i;
+    auto ty = truth.y() * height() - j;
+    auto tw = std::log(truth.w() * width() / biases[2 * n]);
+    auto th = std::log(truth.h() * height() / biases[2 * n + 1]);
 
     delta[index + 0] = scale * (tx - logistic_.apply(x[index + 0]))
                        * logistic_.gradient(logistic_.apply(x[index + 0]));
@@ -249,29 +247,27 @@ void RegionLayer::processRegion(int b, int i, int j)
         }
 
         if (model().seen() < 12800) {   // magic!
-            cv::Rect2f truth;
-            truth.x = (i + .5) / width();
-            truth.y = (j + .5) / height();
-            truth.width = pbias[2 * n] / width();
-            truth.height = pbias[2 * n + 1] / height();
+            auto x = (i + .5f) / width();
+            auto y = (j + .5f) / height();
+            auto w = pbias[2 * n] / width();
+            auto h = pbias[2 * n + 1] / height();
 
-            deltaRegionBox(truth, n, index, i, j, 0.01f);
+            deltaRegionBox({ x, y, w, h }, n, index, i, j, 0.01f);
         }
     }
 }
 
-cv::Rect2f RegionLayer::regionBox(int n, int index, int i, int j)
+DarkBox RegionLayer::regionBox(int n, int index, int i, int j)
 {
-    auto* x = output_.data();
+    auto* p = output_.data();
     auto* biases = biases_.data();
 
-    cv::Rect2f box;
-    box.x = (i + logistic_.apply(x[index + 0])) / width();
-    box.y = (j + logistic_.apply(x[index + 1])) / height();
-    box.width = std::exp(x[index + 2]) * biases[2 * n] / width();
-    box.height = std::exp(x[index + 3]) * biases[2 * n + 1] / height();
+    auto x = (i + logistic_.apply(p[index + 0])) / width();
+    auto y = (j + logistic_.apply(p[index + 1])) / height();
+    auto w = std::exp(p[index + 2]) * biases[2 * n] / width();
+    auto h = std::exp(p[index + 3]) * biases[2 * n + 1] / height();
 
-    return box;
+    return { x, y, w, h };
 }
 
 void RegionLayer::backward(const PxCpuVector& input)
@@ -306,19 +302,13 @@ void RegionLayer::addDetects(Detections& detections, float threshold)
             auto pindex = index * (classes() + coords_ + 1) + coords_;
             auto scale = predictions[pindex];
             auto boxIndex = index * (classes() + coords_ + 1);
-
             auto box = regionBox(n, boxIndex, col, row);
-            int left = box.x - box.width / 2;
-            int right = box.x + box.width / 2;
-            int top = box.y - box.height / 2;
-            int bottom = box.y + box.height / 2;
-
             auto clsIndex = index * (classes() + coords_ + 1) + coords_ + 1;
+
             for (auto j = 0; j < classes(); ++j) {
                 auto prob = scale * predictions[clsIndex + j];
                 if (prob >= threshold) {
-                    cv::Rect b{ left, top, right - left, bottom - top };
-                    Detection det(b, j, prob);
+                    Detection det(box.rect(), j, prob);
                     detections.emplace_back(std::move(det));
                 }
             }
@@ -339,24 +329,13 @@ void RegionLayer::addDetects(Detections& detections, int w, int h, float thresho
             auto pindex = index * (classes() + coords_ + 1) + coords_;
             auto scale = predictions[pindex];
             auto boxIndex = index * (classes() + coords_ + 1);
-
             auto box = regionBox(n, boxIndex, col, row);
-            int left = (box.x - box.width / 2) * w;
-            int right = (box.x + box.width / 2) * w;
-            int top = (box.y - box.height / 2) * h;
-            int bottom = (box.y + box.height / 2) * h;
-
-            left = std::max(0, left);
-            right = std::min(w - 1, right);
-            top = std::max(0, top);
-            bottom = std::min(h - 1, bottom);
 
             auto clsIndex = index * (classes() + coords_ + 1) + coords_ + 1;
             for (auto j = 0; j < classes(); ++j) {
                 auto prob = scale * predictions[clsIndex + j];
                 if (prob >= threshold) {
-                    cv::Rect b{ left, top, right - left, bottom - top };
-                    Detection det(b, j, prob);
+                    Detection det(box.rect(), j, prob);
                     detections.emplace_back(std::move(det));
                 }
             }
@@ -364,14 +343,14 @@ void RegionLayer::addDetects(Detections& detections, int w, int h, float thresho
     }
 }
 
-float RegionLayer::bestIoU(int b, const cv::Rect2f& pred)
+float RegionLayer::bestIoU(int b, const DarkBox& pred)
 {
     const auto& gt = groundTruth(b);
 
     auto bestIoU = -std::numeric_limits<float>::max();
 
     for (const auto& g: gt) {
-        auto iou = boxIoU(pred, g.box);
+        auto iou = pred.iou(g.box);
         if (iou > bestIoU) {
             bestIoU = iou;
         }
