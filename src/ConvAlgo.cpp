@@ -77,7 +77,7 @@ void convolutionalBackward(const ConvContext& ctxt)
 
     for (auto i = 0; i < ctxt.batch; ++i) {
         for (auto j = 0; j < ctxt.groups; ++j) {
-            const auto* im = pin + (i * ctxt.groups + j) * ctxt.channels / ctxt.groups * ctxt.height * ctxt.width;
+            const auto* im = pin + (i * ctxt.groups + j) * (ctxt.channels / ctxt.groups * ctxt.height * ctxt.width);
             const auto* a = pdelta + (i * ctxt.groups + j) * m * k;
             auto* b = ctxt.column->data();
             auto* c = pweightUdates + j * nweights / ctxt.groups;
@@ -89,7 +89,8 @@ void convolutionalBackward(const ConvContext& ctxt)
             cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, m, n, k, alpha, a, k, b, k, beta, c, n);
 
             if (pNetDelta) {
-                auto* imd = pNetDelta + (i * ctxt.groups + j) * ctxt.channels / ctxt.groups * ctxt.height * ctxt.width;
+                auto* imd =
+                        pNetDelta + (i * ctxt.groups + j) * (ctxt.channels / ctxt.groups * ctxt.height * ctxt.width);
                 a = pweights + j * nweights / ctxt.groups;
                 b = pdelta + (i * ctxt.groups + j) * m * k;
                 c = ctxt.column->data();

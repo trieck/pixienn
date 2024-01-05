@@ -45,12 +45,12 @@ bool valuesInRange(const cv::Mat& image, float minVal, float maxVal)
     return true;
 }
 
-bool nearBox(const Rect2f& box1, const Rect2f& box2, float epsilon)
+bool nearBox(const DarkBox& box1, const DarkBox& box2, float epsilon)
 {
-    auto dx = std::abs(box1.x - box2.x);
-    auto dy = std::abs(box1.y - box2.y);
-    auto dw = std::abs(box1.width - box2.width);
-    auto dh = std::abs(box1.height - box2.height);
+    auto dx = std::abs(box1.x() - box2.x());
+    auto dy = std::abs(box1.y() - box2.y());
+    auto dw = std::abs(box1.w() - box2.w());
+    auto dh = std::abs(box1.h() - box2.h());
 
     return dx < epsilon && dy < epsilon && dw < epsilon && dh < epsilon;
 }

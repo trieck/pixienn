@@ -25,25 +25,23 @@
 using namespace px;
 using namespace testing;
 
-float darkIoU(int gridSize, cv::Rect2f box1, cv::Rect2f box2)
+float darkIoU(int gridSize, DarkBox box1, DarkBox box2)
 {
-    cv::Rect2f dbox1(std::move(box1));
-    cv::Rect2f dbox2(std::move(box2));
+    DarkBox dbox1(std::move(box1));
+    DarkBox dbox2(std::move(box2));
 
-    dbox1.x /= gridSize;
-    dbox1.y /= gridSize;
+    dbox1.x() /= gridSize;
+    dbox1.y() /= gridSize;
 
-    dbox2.x /= gridSize;
-    dbox2.y /= gridSize;
+    dbox2.x() /= gridSize;
+    dbox2.y() /= gridSize;
 
-    auto iou = boxIoU(dbox1, dbox2);
+    auto iou = dbox1.iou(dbox2);
 
     return iou;
 }
 
-
-
-cv::Rect2f darkBox(int gridSize, int row, int col)
+DarkBox darkBox(int gridSize, int row, int col)
 {
     auto minCol = float(col) / gridSize;
     auto maxCol = float(col + 0.999) / gridSize;
@@ -64,11 +62,11 @@ cv::Rect2f darkBox(int gridSize, int row, int col)
     return { x, y, width, height };
 }
 
-std::pair<cv::Rect2f, cv::Rect2f> makeBoxes(int gridSize, int gridRow, int gridCol, float minIoU)
+std::pair<DarkBox, DarkBox> makeBoxes(int gridSize, int gridRow, int gridCol, float minIoU)
 {
     float iou = 0;
 
-    cv::Rect2f box1, box2;
+    DarkBox box1, box2;
     box1 = darkBox(gridSize, gridRow, gridCol);
 
     constexpr auto maxIterations = 100000;
@@ -76,7 +74,7 @@ std::pair<cv::Rect2f, cv::Rect2f> makeBoxes(int gridSize, int gridRow, int gridC
 
     do {
         box2 = darkBox(gridSize, gridRow, gridCol);
-        iou = boxIoU(box1, box2);
+        iou = box1.iou(box2);
 
         if (++iterations == maxIterations) {
             PX_ERROR_THROW("Unable to generate bounding boxes in %d iterations.", iterations);
@@ -118,7 +116,7 @@ protected:
         groundTruths[batch].emplace_back(std::move(gt));
     }
 
-    void CheckDetect(int clazz, float prob, int row, int col, const cv::Rect2f& pred)
+    void CheckDetect(int clazz, float prob, int row, int col, const DarkBox& pred)
     {
         Detections dets;
 
@@ -141,20 +139,14 @@ protected:
         EXPECT_FLOAT_EQ(detect.classIndex(), clazz);
         EXPECT_FLOAT_EQ(detect.prob(), prob);
 
-        auto bbox = cv::Rect(detect.box());
+        auto x = (pred.x() + col) / ctxt.side * IMAGE_SIZE.width;
+        auto y = (pred.y() + row) / ctxt.side * IMAGE_SIZE.height;
+        float w = std::pow(pred.w(), (ctxt.sqrt ? 2 : 1)) * IMAGE_SIZE.width;
+        float h = std::pow(pred.h(), (ctxt.sqrt ? 2 : 1)) * IMAGE_SIZE.height;
 
-        auto x = (pred.x + col) / ctxt.side * IMAGE_SIZE.width;
-        auto y = (pred.y + row) / ctxt.side * IMAGE_SIZE.height;
-        auto w = std::pow(pred.width, (ctxt.sqrt ? 2 : 1)) * IMAGE_SIZE.width;
-        auto h = std::pow(pred.height, (ctxt.sqrt ? 2 : 1)) * IMAGE_SIZE.height;
+        DarkBox predBox{ x, y, w, h };
 
-        auto left = std::max<int>(0, (x - w / 2));
-        auto right = std::min<int>(IMAGE_SIZE.width - 1, (x + w / 2));
-        auto top = std::max<int>(0, (y - h / 2));
-        auto bottom = std::min<int>(IMAGE_SIZE.height - 1, (y + h / 2));
-        cv::Rect predBox{ left, top, right - left, bottom - top };
-
-        EXPECT_EQ(bbox, predBox);
+        EXPECT_EQ(detect.box(), predBox);
     }
 
     void TearDown() override
@@ -188,13 +180,14 @@ TEST_F(DetectionTest, BoxConversion)
     auto box1 = boxes.first;
     auto box2 = boxes.second;
 
-    auto col1 = int(box1.x * S);
-    auto row1 = int(box1.y * S);
+    auto col1 = int(box1.x() * S);
+    auto row1 = int(box1.y() * S);
     EXPECT_EQ(col1, 3);
     EXPECT_EQ(row1, 2);
 
     // ensure the IoU is within bounds
-    auto iou = boxIoU(box1, box2);
+    auto iou = box1.iou(box2);
+
     EXPECT_TRUE(minIoU <= iou);
 }
 
@@ -219,10 +212,10 @@ TEST_F(DetectionTest, Forward)
     auto probability = 1.2;
 
     input[objOffset] = objectness;          // objectness
-    input[bboxOffset + 0] = predBox.x;      // x
-    input[bboxOffset + 1] = predBox.y;      // y
-    input[bboxOffset + 2] = predBox.width;  // width
-    input[bboxOffset + 3] = predBox.height; // height
+    input[bboxOffset + 0] = predBox.x();    // x
+    input[bboxOffset + 1] = predBox.y();    // y
+    input[bboxOffset + 2] = predBox.w();    // width
+    input[bboxOffset + 3] = predBox.h();    // height
     input[classOffset] = 1.2f;              // class probability
 
     detectForward(ctxt);
@@ -235,10 +228,10 @@ TEST_F(DetectionTest, Forward)
     EXPECT_NEAR(ctxt.avgIoU / ctxt.count, iou, 1e-2);
 
     EXPECT_FLOAT_EQ(delta[objOffset], ctxt.objectScale * (1 - objectness));
-    EXPECT_FLOAT_EQ(delta[bboxOffset + 0], ctxt.coordScale * (gtBox.x - predBox.x));
-    EXPECT_FLOAT_EQ(delta[bboxOffset + 1], ctxt.coordScale * (gtBox.y - predBox.y));
-    EXPECT_FLOAT_EQ(delta[bboxOffset + 2], ctxt.coordScale * (gtBox.width - predBox.width));
-    EXPECT_FLOAT_EQ(delta[bboxOffset + 3], ctxt.coordScale * (gtBox.height - predBox.height));
+    EXPECT_FLOAT_EQ(delta[bboxOffset + 0], ctxt.coordScale * (gtBox.x() - predBox.x()));
+    EXPECT_FLOAT_EQ(delta[bboxOffset + 1], ctxt.coordScale * (gtBox.y() - predBox.y()));
+    EXPECT_FLOAT_EQ(delta[bboxOffset + 2], ctxt.coordScale * (gtBox.w() - predBox.w()));
+    EXPECT_FLOAT_EQ(delta[bboxOffset + 3], ctxt.coordScale * (gtBox.h() - predBox.h()));
     EXPECT_FLOAT_EQ(delta[classOffset], ctxt.classScale * (1 - probability));
 
     CheckDetect(clazz, objectness * probability, row, col, predBox);

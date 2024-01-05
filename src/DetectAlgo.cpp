@@ -15,10 +15,9 @@
 ********************************************************************************/
 
 #include <cblas.h>
-#include <opencv2/core/types.hpp>
 
-#include "Box.h"
 #include "Common.h"
+#include "DarkBox.h"
 #include "DetectAlgo.h"
 #include "Math.h"
 
@@ -28,7 +27,7 @@ struct GroundTruthContext
 {
     const DetectContext* ctxt;
     const GroundTruth* bestGT;
-    cv::Rect2f pred;
+    DarkBox pred;
     float bestIoU;
     int batch;
     int gridIndex;
@@ -42,8 +41,8 @@ struct GroundTruthResult
 
 static void resetStats(DetectContext& ctxt);
 static void processDetects(DetectContext& ctxt, int b, int i);
-static cv::Rect2f makeBox(const float* pbox);
-static cv::Rect2f predBox(const DetectContext& ctxt, const float* pbox);
+static DarkBox makeBox(const float* pbox);
+static DarkBox predBox(const DetectContext& ctxt, const float* pbox);
 static GroundTruthResult groundTruth(const GroundTruthContext& ctxt);
 
 void detectForward(DetectContext& ctxt)
@@ -135,14 +134,14 @@ void processDetects(DetectContext& ctxt, int b, int i)
         ctxt.avgAllCat += poutput[classIndex + j];
     }
 
-    cv::Rect2f truthBox(gt->box);
-    truthBox.x /= ctxt.side;
-    truthBox.y /= ctxt.side;
+    DarkBox truthBox(gt->box);
+    truthBox.x() /= ctxt.side;
+    truthBox.y() /= ctxt.side;
 
     auto row = i / ctxt.side;
     auto col = i % ctxt.side;
-    auto truthRow = (int) (gt->box.y * ctxt.side);
-    auto truthCol = (int) (gt->box.x * ctxt.side);
+    auto truthRow = (int) (gt->box.y() * ctxt.side);
+    auto truthCol = (int) (gt->box.x() * ctxt.side);
 
     PX_CHECK(row == truthRow, "The ground truth box is not in the grid cell row.");
     PX_CHECK(col == truthCol, "The ground truth box is not in the grid cell column.");
@@ -151,7 +150,7 @@ void processDetects(DetectContext& ctxt, int b, int i)
     auto boxIndex = index + locations * (nclasses + ctxt.num) + (i * ctxt.num + bestJ) * ctxt.coords;
 
     auto pred = predBox(ctxt, poutput + boxIndex);
-    auto iou = boxIoU(pred, truthBox);
+    auto iou = pred.iou(truthBox);
 
     *(ctxt.cost) -= ctxt.noObjectScale * std::pow(poutput[pobject], 2);
     *(ctxt.cost) += ctxt.objectScale * std::pow(1 - poutput[pobject], 2);
@@ -162,14 +161,14 @@ void processDetects(DetectContext& ctxt, int b, int i)
         pdelta[pobject] = ctxt.objectScale * (iou - poutput[pobject]);
     }
 
-    pdelta[boxIndex + 0] = ctxt.coordScale * (gt->box.x - poutput[boxIndex + 0]);
-    pdelta[boxIndex + 1] = ctxt.coordScale * (gt->box.y - poutput[boxIndex + 1]);
-    pdelta[boxIndex + 2] = ctxt.coordScale * (gt->box.width - poutput[boxIndex + 2]);
-    pdelta[boxIndex + 3] = ctxt.coordScale * (gt->box.height - poutput[boxIndex + 3]);
+    pdelta[boxIndex + 0] = ctxt.coordScale * (gt->box.x() - poutput[boxIndex + 0]);
+    pdelta[boxIndex + 1] = ctxt.coordScale * (gt->box.y() - poutput[boxIndex + 1]);
+    pdelta[boxIndex + 2] = ctxt.coordScale * (gt->box.w() - poutput[boxIndex + 2]);
+    pdelta[boxIndex + 3] = ctxt.coordScale * (gt->box.h() - poutput[boxIndex + 3]);
 
     if (ctxt.sqrt) {
-        pdelta[boxIndex + 2] = ctxt.coordScale * (std::sqrt(gt->box.width) - poutput[boxIndex + 2]);
-        pdelta[boxIndex + 3] = ctxt.coordScale * (std::sqrt(gt->box.height) - poutput[boxIndex + 3]);
+        pdelta[boxIndex + 2] = ctxt.coordScale * (std::sqrt(gt->box.w()) - poutput[boxIndex + 2]);
+        pdelta[boxIndex + 3] = ctxt.coordScale * (std::sqrt(gt->box.h()) - poutput[boxIndex + 3]);
     }
 
     *(ctxt.cost) += std::pow(1 - iou, 2);
@@ -188,17 +187,17 @@ GroundTruthResult groundTruth(const GroundTruthContext& ctxt)
 
     const auto& gts = (*ctxt.ctxt->groundTruths)[ctxt.batch];
     for (const auto& gt: gts) {
-        auto truthRow = static_cast<int>(gt.box.y * ctxt.ctxt->side);
-        auto truthCol = static_cast<int>(gt.box.x * ctxt.ctxt->side);
+        auto truthRow = static_cast<int>(gt.box.y() * ctxt.ctxt->side);
+        auto truthCol = static_cast<int>(gt.box.x() * ctxt.ctxt->side);
         if (!(truthRow == row && truthCol == col)) {
             continue;
         }
 
-        cv::Rect2f truthBox(gt.box);
-        truthBox.x /= ctxt.ctxt->side;
-        truthBox.y /= ctxt.ctxt->side;
+        DarkBox truthBox(gt.box);
+        truthBox.x() /= ctxt.ctxt->side;
+        truthBox.y() /= ctxt.ctxt->side;
 
-        auto iou = boxIoU(ctxt.pred, truthBox);
+        auto iou = ctxt.pred.iou(truthBox);
         if (iou > result.bestIoU) {
             result.bestIoU = iou;
             result.gt = &gt;
@@ -214,26 +213,25 @@ void resetStats(DetectContext& ctxt)
     ctxt.count = 0;
 }
 
-cv::Rect2f makeBox(const float* pbox)
+DarkBox makeBox(const float* pbox)
 {
-    cv::Rect2f box;
-    box.x = *pbox++;
-    box.y = *pbox++;
-    box.width = *pbox++;
-    box.height = *pbox++;
+    auto x = *pbox++;
+    auto y = *pbox++;
+    auto w = *pbox++;
+    auto h = *pbox++;
 
-    return box;
+    return { x, y, w, h };
 }
 
-cv::Rect2f predBox(const DetectContext& ctxt, const float* pbox)
+DarkBox predBox(const DetectContext& ctxt, const float* pbox)
 {
     auto box = makeBox(pbox);
-    box.x /= ctxt.side;
-    box.y /= ctxt.side;
+    box.x() /= ctxt.side;
+    box.y() /= ctxt.side;
 
     if (ctxt.sqrt) {
-        box.width *= box.width;
-        box.height *= box.height;
+        box.w() *= box.w();
+        box.h() *= box.h();
     }
 
     return box;
@@ -272,10 +270,6 @@ void detectAddPredicts(const PredictContext& ctxt)
             auto y = (ctxt.predictions[bindex + 1] + row) / ctxt.side * ctxt.height;
             auto w = std::pow<float>(ctxt.predictions[bindex + 2], (ctxt.sqrt ? 2.0f : 1.0f)) * ctxt.width;
             auto h = std::pow<float>(ctxt.predictions[bindex + 3], (ctxt.sqrt ? 2.0f : 1.0f)) * ctxt.height;
-            auto left = std::max<int>(0, (x - w / 2));
-            auto right = std::min<int>(ctxt.width - 1, (x + w / 2));
-            auto top = std::max<int>(0, (y - h / 2));
-            auto bottom = std::min<int>(ctxt.height - 1, (y + h / 2));
 
             int maxClass = 0;
             float maxProb = -std::numeric_limits<float>::max();
@@ -287,9 +281,10 @@ void detectAddPredicts(const PredictContext& ctxt)
                     maxProb = prob;
                 }
             }
+
             if (maxProb >= ctxt.threshold) {
-                cv::Rect b{ left, top, right - left, bottom - top };
-                Detection det(b, maxClass, maxProb);
+                DarkBox b{ x, y, w, h };
+                Detection det(b.rect(), maxClass, maxProb);
                 ctxt.detections->emplace_back(std::move(det));
             }
         }
@@ -322,8 +317,8 @@ void detectAddRawPredicts(const PredictContext& ctxt)
                 }
             }
             if (maxProb >= ctxt.threshold) {
-                cv::Rect2f b{ x, y, w, h };
-                Detection det(b, maxClass, maxProb);
+                DarkBox b{ x, y, w, h };
+                Detection det(b.rect(), maxClass, maxProb);
                 ctxt.detections->emplace_back(std::move(det));
             }
         }

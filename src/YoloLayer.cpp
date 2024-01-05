@@ -16,7 +16,7 @@
 
 #include <cblas.h>
 
-#include "Box.h"
+#include "DarkBox.h"
 #include "Model.h"
 #include "YoloLayer.h"
 
@@ -25,7 +25,7 @@ namespace px {
 struct GroundTruthContext
 {
     const GroundTruthVec* gt;
-    cv::Rect2f pred;
+    DarkBox pred;
 };
 
 struct GroundTruthResult
@@ -120,7 +120,7 @@ void YoloLayer::forward(const PxCpuVector& input)
         processObjects(b);
     }
 
-    constrain(delta_.size(), 1.0f, delta_.data(), 1.0f);
+    //constrain(delta_.size(), 1.0f, delta_.data(), 1.0f);
 
     cost_ = std::pow(magArray(delta_.data(), delta_.size()), 2);
 
@@ -185,21 +185,21 @@ void YoloLayer::processObjects(int b)
         auto bestIoU = -std::numeric_limits<float>::max();
         auto bestN = 0;
 
-        auto i = static_cast<int>(gt.box.x * width());
-        auto j = static_cast<int>(gt.box.y * height());
+        auto i = static_cast<int>(gt.box.x() * width());
+        auto j = static_cast<int>(gt.box.y() * height());
         i = std::max(0, std::min(i, width() - 1));
         j = std::max(0, std::min(j, height() - 1));
 
         auto truthShift(gt.box);
-        truthShift.x = 0;
-        truthShift.y = 0;
+        truthShift.x() = 0;
+        truthShift.y() = 0;
 
         for (auto n = 0; n < num_; ++n) {
-            cv::Rect2f pred;
+            DarkBox pred;
+            pred.w() = biases_[2 * n] / model().width();
+            pred.h() = biases_[2 * n + 1] / model().height();
 
-            pred.width = biases_[2 * n] / model().width();
-            pred.height = biases_[2 * n + 1] / model().height();
-            auto iou = boxIoU(pred, truthShift);
+            auto iou = pred.iou(truthShift);
             if (iou > bestIoU) {
                 bestIoU = iou;
                 bestN = n;
@@ -254,14 +254,14 @@ float YoloLayer::deltaYoloBox(const GroundTruth& truth, int mask, int index, int
     auto h = model().height();
 
     auto pred = yoloBox(x, mask, index, i, j);
-    auto iou = boxIoU(pred, truth.box);
+    auto iou = pred.iou(truth.box);
 
-    auto tx = truth.box.x * width() - i;
-    auto ty = truth.box.y * height() - j;
-    auto tw = std::log(truth.box.width * w / biases_[2 * mask]);
-    auto th = std::log(truth.box.height * h / biases_[2 * mask + 1]);
+    auto tx = truth.box.x() * width() - i;
+    auto ty = truth.box.y() * height() - j;
+    auto tw = std::log(truth.box.w() * w / biases_[2 * mask]);
+    auto th = std::log(truth.box.h() * h / biases_[2 * mask + 1]);
 
-    auto scale = 2 - truth.box.width * truth.box.height;
+    auto scale = 2 - truth.box.w() * truth.box.h();
     auto stride = width() * height();
 
     delta[index + 0 * stride] = scale * (tx - x[index + 0 * stride]);
@@ -302,7 +302,7 @@ GroundTruthResult bestGT(const GroundTruthContext& ctxt)
     result.bestIoU = -std::numeric_limits<float>::max();
 
     for (const auto& gt: *ctxt.gt) {
-        auto iou = boxIoU(ctxt.pred, gt.box);
+        auto iou = ctxt.pred.iou(gt.box);
         if (iou > result.bestIoU) {
             result.bestIoU = iou;
             result.gt = &gt;
@@ -363,7 +363,7 @@ int YoloLayer::entryIndex(int batch, int location, int entry) const noexcept
     return batch * outputs() + n * area * (4 + classes() + 1) + entry * area + loc;
 }
 
-cv::Rect2f YoloLayer::yoloBox(const float* p, int mask, int index, int i, int j) const
+DarkBox YoloLayer::yoloBox(const float* p, int mask, int index, int i, int j) const
 {
     auto stride = width() * height();
 
@@ -410,13 +410,7 @@ cv::Rect YoloLayer::scaledYoloBox(const float* p, int mask, int index, int i, in
     auto top = std::max<int>(0, (y - height / 2) * h);
     auto bottom = std::min<int>(h - 1, (y + height / 2) * h);
 
-    cv::Rect b;
-    b.x = left;
-    b.y = top;
-    b.width = right - left;
-    b.height = bottom - top;
-
-    return b;
+    return { left, top, right - left, bottom - top };
 }
 
 void YoloLayer::addDetects(Detections& detections, int width, int height, float threshold)
@@ -501,7 +495,7 @@ void YoloLayer::addDetects(Detections& detections, float threshold, const float*
             }
 
             if (maxProb >= threshold) {
-                Detection det(box, maxClass, maxProb);
+                Detection det(box.rect(), maxClass, maxProb);
                 detections.emplace_back(std::move(det));
             }
         }

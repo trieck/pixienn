@@ -112,7 +112,7 @@ TEST(ImageBatchTest, AddGroundTruth)
 
     GroundTruth groundTruth;
     groundTruth.classId = 1;
-    groundTruth.box = cv::Rect2f(1.0f, 2.0f, 3.0f, 4.0f);
+    groundTruth.box = DarkBox(1.0f, 2.0f, 3.0f, 4.0f);
 
     // Add ground truth to index 0
     imageBatch.addGroundTruth(0, std::move(groundTruth));
@@ -121,7 +121,7 @@ TEST(ImageBatchTest, AddGroundTruth)
     const auto& groundTruths = imageBatch.groundTruth(0);
     ASSERT_EQ(groundTruths.size(), 1);
     EXPECT_EQ(groundTruths[0].classId, 1);
-    EXPECT_EQ(groundTruths[0].box, cv::Rect2f(1.0f, 2.0f, 3.0f, 4.0f));
+    EXPECT_EQ(groundTruths[0].box, DarkBox(1.0f, 2.0f, 3.0f, 4.0f));
 }
 
 TEST(ImageBatchTest, SetGroundTruth)
@@ -129,8 +129,8 @@ TEST(ImageBatchTest, SetGroundTruth)
     TrainBatch imageBatch(2, 3, 4, 5);
 
     GroundTruthVec groundTruthVec = {
-            { 1, cv::Rect2f(1.0f, 2.0f, 3.0f, 4.0f) },
-            { 2, cv::Rect2f(5.0f, 6.0f, 7.0f, 8.0f) }
+            { 1, DarkBox(1.0f, 2.0f, 3.0f, 4.0f) },
+            { 2, DarkBox(5.0f, 6.0f, 7.0f, 8.0f) }
     };
 
     // Set ground truth for index 0
@@ -144,10 +144,10 @@ TEST(ImageBatchTest, SetGroundTruth)
     ASSERT_EQ(groundTruths.size(), 2);
 
     EXPECT_EQ(groundTruths[0].classId, 1);
-    EXPECT_EQ(groundTruths[0].box, cv::Rect2f(1.0f, 2.0f, 3.0f, 4.0f));
+    EXPECT_EQ(groundTruths[0].box, DarkBox(1.0f, 2.0f, 3.0f, 4.0f));
 
     EXPECT_EQ(groundTruths[1].classId, 2);
-    EXPECT_EQ(groundTruths[1].box, cv::Rect2f(5.0f, 6.0f, 7.0f, 8.0f));
+    EXPECT_EQ(groundTruths[1].box, DarkBox(5.0f, 6.0f, 7.0f, 8.0f));
 }
 
 TEST(ImageBatchTest, AllocateMethod)

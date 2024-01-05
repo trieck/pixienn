@@ -17,15 +17,15 @@
 #ifndef PIXIENN_GROUNDTRUTH_H
 #define PIXIENN_GROUNDTRUTH_H
 
-#include <opencv2/core/types.hpp>
 #include "Common.h"
+#include "DarkBox.h"
 
 namespace px {
 
 struct GroundTruth
 {
     int classId;
-    cv::Rect2f box;
+    DarkBox box;
 };
 
 using GroundTruthVec = std::vector<GroundTruth>;

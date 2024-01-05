@@ -55,7 +55,7 @@ private:
     void addDetects(Detections& detections, float threshold, const float* predictions) const;
 
     int entryIndex(int batch, int location, int entry) const noexcept;
-    cv::Rect2f yoloBox(const float* p, int mask, int index, int i, int j) const;
+    DarkBox yoloBox(const float* p, int mask, int index, int i, int j) const;
     cv::Rect scaledYoloBox(const float* p, int mask, int index, int i, int j, int w, int h) const;
     void resetStats();
     void processRegion(int b, int i, int j);

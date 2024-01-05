@@ -60,10 +60,10 @@ void batchNormForward(const BNContext& ctxt)
         meanCpu(ctxt.output->data(), b, c, size, ctxt.mean->data());
         varianceCpu(ctxt.output->data(), ctxt.mean->data(), b, c, size, ctxt.var->data());
 
-        cblas_sscal(c, 0.9f, ctxt.rollingMean->data(), 1);
-        cblas_saxpy(c, .1f, ctxt.mean->data(), 1, ctxt.rollingMean->data(), 1);
-        cblas_sscal(c, 0.9f, ctxt.rollingVar->data(), 1);
-        cblas_saxpy(c, .1f, ctxt.var->data(), 1, ctxt.rollingVar->data(), 1);
+        cblas_sscal(c, 0.99f, ctxt.rollingMean->data(), 1);
+        cblas_saxpy(c, .01f, ctxt.mean->data(), 1, ctxt.rollingMean->data(), 1);
+        cblas_sscal(c, 0.99f, ctxt.rollingVar->data(), 1);
+        cblas_saxpy(c, .01f, ctxt.var->data(), 1, ctxt.rollingVar->data(), 1);
 
         normalizeCpu(ctxt.output->data(), ctxt.mean->data(), ctxt.var->data(), b, c, size);
         cblas_scopy(b * outputs, ctxt.output->data(), 1, ctxt.xNorm->data(), 1);

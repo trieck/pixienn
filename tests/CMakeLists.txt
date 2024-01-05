@@ -19,6 +19,7 @@ add_executable(pixienn-test
         connected.cpp
         convolve.cpp
         cosine.cpp
+        darkbox.cpp
         detect.cpp
         imagebatch.cpp
         main.cpp

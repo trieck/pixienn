@@ -29,7 +29,7 @@ static float boxUnion(const cv::Rect2f& a, const cv::Rect2f& b)
     return float((a | b).area());
 }
 
-float boxIoU(const cv::Rect2f& a, const cv::Rect2f& b)
+static float boxIoU(const cv::Rect2f& a, const cv::Rect2f& b)
 {
     auto _inter = boxIntersection(a, b);
     auto _union = boxUnion(a, b);
@@ -39,14 +39,6 @@ float boxIoU(const cv::Rect2f& a, const cv::Rect2f& b)
     }
 
     return result;
-}
-
-float boxRmse(const cv::Rect2f& a, const cv::Rect2f& b)
-{
-    return std::sqrt(pow(a.x - b.x, 2) +
-                     pow(a.y - b.y, 2) +
-                     pow(a.width - b.width, 2) +
-                     pow(a.height - b.height, 2));
 }
 
 Detections nms(const Detections& detects, float threshold)
