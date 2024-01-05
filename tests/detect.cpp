@@ -145,8 +145,8 @@ protected:
         float h = std::pow(pred.h(), (ctxt.sqrt ? 2 : 1)) * IMAGE_SIZE.height;
 
         DarkBox predBox{ x, y, w, h };
-
-        EXPECT_EQ(detect.box(), predBox);
+        
+        EXPECT_EQ(detect.box(), predBox.rect());
     }
 
     void TearDown() override
