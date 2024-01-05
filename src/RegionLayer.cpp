@@ -335,7 +335,8 @@ void RegionLayer::addDetects(Detections& detections, int w, int h, float thresho
             for (auto j = 0; j < classes(); ++j) {
                 auto prob = scale * predictions[clsIndex + j];
                 if (prob >= threshold) {
-                    Detection det(box.rect(), j, prob);
+                    auto rect = lightBox(box, { w, h });
+                    Detection det(rect, j, prob);
                     detections.emplace_back(std::move(det));
                 }
             }
