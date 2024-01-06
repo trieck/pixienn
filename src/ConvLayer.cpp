@@ -72,7 +72,7 @@ void ConvLayer::setup()
     biases_ = PxCpuTensor<1>({ (size_t) filters_ }, 0.0f);
     biasUpdates_ = PxCpuTensor<1>({ (size_t) filters_ }, 0.0f);
 
-    auto scale = std::sqrt(2.0f / (kernel_ * kernel_ * (channels() / groups_)));
+    auto scale = std::sqrt(1.0f / (kernel_ * kernel_ * (channels() / groups_)));
     weights_ = random<PxCpuTensor<4>>({ (size_t) filters_,
                                         (size_t) (channels() / groups_),
                                         (size_t) kernel_,

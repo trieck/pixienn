@@ -83,7 +83,6 @@ DetectContext DetectLayer::makeContext(const PxCpuVector& input)
     ctxt.classes = classes();
     ctxt.coordScale = coordScale_;
     ctxt.coords = coords_;
-    ctxt.cost = &cost_;
     ctxt.count = 0;
     ctxt.delta = &delta_;
     ctxt.forced = forced_;
@@ -117,6 +116,12 @@ void DetectLayer::forward(const PxCpuVector& input)
     detectForward(ctxt);
 
     if (training()) {
+        if (gradientClipping_) {
+            clipGradients();
+        }
+
+        cost_ = std::pow(magArray(delta_.data(), delta_.size()), 2);
+
         printStats(ctxt);
     }
 }
