@@ -114,6 +114,10 @@ void RegionLayer::forward(const PxCpuVector& input)
 
     flatten(delta_.data(), width() * height(), size * num_, batch(), 0);
 
+    if (gradientClipping_) {
+        clipGradients();
+    }
+
     cost_ = std::pow(magArray(delta_.data(), delta_.size()), 2);
 
     if (count_ > 0) {

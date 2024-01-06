@@ -120,7 +120,9 @@ void YoloLayer::forward(const PxCpuVector& input)
         processObjects(b);
     }
 
-    constrain(delta_.size(), 1.0f, delta_.data(), 1.0f);
+    if (gradientClipping_) {
+        clipGradients();
+    }
 
     cost_ = std::pow(magArray(delta_.data(), delta_.size()), 2);
 

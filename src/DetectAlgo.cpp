@@ -65,8 +65,6 @@ void detectForward(DetectContext& ctxt)
             processDetects(ctxt, b, i);
         }
     }
-
-    *(ctxt.cost) = std::pow(magArray(ctxt.delta->data(), ctxt.delta->size()), 2);
 }
 
 void processDetects(DetectContext& ctxt, int b, int i)
@@ -105,7 +103,6 @@ void processDetects(DetectContext& ctxt, int b, int i)
     for (auto j = 0; j < ctxt.num; ++j) {
         auto pobject = index + locations * nclasses + i * ctxt.num + j;
         pdelta[pobject] = ctxt.noObjectScale * (0 - poutput[pobject]);
-        *ctxt.cost += ctxt.noObjectScale * std::pow(poutput[pobject], 2);
         ctxt.avgAnyObj += poutput[pobject];
 
         auto boxIndex = index + locations * (nclasses + ctxt.num) + (i * ctxt.num + j) * ctxt.coords;
@@ -127,7 +124,6 @@ void processDetects(DetectContext& ctxt, int b, int i)
     for (auto j = 0; j < nclasses; ++j) {
         float netTruth = gt->classId == j ? 1.0f : 0.0f;
         pdelta[classIndex + j] = ctxt.classScale * (netTruth - poutput[classIndex + j]);
-        *(ctxt.cost) += ctxt.classScale * pow(netTruth - poutput[classIndex + j], 2);
         if (netTruth) {
             ctxt.avgCat += poutput[classIndex + j];
         }
@@ -152,8 +148,6 @@ void processDetects(DetectContext& ctxt, int b, int i)
     auto pred = predBox(ctxt, poutput + boxIndex);
     auto iou = pred.iou(truthBox);
 
-    *(ctxt.cost) -= ctxt.noObjectScale * std::pow(poutput[pobject], 2);
-    *(ctxt.cost) += ctxt.objectScale * std::pow(1 - poutput[pobject], 2);
     ctxt.avgObj += poutput[pobject];
     pdelta[pobject] = ctxt.objectScale * (1. - poutput[pobject]);
 
@@ -171,7 +165,6 @@ void processDetects(DetectContext& ctxt, int b, int i)
         pdelta[boxIndex + 3] = ctxt.coordScale * (std::sqrt(gt->box.h()) - poutput[boxIndex + 3]);
     }
 
-    *(ctxt.cost) += std::pow(1 - iou, 2);
     ctxt.avgIoU += iou;
     ctxt.count++;
 }

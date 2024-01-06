@@ -44,7 +44,6 @@ struct DetectContext
     float jitter = 0.0f;
     float noObjectScale = 1.0f;
     float objectScale = 1.0f;
-    float* cost = nullptr;
     int batch = 0;
     int classes = 0;
     int coords = 0;    // number of coordinates in box

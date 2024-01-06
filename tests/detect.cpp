@@ -100,7 +100,6 @@ protected:
         ctxt.input = &input;
         ctxt.output = &output;
         ctxt.delta = &delta;
-        ctxt.cost = &cost;
         ctxt.classes = C;
         ctxt.coords = COORDS;
         ctxt.groundTruths = &groundTruths;
@@ -166,7 +165,6 @@ protected:
     DetectContext ctxt{};
 
     GroundTruths groundTruths;
-    float cost = 0;
 };
 
 TEST_F(DetectionTest, BoxConversion)
