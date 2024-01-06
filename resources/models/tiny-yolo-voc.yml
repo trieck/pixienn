@@ -5,17 +5,18 @@ model:
   height: 416
   channels: 3
 
-  augment: False
-
   momentum: 0.9
   decay: 0.0005
 
-  jitter: 0.05
-  saturation: 1.0
-  exposure: 1.0
-  hue: 0.05
-
   max_batches: 20000
+
+  augmentation:
+    enabled: True
+    flip: True
+    jitter: 0.3
+    saturation: 1.5
+    exposure: 1.5
+    hue: 0.1
 
   gradient_rescale:
     enabled: True

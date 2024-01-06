@@ -7,15 +7,16 @@ model:
 
   max_batches: 50000
 
-  augment: True
-
   momentum: 0.9
   decay: 0.0005
 
-  jitter: 0.05
-  saturation: 1.0
-  exposure: 1.0
-  hue: 0.05
+  augmentation:
+    enabled: True
+    flip: True
+    jitter: 0.2
+    saturation: 1.2
+    exposure: 1.2
+    hue: 0.05
 
   gradient_rescale:
     enabled: True

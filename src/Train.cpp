@@ -44,7 +44,8 @@ int main(int argc, char* argv[])
             ("weights-file", po::value<std::string>()->required(), "Weights file")
             ("help", "Print program usage")
             ("no-gpu", po::bool_switch()->default_value(true), "Use CPU for processing")
-            ("clear-weights", po::bool_switch()->default_value(false), "Clear target weights");
+            ("clear-weights", po::bool_switch()->default_value(false), "Clear target weights")
+            ("view-image", po::bool_switch()->default_value(false), "View training image for debugging");
 
     po::options_description hidden;
     hidden.add_options()("train", po::bool_switch()->default_value(true));

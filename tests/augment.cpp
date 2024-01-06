@@ -100,6 +100,7 @@ protected:
     float exposure_ = .75f;
     float hue_ = 0.1f;
     float jitter_ = 0.2f;
+    bool flip_ = true;
 };
 
 TEST_F(AugmentationTest, Setup)
@@ -153,7 +154,9 @@ TEST_F(AugmentationTest, Distort)
 {
     auto normal = imnormalize(image);
 
-    ImageAugmenter augmenter(jitter_, hue_, saturation_, exposure_);
+
+    ImageAugmenter augmenter(jitter_, hue_, saturation_, exposure_, flip_);
+
     augmenter.distort(normal);
 
     ASSERT_TRUE(valuesInRange(normal, 0.0f, 1.0f));
@@ -165,7 +168,7 @@ TEST_F(AugmentationTest, TransformGT)
 
     auto normalized = imnormalize(image);
 
-    ImageAugmenter augmenter(jitter_, hue_, saturation_, exposure_);
+    ImageAugmenter augmenter(jitter_, hue_, saturation_, exposure_, flip_);
     auto imageLabels = augmenter.augment(normalized, targetSize, { gt });
 
     auto denormalized = imdenormalize(imageLabels.first);

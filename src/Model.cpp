@@ -115,16 +115,25 @@ void Model::parseModel()
     maxBatches_ = model["max_batches"].as<int>(0);
     parsePolicy(model);
 
-    augment_ = model["augment"].as<bool>(true);
+    auto augmentNode = model["augmentation"];
+    if (augmentNode && augmentNode.IsMap()) {
+        auto augment = augmentNode["enabled"].as<bool>(false);
+        auto jitter = augmentNode["jitter"].as<float>(0.2f);
+        auto hue = augmentNode["hue"].as<float>(0.0f);
+        auto saturation = augmentNode["saturation"].as<float>(1.0f);
+        auto exposure = augmentNode["exposure"].as<float>(1.0f);
+
+        auto flip = augmentNode["flip"].as<bool>(false);
+        if (augment) {
+            augmenter_ = std::make_unique<ImageAugmenter>(jitter, hue, saturation, exposure, flip);
+        }
+    }
+
     batch_ = model["batch"].as<int>();
     channels_ = model["channels"].as<int>();
     decay_ = model["decay"].as<float>(0.0001f);
-    exposure_ = model["exposure"].as<float>(1.0f);
     height_ = model["height"].as<int>();
-    hue_ = model["hue"].as<float>(0.0f);
-    jitter_ = model["jitter"].as<float>(0.2f);
     momentum_ = model["momentum"].as<float>(0.9f);
-    saturation_ = model["saturation"].as<float>(1.0f);
     subdivs_ = model["subdivisions"].as<int>(1);
     timeSteps_ = model["time_steps"].as<int>(1);
     width_ = model["width"].as<int>();
@@ -417,7 +426,7 @@ void Model::train()
 
 float Model::trainBatch()
 {
-    trainBatch_ = loadBatch(Category::TRAIN, augment_);
+    trainBatch_ = loadBatch(Category::TRAIN, augmenter_ != nullptr);
 
     auto error = trainOnce(trainBatch_.imageData());
 
@@ -536,14 +545,12 @@ void Model::viewImageGT(const std::string& imagePath, const GroundTruthVec& gt, 
 
     cv::Mat image;
 
-    if (augment) {
+    if (augment && augmenter_) {
         auto orig = imread(imagePath.c_str());
-
-        ImageAugmenter augmenter(jitter_, hue_, saturation_, exposure_);
-        auto augmented = augmenter.augment(orig, { width(), height() }, gt);
+        auto augmented = augmenter_->augment(orig, { width(), height() }, gt);
 
         image = augmented.first;
-        augmenter.distort(image);
+        augmenter_->distort(image);
 
         cv::cvtColor(image, image, cv::COLOR_BGR2BGRA);
 
@@ -590,16 +597,17 @@ void Model::viewImageGT(const std::string& imagePath, const GroundTruthVec& gt, 
 
 auto Model::loadImgLabels(Category category, const std::string& imagePath, bool augment) -> ImageLabels
 {
-    //viewImageGT(imagePath, groundTruth(category, imagePath), augment);
-
     auto gts = groundTruth(category, imagePath);
 
-    if (augment) {
+    if (hasOption("view-image")) {
+        viewImageGT(imagePath, gts, augment);
+    }
+
+    if (augment && augmenter_) {
         auto orig = imreadNormalize(imagePath.c_str());
 
-        ImageAugmenter augmenter(jitter_, hue_, saturation_, exposure_);
-        auto augmented = augmenter.augment(orig, { width(), height() }, gts);
-        augmenter.distort(augmented.first);
+        auto augmented = augmenter_->augment(orig, { width(), height() }, gts);
+        augmenter_->distort(augmented.first);
 
         auto vector = imvector(augmented.first);
 
