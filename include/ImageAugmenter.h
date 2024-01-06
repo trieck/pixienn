@@ -31,7 +31,10 @@ using ImageLabel = std::pair<cv::Mat, GroundTruthVec>;
 class ImageAugmenter
 {
 public:
-    ImageAugmenter(float jitter, float hue, float saturation, float exposure);
+    using Ptr = std::shared_ptr<ImageAugmenter>;
+
+    ImageAugmenter(float jitter, float hue, float saturation, float exposure, bool flip);
+
     virtual ~ImageAugmenter() = default;
 
     Augmentation augment(cv::Mat& image, const cv::Size& targetSize) const;
@@ -41,7 +44,7 @@ public:
 
 private:
     float jitter_, hue_, saturation_, exposure_;
-    float minScale_ = 1.0f, maxScale_ = 1.0f;
+    bool flip_;
 };
 
 }   // px

@@ -22,8 +22,8 @@ using namespace cv;
 
 namespace px {
 
-ImageAugmenter::ImageAugmenter(float jitter, float hue, float saturation, float exposure)
-        : jitter_(jitter), hue_(hue), saturation_(saturation), exposure_(exposure)
+ImageAugmenter::ImageAugmenter(float jitter, float hue, float saturation, float exposure, bool flip)
+        : jitter_(jitter), hue_(hue), saturation_(saturation), exposure_(exposure), flip_(flip)
 {
 }
 
@@ -47,27 +47,25 @@ Augmentation ImageAugmenter::augment(Mat& image, const cv::Size& targetSize) con
     auto newHeight = origSize.height + randomUniform(-dh, dh);
 
     auto newAR = newWidth / newHeight;
-    auto scale = randomUniform(minScale_, maxScale_);
 
     float nw, nh;
     if (newAR < 1) {
-        nh = scale * targetSize.height;
+        nh = targetSize.height;
         nw = nh * newAR;
     } else {
-        nw = scale * targetSize.width;
+        nw = targetSize.width;
         nh = nw / newAR;
     }
 
     auto dx = randomUniform(0.0f, targetSize.width - nw);
     auto dy = randomUniform(0.0f, targetSize.height - nh);
 
-    bool flip = randomUniform(0.0f, 1.0f) > 0.5f;
-    if (flip) {
+    auto flipped = flip_ && randomUniform(0.0f, 1.0f) > 0.5f;
+    if (flipped) {
         cv::flip(image, image, 1);
     }
 
     auto midpoint = immidpoint(image);
-
     Mat canvas{ targetSize.height, targetSize.width, image.type(), midpoint };
 
     cv::Rect roiSrc, roiDst;
@@ -78,14 +76,14 @@ Augmentation ImageAugmenter::augment(Mat& image, const cv::Size& targetSize) con
     auto w = targetSize.width;
     auto h = targetSize.height;
 
-    BoxTransform transform = [dx, dy, nw, nh, w, h, flip](const DarkBox& box) -> DarkBox {
+    BoxTransform transform = [dx, dy, nw, nh, w, h, flipped](const DarkBox& box) -> DarkBox {
 
         auto ddx = -dx / w;
         auto ddy = -dy / h;
         auto sx = nw / w;
         auto sy = nh / h;
 
-        auto x = (flip ? (1.0f - box.x()) : box.x()) * sx - ddx;
+        auto x = (flipped ? (1.0f - box.x()) : box.x()) * sx - ddx;
         auto y = box.y() * sy - ddy;
         auto width = box.w() * sx;
         auto height = box.h() * sy;

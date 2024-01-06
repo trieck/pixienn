@@ -21,6 +21,7 @@
 #include <boost/program_options/variables_map.hpp>
 
 #include "Detection.h"
+#include "ImageAugmenter.h"
 #include "Layer.h"
 #include "LRPolicy.h"
 #include "TrainBatch.h"
@@ -196,13 +197,15 @@ private:
     int minor_ = 1;
     int revision_ = 0;
 
+    float threshold_ = 0.0f;               // Threshold for confidence
+
     // training parameters
     bool training_ = false;               // Flag indicating whether the model is in training mode
     TrainBatch trainBatch_;               // Instance of TrainBatch class for managing training batches
     PxCpuVector* delta_ = nullptr;        // Pointer to a PxCpuVector for storing delta values (nullptr by default)
     LRPolicy::Ptr policy_;                // Pointer to an LRPolicy object for managing learning rate policies
     LRPolicy::Ptr burnInPolicy_;          // Burn-in policy
-    bool augment_ = false;                // Flag indicating whether data augmentation is enabled
+    ImageAugmenter::Ptr augmenter_;       // Image augmenter
 
     // optimization parameters
     int maxBatches_ = 0;                   // Maximum number of batches for training
@@ -210,16 +213,12 @@ private:
     int timeSteps_ = 0;                    // Number of time steps for training
     size_t seen_ = 0;                      // Total number of batches seen during training
 
-    // hyperparameters for data augmentation
-    float threshold_ = 0.0f;               // Threshold for data augmentation
+
     float momentum_ = 0.0f;                // Momentum for optimization
     float decay_ = 0.0f;                   // Decay rate for optimization
-    float jitter_ = 0.0f;                  // Jitter for data augmentation
-    float saturation_ = 0.0f;              // Saturation for data augmentation
-    float exposure_ = 0.0f;                // Exposure for data augmentation
-    float hue_ = 0.0f;                     // Hue for data augmentation
+
     float cost_ = 0.0f;                    // Cost associated with the training process
-    size_t burnInBatches_ = 0;                // Number of burn-in batches
+    size_t burnInBatches_ = 0;             // Number of burn-in batches
 
     // gradient rescaling parameters
     bool gradRescaling_ = false;           // Flag indicating whether gradient rescaling is enabled
