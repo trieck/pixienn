@@ -149,6 +149,6 @@ using CudaMaxPool = MaxPoolLayer<Device::CUDA>;
 
 #ifdef USE_CUDA
 
-#include "MaxPoolCuda.h"
+#include "cuda/MaxPoolLayer.h"
 
 #endif

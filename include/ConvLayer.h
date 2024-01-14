@@ -242,6 +242,6 @@ using CudaConv = ConvLayer<Device::CUDA>;
 
 #ifdef USE_CUDA
 
-#include "ConvCuda.h"
+#include "cuda/ConvLayer.h"
 
 #endif  // USE_CUDA

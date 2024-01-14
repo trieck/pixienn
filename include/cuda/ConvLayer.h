@@ -188,7 +188,7 @@ inline void ConvLayer<Device::CUDA>::forward(const V& input)
         }
         PX_CHECK_CUDNN(status);
     } else {
-        addBiasGpu(this->output_.data(), biases_.data(), this->batch(), this->outputs(), 1);
+        addBiasGpu(this->output_.data(), biases_.data(), this->batch(), filters_, this->outHeight() * this->outWidth());
     }
 
     activation_->apply(this->output_);

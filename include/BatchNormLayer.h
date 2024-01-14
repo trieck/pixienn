@@ -154,6 +154,6 @@ using CudaBatchNorm = BatchNormLayer<Device::CUDA>;
 
 #ifdef USE_CUDA
 
-#include "BatchNormCuda.h"
+#include "cuda/BatchNormLayer.h"
 
 #endif  // USE_CUDA

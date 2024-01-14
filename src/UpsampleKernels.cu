@@ -14,10 +14,11 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include "UpsampleKernels.cuh"
-#include "CudaUtils.cuh"
-#include "CudaError.h"
 #include <cuda_runtime.h>
+
+#include "CudaError.h"
+#include "CudaUtils.cuh"
+#include "UpsampleKernels.cuh"
 
 namespace px {
 
