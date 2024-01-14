@@ -14,43 +14,66 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_UPSAMPLELAYER_H
-#define PIXIENN_UPSAMPLELAYER_H
+#pragma once
 
-#include "UpsampleAlgo.h"
 #include "Layer.h"
 
 namespace px {
 
-class UpsampleLayer : public Layer
+template<Device D = Device::CPU>
+class UpsampleLayer : public Layer<D>
 {
-protected:
-    UpsampleLayer(Model& model, const YAML::Node& layerDef);
-
 public:
-    ~UpsampleLayer() override = default;
+    using V = typename Layer<D>::V;
+
+    UpsampleLayer(Model<D>& model, const YAML::Node& layerDef);
+
+    void forward(const V& input) override;
+    void backward(const V& input) override;
+    void update() override;
 
     std::ostream& print(std::ostream& os) override;
-    void forward(const PxCpuVector& input) override;
-    void backward(const PxCpuVector& input) override;
 
-#ifdef USE_CUDA
-    void forwardGpu(const PxCudaVector& input) override;
-#endif
-
-private:
-    void setup() override;
-    UpsampleContext makeContext(const PxCpuVector& input);
-
-#ifdef USE_CUDA
-    UpsampleContext makeContext(const PxCudaVector& input);
-#endif
-    friend LayerFactories;
-
-    float scale_;
-    int stride_;
 };
 
-} // px
+template<Device D>
+UpsampleLayer<D>::UpsampleLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D>(model, layerDef)
+{
+}
 
-#endif // PIXIENN_UPSAMPLELAYER_H
+template<Device D>
+std::ostream& UpsampleLayer<D>::print(std::ostream& os)
+{
+    Layer<D>::print(os, "upsample", { this->height(), this->width(), this->channels() },
+                    { this->outHeight(), this->outWidth(), this->outChannels() });
+
+    return os;
+}
+
+
+template<Device D>
+void UpsampleLayer<D>::forward(const V& input)
+{
+    // TODO: use CUDNN for GPU
+
+    std::cout << "UpsampleLayer::forward" << std::endl;
+}
+
+template<Device D>
+void UpsampleLayer<D>::backward(const V& input)
+{
+    // TODO: use CUDNN for GPU
+
+    std::cout << "UpsampleLayer::backward" << std::endl;
+}
+
+template<Device D>
+void UpsampleLayer<D>::update()
+{
+
+}
+
+using CpuUpsample = UpsampleLayer<>;
+using CudaUpsample = UpsampleLayer<Device::CUDA>;
+
+} // px

@@ -107,6 +107,7 @@ using CudnnContext = cudnn_descriptor<cudnnContext, cudnnCreate, cudnnDestroyCon
 using CudnnConvDesc = cudnn_descriptor<cudnnConvolutionStruct, cudnnCreateConvolutionDescriptor, cudnnDestroyConvolutionDescriptor>;
 using CudnnFilterDesc = cudnn_descriptor<cudnnFilterStruct, cudnnCreateFilterDescriptor, cudnnDestroyFilterDescriptor>;
 using CudnnTensorDesc = cudnn_descriptor<cudnnTensorStruct, cudnnCreateTensorDescriptor, cudnnDestroyTensorDescriptor>;
+using CudnnPoolingDesc = cudnn_descriptor<cudnnPoolingStruct, cudnnCreatePoolingDescriptor, cudnnDestroyPoolingDescriptor>;
 
 }   // px
 

@@ -14,72 +14,290 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_CONNLAYER_H
-#define PIXIENN_CONNLAYER_H
+#pragma once
 
 #include "Activation.h"
-#include "BatchNormAlgo.h"
-#include "ConnAlgo.h"
 #include "Layer.h"
-
-#ifdef USE_CUDA
-
-#include "Cudnn.h"
-
-#endif
 
 namespace px {
 
-class ConnLayer : public Layer
+template<Device D>
+class FCExtras
 {
-protected:
-    ConnLayer(Model& model, const YAML::Node& layerDef);
-
-public:
-    ~ConnLayer() override = default;
-
-    std::ostream& print(std::ostream& os) override;
-    std::streamoff loadWeights(std::istream& is) override;
-    std::streamoff saveWeights(std::ostream& os) override;
-
-    void forward(const PxCpuVector& input) override;
-    void backward(const PxCpuVector& input) override;
-    void update() override;
-
-#ifdef USE_CUDA
-    void forwardGpu(const PxCudaVector& input) override;
-#endif
-
-private:
-    void setup() override;
-    ConnContext makeContext(const PxCpuVector& input);
-    BNContext makeBNContext(const PxCpuVector& input);
-
-#ifdef USE_CUDA
-    void setupGpu();
-    ConnContext makeContext(const PxCudaVector& input);
-
-#endif // USE_CUDA
-
-    friend LayerFactories;
-
-    PxCpuTensor<2> weights_, weightUpdates_;
-    PxCpuTensor<1> biases_, biasUpdates_;
-    PxCpuTensor<1> scales_, scaleUpdates_, rollingMean_, rollingVar_;
-    PxCpuTensor<1> mean_, meanDelta_, var_, varDelta_;
-    PxCpuTensor<2> column_;
-    PxCpuVector x_, xNorm_;
-    bool batchNormalize_;
-
-    Activations::Ptr activationFnc_;
-
-#ifdef USE_CUDA
-    CudnnTensorDesc::Ptr normDesc_, destDesc_;
-    PxCudaTensor<2> weightsGpu_;
-    PxCudaTensor<1> biasesGpu_;
-#endif
 };
 
-} // px
+template<>
+class FCExtras<Device::CUDA>
+{
+protected:
+    CudnnTensorDesc::Ptr yDesc_, sbmv_;
+};
 
-#endif // PIXIENN_CONNLAYER_H
+template<Device D = Device::CPU>
+class ConnLayer : public Layer<D>, public FCExtras<D>
+{
+public:
+    using V = typename Layer<D>::V;
+
+    ConnLayer(Model<D>& model, const YAML::Node& layerDef);
+
+    void forward(const V& input) override;
+    void backward(const V& input) override;
+    void update() override;
+
+    std::streamoff loadWeights(std::istream& is) override;
+    std::ostream& print(std::ostream& os) override;
+
+private:
+    void setup();
+
+    V weights_, weightUpdates_, biases_, biasUpdates_;
+    V scales_, scaleUpdates_, mean_, meanDelta_, var_, varDelta_;
+    V rollingMean_, rollingVar_, x_, xNorm_;
+
+    Activations<D>::Ptr activation_;
+    bool batchNorm_;
+};
+
+template<Device D>
+ConnLayer<D>::ConnLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D>(model, layerDef)
+{
+    auto activation = this->template property<std::string>("activation", "logistic");
+    activation_ = Activations<D>::get(activation);
+
+    batchNorm_ = this->template property<bool>("batch_normalize", false);
+
+    this->setChannels(this->inputs());
+    this->setHeight(1);
+    this->setWidth(1);
+
+    this->setOutputs(this->template property<int>("output", 1));
+    this->setOutHeight(1);
+    this->setOutWidth(1);
+    this->setOutChannels(this->outputs());
+
+    if (batchNorm_) {
+        this->scales_ = V(this->outputs(), 1.0f);
+        this->scaleUpdates_ = V(this->outputs(), 0.0f);
+        this->rollingMean_ = V(this->outputs(), 0.0f);
+        this->rollingVar_ = V(this->outputs(), 0.0f);
+        this->x_ = V(this->batch() * this->outputs(), 0.0f);
+        this->xNorm_ = V(this->batch() * this->outputs(), 0.0f);
+        this->mean_ = V(this->outputs(), 0.f);
+        this->meanDelta_ = V(this->outputs(), 0.f);
+        this->var_ = V(this->outputs(), 0.f);
+    }
+
+    this->biases_ = V(this->outputs(), 0.0f);
+    this->biasUpdates_ = V(this->outputs(), 0.0f);
+
+    auto scale = std::sqrt(2.0f / this->inputs());
+    this->weights_ = random<V>(this->inputs() * this->outputs(), -1.0f * scale, 1.0f * scale);
+    this->weightUpdates_ = V(this->inputs() * this->outputs(), 0.0f);
+
+    this->output_ = V(this->batch() * this->outputs(), 0.0f);
+    this->delta_ = V(this->batch() * this->outputs(), 0.0f);
+
+    setup();
+}
+
+template<Device D>
+void ConnLayer<D>::setup()
+{
+}
+
+template<>
+inline void ConnLayer<Device::CUDA>::setup()
+{
+    this->yDesc_ = std::make_unique<CudnnTensorDesc>();
+    this->sbmv_ = std::make_unique<CudnnTensorDesc>();
+
+    auto status = cudnnSetTensor4dDescriptor(*this->yDesc_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
+                                             this->batch(), this->outChannels(), this->outHeight(), this->outWidth());
+    PX_CHECK_CUDNN(status);
+
+    status = cudnnSetTensor4dDescriptor(*this->sbmv_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
+                                        1, this->outChannels(), 1, 1);
+    PX_CHECK_CUDNN(status);
+}
+
+template<Device D>
+std::streamoff ConnLayer<D>::loadWeights(std::istream& is)
+{
+    auto start = is.tellg();
+
+    is.read((char*) biases_.data(), biases_.size() * sizeof(float));
+    is.read((char*) weights_.data(), weights_.size() * sizeof(float));
+
+    if (batchNorm_) {
+        is.read((char*) scales_.data(), scales_.size() * sizeof(float));
+        is.read((char*) rollingMean_.data(), rollingMean_.size() * sizeof(float));
+        is.read((char*) rollingVar_.data(), rollingVar_.size() * sizeof(float));
+    }
+
+    PX_CHECK(is.good(), "Could not read weights");
+
+    return is.tellg() - start;
+}
+
+template<>
+inline std::streamoff ConnLayer<Device::CUDA>::loadWeights(std::istream& is)
+{
+    auto start = is.tellg();
+
+    PxCpuVector biases(biases_.size());
+    PxCpuVector weights(weights_.size());
+
+    is.read((char*) biases.data(), biases.size() * sizeof(float));
+    is.read((char*) weights.data(), weights.size() * sizeof(float));
+
+    biases_.copy(biases);
+    weights_.copy(weights);
+
+    if (batchNorm_) {
+        PxCpuVector scales(scales_.size());
+        PxCpuVector rollingMean(rollingMean_.size());
+        PxCpuVector rollingVar(rollingVar_.size());
+
+        is.read((char*) scales.data(), scales.size() * sizeof(float));
+        is.read((char*) rollingMean.data(), rollingMean.size() * sizeof(float));
+        is.read((char*) rollingVar.data(), rollingVar.size() * sizeof(float));
+
+        scales_.copy(scales);
+        rollingMean_.copy(rollingMean);
+        rollingVar_.copy(rollingVar);
+    }
+
+    PX_CHECK(is.good(), "Could not read weights");
+
+    return is.tellg() - start;
+}
+
+template<Device D>
+std::ostream& ConnLayer<D>::print(std::ostream& os)
+{
+    Layer<D>::print(os, "connected", { this->height(), this->width(), this->channels() },
+                    { this->outHeight(), this->outWidth(), this->outChannels() });
+
+    return os;
+}
+
+template<Device D>
+void ConnLayer<D>::forward(const V& input)
+{
+    auto m = this->batch();
+    auto n = this->outputs();
+    auto k = this->inputs();
+    auto* a = input.data();
+    auto* b = this->weights_.data();
+    auto* c = this->output_.data();
+
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, m, n, k, 1.0f, a, k, b, k, 1.0f, c, n);
+
+    if (batchNorm_) {
+        batchNormForward(this->training(), this->batch(), this->outChannels(), this->outHeight(), this->outWidth(),
+                         this->output_, this->output_, mean_, var_, rollingMean_, rollingVar_, scales_, biases_,
+                         x_, xNorm_);
+    } else {
+        addBias(this->output_.data(), this->biases_.data(), this->batch(), this->outputs(), 1);
+    }
+
+    activation_->apply(this->output_);
+}
+
+template<>
+inline void ConnLayer<Device::CUDA>::forward(const V& input)
+{
+    auto m = this->outputs();
+    auto n = this->batch();
+    auto k = this->inputs();
+    auto* a = weights_.data();
+    auto* b = input.data();
+    auto* c = output_.data();
+
+    float alpha = 1.0f, beta = 1.0f;
+    auto expAvgFactor = 0.01f;
+    auto epsilon = 0.00001f;
+    const auto& ctxt = this->cublasContext();
+
+    auto status = cublasSgemm(ctxt,
+                              CUBLAS_OP_T,  /* transpose A */
+                              CUBLAS_OP_N,  /* transpose B */
+                              m,            /* M */
+                              n,            /* N */
+                              k,            /* K */
+                              &alpha,       /* alpha */
+                              a,            /* A */
+                              k,            /* lda */
+                              b,            /* B */
+                              k,            /* ldb */
+                              &beta,        /* beta */
+                              c,            /* C */
+                              m             /* ldc */
+    );
+
+    PX_CHECK_CUBLAS(status);
+
+    if (batchNorm_) {
+        beta = 0.0f;
+
+        const auto& cudnnContext = this->cudnnContext();
+
+        cudnnStatus_t nstatus;
+        if (training()) {
+            nstatus = cudnnBatchNormalizationForwardTraining(cudnnContext, CUDNN_BATCHNORM_SPATIAL,
+                                                            &alpha, &beta, *yDesc_, this->output_.data(),
+                                                            *yDesc_, this->output_.data(), *sbmv_, scales_.data(),
+                                                            biases_.data(), expAvgFactor, rollingMean_.data(),
+                                                            rollingVar_.data(), epsilon, mean_.data(), var_.data());
+        } else {
+            nstatus = cudnnBatchNormalizationForwardInference(cudnnContext, CUDNN_BATCHNORM_SPATIAL,
+                                                             &alpha, &beta, *yDesc_, this->output_.data(),
+                                                             *yDesc_, this->output_.data(), *sbmv_, scales_.data(),
+                                                             biases_.data(), rollingMean_.data(), rollingVar_.data(),
+                                                             epsilon);
+
+        }
+        PX_CHECK_CUDNN(nstatus);
+    } else {
+        addBiasGpu(this->output_.data(), biases_.data(), this->batch(), this->outputs(), 1);
+    }
+
+    activation_->apply(this->output_);
+}
+
+template<Device D>
+void ConnLayer<D>::backward(const V& input)
+{
+    // TODO: implement backward
+
+    auto m = this->outputs();
+    auto n = this->inputs();
+    auto k = this->batch();
+    auto* a = this->delta_.data();
+    auto* b = input.data();
+    auto* c = this->weightUpdates_.data();
+
+    cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, m, n, k, 1.0f, a, m, b, n, 1.0f, c, n);
+
+    m = this->batch();
+    k = this->outputs();
+    n = this->inputs();
+    b = this->weights_.data();
+    c = this->model().delta()->data();
+
+    if (c) {
+        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, 1.0f, a, k, b, n, 1.0f, c, n);
+    }
+}
+
+template<Device D>
+void ConnLayer<D>::update()
+{
+}
+
+using CpuConn = ConnLayer<>;
+using CudaConn = ConnLayer<Device::CUDA>;
+
+
+} // px

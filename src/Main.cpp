@@ -17,12 +17,12 @@
 #include <fstream>
 #include <iostream>
 
-#include "Common.h"
+#include "Box.h"
 #include "ColorMaps.h"
+#include "Common.h"
 #include "Error.h"
 #include "Image.h"
 #include "Model.h"
-#include "Box.h"
 
 namespace po = boost::program_options;
 
@@ -33,14 +33,14 @@ namespace px {
 void predict(const std::string& cfgFile, const std::string& imageFile,
              const po::variables_map& options)
 {
-    auto model = Model(cfgFile, options);
-    auto detects = model.predict(imageFile);
+    auto model = BaseModel::create(cfgFile, options);
+    auto detects = model->predict(imageFile);
 
     auto nmsThreshold = options["nms"].as<float>();
     detects = nms(detects, nmsThreshold);
 
-    model.overlay(imageFile, detects);
-    auto json = model.asJson(detects);
+    model->overlay(imageFile, detects);
+    auto json = model->asJson(detects);
 
     std::ofstream ofs("predictions.geojson", std::ios::out | std::ios::binary);
     PX_CHECK(ofs.good(), "Could not open file \"%s\".", "results.geojson");
@@ -102,4 +102,3 @@ int main(int argc, char* argv[])
 
     return 0;
 }
-
