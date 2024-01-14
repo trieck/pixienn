@@ -296,7 +296,7 @@ using CudaDetect = DetectLayer<Device::CUDA>;
 
 #ifdef USE_CUDA
 
-#include "DetectCuda.h"
+#include "cuda/DetectLayer.h"
 
 #endif
 

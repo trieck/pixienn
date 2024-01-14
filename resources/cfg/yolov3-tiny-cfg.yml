@@ -1,9 +1,9 @@
 configuration:
   model: ../models/yolov3-tiny.yml
-  #weights: ../weights/yolov3-tiny.weights
+  weights: ../weights/yolov3-tiny.weights
   #weights: /home/trieck/src/darknet/backup/yolov3-tiny_final.weights
   #weights: /home/trieck/src/darknet/backup/yolov3-tiny_last.weights
-  weights: /home/trieck/src/pixienn/cmake-build-release/bin/backup/yolov3-tiny-coco_50000.weights
+  #weights: /home/trieck/src/pixienn/cmake-build-release/bin/backup/yolov3-tiny-coco_50000.weights
 
   labels: ../data/coco.names
 

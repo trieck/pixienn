@@ -21,7 +21,12 @@
 namespace px {
 
 template<Device D = Device::CPU>
-class UpsampleLayer : public Layer<D>
+class UpsampleExtras
+{
+};
+
+template<Device D = Device::CPU>
+class UpsampleLayer : public Layer<D>, public UpsampleExtras<D>
 {
 public:
     using V = typename Layer<D>::V;
@@ -34,11 +39,35 @@ public:
 
     std::ostream& print(std::ostream& os) override;
 
+private:
+    void setup();
+    void upsample(const float* in, float* out, float* acc, bool forward);
+
+    int stride_;
+    float scale_;
 };
 
 template<Device D>
 UpsampleLayer<D>::UpsampleLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D>(model, layerDef)
 {
+    stride_ = this->template property<int>("stride", 2);
+    scale_ = this->template property<float>("scale", 1.0f);
+
+    this->setOutChannels(this->channels());
+    this->setOutHeight(this->height() * stride_);
+    this->setOutWidth(this->width() * stride_);
+    this->setOutputs(this->outHeight() * this->outWidth() * this->outChannels());
+
+    this->output_ = V(this->batch() * this->outputs(), 0.0f);
+    this->delta_ = V(this->batch() * this->outputs(), 0.0f);
+
+    setup();
+}
+
+template<Device D>
+void UpsampleLayer<D>::setup()
+{
+
 }
 
 template<Device D>
@@ -50,13 +79,13 @@ std::ostream& UpsampleLayer<D>::print(std::ostream& os)
     return os;
 }
 
-
 template<Device D>
 void UpsampleLayer<D>::forward(const V& input)
 {
     // TODO: use CUDNN for GPU
 
-    std::cout << "UpsampleLayer::forward" << std::endl;
+    upsample(input.data(), this->output_.data(), nullptr, true);
+
 }
 
 template<Device D>
@@ -64,16 +93,47 @@ void UpsampleLayer<D>::backward(const V& input)
 {
     // TODO: use CUDNN for GPU
 
-    std::cout << "UpsampleLayer::backward" << std::endl;
+    upsample(nullptr, this->delta_.data(), this->netDelta()->data(), false);
 }
 
 template<Device D>
 void UpsampleLayer<D>::update()
 {
+}
 
+template<Device D>
+void UpsampleLayer<D>::upsample(const float* in, float* out, float* acc, bool forward)
+{
+    auto c = this->channels();
+    auto h = this->height();
+    auto w = this->width();
+
+    for (auto b = 0; b < this->batch(); ++b) {
+        for (auto k = 0; k < c; ++k) {
+            for (auto j = 0; j < h * stride_; ++j) {
+                for (auto i = 0; i < w * stride_; ++i) {
+                    auto inIndex = b * w * h * c + k * w * h + (j / stride_) * w + i / stride_;
+                    auto outIndex =
+                            b * w * h * c * stride_ * stride_ + k * w * h * stride_ * stride_ + j * w * stride_ + i;
+
+                    if (forward) {
+                        out[outIndex] = scale_ * in[inIndex];
+                    } else {
+                        acc[inIndex] += scale_ * out[outIndex];
+                    }
+                }
+            }
+        }
+    }
 }
 
 using CpuUpsample = UpsampleLayer<>;
 using CudaUpsample = UpsampleLayer<Device::CUDA>;
 
-} // px
+}   // px
+
+#ifdef USE_CUDA
+
+#include "cuda/UpsampleLayer.h"
+
+#endif // USE_CUDA

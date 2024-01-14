@@ -248,7 +248,9 @@ public:
     using V = typename DeviceTraits<Device::CUDA>::VectorType;
     using T = typename DeviceTraits<Device::CUDA>::ValueType;
 
+    virtual void apply(T* begin, T* end) const = 0;
     virtual void apply(V& container) const = 0;
+
     virtual void gradient(const V& container, V& delta) const = 0;
 };
 
@@ -323,6 +325,7 @@ public:
     using V = typename DeviceTraits<Device::CUDA>::VectorType;
     using T = typename DeviceTraits<Device::CUDA>::ValueType;
 
+    void apply(T* begin, T* end) const override;
     void apply(V& container) const override;
     void gradient(const V& container, V& delta) const override;
 
@@ -334,6 +337,12 @@ template<typename U>
 void Activation<U, Device::CUDA>::gradient(const PxCudaVectorT<float>& container, PxCudaVectorT<float>& delta) const
 {
     px::gradient(U::type, container.data(), container.size(), delta.data());
+}
+
+template<typename U>
+void Activation<U, Device::CUDA>::apply(T* begin, T* end) const
+{
+    px::activate(U::type, begin, end - begin);
 }
 
 template<typename U>

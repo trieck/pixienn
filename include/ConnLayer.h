@@ -181,7 +181,6 @@ void ConnLayer<D>::update()
 {
 }
 
-
 using CpuConn = ConnLayer<>;
 using CudaConn = ConnLayer<Device::CUDA>;
 
@@ -189,6 +188,6 @@ using CudaConn = ConnLayer<Device::CUDA>;
 
 #ifdef USE_CUDA
 
-#include "ConnCuda.h"
+#include "cuda/ConnLayer.h"
 
 #endif

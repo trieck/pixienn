@@ -71,7 +71,7 @@ public:
     int width() const noexcept;
 
     const V& output() const noexcept;
-    V& delta() noexcept;
+    V& delta() const noexcept;
 
 protected:
     void setInputs(int inputs);
@@ -96,11 +96,14 @@ protected:
                std::optional<int>&& filters = std::nullopt,
                std::optional<std::array<int, 3>>&& size = std::nullopt);
 
+    const Model<D>& model() const noexcept;
     Model<D>& model() noexcept;
 
     bool inferring() const noexcept;
     bool training() const noexcept;
     int classes() const noexcept;
+
+    V* netDelta() const noexcept;
 
 #ifdef USE_CUDA
     template<Device D_ = D, typename = EnableIfCuda<D_>>
@@ -344,6 +347,12 @@ void Layer<D>::update()
 }
 
 template<Device D>
+const Model<D>& Layer<D>::model() const noexcept
+{
+    return model_;
+}
+
+template<Device D>
 Model<D>& Layer<D>::model() noexcept
 {
     return model_;
@@ -368,9 +377,15 @@ int Layer<D>::classes() const noexcept
 }
 
 template<Device D>
-auto Layer<D>::delta() noexcept -> V&
+auto Layer<D>::delta() const noexcept -> V&
 {
     return delta_;
+}
+
+template<Device D>
+auto Layer<D>::netDelta() const noexcept ->V*
+{
+    return model_.delta();
 }
 
 #ifdef USE_CUDA

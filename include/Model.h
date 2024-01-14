@@ -133,8 +133,16 @@ public:
     bool training() const noexcept;
     int classes() const noexcept;
 
+    int batch() const noexcept;
+    int channels() const noexcept;
+    int height() const noexcept;
+    int width() const noexcept;
+
     V* delta() const noexcept;
     float cost() const noexcept;
+
+    int layerSize() const noexcept;
+    const LayerPtr& layerAt(int index) const;
 
 private:
     void forward(const ImageVec& image);
@@ -183,6 +191,44 @@ private:
 
     std::vector<std::string> labels_;
 };
+
+template<Device D>
+int Model<D>::width() const noexcept
+{
+    return width_;
+}
+
+template<Device D>
+int Model<D>::height() const noexcept
+{
+    return height_;
+}
+
+template<Device D>
+int Model<D>::channels() const noexcept
+{
+    return channels_;
+}
+
+template<Device D>
+int Model<D>::batch() const noexcept
+{
+    return batch_;
+}
+
+template<Device D>
+const Model<D>::LayerPtr& Model<D>::layerAt(int index) const
+{
+    PX_CHECK(index < layers_.size(), "Index out of range.");
+
+    return layers_[index];
+}
+
+template<Device D>
+int Model<D>::layerSize() const noexcept
+{
+    return layers_.size();
+}
 
 template<Device D>
 void Model<D>::addLayer(Model::LayerPtr layer)
