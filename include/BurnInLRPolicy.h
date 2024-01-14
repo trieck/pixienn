@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_BURNINLRPOLICY_H
-#define PIXIENN_BURNINLRPOLICY_H
+#pragma once
 
 #include "Common.h"
 #include "LRPolicy.h"
@@ -39,4 +38,3 @@ private:
 
 } // px
 
-#endif // PIXIENN_BURNINLRPOLICY_H

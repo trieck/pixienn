@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Singleton.h"
-
 #include "BatchNormLayer.h"
 #include "ConnLayer.h"
 #include "ConvLayer.h"
@@ -10,6 +8,7 @@
 #include "RegionLayer.h"
 #include "RouteLayer.h"
 #include "ShortcutLayer.h"
+#include "Singleton.h"
 #include "UpsampleLayer.h"
 #include "YoloLayer.h"
 
@@ -79,6 +78,5 @@ LayerFactories<D>::LayerPtr LayerFactories<D>::create(Model<D>& model, YAML::Nod
 
     return ptr;
 }
-
 
 }   // px

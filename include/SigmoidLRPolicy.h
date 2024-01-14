@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_SIGMOID_LR_POLICY_H__
-#define PIXIENN_SIGMOID_LR_POLICY_H__
+#pragma once
 
 #include "LRPolicy.h"
 
@@ -47,5 +46,3 @@ private:
 };
 
 }   // px
-
-#endif // PIXIENN_SIGMOID_LR_POLICY_H__

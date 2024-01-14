@@ -14,11 +14,11 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_CUDAUTILS_H
-#define PIXIENN_CUDAUTILS_H
+#pragma once
+
+#include <vector_types.h>
 
 #include "Common.h"
-#include <vector_types.h>
 
 namespace px {
 
@@ -31,5 +31,3 @@ void fillGpu(int* ptr, std::size_t n, int value);
 void randomGpu(float* ptr, std::size_t n, float a = 0.f, float b = 1.f);
 
 }   // px
-
-#endif // PIXIENN_CUDAUTILS_H

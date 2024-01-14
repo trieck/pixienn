@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_TRAINBATCH_H
-#define PIXIENN_TRAINBATCH_H
+#pragma once
 
 #include "GroundTruth.h"
 #include "PxTensor.h"
@@ -62,4 +61,3 @@ private:
 
 }   // px
 
-#endif // PIXIENN_TRAINBATCH_H

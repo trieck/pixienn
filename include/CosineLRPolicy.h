@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_COSINE_ANNEALING_LR_POLICY_H
-#define PIXIENN_COSINE_ANNEALING_LR_POLICY_H
+#pragma once
 
 #include "LRPolicy.h"
 
@@ -47,5 +46,3 @@ private:
 };
 
 } // px
-
-#endif // PIXIENN_COSINE_ANNEALING_LR_POLICY_H

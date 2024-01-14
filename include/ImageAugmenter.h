@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_IMAGE_AUGMENTER_H
-#define PIXIENN_IMAGE_AUGMENTER_H
+#pragma once
 
 #include <opencv2/core/types.hpp>
 #include "Common.h"
@@ -49,4 +48,3 @@ private:
 
 }   // px
 
-#endif  // PIXIENN_IMAGE_AUGMENTER_H

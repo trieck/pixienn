@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_TIMER_H
-#define PIXIENN_TIMER_H
+#pragma once
 
 #include <chrono>
 #include "Common.h"
@@ -43,4 +42,3 @@ inline std::ostream& operator<<(std::ostream& s, const Timer& timer)
 
 }   // px
 
-#endif // PIXIENN_TIMER_H

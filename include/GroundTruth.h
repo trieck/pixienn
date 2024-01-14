@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_GROUNDTRUTH_H
-#define PIXIENN_GROUNDTRUTH_H
+#pragma once
 
 #include "Common.h"
 #include "DarkBox.h"
@@ -32,5 +31,3 @@ using GroundTruthVec = std::vector<GroundTruth>;
 using GroundTruths = std::vector<GroundTruthVec>;
 
 }   // px
-
-#endif  // PIXIENN_GROUNDTRUTH_H

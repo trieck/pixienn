@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIE_IMAGEVEC_H
-#define PIXIE_IMAGEVEC_H
+#pragma once
 
 #include <opencv2/core/types.hpp>
 #include "PxTensor.h"
@@ -43,6 +42,3 @@ struct ImageVec
 };
 
 }   // px
-
-
-#endif // PIXIE_IMAGEVEC_H

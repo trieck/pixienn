@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_VALIDATOR_H
-#define PIXIENN_VALIDATOR_H
+#pragma once
 
 #include "Common.h"
 #include "ConfusionMatrix.h"
@@ -47,5 +46,3 @@ private:
 };
 
 }
-
-#endif  // PIXIENN_VALIDATOR_H

@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_MATH_H
-#define PIXIENN_MATH_H
+#pragma once
 
 #include "PxTensor.h"
 
@@ -24,8 +23,6 @@ namespace px {
 PxCpuVector exp(const PxCpuVector& input);
 PxCpuVector log(const PxCpuVector& input);
 PxCpuVector softmax(const PxCpuVector& input);
-void softmax(const float *input, int n, float temp, float *output, int stride);
+void softmax(const float* input, int n, float temp, float* output, int stride);
 
 }   // px
-
-#endif // PIXIENN_MATH_H

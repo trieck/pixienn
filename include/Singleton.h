@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_SINGLETON_H
-#define PIXIENN_SINGLETON_H
+#pragma once
 
 #include <atomic>
 #include <mutex>
@@ -54,5 +53,3 @@ template<class T>
 std::atomic<T*> Singleton<T>::instance_ = ATOMIC_VAR_INIT(nullptr);
 
 } // px
-
-#endif // PIXIENN_SINGLETON_H

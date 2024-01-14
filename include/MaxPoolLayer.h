@@ -16,12 +16,6 @@
 
 #pragma once
 
-#ifdef USE_CUDA
-
-#include "Cudnn.h"
-
-#endif // USE_CUDA
-
 #include "Layer.h"
 
 namespace px {
@@ -33,14 +27,6 @@ protected:
     PxCpuVectorT<int> indexes_;
 };
 
-template<>
-class MPExtras<Device::CUDA>
-{
-protected:
-    CudnnPoolingDesc::Ptr poolDesc_;
-    CudnnTensorDesc::Ptr xDesc_;
-    CudnnTensorDesc::Ptr yDesc_;
-};
 
 template<Device D = Device::CPU>
 class MaxPoolLayer : public Layer<D>, public MPExtras<D>
@@ -87,25 +73,6 @@ template<Device D>
 void MaxPoolLayer<D>::setup()
 {
     this->indexes_ = PxCpuVectorT<int>(this->batch() * this->outputs(), 0);
-}
-
-template<>
-inline void MaxPoolLayer<Device::CUDA>::setup()
-{
-    poolDesc_ = std::make_unique<CudnnPoolingDesc>();
-
-    auto status = cudnnSetPooling2dDescriptor(*poolDesc_, CUDNN_POOLING_MAX, CUDNN_NOT_PROPAGATE_NAN,
-                                              kernel_, kernel_, padding_ / 2, padding_ / 2, stride_, stride_);
-    PX_CHECK_CUDNN(status);
-
-    xDesc_ = std::make_unique<CudnnTensorDesc>();
-    status = cudnnSetTensor4dDescriptor(*xDesc_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
-                                        this->batch(), this->channels(), this->height(), this->width());
-    PX_CHECK_CUDNN(status);
-
-    yDesc_ = std::make_unique<CudnnTensorDesc>();
-    status = cudnnSetTensor4dDescriptor(*yDesc_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
-                                        this->batch(), this->outChannels(), this->outHeight(), this->outWidth());
 }
 
 template<Device D>
@@ -162,16 +129,6 @@ void MaxPoolLayer<D>::forward(const V& input)
     }
 }
 
-template<>
-inline void MaxPoolLayer<Device::CUDA>::forward(const V& input)
-{
-    auto alpha = 1.0f;
-    auto beta = 0.0f;
-
-    auto status = cudnnPoolingForward(this->cudnnContext(), *poolDesc_, &alpha, *xDesc_, input.data(), &beta,
-                                      *yDesc_, this->output_.data());
-    PX_CHECK_CUDNN(status);
-}
 
 template<Device D>
 void MaxPoolLayer<D>::backward(const V& input)
@@ -189,3 +146,9 @@ using CpuMaxPool = MaxPoolLayer<>;
 using CudaMaxPool = MaxPoolLayer<Device::CUDA>;
 
 } // px
+
+#ifdef USE_CUDA
+
+#include "MaxPoolCuda.h"
+
+#endif

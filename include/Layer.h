@@ -1,17 +1,34 @@
+/********************************************************************************
+* Copyright 2023 Thomas A. Rieck, All Rights Reserved
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+********************************************************************************/
+
 #pragma once
 
 #include <yaml-cpp/yaml.h>
 
+#include "DeviceTraits.h"
 #include "Error.h"
+#include "PxTensor.h"
+
 
 #ifdef USE_CUDA
 
 #include "Cublas.h"
-#include "DeviceTraits.h"
 #include "Cudnn.h"
-#include "PxTensor.h"
 
-#endif  // USE_CUDA
+#endif
 
 namespace px {
 
@@ -85,11 +102,13 @@ protected:
     bool training() const noexcept;
     int classes() const noexcept;
 
+#ifdef USE_CUDA
     template<Device D_ = D, typename = EnableIfCuda<D_>>
     const CublasContext& cublasContext() const noexcept;
 
     template<Device D_ = D, typename = EnableIfCuda<D_>>
     const CudnnContext& cudnnContext() const noexcept;
+#endif
 
     V output_, delta_;
 private:
@@ -354,6 +373,8 @@ auto Layer<D>::delta() noexcept -> V&
     return delta_;
 }
 
+#ifdef USE_CUDA
+
 template<Device D>
 template<Device D_, typename>
 const CudnnContext& Layer<D>::cudnnContext() const noexcept
@@ -368,5 +389,6 @@ const CublasContext& Layer<D>::cublasContext() const noexcept
     return model_.cublasContext();
 }
 
-}   // px
+#endif  // USE_CUDA
 
+}   // px

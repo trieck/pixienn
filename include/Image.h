@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_IMAGE_H
-#define PIXIENN_IMAGE_H
+#pragma once
 
 #include <opencv2/core/mat.hpp>
 #include <opencv2/imgproc.hpp>
@@ -103,4 +102,3 @@ uint32_t imtextcolor(uint32_t color);
 
 } // px
 
-#endif // PIXIENN_IMAGE_H

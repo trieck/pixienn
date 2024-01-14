@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_COLORMAPS_H
-#define PIXIENN_COLORMAPS_H
+#pragma once
 
 namespace px {
 
@@ -34,5 +33,3 @@ private:
 };
 
 }
-
-#endif //PIXIENN_COLORMAPS_H

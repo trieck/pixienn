@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_CPUUTIL_H
-#define PIXIENN_CPUUTIL_H
+#pragma once
 
 #include "Common.h"
 
@@ -63,4 +62,3 @@ void varianceDeltaCpu(const float* x, const float* delta, const float* mean, con
 
 }   // px
 
-#endif // PIXIENN_CPUUTIL_H

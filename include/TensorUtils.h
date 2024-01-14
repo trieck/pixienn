@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_TENSORUTILS_H
-#define PIXIENN_TENSORUTILS_H
+#pragma once
 
 #include "PxTensor.h"
 
@@ -64,5 +63,3 @@ void printTensor(const T& tensor, const std::array<std::int32_t, N>& shape, cons
 
 
 }   // px
-
-#endif // PIXIENN_TENSORUTILS_H

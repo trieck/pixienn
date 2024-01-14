@@ -1,6 +1,32 @@
 #pragma once
 
+#include "Cudnn.h"
+
 namespace px {
+
+template<>
+class BNExtras<Device::CUDA>
+{
+protected:
+    CudnnTensorDesc::Ptr dstTens_, normTens_;
+};
+
+template<>
+inline void BatchNormLayer<Device::CUDA>::setup()
+{
+    this->dstTens_ = std::make_unique<CudnnTensorDesc>();
+    this->normTens_ = std::make_unique<CudnnTensorDesc>();
+}
+
+template<>
+inline std::streamoff BatchNormLayer<Device::CUDA>::loadWeights(std::istream& is)
+{
+    auto start = is.tellg();
+
+    // TODO: implement CUDA weights loading
+
+    return is.tellg() - start;
+}
 
 template<>
 inline void BatchNormLayer<Device::CUDA>::forward(const PxCudaVector& input)

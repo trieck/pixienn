@@ -1,3 +1,19 @@
+/********************************************************************************
+* Copyright 2020-2023 Thomas A. Rieck, All Rights Reserved
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+********************************************************************************/
+
 #pragma once
 
 #include <boost/filesystem.hpp>
@@ -18,14 +34,7 @@
 #include "Image.h"
 #include "Layer.h"
 #include "PxTensor.h"
-
-#ifdef USE_CUDA
-
-#include "Cublas.h"
-#include "Cudnn.h"
 #include "Timer.h"
-
-#endif  // USE_CUDA
 
 using namespace YAML;
 using namespace boost::filesystem;
@@ -55,9 +64,9 @@ public:
 template<Device D>
 class DeviceExtras
 {
-public:
-    static constexpr bool isCuda = false;
 };
+
+#ifdef USE_CUDA
 
 template<>
 class DeviceExtras<Device::CUDA>
@@ -65,8 +74,6 @@ class DeviceExtras<Device::CUDA>
 public:
     const CublasContext& cublasContext() const noexcept;
     const CudnnContext& cudnnContext() const noexcept;
-
-    static constexpr bool isCuda = true;
 
 protected:
     std::unique_ptr<CublasContext> cublasCtxt_;
@@ -82,6 +89,8 @@ inline const CudnnContext& DeviceExtras<Device::CUDA>::cudnnContext() const noex
 {
     return *cudnnCtxt_;
 }
+
+#endif  // USE_CUDA
 
 ///////////////////////////////////////////////////////////////////////////////
 template<Device D = Device::CPU>
@@ -200,13 +209,6 @@ Model<D>::Model(var_map options) : options_(std::move(options))
 template<Device D>
 void Model<D>::setup()
 {
-}
-
-template<>
-inline void Model<Device::CUDA>::setup()
-{
-    this->cublasCtxt_ = std::make_unique<CublasContext>();
-    this->cudnnCtxt_ = std::make_unique<CudnnContext>();
 }
 
 template<Device D>
@@ -336,14 +338,6 @@ template<Device D>
 void Model<D>::forward(const ImageVec& image)
 {
     forward(image.data);
-}
-
-template<>
-inline void Model<Device::CUDA>::forward(const ImageVec& image)
-{
-    V input(&(*image.data.begin()), &(*image.data.end()));
-
-    forward(input);
 }
 
 template<Device D>
@@ -608,3 +602,9 @@ using CpuModel = Model<>; // Model<Device::CPU
 using CudaModel = Model<Device::CUDA>;
 
 }   // px
+
+#ifdef USE_CUDA
+
+#include "ModelCuda.h"
+
+#endif

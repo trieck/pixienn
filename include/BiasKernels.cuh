@@ -14,13 +14,10 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_BIASKERNELS_CUH
-#define PIXIENN_BIASKERNELS_CUH
+#pragma once
 
 namespace px {
 
 void addBiasGpu(float* output, float* biases, int batch, int n, int size);
 
 }   // px
-
-#endif // PIXIENN_BIASKERNELS_CUH
