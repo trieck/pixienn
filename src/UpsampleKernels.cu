@@ -57,6 +57,7 @@ void upsampleGpu(const float* in, int w, int h, int c, int batch, int stride, in
     size_t size = w * h * c * batch * stride * stride;
 
     upsampleKernel<<<cudaGridsize(size), CUDA_BLOCK_SIZE>>>(size, in, w, h, c, batch, stride, forward, scale, out);
+    cudaDeviceSynchronize();
 
     PX_CUDA_CHECK_LAST();
 }

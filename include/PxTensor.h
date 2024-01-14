@@ -28,17 +28,13 @@
 #endif
 
 #include "Common.h"
+#include "Device.h"
 #include "Error.h"
 #include "Strides.h"
 #include "CpuUtil.h"
 
 namespace px {
 
-enum class Device
-{
-    CPU,
-    CUDA
-};
 
 #ifdef USE_CUDA
 
@@ -78,11 +74,9 @@ PxCudaAllocatorT<T>::PxCudaAllocatorT(PxCudaAllocatorT::size_type n)
 template<typename T>
 PxCudaAllocatorT<T>::pointer PxCudaAllocatorT<T>::alloc(PxCudaAllocatorT::size_type n)
 {
-
     pointer ptr;
     auto result = cudaMalloc(&ptr, n * sizeof(T));
     PX_CUDA_CHECK_ERR(result);
-
 
     return ptr;
 }
@@ -145,6 +139,7 @@ public:
     using size_type = typename C::size_type;
     using iterator = typename C::iterator;
     using const_iterator = typename C::const_iterator;
+    using device_type = std::integral_constant<Device, Device::CPU>;
 
     PxCpuVectorT();
     explicit PxCpuVectorT(size_type count, const allocator_type& alloc = allocator_type());
@@ -449,6 +444,7 @@ public:
     using reference = typename A::reference;
     using const_reference = typename A::const_reference;
     using size_type = typename A::size_type;
+    using device_type = std::integral_constant<Device, Device::CUDA>;
 
     PxCudaVectorT();
     explicit PxCudaVectorT(size_type count, const allocator_type& alloc = allocator_type());
@@ -780,7 +776,7 @@ public:
     using reference = typename C::reference;
     using const_reference = typename C::const_reference;
     using size_type = typename C::size_type;
-    using shape_type = base_type::shape_type;
+    using shape_type = typename base_type::shape_type;
     using device_type = std::integral_constant<Device, D>;
 
     PxTensorImpl();
@@ -969,7 +965,7 @@ using PxCudaTensor = PxCudaTensorT<float, N>;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<typename T, typename... Args>
-PxVector<T>::Ptr makeVector(Device dev, Args&& ...args)
+typename PxVector<T>::Ptr makeVector(Device dev, Args&& ...args)
 {
     typename PxVector<T>::Ptr p;
 
@@ -1005,7 +1001,7 @@ PxVector<float>::Ptr cudaVector(Args&& ...args)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<typename T, Device D, std::size_t N, typename... Args>
-PxTensor<T, N>::Ptr makeTensor(Args&& ...args)
+typename PxTensor<T, N>::Ptr makeTensor(Args&& ...args)
 {
     typename PxTensor<T, N>::Ptr p;
 
@@ -1023,7 +1019,7 @@ PxTensor<T, N>::Ptr makeTensor(Args&& ...args)
 }
 
 template<std::size_t N, typename... Args>
-PxTensor<float, N>::Ptr cpuTensor(Args&& ...args)
+typename PxTensor<float, N>::Ptr cpuTensor(Args&& ...args)
 {
     return makeTensor<float, Device::CPU, N>(std::forward<Args>(args)...);
 }
@@ -1031,19 +1027,17 @@ PxTensor<float, N>::Ptr cpuTensor(Args&& ...args)
 #ifdef USE_CUDA
 
 template<std::size_t N, typename... Args>
-PxTensor<float, N>::Ptr cudaTensor(Args&& ...args)
+typename PxTensor<float, N>::Ptr cudaTensor(Args&& ...args)
 {
     return makeTensor<float, Device::CUDA, N>(std::forward<Args>(args)...);
 }
 
 #endif
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<typename T>
-T random(const typename T::shape_type& shape, typename T::value_type lo = 0, typename T::value_type hi = 1)
+void random(T& out, typename T::value_type lo = 0, typename T::value_type hi = 1)
 {
-    T out(shape);
-
 #ifdef USE_CUDA
     if constexpr (typename T::device_type() == Device::CUDA) {
         randomGpu(out.data(), out.size(), lo, hi);
@@ -1053,6 +1047,26 @@ T random(const typename T::shape_type& shape, typename T::value_type lo = 0, typ
 #else
     randomCpu(out.data(), out.size(), lo, hi);
 #endif // USE_CUDA
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+template<typename T>
+T random(const typename T::shape_type& shape, typename T::value_type lo = 0, typename T::value_type hi = 1)
+{
+    T out(shape);
+
+    random(out, lo, hi);
+
+    return out;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+template<typename T>
+T random(std::size_t n, typename T::value_type lo = 0, typename T::value_type hi = 1)
+{
+    T out(n);
+
+    random(out, lo, hi);
 
     return out;
 }

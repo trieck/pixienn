@@ -18,302 +18,444 @@
 #include <gmock/gmock.h>
 
 #include "Activation.h"
+#include "Device.h"
 
 using namespace px;
 using namespace testing;
 
-class LeakyActivationTest : public ::testing::Test
-{
-protected:
-    void SetUp() override;
+template<Device D>
+struct DeviceTrait;
 
-    Activations::Ptr activation;
+template<>
+struct DeviceTrait<Device::CPU>
+{
+    static constexpr auto D = Device::CPU;
+
+    using V = PxCpuVector;
 };
 
-void LeakyActivationTest::SetUp()
+template<>
+struct DeviceTrait<Device::CUDA>
 {
-    activation = Activations::get("leaky");
-}
+    static constexpr auto D = Device::CUDA;
 
-TEST_F(LeakyActivationTest, Apply)
-{
-    PxCpuVector input = { 1.0f, -2.0f, 3.0f, -4.0f };
+    using V = PxCudaVector;
+};
 
-    activation->apply(input);
+#ifdef USE_CUDA
+using DeviceTypes = ::testing::Types<DeviceTrait<Device::CPU>, DeviceTrait<Device::CUDA>>;
+#else
+using DeviceTypes = ::testing::Types<DeviceTrait<Device::CPU>>;
+#endif
 
-    ASSERT_FLOAT_EQ(input[0], 1.0f);
-    ASSERT_FLOAT_EQ(input[1], -0.2f);
-    ASSERT_FLOAT_EQ(input[2], 3.0f);
-    ASSERT_FLOAT_EQ(input[3], -0.4f);
-}
-
-TEST_F(LeakyActivationTest, Gradient)
-{
-    PxCpuVector input = { 1.0f, -2.0f, 3.0f, -4.0f };
-    PxCpuVector delta = { 0.1f, -0.1f, 0.2f, -0.2f };
-
-    activation->gradient(input, delta);
-
-    ASSERT_FLOAT_EQ(delta[0], 0.1f);
-    ASSERT_FLOAT_EQ(delta[1], -0.01f);
-    ASSERT_FLOAT_EQ(delta[2], 0.2f);
-    ASSERT_FLOAT_EQ(delta[3], -0.02f);
-}
-
-class LoggyActivationTest : public ::testing::Test
+/////////////////////////////////////////////////////////////////////////////////////////
+template<typename T>
+class LeakyTest : public ::testing::Test
 {
 protected:
     void SetUp() override
     {
-        activation = Activations::get("loggy");
+        activation = Activations<T::D>::get("leaky");
     }
 
-    Activations::Ptr activation;
+    Activations<T::D>::Ptr activation;
 };
 
-TEST_F(LoggyActivationTest, Apply)
+TYPED_TEST_SUITE(LeakyTest, DeviceTypes);
+
+TYPED_TEST(LeakyTest, Apply)
 {
-    PxCpuVector input = { 1.0f, -2.0f, 3.0f, -4.0f };
+    typename TypeParam::V input{ 1.0f, -2.0f, 3.0f, -4.0f };
 
-    activation->apply(input);
+    this->activation->apply(input);
 
-    ASSERT_FLOAT_EQ(input[0], 0.4621172);
-    ASSERT_FLOAT_EQ(input[1], -0.76159418);
-    ASSERT_FLOAT_EQ(input[2], 0.90514827);
-    ASSERT_FLOAT_EQ(input[3], -0.9640276);
+    std::vector<float> results = input.asVector();
+
+    ASSERT_FLOAT_EQ(results[0], 1.0f);
+    ASSERT_FLOAT_EQ(results[1], -0.2f);
+    ASSERT_FLOAT_EQ(results[2], 3.0f);
+    ASSERT_FLOAT_EQ(results[3], -0.4f);
 }
 
-TEST_F(LoggyActivationTest, Gradient)
+TYPED_TEST(LeakyTest, Gradient)
 {
-    PxCpuVector input = { 1.0f, -2.0f, 3.0f, -4.0f };
-    PxCpuVector delta = { 0.1f, -0.1f, 0.2f, -0.2f };
+    typename TypeParam::V input{ 1.0f, -2.0f, 3.0f, -4.0f };
+    typename TypeParam::V delta{ 0.1f, -0.1f, 0.2f, -0.2f };
 
-    activation->gradient(input, delta);
+    this->activation->gradient(input, delta);
 
-    ASSERT_FLOAT_EQ(delta[0], 0.0);
-    ASSERT_FLOAT_EQ(delta[1], 0.15);
-    ASSERT_FLOAT_EQ(delta[2], -0.8);
-    ASSERT_FLOAT_EQ(delta[3], 1.5);
+    std::vector<float> results = delta.asVector();
+
+    ASSERT_FLOAT_EQ(results[0], 0.1f);
+    ASSERT_FLOAT_EQ(results[1], -0.01f);
+    ASSERT_FLOAT_EQ(results[2], 0.2f);
+    ASSERT_FLOAT_EQ(results[3], -0.02f);
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////
+template<typename T>
+class LinearTest : public ::testing::Test
+{
+protected:
+    void SetUp() override
+    {
+        activation = Activations<T::D>::get("linear");
+    }
+
+    Activations<T::D>::Ptr activation;
+};
+
+TYPED_TEST_SUITE(LinearTest, DeviceTypes);
+
+TYPED_TEST(LinearTest, Apply)
+{
+    typename TypeParam::V input{ 1.0f, -2.0f, 3.0f, -4.0f };
+
+    this->activation->apply(input);
+
+    std::vector<float> results = input.asVector();
+
+    ASSERT_FLOAT_EQ(results[0], 1.0f);
+    ASSERT_FLOAT_EQ(results[1], -2.0f);
+    ASSERT_FLOAT_EQ(results[2], 3.0f);
+    ASSERT_FLOAT_EQ(results[3], -4.0f);
+}
+
+TYPED_TEST(LinearTest, Gradient)
+{
+    typename TypeParam::V input{ 1.0f, -2.0f, 3.0f, -4.0f };
+    typename TypeParam::V delta{ 0.1f, -0.1f, 0.2f, -0.2f };
+
+    this->activation->gradient(input, delta);
+
+    std::vector<float> results = delta.asVector();
+
+    ASSERT_FLOAT_EQ(results[0], 0.1f);
+    ASSERT_FLOAT_EQ(results[1], -0.1f);
+    ASSERT_FLOAT_EQ(results[2], 0.2f);
+    ASSERT_FLOAT_EQ(results[3], -0.2f);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+template<typename T>
+class LoggyTest : public ::testing::Test
+{
+protected:
+    void SetUp() override
+    {
+        activation = Activations<T::D>::get("loggy");
+    }
+
+    Activations<T::D>::Ptr activation;
+};
+
+TYPED_TEST_SUITE(LoggyTest, DeviceTypes);
+
+TYPED_TEST(LoggyTest, Apply)
+{
+    typename TypeParam::V input{ 1.0f, -2.0f, 3.0f, -4.0f };
+
+    this->activation->apply(input);
+
+    std::vector<float> results = input.asVector();
+
+    ASSERT_FLOAT_EQ(results[0], 0.4621172);
+    ASSERT_FLOAT_EQ(results[1], -0.76159418);
+    ASSERT_FLOAT_EQ(results[2], 0.90514827);
+    ASSERT_FLOAT_EQ(results[3], -0.9640276);
+}
+
+TYPED_TEST(LoggyTest, Gradient)
+{
+    typename TypeParam::V input{ 1.0f, -2.0f, 3.0f, -4.0f };
+    typename TypeParam::V delta{ 0.1f, -0.1f, 0.2f, -0.2f };
+
+    this->activation->gradient(input, delta);
+
+    std::vector<float> results = delta.asVector();
+
+    ASSERT_FLOAT_EQ(results[0], 0.0);
+    ASSERT_FLOAT_EQ(results[1], 0.15);
+    ASSERT_FLOAT_EQ(results[2], -0.8);
+    ASSERT_FLOAT_EQ(results[3], 1.5);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+template<typename T>
+class LogisticTest : public ::testing::Test
+{
+protected:
+    void SetUp() override
+    {
+        activation = Activations<T::D>::get("logistic");
+    }
+
+    Activations<T::D>::Ptr activation;
+};
 
 class LogisticActivationTest : public ::testing::Test
 {
 protected:
     void SetUp() override
     {
-        activation = Activations::get("logistic");
+        activation = Activations<>::get("logistic");
     }
 
-    Activations::Ptr activation;
+    Activations<>::Ptr activation;
 };
 
-TEST_F(LogisticActivationTest, Apply)
+TYPED_TEST_SUITE(LogisticTest, DeviceTypes);
+
+TYPED_TEST(LogisticTest, Apply)
 {
-    PxCpuVector input = { 1.0f, -2.0f, 3.0f, -4.0f };
+    typename TypeParam::V input{ 1.0f, -2.0f, 3.0f, -4.0f };
 
-    activation->apply(input);
+    this->activation->apply(input);
 
-    ASSERT_FLOAT_EQ(input[0], 0.7310586);
-    ASSERT_FLOAT_EQ(input[1], 0.11920292);
-    ASSERT_FLOAT_EQ(input[2], 0.95257413);
-    ASSERT_FLOAT_EQ(input[3], 0.01798621);
+    std::vector<float> results = input.asVector();
+
+    ASSERT_FLOAT_EQ(results[0], 0.7310586);
+    ASSERT_FLOAT_EQ(results[1], 0.11920292);
+    ASSERT_FLOAT_EQ(results[2], 0.95257413);
+    ASSERT_FLOAT_EQ(results[3], 0.017986209);
 }
 
-TEST_F(LogisticActivationTest, Gradient)
+TYPED_TEST(LogisticTest, Gradient)
 {
-    PxCpuVector input = { 1.0f, -2.0f, 3.0f, -4.0f };
-    PxCpuVector delta = { 0.1f, -0.1f, 0.2f, -0.2f };
+    typename TypeParam::V input{ 1.0f, -2.0f, 3.0f, -4.0f };
+    typename TypeParam::V delta{ 0.1f, -0.1f, 0.2f, -0.2f };
 
-    activation->gradient(input, delta);
+    this->activation->gradient(input, delta);
 
-    ASSERT_FLOAT_EQ(delta[0], 0.019661194);
-    ASSERT_FLOAT_EQ(delta[1], -0.010499358);
-    ASSERT_FLOAT_EQ(delta[2], 0.0090353312);
-    ASSERT_FLOAT_EQ(delta[3], -0.0035325412);
+    std::vector<float> results = delta.asVector();
+
+    ASSERT_FLOAT_EQ(results[0], 0.019661194);
+    ASSERT_FLOAT_EQ(results[1], -0.010499358);
+    ASSERT_FLOAT_EQ(results[2], 0.0090353312);
+    ASSERT_FLOAT_EQ(results[3], -0.0035325412);
 }
 
-class MishActivationTest : public ::testing::Test
+/////////////////////////////////////////////////////////////////////////////////////////
+template<typename T>
+class MishTest : public ::testing::Test
 {
 protected:
     void SetUp() override
     {
-        activation = Activations::get("mish");
+        activation = Activations<T::D>::get("mish");
     }
 
-    Activations::Ptr activation;
+    Activations<T::D>::Ptr activation;
 };
 
-TEST_F(MishActivationTest, Apply)
+TYPED_TEST_SUITE(MishTest, DeviceTypes);
+
+TYPED_TEST(MishTest, Apply)
 {
-    PxCpuVector input = { 1.0f, -2.0f, 3.0f, -4.0f };
+    typename TypeParam::V input{ 1.0f, -2.0f, 3.0f, -4.0f };
 
-    activation->apply(input);
+    this->activation->apply(input);
 
-    ASSERT_FLOAT_EQ(input[0], 0.86509836f);
-    ASSERT_FLOAT_EQ(input[1], -0.25250155f);
-    ASSERT_FLOAT_EQ(input[2], 2.9865351f);
-    ASSERT_FLOAT_EQ(input[3], -0.072591871f);
+    std::vector<float> results = input.asVector();
+
+    ASSERT_FLOAT_EQ(results[0], 0.86509836f);
+    ASSERT_FLOAT_EQ(results[1], -0.25250155f);
+    ASSERT_FLOAT_EQ(results[2], 2.9865351f);
+    ASSERT_FLOAT_EQ(results[3], -0.072591871f);
 }
 
-TEST_F(MishActivationTest, Gradient)
+TYPED_TEST(MishTest, Gradient)
 {
-    PxCpuVector input = { 1.0f, -2.0f, 3.0f, -4.0f };
-    PxCpuVector delta = { 0.1f, -0.1f, 0.2f, -0.2f };
+    typename TypeParam::V input{ 1.0f, -2.0f, 3.0f, -4.0f };
+    typename TypeParam::V delta{ 0.1f, -0.1f, 0.2f, -0.2f };
 
-    activation->gradient(input, delta);
+    this->activation->gradient(input, delta);
 
-    ASSERT_FLOAT_EQ(delta[0], 0.10490363f);
-    ASSERT_FLOAT_EQ(delta[1], 0.010835516f);
-    ASSERT_FLOAT_EQ(delta[2], 0.2042214f);
-    ASSERT_FLOAT_EQ(delta[3], 0.010754657f);
+    std::vector<float> results = delta.asVector();
+
+    EXPECT_NEAR(results[0], 0.10490363f, 1e-5);
+    EXPECT_NEAR(results[0], 0.10490363f, 1e-5);
+    EXPECT_NEAR(results[1], 0.010835516f, 1e-5);
+    EXPECT_NEAR(results[2], 0.2042214f, 1e-5);
+    EXPECT_NEAR(results[3], 0.010754657f, 1e-5);
 }
 
-class ReluActivationTest : public ::testing::Test
-{
-protected:
-    void SetUp() override;
-
-    Activations::Ptr activation;
-};
-
-void ReluActivationTest::SetUp()
-{
-    activation = Activations::get("relu");
-}
-
-TEST_F(ReluActivationTest, Apply)
-{
-    PxCpuVector input = { 1.0f, -2.0f, 3.0f, -4.0f };
-
-    activation->apply(input);
-
-    ASSERT_FLOAT_EQ(input[0], 1.0f);
-    ASSERT_FLOAT_EQ(input[1], 0.0f);
-    ASSERT_FLOAT_EQ(input[2], 3.0f);
-    ASSERT_FLOAT_EQ(input[3], 0.0f);
-}
-
-TEST_F(ReluActivationTest, Gradient)
-{
-    PxCpuVector input = { 1.0f, -2.0f, 3.0f, -4.0f };
-    PxCpuVector delta = { 0.1f, -0.1f, 0.2f, -0.2f };
-
-    activation->gradient(input, delta);
-
-    ASSERT_FLOAT_EQ(delta[0], 0.1f);
-    ASSERT_FLOAT_EQ(delta[1], 0.0f);
-    ASSERT_FLOAT_EQ(delta[2], 0.2f);
-    ASSERT_FLOAT_EQ(delta[3], 0.0f);
-}
-
-class SoftplusActivationTest : public ::testing::Test
+/////////////////////////////////////////////////////////////////////////////////////////
+template<typename T>
+class ReluTest : public ::testing::Test
 {
 protected:
     void SetUp() override
     {
-        activation = Activations::get("softplus");
+        activation = Activations<T::D>::get("relu");
     }
 
-    Activations::Ptr activation;
+    Activations<T::D>::Ptr activation;
 };
 
-TEST_F(SoftplusActivationTest, Apply)
+TYPED_TEST_SUITE(ReluTest, DeviceTypes);
+
+TYPED_TEST(ReluTest, Apply)
 {
-    PxCpuVector input = { 1.0f, 2.0f, 3.0f, 4.0f, 21.0f, -21.0f };
+    typename TypeParam::V input{ 1.0f, -2.0f, 3.0f, -4.0f };
 
-    activation->apply(input);
+    this->activation->apply(input);
 
-    ASSERT_FLOAT_EQ(input[0], 1.3132616f);
-    ASSERT_FLOAT_EQ(input[1], 2.1269281f);
-    ASSERT_FLOAT_EQ(input[2], 3.0485873f);
-    ASSERT_FLOAT_EQ(input[3], 4.0181499f);
-    ASSERT_FLOAT_EQ(input[4], 21.0f);
-    ASSERT_FLOAT_EQ(input[5], 7.5825607e-10f);
+    std::vector<float> results = input.asVector();
+
+    ASSERT_FLOAT_EQ(results[0], 1.0f);
+    ASSERT_FLOAT_EQ(results[1], 0.0f);
+    ASSERT_FLOAT_EQ(results[2], 3.0f);
+    ASSERT_FLOAT_EQ(results[3], 0.0f);
 }
 
-TEST_F(SoftplusActivationTest, Gradient)
+TYPED_TEST(ReluTest, Gradient)
 {
-    PxCpuVector input = { 1.0f, 2.0f, 3.0f, 4.0f, 21.0f, -21.0f };
-    PxCpuVector delta = { 0.1f, 0.2f, 0.3f, 0.4f, 0.5f, -0.5f };
+    typename TypeParam::V input{ 1.0f, -2.0f, 3.0f, -4.0f };
+    typename TypeParam::V delta{ 0.1f, -0.1f, 0.2f, -0.2f };
 
-    activation->gradient(input, delta);
+    this->activation->gradient(input, delta);
 
-    ASSERT_FLOAT_EQ(delta[0], 0.073105864);
-    ASSERT_FLOAT_EQ(delta[1], 0.17615943);
-    ASSERT_FLOAT_EQ(delta[2], 0.28577226);
-    ASSERT_FLOAT_EQ(delta[3], 0.39280552);
-    ASSERT_FLOAT_EQ(delta[4], 0.5f);
-    ASSERT_FLOAT_EQ(delta[5], -3.7912801e-10f);
+    std::vector<float> results = delta.asVector();
+
+    ASSERT_FLOAT_EQ(results[0], 0.1f);
+    ASSERT_FLOAT_EQ(results[1], 0.0f);
+    ASSERT_FLOAT_EQ(results[2], 0.2f);
+    ASSERT_FLOAT_EQ(results[3], 0.0f);
 }
 
-class SwishActivationTest : public ::testing::Test
+/////////////////////////////////////////////////////////////////////////////////////////
+template<typename T>
+class SoftplusTest : public ::testing::Test
 {
 protected:
     void SetUp() override
     {
-        activation = Activations::get("swish");
+        activation = Activations<T::D>::get("softplus");
     }
 
-    Activations::Ptr activation;
+    Activations<T::D>::Ptr activation;
 };
 
-TEST_F(SwishActivationTest, Apply)
+TYPED_TEST_SUITE(SoftplusTest, DeviceTypes);
+
+TYPED_TEST(SoftplusTest, Apply)
 {
-    PxCpuVector input = { 1.0f, 2.0f, 3.0f, 4.0f };
+    typename TypeParam::V input{ 1.0f, 2.0f, 3.0f, 4.0f, 21.0f, -21.0f };
 
-    activation->apply(input);
+    this->activation->apply(input);
 
-    ASSERT_FLOAT_EQ(input[0], 0.7310586f);
-    ASSERT_FLOAT_EQ(input[1], 1.7615942f);
-    ASSERT_FLOAT_EQ(input[2], 2.857722f);
-    ASSERT_FLOAT_EQ(input[3], 3.928055f);
+    std::vector<float> results = input.asVector();
+
+    ASSERT_FLOAT_EQ(results[0], 1.3132616f);
+    ASSERT_FLOAT_EQ(results[1], 2.1269281f);
+    ASSERT_FLOAT_EQ(results[2], 3.0485873f);
+    ASSERT_FLOAT_EQ(results[3], 4.0181499f);
+    ASSERT_FLOAT_EQ(results[4], 21.0f);
+    ASSERT_FLOAT_EQ(results[5], 7.5825607e-10f);
 }
 
-TEST_F(SwishActivationTest, Gradient)
+TYPED_TEST(SoftplusTest, Gradient)
 {
-    PxCpuVector input = { 1.0f, 2.0f, 3.0f, 4.0f };
-    PxCpuVector delta = { 0.1f, 0.2f, 0.3f, 0.4f };
+    typename TypeParam::V input{ 1.0f, 2.0f, 3.0f, 4.0f, 21.0f, -21.0f };
+    typename TypeParam::V delta{ 0.1f, 0.2f, 0.3f, 0.4f, 0.5f, -0.5f };
 
-    activation->gradient(input, delta);
+    this->activation->gradient(input, delta);
 
-    ASSERT_FLOAT_EQ(delta[0], 0.092767052f);
-    ASSERT_FLOAT_EQ(delta[1], 0.21815686f);
-    ASSERT_FLOAT_EQ(delta[2], 0.32643124f);
-    ASSERT_FLOAT_EQ(delta[3], 0.4210659f);
+    std::vector<float> results = delta.asVector();
+
+    ASSERT_FLOAT_EQ(results[0], 0.073105864);
+    ASSERT_FLOAT_EQ(results[1], 0.17615943);
+    ASSERT_FLOAT_EQ(results[2], 0.28577226);
+    ASSERT_FLOAT_EQ(results[3], 0.39280552);
+    ASSERT_FLOAT_EQ(results[4], 0.5f);
+    ASSERT_FLOAT_EQ(results[5], -3.7912801e-10f);
 }
 
-class TanhActivationTest : public ::testing::Test
+/////////////////////////////////////////////////////////////////////////////////////////
+template<typename T>
+class SwishTest : public ::testing::Test
 {
 protected:
     void SetUp() override
     {
-        activation = Activations::get("tanh");
+        activation = Activations<T::D>::get("swish");
     }
 
-    Activations::Ptr activation;
+    Activations<T::D>::Ptr activation;
 };
 
-TEST_F(TanhActivationTest, Apply)
+TYPED_TEST_SUITE(SwishTest, DeviceTypes);
+
+TYPED_TEST(SwishTest, Apply)
 {
-    PxCpuVector input = { 1.0f, 2.0f, 3.0f, 4.0f };
+    typename TypeParam::V input{ 1.0f, 2.0f, 3.0f, 4.0f };
 
-    activation->apply(input);
+    this->activation->apply(input);
 
-    ASSERT_FLOAT_EQ(input[0], 0.7615942f);
-    ASSERT_FLOAT_EQ(input[1], 0.9640276f);
-    ASSERT_FLOAT_EQ(input[2], 0.9950547f);
-    ASSERT_FLOAT_EQ(input[3], 0.9993293f);
+    std::vector<float> results = input.asVector();
+
+    ASSERT_FLOAT_EQ(results[0], 0.7310586f);
+    ASSERT_FLOAT_EQ(results[1], 1.7615942f);
+    ASSERT_FLOAT_EQ(results[2], 2.857722f);
+    ASSERT_FLOAT_EQ(results[3], 3.928055f);
 }
 
-TEST_F(TanhActivationTest, Gradient)
+TYPED_TEST(SwishTest, Gradient)
 {
-    PxCpuVector input = { 1.0f, 2.0f, 3.0f, 4.0f };
-    PxCpuVector delta = { 0.1f, 0.2f, 0.3f, 0.4f };
+    typename TypeParam::V input{ 1.0f, 2.0f, 3.0f, 4.0f };
+    typename TypeParam::V delta{ 0.1f, 0.2f, 0.3f, 0.4f };
 
-    activation->gradient(input, delta);
+    this->activation->gradient(input, delta);
 
-    ASSERT_FLOAT_EQ(delta[0], 0.041997429f);
-    ASSERT_FLOAT_EQ(delta[1], 0.014130163f);
-    ASSERT_FLOAT_EQ(delta[2], 0.0029597946f);
-    ASSERT_FLOAT_EQ(delta[3], 0.00053635723f);
+    std::vector<float> results = delta.asVector();
+
+    ASSERT_FLOAT_EQ(results[0], 0.092767052f);
+    ASSERT_FLOAT_EQ(results[1], 0.21815686f);
+    ASSERT_FLOAT_EQ(results[2], 0.32643124f);
+    ASSERT_FLOAT_EQ(results[3], 0.4210659f);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+template<typename T>
+class TanhTest : public ::testing::Test
+{
+protected:
+    void SetUp() override
+    {
+        activation = Activations<T::D>::get("tanh");
+    }
+
+    Activations<T::D>::Ptr activation;
+};
+
+TYPED_TEST_SUITE(TanhTest, DeviceTypes);
+
+TYPED_TEST(TanhTest, Apply)
+{
+    typename TypeParam::V input{ 1.0f, 2.0f, 3.0f, 4.0f };
+
+    this->activation->apply(input);
+
+    std::vector<float> results = input.asVector();
+
+    ASSERT_FLOAT_EQ(results[0], 0.7615942f);
+    ASSERT_FLOAT_EQ(results[1], 0.9640276f);
+    ASSERT_FLOAT_EQ(results[2], 0.9950547f);
+    ASSERT_FLOAT_EQ(results[3], 0.9993293f);
+}
+
+TYPED_TEST(TanhTest, Gradient)
+{
+    typename TypeParam::V input{ 1.0f, 2.0f, 3.0f, 4.0f };
+    typename TypeParam::V delta{ 0.1f, 0.2f, 0.3f, 0.4f };
+
+    this->activation->gradient(input, delta);
+
+    std::vector<float> results = delta.asVector();
+
+    EXPECT_NEAR(results[0], 0.041997429f, 1e-5);
+    EXPECT_NEAR(results[1], 0.014130163f, 1e-5);
+    EXPECT_NEAR(results[2], 0.0029597946f, 1e-5);
+    EXPECT_NEAR(results[3], 0.00053635723f, 1e-5);
 }

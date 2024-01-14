@@ -198,7 +198,7 @@ void DetectLayer::addDetects(Detections& detections, int width, int height, floa
 
 void DetectLayer::addDetects(Detections& detections, float threshold, const float* predictions) const
 {
-    PredictContext ctxt{};
+    PredictContext ctxt{};q
     ctxt.classes = classes();
     ctxt.coords = coords_;
     ctxt.detections = &detections;

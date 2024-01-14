@@ -14,74 +14,59 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_YOLOLAYER_H
-#define PIXIENN_YOLOLAYER_H
+#pragma once
 
-#include "Activation.h"
-#include "Detection.h"
 #include "Layer.h"
 
 namespace px {
 
-class YoloLayer : public Layer, public Detector
+template<Device D = Device::CPU>
+class YoloLayer : public Layer<D>
 {
-protected:
-    YoloLayer(Model& model, const YAML::Node& layerDef);
-
 public:
-    ~YoloLayer() override = default;
+    using V = typename Layer<D>::V;
+
+    YoloLayer(Model<D>& model, const YAML::Node& layerDef);
+
+    void forward(const V& input) override;
+    void backward(const V& input) override;
+    void update() override;
 
     std::ostream& print(std::ostream& os) override;
-    void forward(const PxCpuVector& input) override;
-    void backward(const PxCpuVector& input) override;
-
-    void addDetects(Detections& detections, int width, int height, float threshold) override;
-    void addDetects(Detections& detections, float threshold) override;
-
-    inline bool hasCost() const noexcept override
-    {
-        return true;
-    }
-
-#ifdef USE_CUDA
-    void forwardGpu(const PxCudaVector& input) override;
-    void addDetectsGpu(Detections& detections, int width, int height, float threshold) override;
-#endif
-private:
-    friend LayerFactories;
-
-    void setup() override;
-    void addDetects(Detections& detections, int width, int height, float threshold, const float* predictions) const;
-    void addDetects(Detections& detections, float threshold, const float* predictions) const;
-
-    int entryIndex(int batch, int location, int entry) const noexcept;
-    DarkBox yoloBox(const float* p, int mask, int index, int i, int j) const;
-    cv::Rect scaledYoloBox(const float* p, int mask, int index, int i, int j, int w, int h) const;
-    void resetStats();
-    void processRegion(int b, int i, int j);
-    void deltaYoloClass(int index, int classId);
-    float deltaYoloBox(const GroundTruth& truth, int mask, int index, int i, int j);
-    void processObjects(int b);
-    int maskIndex(int n);
-
-    LogisticActivation logistic_;
-    PxCpuTensor<1> biases_;
-
-    int num_ = 0, n_ = 0;
-    std::vector<int> mask_, anchors_;
-    float ignoreThresh_ = 0.0f;
-    float truthThresh_ = 0.0f;
-
-    float avgIoU = 0.0f;
-    float recall_ = 0.0f;
-    float recall75_ = 0.0f;
-    float avgCat_ = 0.0f;
-    float avgObj_ = 0.0f;
-    float avgAnyObj_ = 0.0f;
-    int count_ = 0;
-    int classCount_ = 0;
 };
 
-} // px
+template<Device D>
+YoloLayer<D>::YoloLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D>(model, layerDef)
+{
+}
 
-#endif // PIXIENN_YOLOLAYER_H
+template<Device D>
+std::ostream& YoloLayer<D>::print(std::ostream& os)
+{
+    Layer<D>::print(os, "yolo", { this->height(), this->width(), this->channels() },
+                    { this->outHeight(), this->outWidth(), this->outChannels() });
+    return os;
+}
+
+template<Device D>
+void YoloLayer<D>::forward(const V& input)
+{
+    std::cout << "YoloLayer::forward" << std::endl;
+}
+
+template<Device D>
+void YoloLayer<D>::backward(const V& input)
+{
+    std::cout << "YoloLayer::backward" << std::endl;
+}
+
+template<Device D>
+void YoloLayer<D>::update()
+{
+
+}
+
+using CpuYolo = YoloLayer<>;
+using CudaYolo = YoloLayer<Device::CUDA>;
+
+} // px

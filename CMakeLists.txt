@@ -60,6 +60,8 @@ else ()
 endif (USE_PANGO)
 
 if (USE_CUDA)
+    set(CMAKE_CUDA_STANDARD 20)
+
     if (NOT DEFINED CMAKE_CUDA_ARCHITECTURES OR CMAKE_CUDA_ARCHITECTURES STREQUAL "")
         set(CMAKE_CUDA_ARCHITECTURES "75")
     endif ()
@@ -81,11 +83,10 @@ if (USE_CUDA)
     file(GLOB CUDA_HEADERS "include/*.cuh")
     list(APPEND SOURCES
             ${CUDA_HEADERS}
-            src/ActivationKernels.cu
+            src/Activation.cu
             src/BiasKernels.cu
             src/CudaError.cpp
             src/CudaUtils.cu
-            src/PoolKernels.cu
             src/ShortcutKernel.cu
             src/UpsampleKernels.cu
     )
@@ -97,23 +98,15 @@ endif (USE_CUDA)
 file(GLOB HEADERS "include/*.h")
 list(APPEND SOURCES
         ${HEADERS}
-        src/Activation.cpp
-        src/BatchNormAlgo.cpp
-        src/BatchNormLayer.cpp
+        src/BatchNorm.cpp
         src/Box.cpp
         src/BurnInLRPolicy.cpp
         src/ColorMaps.cpp
         src/ConfusionMatrix.cpp
-        src/ConnAlgo.cpp
-        src/ConnLayer.cpp
         src/ConstantLRPolicy.cpp
-        src/ConvAlgo.cpp
-        src/ConvLayer.cpp
         src/CosineLRPolicy.cpp
         src/CpuUtil.cpp
         src/DarkBox.cpp
-        src/DetectAlgo.cpp
-        src/DetectLayer.cpp
         src/Detection.cpp
         src/Error.cpp
         src/FileUtil.cpp
@@ -121,26 +114,15 @@ list(APPEND SOURCES
         src/ImageAugmenter.cpp
         src/ImageVec.cpp
         src/InvLRPolicy.cpp
-        src/Layer.cpp
         src/Math.cpp
-        src/MaxPoolAlgo.cpp
-        src/MaxPoolLayer.cpp
         src/Model.cpp
-        src/RegionLayer.cpp
-        src/RouteLayer.cpp
-        src/ShortcutAlgo.cpp
-        src/ShortcutLayer.cpp
         src/SigmoidLRPolicy.cpp
         src/SmoothSteppedLRPolicy.cpp
         src/SteppedLRPolicy.cpp
         src/TiffIO.cpp
         src/Timer.cpp
         src/TrainBatch.cpp
-        src/UpsampleAlgo.cpp
-        src/UpsampleLayer.cpp
         src/Utility.cpp
-        src/Validator.cpp
-        src/YoloLayer.cpp
 )
 
 add_library(pixienn STATIC ${SOURCES})
@@ -177,6 +159,6 @@ endif ()
 
 include(PixiennLibs)
 include(Pixienn)
-include(PixiennTrain)
+#include(PixiennTrain)
 
 add_subdirectory(tests)

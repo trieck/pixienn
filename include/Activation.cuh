@@ -14,13 +14,27 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_POOLKERNELS_CUH
-#define PIXIENN_POOLKERNELS_CUH
+#pragma once
+
+#include <thrust/functional.h>
+#include "Common.h"
 
 namespace px {
 
-void maxpoolGpu(int n, int h, int w, int c, int stride, int kernel, int pad, const float* input, float* output);
+enum AlgorithmType : int
+{
+    LEAKY = 0,
+    LINEAR,
+    LOGGY,
+    LOGISTIC,
+    MISH,
+    RELU,
+    SOFTPLUS,
+    SWISH,
+    TANH,
+};
+
+void activate(AlgorithmType type, float* x, std::size_t n);
+void gradient(AlgorithmType type, const float* x, std::size_t n, float* delta);
 
 }   // px
-
-#endif // PIXIENN_POOLKERNELS_CUH

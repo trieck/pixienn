@@ -14,69 +14,60 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_REGIONLAYER_H
-#define PIXIENN_REGIONLAYER_H
+#pragma once
 
-#include "DarkBox.h"
-#include "Detection.h"
 #include "Layer.h"
 
 namespace px {
 
-class RegionLayer : public Layer, public Detector
+template<Device D = Device::CPU>
+class RegionLayer : public Layer<D>
 {
-protected:
-    RegionLayer(Model& model, const YAML::Node& layerDef);
-
 public:
-    ~RegionLayer() override = default;
+    using V = typename Layer<D>::V;
+
+    RegionLayer(Model<D>& model, const YAML::Node& layerDef);
+
+    void forward(const V& input) override;
+    void backward(const V& input) override;
+    void update() override;
 
     std::ostream& print(std::ostream& os) override;
-    void forward(const PxCpuVector& input) override;
-    void backward(const PxCpuVector& input) override;
-
-    void addDetects(Detections& detections, float threshold) override;
-    void addDetects(Detections& detections, int width, int height, float threshold) override;
-
-    inline bool hasCost() const noexcept override
-    {
-        return true;
-    }
-
-#ifdef USE_CUDA
-    void forwardGpu(const PxCudaVector& input) override;
-    void addDetectsGpu(Detections& detections, int width, int height, float threshold) override;
-#endif
-
-private:
-    friend LayerFactories;
-
-    void setup() override;
-    void processRegion(int b, int i, int j);
-    void processObjects(int i);
-    DarkBox regionBox(int n, int index, int i, int j);
-    float deltaRegionBox(const DarkBox& truth, int n, int index, int i, int j, float scale);
-    void deltaRegionClass(int index, int classId, float scale);
-    float bestIoU(int b, const DarkBox& pred);
-
-    void resetStats();
-
-    PxCpuTensor<1> biases_, biasUpdates_;
-    LogisticActivation logistic_;
-
-    std::vector<float> anchors_;
-    bool biasMatch_, softmax_, rescore_;
-    int coords_, num_;
-    float objectScale_, noObjectScale_, classScale_, coordScale_, thresh_;
-
-    float avgAnyObj_ = 0.0f;
-    float avgCat_ = 0.0f;
-    float avgIoU_ = 0.0f;
-    float avgObj_ = 0.0f;
-    float recall_ = 0.0f;
-    int count_ = 0, classCount_ = 0;
 };
 
-} // px
+template<Device D>
+RegionLayer<D>::RegionLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D>(model, layerDef)
+{
+}
 
-#endif // PIXIENN_REGIONLAYER_H
+template<Device D>
+std::ostream& RegionLayer<D>::print(std::ostream& os)
+{
+    Layer<D>::print(os, "region", { this->height(), this->width(), this->channels() },
+                    { this->outHeight(), this->outWidth(), this->outChannels() });
+
+    return os;
+}
+
+template<Device D>
+void RegionLayer<D>::forward(const V& input)
+{
+    std::cout << "RegionLayer::forward" << std::endl;
+}
+
+template<Device D>
+void RegionLayer<D>::backward(const V& input)
+{
+    std::cout << "RegionLayer::backward" << std::endl;
+}
+
+template<Device D>
+void RegionLayer<D>::update()
+{
+
+}
+
+using CpuRegion = RegionLayer<>;
+using CudaRegion = RegionLayer<Device::CUDA>;
+
+} // px

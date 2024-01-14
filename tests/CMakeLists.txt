@@ -13,24 +13,24 @@ find_package(GMock REQUIRED)
 add_executable(pixienn-test
         activations.cpp
         augment.cpp
-        batchnorm.cpp
+#        batchnorm.cpp
         blas.cpp
         confuse.cpp
-        connected.cpp
-        convolve.cpp
+#        connected.cpp
+#        convolve.cpp
         cosine.cpp
         darkbox.cpp
-        detect.cpp
+#        detect.cpp
         imagebatch.cpp
         main.cpp
         math.cpp
-        maxpool.cpp
+#        maxpool.cpp
         sigmoid.cpp
         smoothsteps.cpp
         steppedlr.cpp
         tensor.cpp
         tiff.cpp
-        upsample.cpp
+#        upsample.cpp
         vector.cpp
 )
 

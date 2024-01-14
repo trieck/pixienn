@@ -1,5 +1,5 @@
 /********************************************************************************
-* Copyright 2023 trieck, All Rights Reserved
+* Copyright 2020-2023 Thomas A. Rieck, All Rights Reserved
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -14,46 +14,60 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_SHORTCUTLAYER_H
-#define PIXIENN_SHORTCUTLAYER_H
+#pragma once
 
-#include "Activation.h"
 #include "Layer.h"
-
-#include "ShortcutAlgo.h"
 
 namespace px {
 
-class ShortcutLayer : public Layer
+template<Device D = Device::CPU>
+class ShortcutLayer : public Layer<D>
 {
-protected:
-    ShortcutLayer(Model& model, const YAML::Node& layerDef);
-
 public:
-    ~ShortcutLayer() override = default;
+    using V = typename Layer<D>::V;
+
+    ShortcutLayer(Model<D>& model, const YAML::Node& layerDef);
+
+    void forward(const V& input) override;
+    void backward(const V& input) override;
+    void update() override;
 
     std::ostream& print(std::ostream& os) override;
-    void forward(const PxCpuVector& input) override;
-    void backward(const PxCpuVector& input) override;
-
-#ifdef USE_CUDA
-    void forwardGpu(const PxCudaVector& input) override;
-#endif
-
-private:
-    void setup() override;
-    ShortcutContext makeContext(const PxCpuVector&);
-
-#ifdef USE_CUDA
-    ShortcutContext makeContext(const PxCudaVector&);
-#endif
-    friend LayerFactories;
-
-    Activations::Ptr activationFnc_;
-    Layer::Ptr from_;
-    float alpha_, beta_;
 };
 
-}   // px
+template<Device D>
+ShortcutLayer<D>::ShortcutLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D>(model, layerDef)
+{
+}
 
-#endif // PIXIENN_SHORTCUTLAYER_H
+template<Device D>
+std::ostream& ShortcutLayer<D>::print(std::ostream& os)
+{
+    Layer<D>::print(os, "shortcut", { this->height(), this->width(), this->channels() },
+                    { this->outHeight(), this->outWidth(), this->outChannels() });
+
+    return os;
+}
+
+template<Device D>
+void ShortcutLayer<D>::forward(const V& input)
+{
+    std::cout << "ShortcutLayer::forward" << std::endl;
+}
+
+template<Device D>
+void ShortcutLayer<D>::backward(const V& input)
+{
+    std::cout << "ShortcutLayer::backward" << std::endl;
+}
+
+template<Device D>
+void ShortcutLayer<D>::update()
+{
+
+}
+
+using CpuShortcut = ShortcutLayer<>;
+using CudaShortcut = ShortcutLayer<Device::CUDA>;
+
+} // px

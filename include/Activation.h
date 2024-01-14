@@ -17,184 +17,107 @@
 #ifndef PIXIENN_ACTIVATION_H
 #define PIXIENN_ACTIVATION_H
 
+#ifdef USE_CUDA
+
+#include <cuda_runtime.h>
+
+#ifdef __CUDACC__
+#define CUDA_CALLABLE __host__ __device__
+#else
+#define CUDA_CALLABLE
+#endif
+
+#endif
+
 #include "Common.h"
+#include "DeviceTraits.h"
 #include "PxTensor.h"
 #include "Singleton.h"
+#include "Activation.cuh"
 
 namespace px {
 
-template<typename T>
-class Algorithm
+class Leaky
 {
 public:
-    using Type = T;
+    static constexpr AlgorithmType type = AlgorithmType::LEAKY;
 
-    virtual T apply(T x) const = 0;
-    virtual T gradient(T x) const = 0;
-};
+    Leaky(float alpha = 0.1f) : alpha_(alpha)
+    {
+    }
 
-template<typename T>
-class IActivation
-{
-public:
-    virtual T apply(T x) const = 0;
-    virtual void apply(T* begin, T* end) const = 0;
-    virtual void apply(PxCpuVectorT<T>& container) const = 0;
+    CUDA_CALLABLE float apply(float x) const
+    {
+        return x > 0.0f ? x : alpha_ * x;
+    }
 
-    virtual T gradient(T x) const = 0;
-    virtual void gradient(T* dbegin, T* dend, const T* x) const = 0;
-    virtual void gradient(const PxCpuVectorT<T>& container, PxCpuVectorT<T>& delta) const = 0;
-};
-
-template<typename U>
-class Activation : public IActivation<typename U::Type>
-{
-public:
-    using T = typename U::Type;
-
-    T apply(T x) const override;
-    void apply(T* begin, T* end) const override;
-    void apply(PxCpuVectorT<T>& container) const override;
-
-    T gradient(T x) const override;
-    void gradient(T* dbegin, T* dend, const T* x) const override;
-    void gradient(const PxCpuVectorT<T>& container, PxCpuVectorT<T>& delta) const override;
-
+    CUDA_CALLABLE float gradient(float x) const
+    {
+        return x > 0.0f ? 1.0f : alpha_;
+    }
 private:
-    U algo_;
+    float alpha_ = 0.1f;
 };
 
-template<typename U>
-auto Activation<U>::apply(T x) const -> T
-{
-    return algo_.apply(x);
-}
-
-template<typename U>
-void Activation<U>::apply(T* begin, T* end) const
-{
-    std::for_each(begin, end, [this](T& x) {
-        x = this->apply(x);
-    });
-}
-
-template<typename U>
-void Activation<U>::apply(PxCpuVectorT<T>& container) const
-{
-    apply(&(*container.begin()), &(*container.end()));
-}
-
-template<typename U>
-auto Activation<U>::gradient(T x) const -> T
-{
-    return algo_.gradient(x);
-}
-
-template<typename U>
-void Activation<U>::gradient(T* dbegin, T* dend, const T* x) const
-{
-    std::transform(dbegin, dend, x, dbegin, [this](T d, T x) {
-        return d * this->gradient(x);
-    });
-}
-
-template<typename U>
-void Activation<U>::gradient(const PxCpuVectorT<T>& container, PxCpuVectorT<T>& delta) const
-{
-    gradient(&(*delta.begin()), &(*delta.end()), &(*container.begin()));
-}
-
-template<typename T>
-class Linear : public Algorithm<T>
+class Linear
 {
 public:
-    T apply(T x) const override
+    static constexpr AlgorithmType type = AlgorithmType::LINEAR;
+
+    CUDA_CALLABLE float apply(float x) const
     {
         return x;
     }
 
-    T gradient(T x) const override
+    CUDA_CALLABLE float gradient(float x) const
     {
-        return 1;
+        return 1.0f;
     }
 };
 
-template<typename T>
-class LeakyReLU : public Algorithm<T>
+class Loggy
 {
 public:
-    LeakyReLU(T alpha = 0.1) : alpha_(alpha)
+    static constexpr AlgorithmType type = AlgorithmType::LOGGY;
+
+    CUDA_CALLABLE float apply(float x) const
     {
+        return 2.0f / (1.0f + std::exp(-x)) - 1.0f;
     }
 
-    T apply(T x) const override
+    CUDA_CALLABLE float gradient(float x) const
     {
-        return (x > 0) ? x : alpha_ * x;
-    }
-
-    T gradient(T x) const override
-    {
-        return (x > 0) ? 1 : alpha_;
-    }
-private:
-    T alpha_;
-};
-
-template<typename T>
-class Loggy : public Algorithm<T>
-{
-public:
-    T apply(T x) const override
-    {
-        return 2. / (1. + std::exp(-x)) - 1;
-    }
-
-    T gradient(T x) const override
-    {
-        auto y = (x + 1.) / 2.;
-        return 2 * (1 - y) * y;
+        auto y = (x + 1.0f) / 2.0f;
+        return 2.0f * (1 - y) * y;
     }
 };
 
-template<typename T>
-class Logistic : public Algorithm<T>
+class Logistic
 {
 public:
-    T apply(T x) const override
+    static constexpr AlgorithmType type = AlgorithmType::LOGISTIC;
+
+    CUDA_CALLABLE float apply(float x) const
     {
-        return 1. / (1. + std::exp(-x));
+        return 1.0f / (1.0f + std::exp(-x));
     }
 
-    T gradient(T x) const override
+    CUDA_CALLABLE float gradient(float x) const
     {
         auto y = apply(x);
-        return y * (1 - y);
+        return y * (1.0f - y);
     }
 };
 
-template<typename T>
-class ReLU : public Algorithm<T>
+class Softplus
 {
 public:
-    T apply(T x) const override
-    {
-        return (x > 0) ? x : 0;
-    }
+    static constexpr AlgorithmType type = AlgorithmType::SOFTPLUS;
 
-    T gradient(T x) const override
-    {
-        return (x > 0);
-    }
-};
-
-template<typename T>
-class Softplus : public Algorithm<T>
-{
-public:
-    Softplus(T threshold = 20) : threshold_(threshold)
+    Softplus(float threshold = 20) : threshold_(threshold)
     {}
 
-    T apply(T x) const override
+    CUDA_CALLABLE float apply(float x) const
     {
         if (x > threshold_) {
             return x;
@@ -205,42 +128,21 @@ public:
         }
     }
 
-    T gradient(T x) const override
+    CUDA_CALLABLE float gradient(float x) const
     {
         return 1. / (1. + std::exp(-x));
     }
 
 private:
-    T threshold_;
+    float threshold_ = 20.0f;
 };
 
-template<typename T>
-class Swish : public Algorithm<T>
+class Mish
 {
 public:
-    Swish(T beta = 1) : beta_(beta)
-    {}
+    static constexpr AlgorithmType type = AlgorithmType::MISH;
 
-    T apply(T x) const override
-    {
-        return x / (1 + std::exp(-beta_ * x));
-    }
-
-    T gradient(T x) const override
-    {
-        auto val = 1 / (1 + std::exp(-x));
-        return x * val + beta_ * val * (1 - x * val);
-    }
-
-private:
-    T beta_;
-};
-
-template<typename T>
-class Mish : public Algorithm<T>
-{
-public:
-    T apply(T x) const override
+    CUDA_CALLABLE float apply(float x) const
     {
         auto spx = softplus_.apply(x);
         auto tanhSpx = std::tanh(spx);
@@ -248,7 +150,7 @@ public:
         return x * tanhSpx;
     }
 
-    T gradient(T x) const override
+    CUDA_CALLABLE float gradient(float x) const
     {
         auto sp = softplus_.apply(x);
         auto gradSp = 1 - std::exp(-sp);
@@ -259,45 +161,254 @@ public:
     }
 
 private:
-    Softplus<T> softplus_;
+    Softplus softplus_;
 };
 
-template<typename T>
-class Tanh : public Algorithm<T>
+class ReLU
 {
 public:
-    T apply(T x) const override
+    static constexpr AlgorithmType type = AlgorithmType::RELU;
+
+    CUDA_CALLABLE float apply(float x) const
+    {
+        return x > 0.0f ? x : 0.0f;
+    }
+
+    CUDA_CALLABLE float gradient(float x) const
+    {
+        return x > 0.0f ? 1.0f : 0.0f;
+    }
+};
+
+class Swish
+{
+public:
+    static constexpr AlgorithmType type = AlgorithmType::SWISH;
+
+    Swish(float beta = 1.0f) : beta_(beta)
+    {}
+
+    CUDA_CALLABLE float apply(float x) const
+    {
+        return x / (1 + std::exp(-beta_ * x));
+    }
+
+    CUDA_CALLABLE float gradient(float x) const
+    {
+        auto val = 1 / (1 + std::exp(-x));
+        return x * val + beta_ * val * (1 - x * val);
+    }
+
+private:
+    float beta_;
+};
+
+class Tanh
+{
+public:
+    static constexpr AlgorithmType type = AlgorithmType::TANH;
+
+    CUDA_CALLABLE float apply(float x) const
     {
         return std::tanh(x);
     }
 
-    T gradient(T x) const override
+    CUDA_CALLABLE float gradient(float x) const
     {
-        return 1 - std::pow(std::tanh(x), 2);
+        auto y = apply(x);
+        return 1.0f - y * y;
     }
 };
 
-class Activations : public Singleton<Activations>
+template<Device D = Device::CPU>
+class IActivation;
+
+template<>
+class IActivation<Device::CPU>
 {
 public:
-    using Type = float;
-    using Ptr = std::shared_ptr<IActivation<Type>>;
+    using V = typename DeviceTraits<Device::CPU>::VectorType;
+    using T = typename DeviceTraits<Device::CPU>::ValueType;
+
+    virtual T apply(T x) const = 0;
+    virtual void apply(T* begin, T* end) const = 0;
+    virtual void apply(V& container) const = 0;
+
+    virtual T gradient(T x) const = 0;
+    virtual void gradient(T* dbegin, T* dend, const T* x) const = 0;
+    virtual void gradient(const V& container, V& delta) const = 0;
+};
+
+template<>
+class IActivation<Device::CUDA>
+{
+public:
+    using V = typename DeviceTraits<Device::CUDA>::VectorType;
+    using T = typename DeviceTraits<Device::CUDA>::ValueType;
+
+    virtual void apply(V& container) const = 0;
+    virtual void gradient(const V& container, V& delta) const = 0;
+};
+
+template<typename U, Device D = Device::CPU>
+class Activation : public IActivation<D>
+{
+public:
+    using V = typename DeviceTraits<D>::VectorType;
+    using T = typename DeviceTraits<D>::ValueType;
+
+    T apply(T x) const override;
+    void apply(T* begin, T* end) const override;
+    void apply(V& container) const override;
+
+    T gradient(T x) const override;
+    void gradient(T* dbegin, T* dend, const T* x) const override;
+    void gradient(const V& container, V& delta) const override;
+
+private:
+    U algo_;
+};
+
+template<typename U, Device D>
+auto Activation<U, D>::apply(T x) const -> T
+{
+    return algo_.apply(x);
+}
+
+template<typename U, Device D>
+void Activation<U, D>::apply(T* begin, T* end) const
+{
+    std::for_each(begin, end, [this](T& x) {
+        x = this->apply(x);
+    });
+}
+
+template<typename U, Device D>
+void Activation<U, D>::apply(V& container) const
+{
+    apply(&(*container.begin()), &(*container.end()));
+}
+
+template<typename U, Device D>
+auto Activation<U, D>::gradient(T x) const -> T
+{
+    return algo_.gradient(x);
+}
+
+template<typename U, Device D>
+void Activation<U, D>::gradient(T* dbegin, T* dend, const T* x) const
+{
+    std::transform(dbegin, dend, x, dbegin, [this](T d, T x) {
+        return d * this->gradient(x);
+    });
+}
+
+template<typename U, Device D>
+void Activation<U, D>::gradient(const V& container, V& delta) const
+{
+    gradient(&(*delta.begin()), &(*delta.end()), &(*container.begin()));
+}
+
+template<typename U>
+class Activation<U, Device::CUDA> : public IActivation<Device::CUDA>
+{
+public:
+    using V = typename DeviceTraits<Device::CUDA>::VectorType;
+    using T = typename DeviceTraits<Device::CUDA>::ValueType;
+
+    void apply(V& container) const override;
+    void gradient(const V& container, V& delta) const override;
+
+private:
+    U algo_;
+};
+
+template<typename U>
+void Activation<U, Device::CUDA>::gradient(const PxCudaVectorT<float>& container, PxCudaVectorT<float>& delta) const
+{
+    px::gradient(U::type, container.data(), container.size(), delta.data());
+}
+
+template<typename U>
+void Activation<U, Device::CUDA>::apply(V& container) const
+{
+    px::activate(U::type, container.data(), container.size());
+}
+
+template<Device D = Device::CPU>
+using LeakyActivation = Activation<Leaky, D>;
+
+template<Device D = Device::CPU>
+using LinearActivation = Activation<Linear, D>;
+
+template<Device D = Device::CPU>
+using LoggyActivation = Activation<Loggy, D>;
+
+template<Device D = Device::CPU>
+using LogisticActivation = Activation<Logistic, D>;
+
+template<Device D = Device::CPU>
+using ReLUActivation = Activation<ReLU, D>;
+
+template<Device D = Device::CPU>
+using SoftplusActivation = Activation<Softplus, D>;
+
+template<Device D = Device::CPU>
+using SwishActivation = Activation<Swish, D>;
+
+template<Device D = Device::CPU>
+using TanhActivation = Activation<Tanh, D>;
+
+template<Device D = Device::CPU>
+using MishActivation = Activation<Mish, D>;
+
+template<Device D = Device::CPU>
+class Activations : public Singleton<Activations<D>>
+{
+public:
+    using T = typename DeviceTraits<D>::ValueType;
+    using Ptr = std::shared_ptr<IActivation<D>>;
 
     static Ptr get(const std::string& name);
 
     Ptr at(const std::string& s) const;
     bool hasActivation(const std::string& s) const;
+
+private:
+    const std::unordered_map<std::string, Ptr> activations_ = {
+            { "leaky",    std::make_shared<LeakyActivation<D>>() },
+            { "linear",   std::make_shared<LinearActivation<D>>() },
+            { "loggy",    std::make_shared<LoggyActivation<D>>() },
+            { "logistic", std::make_shared<LogisticActivation<D>>() },
+            { "mish",     std::make_shared<MishActivation<D>>() },
+            { "relu",     std::make_shared<ReLUActivation<D>>() },
+            { "softplus", std::make_shared<SoftplusActivation<D>>() },
+            { "swish",    std::make_shared<SwishActivation<D>>() },
+            { "tanh",     std::make_shared<TanhActivation<D>>() }
+    };
 };
 
-using LeakyActivation = Activation<LeakyReLU<Activations::Type>>;
-using LinearActivation = Activation<Linear<Activations::Type>>;
-using LoggyActivation = Activation<Loggy<Activations::Type>>;
-using LogisticActivation = Activation<Logistic<Activations::Type>>;
-using MishActivation = Activation<Mish<Activations::Type>>;
-using ReLUActivation = Activation<ReLU<Activations::Type>>;
-using SoftplusActivation = Activation<Softplus<Activations::Type>>;
-using SwishActivation = Activation<Swish<Activations::Type>>;
-using TanhActivation = Activation<Tanh<Activations::Type>>;
+template<Device D>
+bool Activations<D>::hasActivation(const std::string& s) const
+{
+    return activations_.find(s) != activations_.end();
+}
+
+template<Device D>
+Activations<D>::Ptr Activations<D>::at(const std::string& s) const
+{
+    return activations_.at(s);
+}
+
+template<Device D>
+Activations<D>::Ptr Activations<D>::get(const std::string& name)
+{
+    const auto& instance = Activations<D>::instance();
+
+    PX_CHECK(instance.hasActivation(name), "Cannot find activation type \"%s\".", name.c_str());
+
+    return instance.at(name);
+}
 
 }   // px
 
