@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_CONSTANTLRPOLICY_H
-#define PIXIENN_CONSTANTLRPOLICY_H
+#pragma once
 
 #include "Common.h"
 #include "LRPolicy.h"
@@ -37,4 +36,3 @@ private:
 
 } // px
 
-#endif // PIXIENN_CONSTANTLRPOLICY_H

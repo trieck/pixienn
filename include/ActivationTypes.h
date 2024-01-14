@@ -1,5 +1,5 @@
 /********************************************************************************
-* Copyright 2020-2023 Thomas A. Rieck, All Rights Reserved
+* Copyright 2023 Thomas A. Rieck, All Rights Reserved
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -16,31 +16,15 @@
 
 #pragma once
 
-#include <opencv2/core/types.hpp>
-
-namespace px {
-
-class Detection
+enum ActivationType : int
 {
-public:
-    Detection(cv::Rect2f box, int classIndex, float prob);
-
-    float prob() const noexcept;
-    const cv::Rect2f& box() const noexcept;
-    int classIndex() const noexcept;
-
-private:
-    cv::Rect2f box_;
-    float prob_;
-    int classIndex_ = 0;
+    LEAKY = 0,
+    LINEAR,
+    LOGGY,
+    LOGISTIC,
+    MISH,
+    RELU,
+    SOFTPLUS,
+    SWISH,
+    TANH,
 };
-
-using Detections = std::vector<Detection>;
-
-struct Detector
-{
-    virtual void addDetects(Detections& detects, float threshold) = 0;
-    virtual void addDetects(Detections& detects, int width, int height, float threshold) = 0;
-};
-
-}   // px

@@ -16,31 +16,24 @@
 
 #pragma once
 
-#include <opencv2/core/types.hpp>
+#include "Cublas.h"
+#include "Cudnn.h"
 
 namespace px {
 
-class Detection
+template<>
+inline void Model<Device::CUDA>::setup()
 {
-public:
-    Detection(cv::Rect2f box, int classIndex, float prob);
+    this->cublasCtxt_ = std::make_unique<CublasContext>();
+    this->cudnnCtxt_ = std::make_unique<CudnnContext>();
+}
 
-    float prob() const noexcept;
-    const cv::Rect2f& box() const noexcept;
-    int classIndex() const noexcept;
-
-private:
-    cv::Rect2f box_;
-    float prob_;
-    int classIndex_ = 0;
-};
-
-using Detections = std::vector<Detection>;
-
-struct Detector
+template<>
+inline void Model<Device::CUDA>::forward(const ImageVec& image)
 {
-    virtual void addDetects(Detections& detects, float threshold) = 0;
-    virtual void addDetects(Detections& detects, int width, int height, float threshold) = 0;
-};
+    V input(&(*image.data.begin()), &(*image.data.end()));
+
+    forward(input);
+}
 
 }   // px

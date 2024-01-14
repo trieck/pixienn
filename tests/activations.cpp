@@ -34,6 +34,7 @@ struct DeviceTrait<Device::CPU>
     using V = PxCpuVector;
 };
 
+#ifdef USE_CUDA
 template<>
 struct DeviceTrait<Device::CUDA>
 {
@@ -42,7 +43,6 @@ struct DeviceTrait<Device::CUDA>
     using V = PxCudaVector;
 };
 
-#ifdef USE_CUDA
 using DeviceTypes = ::testing::Types<DeviceTrait<Device::CPU>, DeviceTrait<Device::CUDA>>;
 #else
 using DeviceTypes = ::testing::Types<DeviceTrait<Device::CPU>>;

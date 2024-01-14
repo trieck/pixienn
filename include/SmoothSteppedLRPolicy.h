@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_SMOOTHSTEPPEDLRPOLICY_H
-#define PIXIENN_SMOOTHSTEPPEDLRPOLICY_H
+#pragma once
 
 #include "Common.h"
 #include "LRPolicy.h"
@@ -40,5 +39,3 @@ private:
 };
 
 } // px
-
-#endif // PIXIENN_SMOOTHSTEPPEDLRPOLICY_H

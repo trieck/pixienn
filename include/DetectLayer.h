@@ -126,14 +126,6 @@ void DetectLayer<D>::addDetects(Detections& detections, int width, int height, f
     addDetects(detections, width, height, threshold, this->output_.data());
 }
 
-template<>
-inline void DetectLayer<Device::CUDA>::addDetects(Detections& detections, int width, int height, float threshold)
-{
-    PxCpuVector output(this->output_.size());
-    output.copyDevice(output_.data(), output_.size());
-    addDetects(detections, width, height, threshold, output.data());
-}
-
 template<Device D>
 void DetectLayer<D>::addDetects(Detections& detections, float threshold)
 {
@@ -208,14 +200,6 @@ void DetectLayer<D>::forward(const V& input)
             processDetects(b, i);
         }
     }
-}
-
-template<>
-inline void DetectLayer<Device::CUDA>::forward(const V& input)
-{
-    Layer<Device::CUDA>::forward(input);
-
-    this->output_.copy(input);
 }
 
 template<Device D>
@@ -309,3 +293,10 @@ using CudaDetect = DetectLayer<Device::CUDA>;
 
 
 } // px
+
+#ifdef USE_CUDA
+
+#include "DetectCuda.h"
+
+#endif
+

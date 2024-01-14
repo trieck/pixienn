@@ -14,13 +14,11 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_UPSAMPLEKERNELS_CUH
-#define PIXIENN_UPSAMPLEKERNELS_CUH
+#pragma once
 
 namespace px {
 
-void upsampleGpu(const float *in, int w, int h, int c, int batch, int stride, int forward, float scale, float *out);
+void upsampleGpu(const float* in, int w, int h, int c, int batch, int stride, int forward, float scale, float* out);
 
 }   // px
 
-#endif // PIXIENN_UPSAMPLEKERNELS_CUH

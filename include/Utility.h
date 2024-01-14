@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef UTILITY_H
-#define UTILITY_H
+#pragma once
 
 #include <opencv2/core/types.hpp>
 
@@ -56,7 +55,3 @@ T randomScale(T s)
 }
 
 }   // px
-
-#endif // UTILITY_H
-
-

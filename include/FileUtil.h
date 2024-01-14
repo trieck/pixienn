@@ -14,16 +14,13 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_FILEUTIL_H
-#define PIXIENN_FILEUTIL_H
+#pragma once
 
 #include "Common.h"
 
 namespace px {
 
-std::string baseName(const std::string &filePath);
+std::string baseName(const std::string& filePath);
 
 }   // px
-
-#endif // PIXIENN_FILEUTIL_H
 

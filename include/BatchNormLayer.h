@@ -5,24 +5,11 @@
 #include "CpuUtil.h"
 #include "Layer.h"
 
-#ifdef USE_CUDA
-
-#include "Cudnn.h"
-
-#endif  // USE_CUDA
-
 namespace px {
 
 template<Device D>
 class BNExtras
 {
-};
-
-template<>
-class BNExtras<Device::CUDA>
-{
-protected:
-    CudnnTensorDesc::Ptr dstTens_, normTens_;
 };
 
 template<Device D = Device::CPU>
@@ -77,13 +64,6 @@ void BatchNormLayer<D>::setup()
 {
 }
 
-template<>
-inline void BatchNormLayer<Device::CUDA>::setup()
-{
-    this->dstTens_ = std::make_unique<CudnnTensorDesc>();
-    this->normTens_ = std::make_unique<CudnnTensorDesc>();
-}
-
 template<Device D>
 std::streamoff BatchNormLayer<D>::loadWeights(std::istream& is)
 {
@@ -95,16 +75,6 @@ std::streamoff BatchNormLayer<D>::loadWeights(std::istream& is)
     is.read((char*) rollingVar_.data(), rollingVar_.size() * sizeof(float));
 
     PX_CHECK(is.good(), "Could not read weights");
-
-    return is.tellg() - start;
-}
-
-template<>
-inline std::streamoff BatchNormLayer<Device::CUDA>::loadWeights(std::istream& is)
-{
-    auto start = is.tellg();
-
-    // TODO: implement CUDA weights loading
 
     return is.tellg() - start;
 }

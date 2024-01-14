@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_COMMON_H
-#define PIXIENN_COMMON_H
+#pragma once
 
 #include <algorithm>
 #include <cstdint>
@@ -34,5 +33,3 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-
-#endif // PIXIENN_COMMON_H

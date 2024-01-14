@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_ERROR_H
-#define PIXIENN_ERROR_H
+#pragma once
 
 #include "Common.h"
 
@@ -26,23 +25,23 @@ class Error : public std::exception
 public:
     Error() noexcept;
     Error(const Error& error, std::string message) noexcept;
-    Error(const char* file, unsigned int line, const char* function, const char* message) noexcept;
-    Error(const char* file, unsigned int line, const char* function, std::string message) noexcept;
-    Error(std::string file, unsigned int line, std::string function, std::string message) noexcept;
-    Error(const char* file, unsigned int line, const char* function, const std::exception_ptr& ptr, const char* format,
+    Error(const char* file, uint32_t line, const char* function, const char* message) noexcept;
+    Error(const char* file, uint32_t line, const char* function, std::string message) noexcept;
+    Error(std::string file, uint32_t line, std::string function, std::string message) noexcept;
+    Error(const char* file, uint32_t line, const char* function, const std::exception_ptr& ptr, const char* format,
           ...) noexcept;
 
     Error(const Error& rhs) noexcept;
     Error& operator=(const Error& rhs) noexcept;
 
     static Error
-    fromFormat(const char* file, unsigned int line, const char* function, const char* format, ...) noexcept;
+    fromFormat(const char* file, uint32_t line, const char* function, const char* format, ...) noexcept;
 
     // std::exception
     const char* what() const noexcept override;
 
     const std::string& file() const noexcept;
-    unsigned int line() const noexcept;
+    uint32_t line() const noexcept;
     const std::string& function() const noexcept;
     const std::string& message() const noexcept;
 
@@ -56,6 +55,8 @@ protected:
     std::string what_;
 };
 
+} // px
+
 #ifndef __FILENAME__
 #define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
 #endif // __FILENAME__
@@ -63,6 +64,3 @@ protected:
 #define PX_ERROR_THROW(format, ...) throw px::Error::fromFormat(__FILENAME__, __LINE__, __FUNCTION__, format, ##__VA_ARGS__)
 #define PX_CHECK(condition, message, ...) if(!(condition)) PX_ERROR_THROW((message), ##__VA_ARGS__)
 
-} // px
-
-#endif // PIXIENN_ERROR_H

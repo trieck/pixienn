@@ -16,31 +16,23 @@
 
 #pragma once
 
-#include <opencv2/core/types.hpp>
-
 namespace px {
 
-class Detection
+template<>
+inline void DetectLayer<Device::CUDA>::forward(const V& input)
 {
-public:
-    Detection(cv::Rect2f box, int classIndex, float prob);
+    Layer<Device::CUDA>::forward(input);
 
-    float prob() const noexcept;
-    const cv::Rect2f& box() const noexcept;
-    int classIndex() const noexcept;
+    this->output_.copy(input);
+}
 
-private:
-    cv::Rect2f box_;
-    float prob_;
-    int classIndex_ = 0;
-};
-
-using Detections = std::vector<Detection>;
-
-struct Detector
+template<>
+inline void DetectLayer<Device::CUDA>::addDetects(Detections& detections, int width, int height, float threshold)
 {
-    virtual void addDetects(Detections& detects, float threshold) = 0;
-    virtual void addDetects(Detections& detects, int width, int height, float threshold) = 0;
-};
+    PxCpuVector output(this->output_.size());
+    output.copyDevice(output_.data(), output_.size());
+    addDetects(detections, width, height, threshold, output.data());
+}
+
 
 }   // px

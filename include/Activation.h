@@ -14,12 +14,14 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_ACTIVATION_H
-#define PIXIENN_ACTIVATION_H
+#pragma once
 
 #ifdef USE_CUDA
 
 #include <cuda_runtime.h>
+#include "Activation.cuh"
+
+#endif
 
 #ifdef __CUDACC__
 #define CUDA_CALLABLE __host__ __device__
@@ -27,20 +29,18 @@
 #define CUDA_CALLABLE
 #endif
 
-#endif
-
+#include "ActivationTypes.h"
 #include "Common.h"
 #include "DeviceTraits.h"
 #include "PxTensor.h"
 #include "Singleton.h"
-#include "Activation.cuh"
 
 namespace px {
 
 class Leaky
 {
 public:
-    static constexpr AlgorithmType type = AlgorithmType::LEAKY;
+    static constexpr ActivationType type = ActivationType::LEAKY;
 
     Leaky(float alpha = 0.1f) : alpha_(alpha)
     {
@@ -62,7 +62,7 @@ private:
 class Linear
 {
 public:
-    static constexpr AlgorithmType type = AlgorithmType::LINEAR;
+    static constexpr ActivationType type = ActivationType::LINEAR;
 
     CUDA_CALLABLE float apply(float x) const
     {
@@ -78,7 +78,7 @@ public:
 class Loggy
 {
 public:
-    static constexpr AlgorithmType type = AlgorithmType::LOGGY;
+    static constexpr ActivationType type = ActivationType::LOGGY;
 
     CUDA_CALLABLE float apply(float x) const
     {
@@ -95,7 +95,7 @@ public:
 class Logistic
 {
 public:
-    static constexpr AlgorithmType type = AlgorithmType::LOGISTIC;
+    static constexpr ActivationType type = ActivationType::LOGISTIC;
 
     CUDA_CALLABLE float apply(float x) const
     {
@@ -112,7 +112,7 @@ public:
 class Softplus
 {
 public:
-    static constexpr AlgorithmType type = AlgorithmType::SOFTPLUS;
+    static constexpr ActivationType type = ActivationType::SOFTPLUS;
 
     Softplus(float threshold = 20) : threshold_(threshold)
     {}
@@ -140,7 +140,7 @@ private:
 class Mish
 {
 public:
-    static constexpr AlgorithmType type = AlgorithmType::MISH;
+    static constexpr ActivationType type = ActivationType::MISH;
 
     CUDA_CALLABLE float apply(float x) const
     {
@@ -167,7 +167,7 @@ private:
 class ReLU
 {
 public:
-    static constexpr AlgorithmType type = AlgorithmType::RELU;
+    static constexpr ActivationType type = ActivationType::RELU;
 
     CUDA_CALLABLE float apply(float x) const
     {
@@ -183,7 +183,7 @@ public:
 class Swish
 {
 public:
-    static constexpr AlgorithmType type = AlgorithmType::SWISH;
+    static constexpr ActivationType type = ActivationType::SWISH;
 
     Swish(float beta = 1.0f) : beta_(beta)
     {}
@@ -206,7 +206,7 @@ private:
 class Tanh
 {
 public:
-    static constexpr AlgorithmType type = AlgorithmType::TANH;
+    static constexpr ActivationType type = ActivationType::TANH;
 
     CUDA_CALLABLE float apply(float x) const
     {
@@ -239,6 +239,8 @@ public:
     virtual void gradient(const V& container, V& delta) const = 0;
 };
 
+
+#ifdef USE_CUDA
 template<>
 class IActivation<Device::CUDA>
 {
@@ -249,6 +251,9 @@ public:
     virtual void apply(V& container) const = 0;
     virtual void gradient(const V& container, V& delta) const = 0;
 };
+
+#endif // USE_CUDA
+
 
 template<typename U, Device D = Device::CPU>
 class Activation : public IActivation<D>
@@ -309,6 +314,8 @@ void Activation<U, D>::gradient(const V& container, V& delta) const
     gradient(&(*delta.begin()), &(*delta.end()), &(*container.begin()));
 }
 
+#ifdef USE_CUDA
+
 template<typename U>
 class Activation<U, Device::CUDA> : public IActivation<Device::CUDA>
 {
@@ -334,6 +341,8 @@ void Activation<U, Device::CUDA>::apply(V& container) const
 {
     px::activate(U::type, container.data(), container.size());
 }
+
+#endif // USE_CUDA
 
 template<Device D = Device::CPU>
 using LeakyActivation = Activation<Leaky, D>;
@@ -411,5 +420,3 @@ Activations<D>::Ptr Activations<D>::get(const std::string& name)
 }
 
 }   // px
-
-#endif // PIXIENN_ACTIVATION_H

@@ -4,36 +4,11 @@
 #include "BatchNorm.h"
 #include "Layer.h"
 
-#ifdef USE_CUDA
-
-#include "Cudnn.h"
-
-#endif  // USE_CUDA
-
 namespace px {
 
 template<Device D>
 class CVExtras
 {
-public:
-    static constexpr bool isCuda = false;
-};
-
-template<>
-class CVExtras<Device::CUDA>
-{
-public:
-    static constexpr bool isCuda = true;
-
-protected:
-    using V = typename Layer<Device::CUDA>::V;
-
-    V fwdWorkspace_, bwdFilterWorkspace_;
-    CudnnTensorDesc::Ptr xDesc_, yDesc_, sbmv_;
-    CudnnConvDesc::Ptr convDesc_;
-    CudnnFilterDesc::Ptr wDesc_;
-    cudnnConvolutionFwdAlgo_t fwdAlgo_ = CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM;
-    cudnnConvolutionBwdFilterAlgo_t bwdFilterAlgo_ = CUDNN_CONVOLUTION_BWD_FILTER_ALGO_1;
 };
 
 template<Device D = Device::CPU>
@@ -138,41 +113,6 @@ std::streamoff ConvLayer<D>::loadWeights(std::istream& is)
     return is.tellg() - start;
 }
 
-template<>
-inline std::streamoff ConvLayer<Device::CUDA>::loadWeights(std::istream& is)
-{
-    auto start = is.tellg();
-
-    PxCpuVector biases(biases_.size());
-    PxCpuVector weights(weights_.size());
-
-    if (batchNorm_) {
-        PxCpuVector scales(scales_.size());
-        PxCpuVector rollingMean(rollingMean_.size());
-        PxCpuVector rollingVar(rollingVar_.size());
-
-        is.read((char*) biases.data(), biases.size() * sizeof(float));
-        is.read((char*) scales.data(), scales.size() * sizeof(float));
-        is.read((char*) rollingMean.data(), rollingMean.size() * sizeof(float));
-        is.read((char*) rollingVar.data(), rollingVar.size() * sizeof(float));
-
-        scales_.copy(scales);
-        rollingMean_.copy(rollingMean);
-        rollingVar_.copy(rollingVar);
-    } else {
-        is.read((char*) biases.data(), biases.size() * sizeof(float));
-    }
-
-    is.read((char*) weights.data(), weights.size() * sizeof(float));
-
-    biases_.copy(biases);
-    weights_.copy(weights);
-
-    PX_CHECK(is.good(), "Could not read weights");
-
-    return is.tellg() - start;
-}
-
 template<Device D>
 std::ostream& ConvLayer<D>::print(std::ostream& os)
 {
@@ -236,7 +176,7 @@ void ConvLayer<D>::backward(const V& input)
 {
     Layer<D>::backward(input);
 
-    //activation_->gradient(this->output_, this->delta_);
+    activation_->gradient(this->output_, this->delta_);
 
     if (batchNorm_) {
         batchNormBackward(this->batch(), this->outChannels(), this->outHeight(), this->outWidth(), this->delta_,

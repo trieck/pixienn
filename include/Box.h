@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_BOX_H
-#define PIXIENN_BOX_H
+#pragma once
 
 #include "Detection.h"
 
@@ -24,5 +23,3 @@ namespace px {
 Detections nms(const Detections& detects, float threshold);
 
 }   // px
-
-#endif // PIXIENN_BOX_H

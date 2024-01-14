@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PXTENSOR_H
-#define PXTENSOR_H
+#pragma once
 
 #include <numeric>
 
@@ -1072,5 +1071,3 @@ T random(std::size_t n, typename T::value_type lo = 0, typename T::value_type hi
 }
 
 } // px
-
-#endif // PXTENSOR_H

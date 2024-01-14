@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_CONFUSION_MATRIX_H
-#define PIXIENN_CONFUSION_MATRIX_H
+#pragma once
 
 #include "Common.h"
 
@@ -181,5 +180,3 @@ private:
 };
 
 }   // px
-
-#endif // PIXIENN_CONFUSION_MATRIX_H

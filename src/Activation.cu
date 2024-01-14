@@ -98,9 +98,9 @@ private:
 class ActivationFactory : public Singleton<ActivationFactory>
 {
 public:
-    using ActivationMap = std::unordered_map<AlgorithmType, CudaActivation::Ptr>;
+    using ActivationMap = std::unordered_map<ActivationType, CudaActivation::Ptr>;
 
-    CudaActivation::Ptr activation(AlgorithmType type) const
+    CudaActivation::Ptr activation(ActivationType type) const
     {
         auto it = activationMap_.find(type);
 
@@ -123,7 +123,7 @@ private:
     };
 };
 
-void activate(AlgorithmType type, float* x, std::size_t n)
+void activate(ActivationType type, float* x, std::size_t n)
 {
     auto factory = ActivationFactory::instance();
 
@@ -132,7 +132,7 @@ void activate(AlgorithmType type, float* x, std::size_t n)
     functor->apply(x, n);
 }
 
-void gradient(AlgorithmType type, const float* x, std::size_t n, float* delta)
+void gradient(ActivationType type, const float* x, std::size_t n, float* delta)
 {
     auto factory = ActivationFactory::instance();
 

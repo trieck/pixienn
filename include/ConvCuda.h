@@ -1,6 +1,38 @@
+/********************************************************************************
+* Copyright 2023 Thomas A. Rieck, All Rights Reserved
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+********************************************************************************/
+
 #pragma once
 
+#include "Cudnn.h"
+
 namespace px {
+
+template<>
+class CVExtras<Device::CUDA>
+{
+protected:
+    using V = typename Layer<Device::CUDA>::V;
+
+    V fwdWorkspace_, bwdFilterWorkspace_;
+    CudnnTensorDesc::Ptr xDesc_, yDesc_, sbmv_;
+    CudnnConvDesc::Ptr convDesc_;
+    CudnnFilterDesc::Ptr wDesc_;
+    cudnnConvolutionFwdAlgo_t fwdAlgo_ = CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM;
+    cudnnConvolutionBwdFilterAlgo_t bwdFilterAlgo_ = CUDNN_CONVOLUTION_BWD_FILTER_ALGO_1;
+};
 
 template<>
 inline void ConvLayer<Device::CUDA>::setup()
@@ -84,6 +116,41 @@ inline void ConvLayer<Device::CUDA>::setup()
     }
 
     bwdFilterWorkspace_ = V(workspaceSize / sizeof(float), 0.0f);
+}
+
+template<>
+inline std::streamoff ConvLayer<Device::CUDA>::loadWeights(std::istream& is)
+{
+    auto start = is.tellg();
+
+    PxCpuVector biases(biases_.size());
+    PxCpuVector weights(weights_.size());
+
+    if (batchNorm_) {
+        PxCpuVector scales(scales_.size());
+        PxCpuVector rollingMean(rollingMean_.size());
+        PxCpuVector rollingVar(rollingVar_.size());
+
+        is.read((char*) biases.data(), biases.size() * sizeof(float));
+        is.read((char*) scales.data(), scales.size() * sizeof(float));
+        is.read((char*) rollingMean.data(), rollingMean.size() * sizeof(float));
+        is.read((char*) rollingVar.data(), rollingVar.size() * sizeof(float));
+
+        scales_.copy(scales);
+        rollingMean_.copy(rollingMean);
+        rollingVar_.copy(rollingVar);
+    } else {
+        is.read((char*) biases.data(), biases.size() * sizeof(float));
+    }
+
+    is.read((char*) weights.data(), weights.size() * sizeof(float));
+
+    biases_.copy(biases);
+    weights_.copy(weights);
+
+    PX_CHECK(is.good(), "Could not read weights");
+
+    return is.tellg() - start;
 }
 
 template<>

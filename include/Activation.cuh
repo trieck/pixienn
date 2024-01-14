@@ -17,24 +17,13 @@
 #pragma once
 
 #include <thrust/functional.h>
+
+#include "ActivationTypes.h"
 #include "Common.h"
 
 namespace px {
 
-enum AlgorithmType : int
-{
-    LEAKY = 0,
-    LINEAR,
-    LOGGY,
-    LOGISTIC,
-    MISH,
-    RELU,
-    SOFTPLUS,
-    SWISH,
-    TANH,
-};
-
-void activate(AlgorithmType type, float* x, std::size_t n);
-void gradient(AlgorithmType type, const float* x, std::size_t n, float* delta);
+void activate(ActivationType type, float* x, std::size_t n);
+void gradient(ActivationType type, const float* x, std::size_t n, float* delta);
 
 }   // px
