@@ -96,4 +96,15 @@ void softmax(const float* input, int n, float temp, float* output, int stride)
     }
 }
 
+void softmax(const float* input, int n, int batch, int batchOffset, int groups, int groupOffset, int stride, float temp,
+             float* output)
+{
+    for (auto b = 0; b < batch; ++b) {
+        for (auto g = 0; g < groups; ++g) {
+            softmax(input + b * batchOffset + g * groupOffset, n, temp, output + b * batchOffset + g * groupOffset,
+                    stride);
+        }
+    }
+}
+
 }   // px

@@ -1,5 +1,5 @@
 /********************************************************************************
-* Copyright 2023 Thomas A. Rieck, All Rights Reserved
+* Copyright 2020-2023 Thomas A. Rieck, All Rights Reserved
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -16,15 +16,30 @@
 
 #pragma once
 
-#include "PxTensor.h"
-
 namespace px {
 
-PxCpuVector exp(const PxCpuVector& input);
-PxCpuVector log(const PxCpuVector& input);
-PxCpuVector softmax(const PxCpuVector& input);
-void softmax(const float* input, int n, float temp, float* output, int stride);
-void softmax(const float* input, int n, int batch, int batchOffset, int groups, int groupOffset, int stride, float temp,
-             float* output);
+
+template<>
+inline void RegionLayer<Device::CUDA>::forward(const V& input)
+{
+    Layer<Device::CUDA>::forward(input);
+
+    PxCpuVector cpuInput(input.size());
+    cpuInput.copyDevice(input.data(), input.size());
+
+    PxCpuVector cpuOutput(this->output_.size());
+
+    forwardCpu(cpuInput, cpuOutput);
+
+    this->output_.copyHost(cpuOutput.data(), cpuOutput.size());
+}
+
+template<>
+inline void RegionLayer<Device::CUDA>::addDetects(Detections& detects, int width, int height, float threshold)
+{
+    auto preds = this->output_.asVector();
+
+    addDetects(detects, width, height, threshold, preds.data());
+}
 
 }   // px

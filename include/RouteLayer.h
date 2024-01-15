@@ -128,7 +128,6 @@ using CudaRoute = RouteLayer<Device::CUDA>;
 
 } // px
 
-
 #ifdef USE_CUDA
 
 #include "cuda/RouteLayer.h"

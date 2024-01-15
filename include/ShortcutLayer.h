@@ -33,11 +33,39 @@ public:
     void update() override;
 
     std::ostream& print(std::ostream& os) override;
+
+private:
+    Activations<D>::Ptr activation_;
+    Layer<D>::Ptr from_;
+    float alpha_, beta_;
 };
 
 template<Device D>
 ShortcutLayer<D>::ShortcutLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D>(model, layerDef)
 {
+    auto activation = this->template property<std::string>("activation", "linear");
+    activation_ = Activations<D>::get(activation);
+
+    alpha_ = this->template property<float>("alpha", 1.0f);
+    beta_ = this->template property<float>("beta", 1.0f);
+
+    auto index = this->template property<int>("from");
+    if (index < 0) {   // relative backwards
+        index = this->index() + index;
+    }
+
+    PX_CHECK(index < model.layerSize(), "Layer index out of range.");
+    PX_CHECK(index < this->index(), "Layer index ahead of current layer.");
+
+    from_ = this->model().layerAt(index);
+
+    this->setOutChannels(this->channels());
+    this->setOutHeight(this->height());
+    this->setOutWidth(this->width());
+    this->setOutputs(this->outHeight() * this->outWidth() * this->outChannels());
+
+    this->output_ = V(this->batch() * this->outputs(), 0.0f);
+    this->delta_ = V(this->batch() * this->outputs(), 0.0f);
 }
 
 template<Device D>
@@ -52,13 +80,50 @@ std::ostream& ShortcutLayer<D>::print(std::ostream& os)
 template<Device D>
 void ShortcutLayer<D>::forward(const V& input)
 {
-    std::cout << "ShortcutLayer::forward" << std::endl;
+    Layer<D>::forward(input);
+
+    this->output_.copy(input);
+
+    auto c1 = this->channels();
+    auto c2 = this->outChannels();
+
+    auto h1 = this->height();
+    auto h2 = this->outHeight();
+
+    auto w1 = this->width();
+    auto w2 = this->outWidth();
+
+    auto stride = std::max(1, w1 / w2);
+    auto sample = std::max(1, w2 / w1);
+
+    PX_CHECK(stride == h1 / h2, "Stride must be equal in x and y direction.");
+    PX_CHECK(sample == h2 / h1, "Sample must be equal in x and y direction.");
+
+    auto minw = std::min(w1, w2);
+    auto minh = std::min(h1, h2);
+    auto minc = std::min(c1, c2);
+
+    auto* out = this->output_.data();
+    const auto* add = from_->output().data();
+
+    for (auto b = 0; b < this->batch(); ++b) {
+        for (auto k = 0; k < minc; ++k) {
+            for (auto j = 0; j < minh; ++j) {
+                for (auto i = 0; i < minw; ++i) {
+                    auto outIndex = i * sample + w2 * (j * sample + h2 * (k + c2 * b));
+                    auto addIndex = i * stride + w1 * (j * stride + h1 * (k + c1 * b));
+                    out[outIndex] = alpha_ * out[outIndex] + beta_ * add[addIndex];
+                }
+            }
+        }
+    }
+
+    activation_->apply(this->output_);
 }
 
 template<Device D>
 void ShortcutLayer<D>::backward(const V& input)
 {
-    std::cout << "ShortcutLayer::backward" << std::endl;
 }
 
 template<Device D>
@@ -71,3 +136,10 @@ using CpuShortcut = ShortcutLayer<>;
 using CudaShortcut = ShortcutLayer<Device::CUDA>;
 
 } // px
+
+#ifdef USE_CUDA
+
+#include "cuda/ShortcutLayer.h"
+
+#endif // USE_CUDA
+
