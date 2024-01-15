@@ -150,4 +150,3 @@ model:
       class_scale: 1
       coord_scale: 1
       thresh: 0.6
-

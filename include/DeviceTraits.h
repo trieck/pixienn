@@ -50,6 +50,9 @@ struct IsCudaDevice<Device::CUDA> : std::true_type
 };
 
 template<Device D, typename T = void>
+using EnableIfCpu = std::enable_if_t<!IsCudaDevice<D>::value, T>;
+
+template<Device D, typename T = void>
 using EnableIfCuda = std::enable_if_t<IsCudaDevice<D>::value, T>;
 
 }

@@ -61,7 +61,6 @@ void shortcutGpu(int batch, int w1, int h1, int c1, const float* add, int w2, in
                                                             h2, c2, s1, s2, out);
 
     PX_CUDA_CHECK_LAST();
-
 }
 
 }

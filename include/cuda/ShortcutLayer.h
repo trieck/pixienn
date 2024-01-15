@@ -1,5 +1,5 @@
 /********************************************************************************
-* Copyright 2023 Thomas A. Rieck, All Rights Reserved
+* Copyright 2020-2023 Thomas A. Rieck, All Rights Reserved
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -16,15 +16,21 @@
 
 #pragma once
 
-#include "PxTensor.h"
+#include "ShortcutKernel.cuh"
 
 namespace px {
 
-PxCpuVector exp(const PxCpuVector& input);
-PxCpuVector log(const PxCpuVector& input);
-PxCpuVector softmax(const PxCpuVector& input);
-void softmax(const float* input, int n, float temp, float* output, int stride);
-void softmax(const float* input, int n, int batch, int batchOffset, int groups, int groupOffset, int stride, float temp,
-             float* output);
+template<>
+inline void ShortcutLayer<Device::CUDA>::forward(const V& input)
+{
+    Layer<Device::CUDA>::forward(input);
+
+    this->output_.copy(input);
+
+    shortcutGpu(this->batch(), this->width(), this->height(), this->channels(), from_->output().data(),
+                this->outWidth(), this->outHeight(), this->outChannels(), alpha_, beta_, this->output_.data());
+
+    activation_->apply(this->output_);
+}
 
 }   // px

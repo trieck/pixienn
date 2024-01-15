@@ -126,7 +126,7 @@ YoloLayer<D>::YoloLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D>(
     this->output_ = V(this->batch() * this->outputs(), 0.0f);
     this->delta_ = V(this->batch() * this->outputs(), 0.0f);
 
-    biases_ = PxCpuVector(num_ * 2, 0.5f);
+    biases_ = PxCpuVector(num_ * 2);
     for (auto i = 0; i < num_ * 2; ++i) {
         biases_[i] = static_cast<float>(anchors_[i]);
     }
