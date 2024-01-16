@@ -129,14 +129,17 @@ add_library(pixienn STATIC ${SOURCES})
 
 set_target_properties(pixienn PROPERTIES OUTPUT_NAME "pixienn")
 
-target_include_directories(pixienn PRIVATE
+list(APPEND INCLUDE_DIRS
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${OpenCV_INCLUDE_DIRS}
         ${CAIRO_INCLUDE_DIRS}
         ${Pango_INCLUDE_DIR}
         ${GLIB_INCLUDE_DIRS}
         ${HARFBUZZ_INCLUDE_DIR}
         ${OpenBLAS_INCLUDE_DIR}
-        include)
+)
+
+target_include_directories(pixienn PRIVATE ${INCLUDE_DIRS})
 
 if (Cairo_FOUND)
     target_compile_definitions(pixienn PRIVATE USE_CAIRO)

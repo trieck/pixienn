@@ -10,6 +10,6 @@ endif ()
 set_target_properties(pixienn-bin PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_target_properties(pixienn-bin PROPERTIES OUTPUT_NAME "pixienn")
 
-target_include_directories(pixienn-bin PRIVATE include)
+target_include_directories(pixienn-bin PRIVATE ${INCLUDE_DIRS})
 
 target_link_libraries(pixienn-bin ${PIXIENN_LIBS})
