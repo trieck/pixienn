@@ -1,7 +1,6 @@
 #pragma once
 
-#include <cblas.h>
-
+#include "BatchNorm.h"
 #include "CpuUtil.h"
 #include "Layer.h"
 
@@ -103,32 +102,9 @@ void BatchNormLayer<D>::forward(const V& input)
 {
     Layer<D>::forward(input);
 
-    if (input.data() != this->output_.data()) {
-        this->output_.copy(input);
-    }
-
-    auto b = this->batch();
-    auto c = this->channels();
-    auto size = this->outHeight() * this->outWidth();
-    auto outputs = c * size;
-
-    if (this->training()) {
-        cblas_scopy(b * outputs, this->output_.data(), 1, x_.data(), 1);
-
-        meanCpu(x_.data(), b, c, size, mean_.data());
-        varianceCpu(this->output_.data(), mean_.data(), b, c, size, var_.data());
-
-        cblas_sscal(c, 0.99f, rollingMean_.data(), 1);
-        cblas_saxpy(c, 0.01f, mean_.data(), 1, rollingMean_.data(), 1);
-        cblas_sscal(c, 0.99f, rollingVar_.data(), 1);
-        cblas_saxpy(c, 0.01f, var_.data(), 1, rollingVar_.data(), 1);
-
-    } else {
-        normalizeCpu(this->output_.data(), this->rollingMean_.data(), this->rollingVar_.data(), b, c, size);
-    }
-
-    scaleBias(this->output_.data(), this->scales_.data(), b, c, size);
-    addBias(this->output_.data(), this->biases_.data(), b, c, size);
+    batchNormForward(this->training(), this->batch(), this->outChannels(), this->outHeight(), this->outWidth(),
+                     this->output_, this->output_, mean_, var_, rollingMean_, rollingVar_, scales_, biases_,
+                     x_, xNorm_);
 }
 
 template<Device D>
@@ -136,24 +112,8 @@ void BatchNormLayer<D>::backward(const V& input)
 {
     Layer<D>::backward(input);
 
-    backwardBias(biasUpdates_.data(), this->delta_.data(), this->batch(), this->channels(),
-                 this->outHeight() * this->outWidth());
-
-    backwardScaleCpu(xNorm_.data(), this->delta_.data(), this->batch(), this->channels(),
-                     this->outHeight() * this->outWidth(), scaleUpdates_.data());
-
-    scaleBias(this->delta_.data(), this->scales_.data(), this->batch(), this->channels(),
-              this->outHeight() * this->outWidth());
-
-    meanDeltaCpu(this->delta_.data(), this->var_.data(), this->batch(), this->channels(),
-                 this->outHeight() * this->outWidth(), meanDelta_.data());
-
-    varianceDeltaCpu(x_.data(), this->delta_.data(), this->mean_.data(), this->var_.data(), this->batch(),
-                     this->channels(), this->outHeight() * this->outWidth(), var_.data());
-
-    normalizeDeltaCpu(this->x_.data(), this->mean_.data(), this->var_.data(), this->meanDelta_.data(),
-                      this->varDelta_.data(), this->batch(), this->channels(), this->outHeight() * this->outWidth(),
-                      this->delta_.data());
+    batchNormBackward(this->batch(), this->outChannels(), this->outHeight(), this->outWidth(), this->delta_,
+                      mean_, var_, meanDelta_, varDelta_, scales_, scaleUpdates_, biasUpdates_, x_, xNorm_);
 }
 
 using CpuBatchNorm = BatchNormLayer<>;
