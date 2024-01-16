@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cblas.h>
+
 #include "Activation.h"
 #include "BatchNorm.h"
 #include "Layer.h"
