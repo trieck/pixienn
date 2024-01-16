@@ -22,21 +22,20 @@ namespace px {
 
 BaseModel::Ptr BaseModel::create(const std::string& cfgFile, BaseModel::var_map options)
 {
-    BaseModel::Ptr model;
-
     auto useGpu = !options["no-gpu"].as<bool>();
 
+    return createModel(cfgFile, std::move(options), useGpu);
+}
+
+BaseModel::Ptr BaseModel::createModel(const std::string& cfgFile, BaseModel::var_map options, bool useGpu)
+{
 #ifdef USE_CUDA
     if (useGpu) {
         return std::make_unique<CudaModel>(cfgFile, options);
-    } else {
-        model = std::make_unique<CpuModel>(cfgFile, options);
     }
-#else
-    model = std::make_unique<CpuModel>(cfgFile, options);
 #endif  // USE_CUDA
 
-    return model;
+    return std::make_unique<CpuModel>(cfgFile, options);
 }
 
 }   // px

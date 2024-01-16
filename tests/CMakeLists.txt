@@ -10,31 +10,30 @@ endif ()
 find_package(GTest REQUIRED)
 find_package(GMock REQUIRED)
 
-add_executable(pixienn-test
-        activations.cpp
-        augment.cpp
-#        batchnorm.cpp
-        blas.cpp
-        confuse.cpp
-#        connected.cpp
-#        convolve.cpp
-        cosine.cpp
-        darkbox.cpp
-#        detect.cpp
-        imagebatch.cpp
-        main.cpp
-        math.cpp
-#        maxpool.cpp
-        sigmoid.cpp
-        smoothsteps.cpp
-        steppedlr.cpp
-        tensor.cpp
-        tiff.cpp
-#        upsample.cpp
-        vector.cpp
+file(GLOB TEST_HEADERS "include/*.h")
+
+list(APPEND TEST_SOURCES
+        ${HEADERS}
+        src/activations.cpp
+        src/augment.cpp
+        src/blas.cpp
+        src/confuse.cpp
+        src/cosine.cpp
+        src/darkbox.cpp
+        src/imagebatch.cpp
+        src/main.cpp
+        src/math.cpp
+        src/sigmoid.cpp
+        src/smoothsteps.cpp
+        src/steppedlr.cpp
+        src/tensor.cpp
+        src/tiff.cpp
+        src/vector.cpp
 )
 
-target_include_directories(pixienn-test PRIVATE "${pixienn_SOURCE_DIR}/include")
+add_executable(pixienn-test ${TEST_SOURCES})
+
+target_include_directories(pixienn-test PRIVATE "${pixienn_SOURCE_DIR}/include" "include")
 
 if (USE_CUDA)
     target_compile_definitions(pixienn-test PRIVATE -DUSE_CUDA)

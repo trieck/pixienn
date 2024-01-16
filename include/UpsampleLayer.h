@@ -82,17 +82,12 @@ std::ostream& UpsampleLayer<D>::print(std::ostream& os)
 template<Device D>
 void UpsampleLayer<D>::forward(const V& input)
 {
-    // TODO: use CUDNN for GPU
-
     upsample(input.data(), this->output_.data(), nullptr, true);
-
 }
 
 template<Device D>
 void UpsampleLayer<D>::backward(const V& input)
 {
-    // TODO: use CUDNN for GPU
-
     upsample(nullptr, this->delta_.data(), this->netDelta()->data(), false);
 }
 

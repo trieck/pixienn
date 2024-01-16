@@ -69,12 +69,22 @@ std::streamoff BatchNormLayer<D>::loadWeights(std::istream& is)
 {
     auto start = is.tellg();
 
-    is.read((char*) biases_.data(), biases_.size() * sizeof(float));
-    is.read((char*) scales_.data(), scales_.size() * sizeof(float));
-    is.read((char*) rollingMean_.data(), rollingMean_.size() * sizeof(float));
-    is.read((char*) rollingVar_.data(), rollingVar_.size() * sizeof(float));
+    V biases(this->biases_.size());
+    V scales(this->scales_.size());
+    V rollingMean(this->rollingMean_.size());
+    V rollingVar(this->rollingVar_.size());
 
-    PX_CHECK(is.good(), "Could not read weights");
+    is.read((char*) biases.data(), biases.size() * sizeof(float));
+    is.read((char*) scales.data(), scales.size() * sizeof(float));
+    is.read((char*) rollingMean.data(), rollingMean.size() * sizeof(float));
+    is.read((char*) rollingVar.data(), rollingVar.size() * sizeof(float));
+
+    PX_CHECK(is.good(), "Could not read batch normalize parameters");
+
+    this->biases_.copy(biases);
+    this->scales_.copy(scales);
+    this->rollingMean_.copy(rollingMean);
+    this->rollingVar_.copy(rollingVar);
 
     return is.tellg() - start;
 }

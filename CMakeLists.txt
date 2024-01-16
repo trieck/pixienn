@@ -159,6 +159,6 @@ endif ()
 
 include(PixiennLibs)
 include(Pixienn)
-#include(PixiennTrain)
+include(PixiennTrain)
 
 add_subdirectory(tests)

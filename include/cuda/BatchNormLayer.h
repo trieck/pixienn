@@ -23,7 +23,12 @@ inline std::streamoff BatchNormLayer<Device::CUDA>::loadWeights(std::istream& is
 {
     auto start = is.tellg();
 
-    // TODO: implement CUDA weights loading
+    is.read((char*) biases_.data(), int(sizeof(float) * biases_.size()));
+    is.read((char*) scales_.data(), int(sizeof(float) * scales_.size()));
+    is.read((char*) rollingMean_.data(), int(sizeof(float) * rollingMean_.size()));
+    is.read((char*) rollingVar_.data(), int(sizeof(float) * rollingVar_.size()));
+
+    PX_CHECK(is.good(), "Could not read batch normalize parameters");
 
     return is.tellg() - start;
 }

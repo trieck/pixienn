@@ -27,8 +27,8 @@ namespace px {
 void train(const std::string& cfgFile, const std::string& weightsFile,
            const po::variables_map& options)
 {
-    auto model = Model(cfgFile, options);
-    model.train();
+    auto model = BaseModel::create(cfgFile, options);
+    model->train();
 }
 
 }

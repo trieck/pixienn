@@ -17,36 +17,12 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
+#include "common.h"
 #include "Activation.h"
 #include "Device.h"
 
 using namespace px;
 using namespace testing;
-
-template<Device D>
-struct DeviceTrait;
-
-template<>
-struct DeviceTrait<Device::CPU>
-{
-    static constexpr auto D = Device::CPU;
-
-    using V = PxCpuVector;
-};
-
-#ifdef USE_CUDA
-template<>
-struct DeviceTrait<Device::CUDA>
-{
-    static constexpr auto D = Device::CUDA;
-
-    using V = PxCudaVector;
-};
-
-using DeviceTypes = ::testing::Types<DeviceTrait<Device::CPU>, DeviceTrait<Device::CUDA>>;
-#else
-using DeviceTypes = ::testing::Types<DeviceTrait<Device::CPU>>;
-#endif
 
 /////////////////////////////////////////////////////////////////////////////////////////
 template<typename T>
