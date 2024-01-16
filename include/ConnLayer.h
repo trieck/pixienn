@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <cblas.h>
+
 #include "Activation.h"
 #include "Layer.h"
 
