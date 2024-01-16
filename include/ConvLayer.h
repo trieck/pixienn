@@ -135,7 +135,7 @@ void ConvLayer<D>::forward(const V& input)
     auto nweights = weights_.size();
     auto* pweights = weights_.data();
 
-    auto* pin = const_cast<float*>(input.data()); // FIXME: don't do this
+    auto* pin = input.data();
     auto* pout = this->output_.data();
 
     auto alpha = 1.0f;
@@ -143,18 +143,18 @@ void ConvLayer<D>::forward(const V& input)
 
     for (auto i = 0; i < this->batch(); ++i) {
         for (auto j = 0; j < groups_; ++j) {
-            auto* im = pin + (i * groups_ + j) * this->channels() / groups_ * this->height() * this->width();
+            const auto* im = pin + (i * groups_ + j) * this->channels() / groups_ * this->height() * this->width();
             const auto* a = pweights + j * nweights / groups_;
-            auto* b = column_.data();
+            const auto* b = column_.data();
             auto* c = pout + (i * groups_ + j) * n * m;
 
             if (kernel_ == 1 && stride_ == 1 && dilation_ == 1) {
                 b = im;
+            } else {
+                im2ColCpuExt(im, this->channels() / groups_, this->height(), this->width(), kernel_, kernel_,
+                             padding_ * dilation_, padding_ * dilation_,
+                             stride_, stride_, dilation_, dilation_, column_.data());
             }
-
-            im2ColCpuExt(im, this->channels() / groups_, this->height(), this->width(), kernel_, kernel_,
-                         padding_ * dilation_, padding_ * dilation_,
-                         stride_, stride_, dilation_, dilation_, b);
 
             cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, alpha, a, k, b, n, beta, c, n);
         }
@@ -194,7 +194,7 @@ void ConvLayer<D>::backward(const V& input)
     auto* pweights = weights_.data();
     auto* pweightUpdates = weightUpdates_.data();
 
-    auto* pin = const_cast<float*>(input.data()); // FIXME: don't do this
+    const auto* pin = input.data();
     auto* pdelta = this->delta_.data();
     auto* pNetDelta = this->model().delta()->data();
     auto* pout = this->output_.data();
@@ -204,18 +204,18 @@ void ConvLayer<D>::backward(const V& input)
 
     for (auto i = 0; i < this->batch(); ++i) {
         for (auto j = 0; j < groups_; ++j) {
-            auto* im = pin + (i * groups_ + j) * this->channels() / groups_ * this->height() * this->width();
+            const auto* im = pin + (i * groups_ + j) * this->channels() / groups_ * this->height() * this->width();
             const auto* a = pdelta + (i * groups_ + j) * m * k;
-            auto* b = column_.data();
+            const auto* b = column_.data();
             auto* c = pweightUpdates + j * nweights / groups_;
 
             if (kernel_ == 1 && stride_ == 1 && dilation_ == 1) {
                 b = im;
+            } else {
+                im2ColCpuExt(im, this->channels() / groups_, this->height(), this->width(), kernel_, kernel_,
+                             padding_ * dilation_, padding_ * dilation_,
+                             stride_, stride_, dilation_, dilation_, column_.data());
             }
-
-            im2ColCpuExt(im, this->channels() / groups_, this->height(), this->width(), kernel_, kernel_,
-                         padding_ * dilation_, padding_ * dilation_,
-                         stride_, stride_, dilation_, dilation_, b);
 
             cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, m, n, k, alpha, a, k, b, k, beta, c, n);
 

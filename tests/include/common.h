@@ -1,5 +1,5 @@
 /********************************************************************************
-* Copyright 2023 Thomas A. Rieck, All Rights Reserved
+* Copyright 2020-2023 Thomas A. Rieck, All Rights Reserved
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -16,10 +16,34 @@
 
 #pragma once
 
+#include "Device.h"
+#include "DeviceTraits.h"
+
 namespace px {
 
-void upsampleGpu(const float* in, int w, int h, int c, int batch, int stride, int forward, float scale, float* acc,
-                 float* out);
+template<Device D>
+struct DeviceTrait;
+
+template<>
+struct DeviceTrait<Device::CPU>
+{
+    static constexpr auto D = Device::CPU;
+
+    using V = PxCpuVector;
+};
+
+#ifdef USE_CUDA
+template<>
+struct DeviceTrait<Device::CUDA>
+{
+    static constexpr auto D = Device::CUDA;
+
+    using V = PxCudaVector;
+};
+
+using DeviceTypes = ::testing::Types<DeviceTrait<Device::CPU>, DeviceTrait<Device::CUDA>>;
+#else
+using DeviceTypes = ::testing::Types<DeviceTrait<Device::CPU>>;
+#endif
 
 }   // px
-

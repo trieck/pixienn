@@ -36,8 +36,16 @@ inline void UpsampleLayer<Device::CUDA>::forward(const V& input)
     Layer<Device::CUDA>::forward(input);
 
     upsampleGpu(input.data(), this->width(), this->height(), this->channels(), this->batch(), stride_,
-                1, scale_, this->output_.data());
+                1, scale_, nullptr, this->output_.data());
+}
 
+template<>
+inline void UpsampleLayer<Device::CUDA>::backward(const px::UpsampleLayer<px::Device::CUDA>::V& input)
+{
+    Layer<Device::CUDA>::backward(input);
+
+    upsampleGpu(nullptr, this->width(), this->height(), this->channels(), this->batch(), stride_,
+                1, scale_, this->netDelta()->data(), this->delta_.data());
 }
 
 }   // px

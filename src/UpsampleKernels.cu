@@ -24,40 +24,39 @@ namespace px {
 
 __global__ void
 upsampleKernel(size_t N, const float* x, int w, int h, int c, int batch, int stride, int forward, float scale,
-               float* out)
+               float* acc, float* out)
 {
     size_t i = (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x + threadIdx.x;
     if (i >= N) return;
 
-    auto out_index = i;
-    auto out_w = i % (w * stride);
+    auto outIndex = i;
+    auto outW = i % (w * stride);
     i = i / (w * stride);
-    auto out_h = i % (h * stride);
+    auto outH = i % (h * stride);
     i = i / (h * stride);
-    auto out_c = i % c;
+    auto outC = i % c;
     i = i / c;
     auto b = i % batch;
 
-    auto in_w = out_w / stride;
-    auto in_h = out_h / stride;
-    auto in_c = out_c;
+    auto inW = outW / stride;
+    auto inH = outH / stride;
+    auto inC = outC;
 
-    auto in_index = b * w * h * c + in_c * w * h + in_h * w + in_w;
+    auto inIndex = b * w * h * c + inC * w * h + inH * w + inW;
 
     if (forward) {
-        out[out_index] += scale * x[in_index];
+        out[outIndex] += scale * x[inIndex];
     } else {
-        // FIXME: THIS IS BAD SINCE IT ATTEMPTS TO UPDATE A CONST*
-        // FIND ANOTHER WAY
-        // atomicAdd(x + in_index), scale * out[out_index]);
+        atomicAdd(acc + inIndex, scale * out[outIndex]);
     }
 }
 
-void upsampleGpu(const float* in, int w, int h, int c, int batch, int stride, int forward, float scale, float* out)
+void upsampleGpu(const float* in, int w, int h, int c, int batch, int stride, int forward, float scale, float* acc,
+                 float* out)
 {
     size_t size = w * h * c * batch * stride * stride;
 
-    upsampleKernel<<<cudaGridsize(size), CUDA_BLOCK_SIZE>>>(size, in, w, h, c, batch, stride, forward, scale, out);
+    upsampleKernel<<<cudaGridsize(size), CUDA_BLOCK_SIZE>>>(size, in, w, h, c, batch, stride, forward, scale, acc, out);
     cudaDeviceSynchronize();
 
     PX_CUDA_CHECK_LAST();

@@ -57,8 +57,13 @@ public:
     static Ptr create(const std::string& cfgFile, var_map options = {});
 
     virtual Detections predict(const std::string& imageFile) = 0;
+    virtual void train() = 0;
+
     virtual void overlay(const std::string& imageFile, const Detections& detects) const = 0;
     virtual std::string asJson(const Detections& detects) const noexcept = 0;
+
+private:
+    static BaseModel::Ptr createModel(const std::string& cfgFile, var_map options, bool useGpu);
 };
 
 template<Device D>
@@ -102,14 +107,20 @@ public:
     using LayerVec = std::vector<LayerPtr>;
 
     Model(var_map options = {});
-    explicit Model(std::string cfgFile, var_map options = {});
+    Model(std::string cfgFile, var_map options = {});
+    Model(YAML::Node config, var_map options = {});
+
     Model(const Model& rhs) = delete;
     Model(Model&& rhs) noexcept = delete;
 
     Model& operator=(const Model& rhs) = delete;
     Model& operator=(Model&& rhs) = delete;
 
+    void parseModel(const YAML::Node& modelDoc);
+
     Detections predict(const std::string& imageFile) override;
+    void train() override;
+
     void overlay(const std::string& imageFile, const Detections& detects) const override;
     std::string asJson(const Detections& detects) const noexcept override;
 
@@ -148,6 +159,7 @@ private:
     void forward(const ImageVec& image);
     Detections detections(const cv::Size& imageSize) const;
 
+    void loadModel();
     void loadLabels();
     void parseConfig();
     void parseModel();
@@ -191,6 +203,49 @@ private:
 
     std::vector<std::string> labels_;
 };
+
+template<Device D>
+Model<D>::Model(YAML::Node config, BaseModel::var_map options)
+        : config_(std::move(config)), options_(std::move(options))
+{
+    loadModel();
+}
+
+template<Device D>
+void Model<D>::loadModel()
+{
+    PX_CHECK(config_.IsMap(), "Document not a map.");
+    PX_CHECK(config_["configuration"], "Document has no configuration.");
+
+    const auto config = config_["configuration"];
+    PX_CHECK(config.IsMap(), "Configuration is not a map.");
+
+    auto cfgPath = path(cfgFile_);
+
+    auto labels = config["labels"].as<std::string>();
+    labelsFile_ = canonical(labels, cfgPath.parent_path()).string();
+    loadLabels();
+
+    auto model = config["model"].as<std::string>();
+    modelFile_ = canonical(model, cfgPath.parent_path()).string();
+    parseModel();
+
+    backupDir_ = config["backup-dir"].as<std::string>("backup");
+
+    if (inferring()) {
+        auto weights = config["weights"].as<std::string>();
+        weightsFile_ = canonical(weights, cfgPath.parent_path()).string();
+    } else {
+        weightsFile_ = option<std::string>("weights-file");
+    }
+
+    loadWeights();
+}
+
+template<Device D>
+void Model<D>::train()
+{
+}
 
 template<Device D>
 int Model<D>::width() const noexcept
@@ -247,7 +302,10 @@ template<Device D>
 Model<D>::Model(var_map options) : options_(std::move(options))
 {
     training_ = hasOption("train");
-    threshold_ = training_ ? 0.0f : option<float>("confidence");
+
+    if (options_.count("confidence") != 0) {
+        threshold_ = option<float>("confidence");
+    }
 
     setup();
 }
@@ -390,33 +448,7 @@ template<Device D>
 void Model<D>::parseConfig()
 {
     config_ = LoadFile(cfgFile_);
-
-    PX_CHECK(config_.IsMap(), "Document not a map.");
-    PX_CHECK(config_["configuration"], "Document has no configuration.");
-
-    const auto config = config_["configuration"];
-    PX_CHECK(config.IsMap(), "Configuration is not a map.");
-
-    auto cfgPath = path(cfgFile_);
-
-    auto labels = config["labels"].as<std::string>();
-    labelsFile_ = canonical(labels, cfgPath.parent_path()).string();
-    loadLabels();
-
-    auto model = config["model"].as<std::string>();
-    modelFile_ = canonical(model, cfgPath.parent_path()).string();
-    parseModel();
-
-    backupDir_ = config["backup-dir"].as<std::string>("backup");
-
-    if (inferring()) {
-        auto weights = config["weights"].as<std::string>();
-        weightsFile_ = canonical(weights, cfgPath.parent_path()).string();
-    } else {
-        weightsFile_ = option<std::string>("weights-file");
-    }
-
-    loadWeights();
+    loadModel();
 }
 
 template<Device D>
@@ -483,6 +515,13 @@ void Model<D>::parseModel()
 {
     auto modelDoc = LoadFile(modelFile_);
 
+    parseModel(modelDoc);
+}
+
+
+template<Device D>
+void Model<D>::parseModel(const Node& modelDoc)
+{
     PX_CHECK(modelDoc.IsMap(), "Model document not a map.");
     PX_CHECK(modelDoc["model"], "Model document has no model.");
 
