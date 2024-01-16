@@ -9,6 +9,6 @@ endif ()
 
 set_target_properties(pixienn-train PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-target_include_directories(pixienn-train PRIVATE include)
+target_include_directories(pixienn-train PRIVATE ${INCLUDE_DIRS})
 
 target_link_libraries(pixienn-train ${PIXIENN_LIBS})
