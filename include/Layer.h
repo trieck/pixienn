@@ -16,12 +16,13 @@
 
 #pragma once
 
+#include <cblas.h>
 #include <yaml-cpp/yaml.h>
 
 #include "DeviceTraits.h"
 #include "Error.h"
 #include "PxTensor.h"
-
+#include "TrainBatch.h"
 
 #ifdef USE_CUDA
 
@@ -71,7 +72,7 @@ public:
     int width() const noexcept;
 
     const V& output() const noexcept;
-    V& delta() const noexcept;
+    V& delta() noexcept;
 
 protected:
     void setInputs(int inputs);
@@ -105,6 +106,20 @@ protected:
 
     V* netDelta() const noexcept;
 
+    const TrainBatch& trainingBatch() const noexcept;
+
+    const GroundTruths& groundTruth() const noexcept;
+    const GroundTruthVec& groundTruth(uint32_t batch) const noexcept;
+
+    void scaleGradients();
+    void clipGradients();
+
+    bool gradientRescaling_ = false;
+    float gradientThreshold_ = 0.0f;
+
+    bool gradientClipping_ = false;
+    float gradientClipValue_ = 0.0f;
+
 #ifdef USE_CUDA
     template<Device D_ = D, typename = EnableIfCuda<D_>>
     const CublasContext& cublasContext() const noexcept;
@@ -114,11 +129,11 @@ protected:
 #endif
 
     V output_, delta_;
+    float cost_ = 0.0f;
+
 private:
     Model<D>& model_;
     YAML::Node layerDef_;
-
-    float cost_ = 0.0f;
 
     int batch_, channels_, height_, width_;
     int outChannels_, outHeight_, outWidth_, inputs_, index_, outputs_;
@@ -136,6 +151,12 @@ Layer<D>::Layer(Model<D>& model, YAML::Node layerDef)
     index_ = property<int>("index", 0);
     inputs_ = property<int>("inputs", 0);
     width_ = property<int>("width", 0);
+
+    gradientRescaling_ = model.gradRescaling();
+    gradientThreshold_ = model.gradThreshold();
+
+    gradientClipping_ = model.gradClipping();
+    gradientClipValue_ = model.gradClipValue();
 }
 
 template<Device D>
@@ -334,11 +355,21 @@ auto Layer<D>::output() const noexcept -> const V&
 template<Device D>
 void Layer<D>::forward(const V& input)
 {
+    delta_.fill(0);
+    output_.fill(0);
+    cost_ = 0;
 }
 
 template<Device D>
 void Layer<D>::backward(const V& input)
 {
+    if (this->gradientRescaling_) {
+        this->scaleGradients();
+    }
+
+    if (this->gradientClipping_) {
+        this->clipGradients();
+    }
 }
 
 template<Device D>
@@ -377,15 +408,49 @@ int Layer<D>::classes() const noexcept
 }
 
 template<Device D>
-auto Layer<D>::delta() const noexcept -> V&
+auto Layer<D>::delta() noexcept -> V&
 {
     return delta_;
 }
 
 template<Device D>
-auto Layer<D>::netDelta() const noexcept ->V*
+auto Layer<D>::netDelta() const noexcept -> V*
 {
     return model_.delta();
+}
+
+template<Device D>
+const TrainBatch& Layer<D>::trainingBatch() const noexcept
+{
+    return model_.trainingBatch();
+}
+
+template<Device D>
+const GroundTruths& Layer<D>::groundTruth() const noexcept
+{
+    return trainingBatch().groundTruth();
+}
+
+template<Device D>
+const GroundTruthVec& Layer<D>::groundTruth(uint32_t batch) const noexcept
+{
+    return trainingBatch().groundTruth(batch);
+}
+
+template<Device D>
+void Layer<D>::scaleGradients()
+{
+    auto norm = magArray(delta_.data(), delta_.size());
+    if (norm > gradientThreshold_) {
+        auto scale = gradientThreshold_ / norm;
+        cblas_sscal(delta_.size(), scale, delta_.data(), 1);
+    }
+}
+
+template<Device D>
+void Layer<D>::clipGradients()
+{
+    constrain(delta_.size(), gradientClipValue_, delta_.data(), 1);
 }
 
 #ifdef USE_CUDA

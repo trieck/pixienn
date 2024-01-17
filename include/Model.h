@@ -27,14 +27,24 @@
 #include <utility>
 #include <yaml-cpp/node/node.h>
 
+#include "BurnInLRPolicy.h"
 #include "ColorMaps.h"
+#include "ConstantLRPolicy.h"
+#include "CosineLRPolicy.h"
 #include "Detection.h"
 #include "DeviceTraits.h"
 #include "Error.h"
+#include "FileUtil.h"
 #include "Image.h"
+#include "ImageAugmenter.h"
+#include "InvLRPolicy.h"
 #include "Layer.h"
 #include "PxTensor.h"
+#include "SigmoidLRPolicy.h"
+#include "SmoothSteppedLRPolicy.h"
+#include "SteppedLRPolicy.h"
 #include "Timer.h"
+#include "TrainBatch.h"
 
 using namespace YAML;
 using namespace boost::filesystem;
@@ -126,7 +136,6 @@ public:
 
     void forward(const V& input);
     void backward(const V& input);
-    void update();
 
     template<typename T>
     T option(const std::string& name) const;
@@ -143,6 +152,9 @@ public:
     bool inferring() const noexcept;
     bool training() const noexcept;
     int classes() const noexcept;
+    float learningRate() const;
+    float momentum() const noexcept;
+    float decay() const noexcept;
 
     int batch() const noexcept;
     int channels() const noexcept;
@@ -155,16 +167,52 @@ public:
     int layerSize() const noexcept;
     const LayerPtr& layerAt(int index) const;
 
+    const TrainBatch& trainingBatch() const noexcept;
+
+    bool gradRescaling() const noexcept;
+    float gradThreshold() const noexcept;
+
+    bool gradClipping() const noexcept;
+    float gradClipValue() const noexcept;
+
 private:
+    enum class Category
+    {
+        TRAIN = 0,
+        VAL = 1
+    };
+
     void forward(const ImageVec& image);
+    void update();
+    void saveWeights(bool final = false);
+    void updateLR();
+
     Detections detections(const cv::Size& imageSize) const;
 
     void loadModel();
     void loadLabels();
     void parseConfig();
     void parseModel();
+    void parsePolicy(const Node& model);
+    void parseTrainConfig();
+    void loadTrainImages();
+    void loadValImages();
     void loadWeights();
     void setup();
+    float trainBatch();
+    float trainOnce(const V& input);
+
+    using ImageLabels = std::pair<PxCpuVector, GroundTruthVec>;
+    ImageLabels loadImgLabels(Category category, const std::string& imagePath, bool augment);
+    TrainBatch loadBatch(Category category, int size, bool augment);
+    TrainBatch loadBatch(Category category, bool augment);
+    GroundTruthVec groundTruth(Category category, const std::string& imagePath);
+    int currentBatch() const noexcept;
+    std::string weightsFileName(bool final) const;
+    void validate();
+    LRPolicy* currentPolicy() const noexcept;
+    bool isBurningIn() const noexcept;
+    void viewImageGT(const std::string& imgPath, const GroundTruthVec& gt, bool augment) const;
 
     bool training_ = false;
     std::string cfgFile_;
@@ -175,8 +223,25 @@ private:
     LayerVec layers_;
     V* delta_ = nullptr;
 
+    LRPolicy::Ptr policy_;
+    LRPolicy::Ptr burnInPolicy_;
+    ImageAugmenter::Ptr augmenter_;
+    TrainBatch trainBatch_;
+
+    std::size_t burnInBatches_ = 0;
+
+    bool gradRescale_ = false;
+    float gradThreshold_ = 0.0f;
+
+    bool gradClip_ = false;
+    float gradClipValue_ = 0.0f;
+
     std::string labelsFile_;
     std::string modelFile_;
+    std::string trainImagePath_;
+    std::string valImagePath_;
+    std::string trainLabelPath_;
+    std::string valLabelPath_;
     std::string backupDir_;
     std::string weightsFile_;
 
@@ -202,6 +267,8 @@ private:
     float cost_ = 0.0f;
 
     std::vector<std::string> labels_;
+    std::vector<std::string> trainImages_;
+    std::vector<std::string> valImages_;
 };
 
 template<Device D>
@@ -243,8 +310,127 @@ void Model<D>::loadModel()
 }
 
 template<Device D>
+float Model<D>::learningRate() const
+{
+    return currentPolicy()->LR();
+}
+
+template<Device D>
 void Model<D>::train()
 {
+    std::printf("\nTraining model...\n");
+
+    parseTrainConfig();
+    loadTrainImages();
+    loadValImages();
+
+    auto avgLoss = std::numeric_limits<float>::lowest();
+
+    Timer timer;
+    std::printf("LR: %f%s, Momentum: %f, Decay: %f\n", learningRate(), isBurningIn() ? " (burn-in)" : "", momentum_,
+                decay_);
+
+    const auto windowSize = 10;
+    const float alpha = 2.0 / (windowSize + 1);
+
+    while (currentBatch() < maxBatches_) {
+        Timer batchTimer;
+        auto loss = trainBatch();
+        avgLoss = avgLoss < 0 ? loss : (avgLoss * (1 - alpha) + loss * alpha);
+
+        auto epoch = seen_ / trainImages_.size();
+
+        if (seen_ % 10 == 0) {
+            printf("Epoch: %zu, Seen: %zu, Loss: %f, Avg. Loss: %f, LR: %.12f%s, %s, %zu images\n",
+                   epoch, seen_, loss, avgLoss, learningRate(),
+                   isBurningIn() ? " (burn-in)" : "",
+                   batchTimer.str().c_str(), seen_ * batch_);
+        }
+
+        if (seen_ % 1000 == 0 || (seen_ < 1000 && seen_ % 100 == 0)) {
+            saveWeights();
+        }
+
+        if (seen_ % 1000 == 0) {
+            validate();
+        }
+    }
+
+    saveWeights(true);
+
+    std::printf("trained in %s.\n", timer.str().c_str());
+}
+
+template<Device D>
+float Model<D>::trainBatch()
+{
+    trainBatch_ = loadBatch(Category::TRAIN, augmenter_ != nullptr);
+
+    auto error = trainOnce(trainBatch_.imageData());
+
+    return error;
+}
+
+template<Device D>
+float Model<D>::trainOnce(const V& input)
+{
+    forward(input);
+    backward(input);
+
+    auto error = cost();
+
+    if ((++seen_ / batch_) % subdivs_ == 0) {
+        update();
+    }
+
+    return error;
+}
+
+template<Device D>
+void Model<D>::parseTrainConfig()
+{
+    const auto training = config_["training"];
+    PX_CHECK(training.IsMap(), "training is not a map.");
+
+    auto cfgPath = path(cfgFile_);
+
+    auto trainImages = training["train-images"].as<std::string>();
+    trainImagePath_ = canonical(trainImages, cfgPath.parent_path()).string();
+
+    auto valImages = training["val-images"].as<std::string>();
+    valImagePath_ = canonical(valImages, cfgPath.parent_path()).string();
+
+    auto trainLabels = training["train-labels"].as<std::string>();
+    trainLabelPath_ = canonical(trainLabels, cfgPath.parent_path()).string();
+
+    auto valLabels = training["val-labels"].as<std::string>();
+    valLabelPath_ = canonical(valLabels, cfgPath.parent_path()).string();
+}
+
+template<Device D>
+void Model<D>::loadTrainImages()
+{
+    std::ifstream ifs(trainImagePath_, std::ios::in | std::ios::binary);
+    PX_CHECK(ifs.good(), "Could not open file \"%s\".", trainImagePath_.c_str());
+
+    trainImages_.clear();
+
+    for (std::string label; std::getline(ifs, label);) {
+        trainImages_.push_back(label);
+    }
+}
+
+template<Device D>
+void Model<D>::loadValImages()
+{
+    std::ifstream ifs(valImagePath_, std::ios::in | std::ios::binary);
+    PX_CHECK(ifs.good(), "Could not open file \"%s\".", valImagePath_.c_str());
+
+    valImages_.clear();
+
+    for (std::string label; std::getline(ifs, label);) {
+        valImages_.push_back(label);
+    }
 }
 
 template<Device D>
@@ -518,7 +704,6 @@ void Model<D>::parseModel()
     parseModel(modelDoc);
 }
 
-
 template<Device D>
 void Model<D>::parseModel(const Node& modelDoc)
 {
@@ -528,10 +713,37 @@ void Model<D>::parseModel(const Node& modelDoc)
     const auto model = modelDoc["model"];
     PX_CHECK(model.IsMap(), "Model is not a map.");
 
-    maxBatches_ = model["max_batches"].as<int>(0);
-    // parsePolicy();
+    if (training_) {
+        maxBatches_ = model["max_batches"].as<int>(0);
+        PX_CHECK(maxBatches_ > 0, "Model has no max_batches.");
 
-    // TODO: augmentation
+        parsePolicy(model);
+        auto augmentNode = model["augmentation"];
+        if (augmentNode && augmentNode.IsMap()) {
+            auto augment = augmentNode["enabled"].as<bool>(false);
+            auto jitter = augmentNode["jitter"].as<float>(0.2f);
+            auto hue = augmentNode["hue"].as<float>(0.0f);
+            auto saturation = augmentNode["saturation"].as<float>(1.0f);
+            auto exposure = augmentNode["exposure"].as<float>(1.0f);
+
+            auto flip = augmentNode["flip"].as<bool>(false);
+            if (augment) {
+                augmenter_ = std::make_unique<ImageAugmenter>(jitter, hue, saturation, exposure, flip);
+            }
+        }
+
+        auto gr = model["gradient_rescale"];
+        if (gr && gr.IsMap()) {
+            gradRescale_ = gr["enabled"].as<bool>(false);
+            gradThreshold_ = gr["threshold"].as<float>(0.0f);
+        }
+
+        auto gc = model["gradient_clipping"];
+        if (gc && gc.IsMap()) {
+            gradClip_ = gc["enabled"].as<bool>(false);
+            gradClipValue_ = gc["value"].as<float>(1.0f);
+        }
+    }
 
     batch_ = model["batch"].as<int>();
     channels_ = model["channels"].as<int>();
@@ -585,6 +797,71 @@ void Model<D>::parseModel(const Node& modelDoc)
 }
 
 template<Device D>
+void Model<D>::parsePolicy(const Node& model)
+{
+    auto lrNode = model["learning_rate"];
+    if (lrNode) {
+        PX_CHECK(lrNode.IsMap(), "learning_rate must be a map.");
+        auto learningRate = lrNode["initial_learning_rate"].as<float>(0.001f);
+
+        burnInBatches_ = lrNode["burn_in_batches"].as<int>(0);
+        if (burnInBatches_ > 0) {
+            auto burnInPower = lrNode["burn_in_power"].as<float>(1.0f);
+            burnInPolicy_ = std::make_unique<BurnInLRPolicy>(learningRate, burnInBatches_, burnInPower);
+        }
+
+        auto sPolicy = lrNode["policy"].as<std::string>("constant");
+
+        if (sPolicy == "constant") {
+            policy_ = std::make_unique<ConstantLRPolicy>(learningRate);
+        } else if (sPolicy == "cosine_annealing") {
+            auto cosineNode = lrNode["cosine_annealing"];
+            auto minLR = cosineNode["min_learning_rate"].as<float>(0.0f);
+            auto batchesPerCycle = cosineNode["batches_per_cycle"].as<int>(1000);
+
+            policy_ = std::make_unique<CosineAnnealingLRPolicy>(learningRate, minLR, batchesPerCycle);
+        } else if (sPolicy == "sigmoid") {
+            auto sigmoidNode = lrNode["sigmoid"];
+            auto targetLR = sigmoidNode["target_learning_rate"].as<float>(0.001f);
+            auto factor = sigmoidNode["factor"].as<float>(12.0f);
+
+            policy_ = std::make_unique<SigmoidLRPolicy>(learningRate, targetLR, factor, maxBatches_);
+
+        } else if (sPolicy == "smooth_stepped") {
+            auto smoothNode = lrNode["smooth_stepped"];
+            auto steps = smoothNode["steps"];
+            PX_CHECK(steps.IsSequence(), "steps must be a sequence of integers.");
+            auto vSteps = steps.as<std::vector<int>>();
+
+            auto targets = smoothNode["targets"];
+            PX_CHECK(targets.IsSequence(), "targets must be a sequence of floating point numbers.");
+            auto vTargets = targets.as<std::vector<float>>();
+
+            policy_ = std::make_unique<SmoothSteppedLRPolicy>(learningRate, vSteps, vTargets);
+        } else if (sPolicy == "stepped") {
+            auto steppedNode = lrNode["stepped"];
+            auto steps = steppedNode["steps"];
+            PX_CHECK(steps.IsSequence(), "steps must be a sequence of integers.");
+            auto vSteps = steps.as<std::vector<int>>();
+
+            auto scales = steppedNode["scales"];
+            PX_CHECK(scales.IsSequence(), "scales must be a sequence of floating point numbers.");
+            auto vScales = scales.as<std::vector<float>>();
+
+            policy_ = std::make_unique<SteppedLRPolicy>(learningRate, vSteps, vScales);
+        } else if (sPolicy == "inverse") {
+            auto invNode = lrNode["inverse"];
+            auto gamma = invNode["gamma"].as<float>(0.9f);
+            auto power = invNode["power"].as<float>(1.0f);
+
+            policy_ = std::make_unique<InvLRPolicy>(learningRate, gamma, power);
+        } else {
+            PX_ERROR_THROW("Unknown policy \"%s\".", sPolicy.c_str());
+        }
+    }
+}
+
+template<Device D>
 void Model<D>::forward(const V& input)
 {
     auto sum = 0.0f;
@@ -628,6 +905,20 @@ void Model<D>::backward(const V& input)
 template<Device D>
 void Model<D>::update()
 {
+    updateLR();
+
+    for (auto& layer: layers_) {
+        layer->update();
+    }
+}
+
+template<Device D>
+void Model<D>::updateLR()
+{
+    auto batchNum = currentBatch();
+    auto* policy = currentPolicy();
+
+    policy->update(batchNum);
 }
 
 template<Device D>
@@ -683,6 +974,303 @@ float Model<D>::cost() const noexcept
     return cost_;
 }
 
+template<Device D>
+Model<D>::ImageLabels Model<D>::loadImgLabels(Model::Category category, const std::string& imagePath, bool augment)
+{
+    auto gts = groundTruth(category, imagePath);
+
+    if (hasOption("view-image")) {
+        viewImageGT(imagePath, gts, augment);
+    }
+
+    if (augment && augmenter_) {
+        auto orig = imreadNormalize(imagePath.c_str());
+
+        auto augmented = augmenter_->augment(orig, { width(), height() }, gts);
+        augmenter_->distort(augmented.first);
+
+        auto vector = imvector(augmented.first);
+
+        return { vector, augmented.second };
+    } else {
+        auto vec = imreadVector(imagePath.c_str(), width(), height());
+
+        GroundTruthVec newGts;
+
+        for (const auto& gt: gts) {
+            GroundTruth newGt(gt);
+            newGt.box.x() = (gt.box.x() * vec.ax) + vec.dx;
+            newGt.box.y() = (gt.box.y() * vec.ay) + vec.dy;
+            newGt.box.w() *= vec.ax;
+            newGt.box.h() *= vec.ay;
+
+            newGts.emplace_back(std::move(newGt));
+        }
+
+        return { vec.data, newGts };
+    }
+}
+
+template<Device D>
+float Model<D>::momentum() const noexcept
+{
+    return momentum_;
+}
+
+template<Device D>
+float Model<D>::decay() const noexcept
+{
+    return decay_;
+}
+
+template<Device D>
+void Model<D>::saveWeights(bool final)
+{
+    if (!boost::filesystem::exists(backupDir_)) {
+        boost::filesystem::create_directory(backupDir_);
+    }
+
+    auto fileName = weightsFileName(final);
+
+    std::ofstream ofs(fileName, std::ios::out | std::ios::trunc | std::ios::binary);
+    PX_CHECK(ofs.good(), "Could not open file \"%s\". %s", fileName.c_str(), std::strerror(errno));
+
+    ofs.write((char*) &major_, sizeof(int));
+    ofs.write((char*) &minor_, sizeof(int));
+    ofs.write((char*) &revision_, sizeof(int));
+    ofs.write((char*) &seen_, sizeof(int));
+
+    for (const auto& layer: layers()) {
+        layer->saveWeights(ofs);
+    }
+
+    ofs.close();
+}
+
+template<Device D>
+TrainBatch Model<D>::loadBatch(Category type, bool augment)
+{
+    return loadBatch(type, batch_, augment);
+}
+
+template<Device D>
+TrainBatch Model<D>::loadBatch(Model::Category category, int size, bool augment)
+{
+    TrainBatch batch(size, channels_, height_, width_);
+
+    const auto& images = category == Category::TRAIN ?
+                         trainImages_ : valImages_;
+
+    std::random_device rd;
+    std::default_random_engine generator(rd());
+    std::uniform_int_distribution<int> distribution(0, images.size() - 1);
+
+    auto n = std::min<std::size_t>(size, images.size());
+
+    for (auto i = 0; i < n; ++i) {
+        auto j = distribution(generator);
+        const auto& imagePath = images[j];
+        auto imgLabels = loadImgLabels(category, imagePath, augment);
+
+        batch.setImageData(i, imgLabels.first);  // the image data must be copied
+        batch.setGroundTruth(i, std::move(imgLabels.second));
+    }
+
+    return batch;
+}
+
+template<Device D>
+GroundTruthVec Model<D>::groundTruth(Category category, const std::string& imagePath)
+{
+    auto basePath = baseName(imagePath);
+
+    const auto& path = category == Category::TRAIN ? trainLabelPath_ : valLabelPath_;
+
+    boost::filesystem::path gtFile(path);
+    gtFile /= basePath + ".txt";
+    gtFile = canonical(gtFile);
+
+    std::ifstream ifs(gtFile);
+    PX_CHECK(ifs.good(), "Could not open file \"%s\".", gtFile.c_str());
+
+    GroundTruthVec vector;
+
+    auto nclasses = classes();
+    std::size_t id;
+    float x, y, w, h;
+
+    while (ifs >> id >> x >> y >> w >> h) {
+        GroundTruth gt;
+        gt.classId = id;
+
+        gt.box.x() = constrain(0.0f, 1.0f, x);
+        gt.box.y() = constrain(0.0f, 1.0f, y);
+        gt.box.w() = constrain(0.0f, 1.0f, w);
+        gt.box.h() = constrain(0.0f, 1.0f, h);
+
+        vector.emplace_back(std::move(gt));
+    }
+
+    return vector;
+}
+
+template<Device D>
+int Model<D>::currentBatch() const noexcept
+{
+    if (batch_ == 0 || subdivs_ == 0) {
+        return 0;
+    }
+
+    auto batchNum = seen_ / (batch_ * subdivs_);
+
+    return batchNum;
+}
+
+template<Device D>
+std::string Model<D>::weightsFileName(bool final) const
+{
+    if (final) {
+        return weightsFile_;
+    }
+
+    auto base = baseName(weightsFile_);
+
+    auto fileName = (boost::format("%s_%u.weights") % base % seen_).str();
+    boost::filesystem::path path(backupDir_);
+    path /= fileName;
+    fileName = path.string();
+
+    return fileName;
+}
+
+template<Device D>
+void Model<D>::validate()
+{
+    std::cout << "Pausing training to validate..." << std::flush;
+
+    auto batch = loadBatch(Category::VAL, 100, false);
+/*
+    validator_.validate(std::move(batch));
+
+    std::printf("\n%zu: mAP: %f, Avg. Recall: %f, micro-Avg. F1: %f\n",
+                seen_, validator_.mAP(), validator_.avgRecall(), validator_.microAvgF1());
+*/
+
+    std::cout << "Resuming training..." << std::endl << std::flush;
+}
+
+template<Device D>
+LRPolicy* Model<D>::currentPolicy() const noexcept
+{
+    auto batchNum = currentBatch();
+
+    LRPolicy* policy;
+    if (batchNum < burnInBatches_) {
+        policy = burnInPolicy_.get();
+    } else {
+        policy = policy_.get();
+    }
+
+    return policy;
+}
+
+template<Device D>
+bool Model<D>::isBurningIn() const noexcept
+{
+    auto batchNum = currentBatch();
+
+    return batchNum < burnInBatches_;
+}
+
+template<Device D>
+void Model<D>::viewImageGT(const std::string& imagePath, const GroundTruthVec& gt, bool augment) const
+{
+    ColorMaps colors("plasma");
+
+    cv::Mat image;
+
+    if (augment && augmenter_) {
+        auto orig = imread(imagePath.c_str());
+        auto augmented = augmenter_->augment(orig, { width(), height() }, gt);
+
+        image = augmented.first;
+        augmenter_->distort(image);
+
+        cv::cvtColor(image, image, cv::COLOR_BGR2BGRA);
+
+        for (const auto& g: augmented.second) {
+            auto index = g.classId;
+            const auto& label = labels_[index];
+
+            auto bgColor = colors.color(index);
+            auto textColor = imtextcolor(bgColor);
+
+            auto lb = lightBox(g.box, { width(), height() });
+
+            imrect(image, lb, bgColor, 2);
+            imtabbedText(image, label.c_str(), lb.tl(), textColor, bgColor, 2);
+        }
+    } else {
+        auto mat = imread(imagePath.c_str(), width(), height());
+        image = mat.image;
+
+        cv::cvtColor(image, image, cv::COLOR_BGR2BGRA);
+
+        for (const auto& g: gt) {
+            auto index = g.classId;
+            const auto& label = labels_[index];
+
+            auto bgColor = colors.color(index);
+            auto textColor = imtextcolor(bgColor);
+
+            auto x = (g.box.x() * mat.ax) + mat.dx;
+            auto y = (g.box.y() * mat.ay) + mat.dy;
+            auto w = g.box.w() * mat.ax;
+            auto h = g.box.h() * mat.ay;
+
+            auto lb = lightBox({ x, y, w, h }, { width(), height() });
+
+            imrect(image, lb, bgColor, 2);
+            imtabbedText(image, label.c_str(), lb.tl(), textColor, bgColor, 2);
+        }
+    }
+
+    cv::imshow("image", image);
+    cv::waitKey();
+}
+
+template<Device D>
+const TrainBatch& Model<D>::trainingBatch() const noexcept
+{
+    return trainBatch_;
+}
+
+template<Device D>
+float Model<D>::gradClipValue() const noexcept
+{
+    return gradClipValue_;
+}
+
+template<Device D>
+bool Model<D>::gradClipping() const noexcept
+{
+    return gradClip_;
+}
+
+template<Device D>
+float Model<D>::gradThreshold() const noexcept
+{
+    return gradThreshold_;
+}
+
+template<Device D>
+bool Model<D>::gradRescaling() const noexcept
+{
+    return gradRescale_;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 using CpuModel = Model<>; // Model<Device::CPU
 using CudaModel = Model<Device::CUDA>;
 
@@ -690,6 +1278,6 @@ using CudaModel = Model<Device::CUDA>;
 
 #ifdef USE_CUDA
 
-#include "ModelCuda.h"
+#include "cuda/Model.h"
 
 #endif

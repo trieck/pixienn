@@ -20,8 +20,11 @@ public:
 
     void forward(const V& input) override;
     void backward(const V& input) override;
+    void update() override;
 
     std::streamoff loadWeights(std::istream& is) override;
+    std::streamoff saveWeights(std::ostream& os) override;
+
     std::ostream& print(std::ostream& os) override;
 
 private:
@@ -89,6 +92,21 @@ std::streamoff BatchNormLayer<D>::loadWeights(std::istream& is)
 }
 
 template<Device D>
+std::streamoff BatchNormLayer<D>::saveWeights(std::ostream& os)
+{
+    auto start = os.tellp();
+
+    os.write((char*) biases_.data(), int(sizeof(float) * biases_.size()));
+    os.write((char*) scales_.data(), int(sizeof(float) * scales_.size()));
+    os.write((char*) rollingMean_.data(), int(sizeof(float) * rollingMean_.size()));
+    os.write((char*) rollingVar_.data(), int(sizeof(float) * rollingVar_.size()));
+
+    PX_CHECK(os.good(), "Could not write batch normalize parameters");
+
+    return os.tellp() - start;
+}
+
+template<Device D>
 std::ostream& BatchNormLayer<D>::print(std::ostream& os)
 {
     Layer<D>::print(os, "batchnorm", { this->height(), this->width(), this->channels() },
@@ -114,7 +132,17 @@ void BatchNormLayer<D>::backward(const V& input)
 
     batchNormBackward(this->batch(), this->outChannels(), this->outHeight(), this->outWidth(), this->delta_,
                       mean_, var_, meanDelta_, varDelta_, scales_, scaleUpdates_, biasUpdates_, x_, xNorm_);
+
+    cblas_scopy(this->batch() * this->outputs(), this->delta_.data(), 1, this->netDelta()->data(), 1);
 }
+
+
+template<Device D>
+void BatchNormLayer<D>::update()
+{
+
+}
+
 
 using CpuBatchNorm = BatchNormLayer<>;
 using CudaBatchNorm = BatchNormLayer<Device::CUDA>;
