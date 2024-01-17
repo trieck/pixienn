@@ -136,4 +136,10 @@ inline void ConnLayer<Device::CUDA>::forward(const V& input)
     activation_->apply(this->output_);
 }
 
+template<>
+inline void ConnLayer<Device::CUDA>::backward(const V& input)
+{
+    // TODO: implement
+}
+
 }

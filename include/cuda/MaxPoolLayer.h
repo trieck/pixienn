@@ -59,4 +59,10 @@ inline void MaxPoolLayer<Device::CUDA>::forward(const V& input)
     PX_CHECK_CUDNN(status);
 }
 
+template<>
+inline void MaxPoolLayer<Device::CUDA>::backward(const V& input)
+{
+    // TODO: implement
+}
+
 }   // px

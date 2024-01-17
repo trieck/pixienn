@@ -1,3 +1,19 @@
+/********************************************************************************
+* Copyright 2020-2023 Thomas A. Rieck, All Rights Reserved
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+********************************************************************************/
+
 #pragma once
 
 #include <cblas.h>
@@ -22,8 +38,11 @@ public:
 
     void forward(const V& input) override;
     void backward(const V& input) override;
+    void update() override;
 
     std::streamoff loadWeights(std::istream& is) override;
+    virtual std::streamoff saveWeights(std::ostream& os);
+
     std::ostream& print(std::ostream& os) override;
 
 private:
@@ -113,6 +132,27 @@ std::streamoff ConvLayer<D>::loadWeights(std::istream& is)
     PX_CHECK(is.good(), "Could not read weights");
 
     return is.tellg() - start;
+}
+
+template<Device D>
+std::streamoff ConvLayer<D>::saveWeights(std::ostream& os)
+{
+    auto start = os.tellp();
+
+    if (batchNorm_) {
+        os.write((char*) biases_.data(), int(sizeof(float) * biases_.size()));
+        os.write((char*) scales_.data(), int(sizeof(float) * scales_.size()));
+        os.write((char*) rollingMean_.data(), int(sizeof(float) * rollingMean_.size()));
+        os.write((char*) rollingVar_.data(), int(sizeof(float) * rollingVar_.size()));
+    } else {
+        os.write((char*) biases_.data(), int(biases_.size() * sizeof(float)));
+        PX_CHECK(os.good(), "Could not write biases");
+    }
+
+    os.write((char*) weights_.data(), int(sizeof(float) * weights_.size()));
+    PX_CHECK(os.good(), "Could not write weights");
+
+    return os.tellp() - start;
 }
 
 template<Device D>
@@ -206,7 +246,7 @@ void ConvLayer<D>::backward(const V& input)
 
     for (auto i = 0; i < this->batch(); ++i) {
         for (auto j = 0; j < groups_; ++j) {
-            const auto* im = pin + (i * groups_ + j) * this->channels() / groups_ * this->height() * this->width();
+            const auto* im = pin + (i * groups_ + j) * (this->channels() / groups_ * this->height() * this->width());
             const auto* a = pdelta + (i * groups_ + j) * m * k;
             const auto* b = column_.data();
             auto* c = pweightUpdates + j * nweights / groups_;
@@ -222,17 +262,40 @@ void ConvLayer<D>::backward(const V& input)
             cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, m, n, k, alpha, a, k, b, k, beta, c, n);
 
             if (pNetDelta) {
+                auto* imd = pNetDelta + (i * groups_ + j) * (this->channels() / groups_) * this->height()
+                                        * this->width();
+
                 a = pweights + j * nweights / groups_;
                 b = pdelta + (i * groups_ + j) * m * k;
                 c = column_.data();
 
-                cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, n, k, m, alpha, a, n, b, k, beta, c, k);
+                cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, n, k, m, alpha, a, n, b, k, 0.0f, c, k);
 
-                col2ImCpuExt(column_.data(), this->channels() / groups_, this->height(), this->width(), kernel_,
-                             kernel_, padding_ * dilation_, padding_ * dilation_,
-                             stride_, stride_, dilation_, dilation_, pNetDelta);
+                col2ImCpuExt(c, this->channels() / groups_, this->height(), this->width(), kernel_, kernel_,
+                             padding_ * dilation_, padding_ * dilation_, stride_, stride_, dilation_, dilation_, imd);
             }
         }
+    }
+}
+
+template<Device D>
+void ConvLayer<D>::update()
+{
+    const auto& net = this->model();
+    auto learningRate = net.learningRate();
+    auto momentum = net.momentum();
+    auto decay = net.decay();
+
+    cblas_saxpy(weights_.size(), -decay * this->batch(), weights_.data(), 1, weightUpdates_.data(), 1);
+    cblas_saxpy(weights_.size(), learningRate / this->batch(), weightUpdates_.data(), 1, weights_.data(), 1);
+    cblas_sscal(weights_.size(), momentum, weightUpdates_.data(), 1);
+
+    cblas_saxpy(filters_, learningRate / this->batch(), biasUpdates_.data(), 1, biases_.data(), 1);
+    cblas_sscal(filters_, momentum, biasUpdates_.data(), 1);
+
+    if (scales_.size()) {
+        cblas_saxpy(filters_, learningRate / this->batch(), scaleUpdates_.data(), 1, scales_.data(), 1);
+        cblas_sscal(filters_, momentum, scaleUpdates_.data(), 1);
     }
 }
 

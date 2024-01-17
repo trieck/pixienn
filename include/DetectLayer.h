@@ -48,7 +48,6 @@ public:
 
     void forward(const V& input) override;
     void backward(const V& input) override;
-    void update() override;
 
     bool hasCost() const noexcept override;
     std::ostream& print(std::ostream& os) override;
@@ -200,6 +199,22 @@ void DetectLayer<D>::forward(const V& input)
             processDetects(b, i);
         }
     }
+
+    if (this->gradientClipping_) {
+        this->clipGradients();
+    }
+
+    this->cost_ = std::pow(magArray(this->delta_.data(), this->delta_.size()), 2);
+
+    if (count_ > 0) {
+        printf("Detection: Avg. IoU: %f, Pos Cat: %f, All Cat: %f, Pos Obj: %f, Any Obj: %f, count: %d\n",
+               (avgIoU_ / count_),
+               (avgCat_ / count_),
+               (avgAllCat_ / (count_ * this->classes())),
+               (avgObj_ / count_),
+               (avgAnyObj_ / (this->batch() * locations * num_)),
+               count_);
+    }
 }
 
 template<Device D>
@@ -254,15 +269,71 @@ void DetectLayer<D>::processDetects(int b, int i)
 
     for (auto j = 0; j < this->num_; ++j) {
         auto pobject = index + locations * nclasses + i * this->num_ + j;
-        pdelta[pobject] = -this->noObjectScale_ * (0 - poutput[pobject]);
+        pdelta[pobject] = this->noObjectScale_ * (0 - poutput[pobject]);
         avgAnyObj_ += poutput[pobject];
 
         auto boxIndex = index + locations * (nclasses + this->num_) + (i * this->num_ + j) * this->coords_;
         ctxt.pred = predBox(poutput + boxIndex);
         auto result = groundTruth(ctxt);
-
-
+        if (result.bestIoU > ctxt.bestIoU) {
+            ctxt.bestIoU = result.bestIoU;
+            gt = result.gt;
+            bestJ = j;
+        }
     }
+
+    if (gt == nullptr) {
+        return; // no ground truth for this grid cell
+    }
+
+    // Compute the class loss
+    auto classIndex = index + i * nclasses;
+    for (auto j = 0; j < nclasses; ++j) {
+        float netTruth = gt->classId == j ? 1.0f : 0.0f;
+        pdelta[classIndex + j] = classScale_ * (netTruth - poutput[classIndex + j]);
+        if (netTruth) {
+            avgCat_ += poutput[classIndex + j];
+        }
+        avgAllCat_ += poutput[classIndex + j];
+    }
+
+    DarkBox truthBox(gt->box);
+    truthBox.x() /= side_;
+    truthBox.y() /= side_;
+
+    auto row = i / side_;
+    auto col = i % side_;
+    auto truthRow = (int) (gt->box.y() * side_);
+    auto truthCol = (int) (gt->box.x() * side_);
+
+    PX_CHECK(row == truthRow, "The ground truth box is not in the grid cell row.");
+    PX_CHECK(col == truthCol, "The ground truth box is not in the grid cell column.");
+
+    auto pobject = index + locations * nclasses + i * num_ + bestJ;
+    auto boxIndex = index + locations * (nclasses + num_) + (i * num_ + bestJ) * coords_;
+
+    auto pred = predBox(poutput + boxIndex);
+    auto iou = pred.iou(truthBox);
+
+    avgObj_ += poutput[pobject];
+    pdelta[pobject] = objectScale_ * (1. - poutput[pobject]);
+
+    if (rescore_) {
+        pdelta[pobject] = objectScale_ * (iou - poutput[pobject]);
+    }
+
+    pdelta[boxIndex + 0] = coordScale_ * (gt->box.x() - poutput[boxIndex + 0]);
+    pdelta[boxIndex + 1] = coordScale_ * (gt->box.y() - poutput[boxIndex + 1]);
+    pdelta[boxIndex + 2] = coordScale_ * (gt->box.w() - poutput[boxIndex + 2]);
+    pdelta[boxIndex + 3] = coordScale_ * (gt->box.h() - poutput[boxIndex + 3]);
+
+    if (sqrt_) {
+        pdelta[boxIndex + 2] = coordScale_ * (std::sqrt(gt->box.w()) - poutput[boxIndex + 2]);
+        pdelta[boxIndex + 3] = coordScale_ * (std::sqrt(gt->box.h()) - poutput[boxIndex + 3]);
+    }
+
+    avgIoU_ += iou;
+    count_++;
 }
 
 template<Device D>
@@ -272,7 +343,27 @@ GroundTruthResult DetectLayer<D>::groundTruth(const GroundTruthContext& ctxt)
     result.gt = ctxt.bestGT;
     result.bestIoU = ctxt.bestIoU;
 
-    //  TODO: implement
+    auto row = ctxt.gridIndex / side_;
+    auto col = ctxt.gridIndex % side_;
+
+    const auto& gts = Layer<D>::groundTruth(ctxt.batch);
+    for (const auto& gt: gts) {
+        auto truthRow = static_cast<int>(gt.box.y() * side_);
+        auto truthCol = static_cast<int>(gt.box.x() * side_);
+        if (!(truthRow == row && truthCol == col)) {
+            continue;   // should we do this?
+        }
+
+        DarkBox truthBox(gt.box);
+        truthBox.x() /= side_;
+        truthBox.y() /= side_;
+
+        auto iou = ctxt.pred.iou(truthBox);
+        if (iou > result.bestIoU) {
+            result.bestIoU = iou;
+            result.gt = &gt;
+        }
+    }
 
     return result;
 }
@@ -280,12 +371,21 @@ GroundTruthResult DetectLayer<D>::groundTruth(const GroundTruthContext& ctxt)
 template<Device D>
 void DetectLayer<D>::backward(const V& input)
 {
-}
+    Layer<D>::backward(input);
 
-template<Device D>
-void DetectLayer<D>::update()
-{
+    auto* pDelta = this->delta_.data();
+    auto* pNetDelta = this->model().delta();
 
+    PX_CHECK(pNetDelta != nullptr, "Model delta tensor is null");
+    PX_CHECK(pNetDelta->data() != nullptr, "Model delta tensor is null");
+    PX_CHECK(pDelta != nullptr, "Delta tensor is null");
+
+    const auto n = this->batch() * this->inputs();
+
+    PX_CHECK(this->delta_.size() >= n, "Delta tensor is too small");
+    PX_CHECK(pNetDelta->size() >= n, "Model tensor is too small");
+
+    cblas_saxpy(n, 1, pDelta, 1, pNetDelta->data(), 1);
 }
 
 using CpuDetect = DetectLayer<>;

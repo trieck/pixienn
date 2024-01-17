@@ -41,6 +41,8 @@ public:
     void update() override;
 
     std::streamoff loadWeights(std::istream& is) override;
+    std::streamoff saveWeights(std::ostream& os) override;
+
     std::ostream& print(std::ostream& os) override;
 
 private:
@@ -121,6 +123,27 @@ std::streamoff ConnLayer<D>::loadWeights(std::istream& is)
 }
 
 template<Device D>
+std::streamoff ConnLayer<D>::saveWeights(std::ostream& os)
+{
+    auto start = os.tellp();
+
+    os.write((char*) biases_.data(), biases_.size() * sizeof(float));
+    PX_CHECK(os.good(), "Could not write biases");
+
+    os.write((char*) weights_.data(), sizeof(float) * weights_.size());
+    PX_CHECK(os.good(), "Could not write weights");
+
+    if (batchNorm_) {
+        os.write((char*) scales_.data(), this->outputs() * sizeof(float));
+        os.write((char*) rollingMean_.data(), this->outputs() * sizeof(float));
+        os.write((char*) rollingVar_.data(), this->outputs() * sizeof(float));
+        PX_CHECK(os.good(), "Could not write connected layer parameters");
+    }
+
+    return os.tellp() - start;
+}
+
+template<Device D>
 std::ostream& ConnLayer<D>::print(std::ostream& os)
 {
     Layer<D>::print(os, "connected", { this->height(), this->width(), this->channels() },
@@ -132,6 +155,8 @@ std::ostream& ConnLayer<D>::print(std::ostream& os)
 template<Device D>
 void ConnLayer<D>::forward(const V& input)
 {
+    Layer<D>::forward(input);
+
     auto m = this->batch();
     auto n = this->outputs();
     auto k = this->inputs();
@@ -156,7 +181,16 @@ void ConnLayer<D>::forward(const V& input)
 template<Device D>
 void ConnLayer<D>::backward(const V& input)
 {
-    // TODO: implement backward
+    Layer<D>::backward(input);
+
+    activation_->gradient(this->output_, this->delta_);
+
+    if (batchNorm_) {
+        batchNormBackward(this->batch(), this->outChannels(), this->outHeight(), this->outWidth(), this->delta_,
+                          mean_, var_, meanDelta_, varDelta_, scales_, scaleUpdates_, biasUpdates_, x_, xNorm_);
+    } else {
+        backwardBias(this->biasUpdates_.data(), this->delta_.data(), this->batch(), this->outputs(), 1);
+    }
 
     auto m = this->outputs();
     auto n = this->inputs();
@@ -181,6 +215,27 @@ void ConnLayer<D>::backward(const V& input)
 template<Device D>
 void ConnLayer<D>::update()
 {
+    const auto& net = this->model();
+    auto learningRate = net.learningRate();
+    auto momentum = net.momentum();
+    auto decay = net.decay();
+
+    // update biases
+    cblas_saxpy(this->outputs(), learningRate / this->batch(), biasUpdates_.data(), 1, biases_.data(), 1);
+    cblas_sscal(this->outputs(), momentum, biasUpdates_.data(), 1);
+
+    // update scales (if batch normalized)
+    if (batchNorm_) {
+        cblas_saxpy(this->outputs(), learningRate / this->batch(), scaleUpdates_.data(), 1, scales_.data(), 1);
+        cblas_sscal(this->outputs(), momentum, scaleUpdates_.data(), 1);
+    }
+
+    // update weights with weight decay
+    auto size = this->inputs() * this->outputs();
+
+    cblas_saxpy(size, -decay * this->batch(), weights_.data(), 1, weightUpdates_.data(), 1);
+    cblas_saxpy(size, learningRate / this->batch(), weightUpdates_.data(), 1, weights_.data(), 1);
+    cblas_sscal(size, momentum, weightUpdates_.data(), 1);
 }
 
 using CpuConn = ConnLayer<>;

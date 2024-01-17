@@ -36,4 +36,18 @@ inline void Model<Device::CUDA>::forward(const ImageVec& image)
     forward(input);
 }
 
+template<>
+inline float Model<Device::CUDA>::trainBatch()
+{
+    trainBatch_ = loadBatch(Category::TRAIN, augmenter_ != nullptr);
+
+    const auto& imageData = trainBatch_.imageData();
+
+    V input(&(*imageData.begin()), &(*imageData.end()));
+
+    auto error = trainOnce(input);
+
+    return error;
+}
+
 }   // px

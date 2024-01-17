@@ -38,7 +38,6 @@ public:
 
     void forward(const V& input) override;
     void backward(const V& input) override;
-    void update() override;
 
     std::ostream& print(std::ostream& os) override;
 
@@ -47,7 +46,6 @@ private:
     int kernel_ = 0;
     int stride_ = 0;
     int padding_ = 0;
-
 };
 
 template<Device D>
@@ -87,6 +85,8 @@ std::ostream& MaxPoolLayer<D>::print(std::ostream& os)
 template<Device D>
 void MaxPoolLayer<D>::forward(const V& input)
 {
+    Layer<D>::forward(input);
+
     auto wOffset = -padding_ / 2;
     auto hOffset = -padding_ / 2;
 
@@ -129,17 +129,21 @@ void MaxPoolLayer<D>::forward(const V& input)
     }
 }
 
-
 template<Device D>
 void MaxPoolLayer<D>::backward(const V& input)
 {
-    std::cout << "MaxPoolLayer::backward" << std::endl;
-}
+    Layer<D>::backward(input);
 
-template<Device D>
-void MaxPoolLayer<D>::update()
-{
+    auto size = this->batch() * this->outputs();
 
+    auto* pindexes = this->indexes_.data();
+    auto* netDelta = this->netDelta()->data();
+    const auto* pDelta = this->delta_.data();
+
+    for (auto i = 0; i < size; ++i) {
+        auto index = pindexes[i];
+        netDelta[index] += pDelta[i];
+    }
 }
 
 using CpuMaxPool = MaxPoolLayer<>;
