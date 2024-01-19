@@ -19,6 +19,41 @@
 namespace px {
 
 template<>
+class YoloExtras<Device::CUDA>
+{
+protected:
+    PxCpuVector cpuOutput_;
+    PxCpuVector cpuDelta_;
+};
+
+template<>
+inline void YoloLayer<Device::CUDA>::setup()
+{
+    cpuOutput_ = PxCpuVector(this->output_.size());
+    cpuDelta_ = PxCpuVector(this->delta_.size());
+
+    poutput_ = &cpuOutput_;
+    pdelta_ = &cpuDelta_;
+};
+
+template<>
+inline void YoloLayer<Device::CUDA>::forward(const V& input)
+{
+    Layer<Device::CUDA>::forward(input);
+
+    PxCpuVector cpuInput(input.size());
+    cpuInput.copyDevice(input.data(), input.size());
+
+    cpuOutput_.copyDevice(this->output_.data(), this->output_.size());
+    cpuDelta_.copyDevice(this->delta_.data(), this->delta_.size());
+
+    forwardCpu(cpuInput);
+
+    this->output_.copyHost(cpuOutput_.data(), cpuOutput_.size());
+    this->delta_.copyHost(cpuDelta_.data(), cpuDelta_.size());
+}
+
+template<>
 inline void YoloLayer<Device::CUDA>::addDetects(Detections& detections, int width, int height, float threshold)
 {
     auto pred = this->output_.asVector();

@@ -46,7 +46,6 @@ void im2ColCpuExt(const float* im, const int channels,
                   const int dilationH, const int dilationW,
                   float* dataCol);
 
-
 void flatten(float* x, int size, int layers, int batch, bool forward);
 
 void meanCpu(const float* x, int batch, int filters, int spatial, float* mean);

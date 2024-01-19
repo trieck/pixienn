@@ -30,11 +30,12 @@ public:
 
     void forward(const V& input) override;
     void backward(const V& input) override;
-    void update() override;
 
     std::ostream& print(std::ostream& os) override;
 
 private:
+    void shorcut(int w1, int h1, int c1, const V& add, int w2, int h2, int c2, V& out);
+
     Activations<D>::Ptr activation_;
     Layer<D>::Ptr from_;
     float alpha_, beta_;
@@ -84,14 +85,30 @@ void ShortcutLayer<D>::forward(const V& input)
 
     this->output_.copy(input);
 
-    auto c1 = this->channels();
-    auto c2 = this->outChannels();
+    shorcut(this->width(), this->height(), this->channels(), from_->output(),
+            this->outWidth(), this->outHeight(), this->outChannels(), this->output_);
 
-    auto h1 = this->height();
-    auto h2 = this->outHeight();
+    activation_->apply(this->output_);
+}
 
-    auto w1 = this->width();
-    auto w2 = this->outWidth();
+template<Device D>
+void ShortcutLayer<D>::backward(const V& input)
+{
+    Layer<D>::backward(input);
+
+    activation_->gradient(this->output_, this->delta_);
+
+    cblas_saxpy(this->batch() * this->outputs(), alpha_, this->delta_.data(), 1, this->model().delta()->data(), 1);
+
+    shorcut(this->outWidth(), this->outHeight(), this->outChannels(), this->delta_,
+            this->width(), this->height(), this->channels(), from_->delta());
+}
+
+template<Device D>
+void ShortcutLayer<D>::shorcut(int w1, int h1, int c1, const V& add, int w2, int h2, int c2, V& out)
+{
+    const auto* padd = add.data();
+    auto* pout = out.data();
 
     auto stride = std::max(1, w1 / w2);
     auto sample = std::max(1, w2 / w1);
@@ -103,33 +120,17 @@ void ShortcutLayer<D>::forward(const V& input)
     auto minh = std::min(h1, h2);
     auto minc = std::min(c1, c2);
 
-    auto* out = this->output_.data();
-    const auto* add = from_->output().data();
-
     for (auto b = 0; b < this->batch(); ++b) {
         for (auto k = 0; k < minc; ++k) {
             for (auto j = 0; j < minh; ++j) {
                 for (auto i = 0; i < minw; ++i) {
                     auto outIndex = i * sample + w2 * (j * sample + h2 * (k + c2 * b));
                     auto addIndex = i * stride + w1 * (j * stride + h1 * (k + c1 * b));
-                    out[outIndex] = alpha_ * out[outIndex] + beta_ * add[addIndex];
+                    pout[outIndex] = alpha_ * pout[outIndex] + beta_ * padd[addIndex];
                 }
             }
         }
     }
-
-    activation_->apply(this->output_);
-}
-
-template<Device D>
-void ShortcutLayer<D>::backward(const V& input)
-{
-}
-
-template<Device D>
-void ShortcutLayer<D>::update()
-{
-
 }
 
 using CpuShortcut = ShortcutLayer<>;
