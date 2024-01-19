@@ -30,7 +30,6 @@ public:
 
     void forward(const V& input) override;
     void backward(const V& input) override;
-    void update() override;
 
     std::ostream& print(std::ostream& os) override;
 
@@ -116,11 +115,24 @@ void RouteLayer<D>::forward(const V& input)
 template<Device D>
 void RouteLayer<D>::backward(const V& input)
 {
-}
+    Layer<D>::backward(input);
 
-template<Device D>
-void RouteLayer<D>::update()
-{
+    auto offset = 0;
+    auto* pdelta = this->delta_.data();
+
+    for (const auto& layer: layers_) {
+        auto* ldelta = layer->delta().data();
+        auto outputSize = layer->outputs();
+
+        for (auto i = 0; i < this->batch(); ++i) {
+            auto* in = pdelta + offset + i * this->outputs();
+            auto* out = ldelta + i * outputSize;
+
+            cblas_saxpy(outputSize, 1, in, 1, out, 1);
+        }
+
+        offset += outputSize;
+    }
 }
 
 using CpuRoute = RouteLayer<>;

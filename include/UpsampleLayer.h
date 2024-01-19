@@ -35,7 +35,6 @@ public:
 
     void forward(const V& input) override;
     void backward(const V& input) override;
-    void update() override;
 
     std::ostream& print(std::ostream& os) override;
 
@@ -89,11 +88,6 @@ template<Device D>
 void UpsampleLayer<D>::backward(const V& input)
 {
     upsample(nullptr, this->delta_.data(), this->netDelta()->data(), false);
-}
-
-template<Device D>
-void UpsampleLayer<D>::update()
-{
 }
 
 template<Device D>

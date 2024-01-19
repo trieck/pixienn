@@ -175,6 +175,8 @@ public:
     bool gradClipping() const noexcept;
     float gradClipValue() const noexcept;
 
+    std::size_t seen() const noexcept;
+
 private:
     enum class Category
     {
@@ -1267,6 +1269,12 @@ template<Device D>
 bool Model<D>::gradRescaling() const noexcept
 {
     return gradRescale_;
+}
+
+template<Device D>
+std::size_t Model<D>::seen() const noexcept
+{
+    return seen_;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

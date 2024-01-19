@@ -11,7 +11,7 @@ model:
   decay: 0.0005
 
   augmentation:
-    enabled: True
+    enabled: False
     flip: True
     jitter: 0.2
     saturation: 1.2
@@ -20,21 +20,21 @@ model:
 
   gradient_rescale:
     enabled: True
-    threshold: 1.0
+    threshold: 10.0
 
   gradient_clipping:
-    enabled: False
+    enabled: True
     value: 1.0
 
   learning_rate:
-    burn_in_batches: 100
+    burn_in_batches: 0
     burn_in_power: 4.0
 
     initial_learning_rate: 0.0001
-    policy: stepped
+    policy: cosine_annealing
 
     cosine_annealing:
-      min_learning_rate: 0.00001
+      min_learning_rate: 0.000001
       batches_per_cycle: 1000
 
     smooth_stepped:

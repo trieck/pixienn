@@ -38,8 +38,13 @@ struct GroundTruthResult
     float bestIoU;
 };
 
+template<Device D>
+class DetectExtras
+{
+};
+
 template<Device D = Device::CPU>
-class DetectLayer : public Layer<D>, public Detector
+class DetectLayer : public Layer<D>, public Detector, public DetectExtras<D>
 {
 public:
     using V = typename Layer<D>::V;
@@ -59,10 +64,14 @@ private:
     void addDetects(Detections& detections, int width, int height, float threshold, const float* predictions) const;
     void addDetects(Detections& detections, float threshold, const float* predictions) const;
 
+    void forwardCpu(const PxCpuVector& input);
     void resetStats();
     void processDetects(int b, int i);
     DarkBox predBox(const float* poutput) const;
     GroundTruthResult groundTruth(const GroundTruthContext& ctxt);
+    void setup();
+
+    PxCpuVector* poutput_, * pdelta_;
 
     int coords_, num_, side_, count_ = 0;
     bool rescore_, softmax_, sqrt_, forced_, random_, reorg_;
@@ -95,6 +104,15 @@ DetectLayer<D>::DetectLayer(Model<D>& model, const YAML::Node& layerDef) : Layer
 
     this->output_ = V(this->batch() * this->outputs(), 0.0f);
     this->delta_ = V(this->batch() * this->outputs(), 0.0f);
+
+    setup();
+}
+
+template<Device D>
+void DetectLayer<D>::setup()
+{
+    poutput_ = &this->output_;
+    pdelta_ = &this->delta_;
 }
 
 template<Device D>
@@ -181,10 +199,19 @@ void DetectLayer<D>::forward(const V& input)
 {
     Layer<D>::forward(input);
 
+    forwardCpu(input);
+}
+
+template<Device D>
+void DetectLayer<D>::forwardCpu(const PxCpuVector& input)
+{
+    PX_CHECK(poutput_ != nullptr, "Output vector is null.");
+    PX_CHECK(pdelta_ != nullptr, "Delta vector is null.");
+
     if (this->softmax_) {
-        this->output_.copy(softmax(input));
+        this->poutput_->copy(softmax(input));
     } else {
-        this->output_.copy(input);
+        this->poutput_->copy(input);
     }
 
     if (this->inferring()) {
@@ -200,11 +227,7 @@ void DetectLayer<D>::forward(const V& input)
         }
     }
 
-    if (this->gradientClipping_) {
-        this->clipGradients();
-    }
-
-    this->cost_ = std::pow(magArray(this->delta_.data(), this->delta_.size()), 2);
+    this->cost_ = std::pow(magArray(this->pdelta_->data(), this->pdelta_->size()), 2);
 
     if (count_ > 0) {
         printf("Detection: Avg. IoU: %f, Pos Cat: %f, All Cat: %f, Pos Obj: %f, Any Obj: %f, count: %d\n",
@@ -254,11 +277,11 @@ void DetectLayer<D>::processDetects(int b, int i)
     //  ---------------------------------------------------------------------------------------------
     //  |<----- C*S*S elements ----->|<------- B*S*S elements ------->|<----- B*S*S*4 elements ----->
 
-    const auto* poutput = this->output_.data();
+    const auto* poutput = this->poutput_->data();
     const auto index = b * i;
     const auto nclasses = this->classes();
     const auto locations = this->side_ * this->side_;
-    auto* pdelta = this->delta_.data();
+    auto* pdelta = this->pdelta_->data();
     auto bestJ = 0;
 
     const GroundTruth* gt = nullptr;
@@ -390,7 +413,6 @@ void DetectLayer<D>::backward(const V& input)
 
 using CpuDetect = DetectLayer<>;
 using CudaDetect = DetectLayer<Device::CUDA>;
-
 
 } // px
 

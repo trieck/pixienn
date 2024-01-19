@@ -18,6 +18,23 @@
 
 namespace px {
 
+template<>
+class RegionExtras<Device::CUDA>
+{
+protected:
+    PxCpuVector cpuOutput_;
+    PxCpuVector cpuDelta_;
+};
+
+template<>
+inline void RegionLayer<Device::CUDA>::setup()
+{
+    cpuOutput_ = PxCpuVector(this->output_.size());
+    cpuDelta_ = PxCpuVector(this->delta_.size());
+
+    poutput_ = &cpuOutput_;
+    pdelta_ = &cpuDelta_;
+};
 
 template<>
 inline void RegionLayer<Device::CUDA>::forward(const V& input)
@@ -27,11 +44,13 @@ inline void RegionLayer<Device::CUDA>::forward(const V& input)
     PxCpuVector cpuInput(input.size());
     cpuInput.copyDevice(input.data(), input.size());
 
-    PxCpuVector cpuOutput(this->output_.size());
+    cpuOutput_.copyDevice(this->output_.data(), this->output_.size());
+    cpuDelta_.copyDevice(this->delta_.data(), this->delta_.size());
 
-    forwardCpu(cpuInput, cpuOutput);
+    forwardCpu(cpuInput);
 
-    this->output_.copyHost(cpuOutput.data(), cpuOutput.size());
+    this->output_.copyHost(cpuOutput_.data(), cpuOutput_.size());
+    this->delta_.copyHost(cpuDelta_.data(), cpuDelta_.size());
 }
 
 template<>

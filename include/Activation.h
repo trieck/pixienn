@@ -56,7 +56,7 @@ public:
         return x > 0.0f ? 1.0f : alpha_;
     }
 private:
-    float alpha_ = 0.1f;
+    float alpha_;
 };
 
 class Linear

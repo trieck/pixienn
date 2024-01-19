@@ -19,11 +19,43 @@
 namespace px {
 
 template<>
+class DetectExtras<Device::CUDA>
+{
+protected:
+    PxCpuVector cpuOutput_;
+    PxCpuVector cpuDelta_;
+};
+
+template<>
+inline void DetectLayer<Device::CUDA>::setup()
+{
+    cpuOutput_ = PxCpuVector(this->output_.size());
+    cpuDelta_ = PxCpuVector(this->delta_.size());
+
+    poutput_ = &cpuOutput_;
+    pdelta_ = &cpuDelta_;
+};
+
+template<>
 inline void DetectLayer<Device::CUDA>::forward(const V& input)
 {
+    if (this->inferring()) {
+        this->output_.copy(input);
+        return;
+    }
+
     Layer<Device::CUDA>::forward(input);
 
-    this->output_.copy(input);
+    PxCpuVector cpuInput(input.size());
+    cpuInput.copyDevice(input.data(), input.size());
+
+    cpuOutput_.copyDevice(this->output_.data(), this->output_.size());
+    cpuDelta_.copyDevice(this->delta_.data(), this->delta_.size());
+
+    forwardCpu(cpuInput);
+
+    this->output_.copyHost(cpuOutput_.data(), cpuOutput_.size());
+    this->delta_.copyHost(cpuDelta_.data(), cpuDelta_.size());
 }
 
 template<>

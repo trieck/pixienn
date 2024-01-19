@@ -74,6 +74,8 @@ public:
     const V& output() const noexcept;
     V& delta() noexcept;
 
+    std::size_t seen() const noexcept;
+
 protected:
     void setInputs(int inputs);
     void setChannels(int channels);
@@ -441,7 +443,7 @@ template<Device D>
 void Layer<D>::scaleGradients()
 {
     auto norm = magArray(delta_.data(), delta_.size());
-    if (norm > gradientThreshold_) {
+    if (norm > 0 && norm > gradientThreshold_) {
         auto scale = gradientThreshold_ / norm;
         cblas_sscal(delta_.size(), scale, delta_.data(), 1);
     }
@@ -451,6 +453,12 @@ template<Device D>
 void Layer<D>::clipGradients()
 {
     constrain(delta_.size(), gradientClipValue_, delta_.data(), 1);
+}
+
+template<Device D>
+std::size_t Layer<D>::seen() const noexcept
+{
+    return model_.seen();
 }
 
 #ifdef USE_CUDA
@@ -472,3 +480,10 @@ const CublasContext& Layer<D>::cublasContext() const noexcept
 #endif  // USE_CUDA
 
 }   // px
+
+#ifdef USE_CUDA
+
+#include "cuda/Layer.h"
+
+#endif  // USE_CUDA
+
