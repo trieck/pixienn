@@ -1,7 +1,7 @@
 configuration:
   model: ../models/yolov1-tiny.yml
   #weights: ../weights/yolov1-tiny.weights
-  weights: /home/trieck/src/pixienn/cmake-build-release-cuda/bin/backup/yolov1-tiny_600.weights
+  weights: /home/trieck/src/pixienn/cmake-build-release-cuda/bin/backup/yolov1-tiny_220000.weights
   labels: ../data/voc.names
 
 training:
