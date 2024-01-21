@@ -201,7 +201,7 @@ inline std::streamoff ConvLayer<Device::CUDA>::saveWeights(std::ostream& os)
         os.write((char*) rollingMean.data(), int(sizeof(float) * rollingMean.size()));
         os.write((char*) rollingVar.data(), int(sizeof(float) * rollingVar.size()));
     } else {
-        os.write((char*) biases_.data(), int(biases_.size() * sizeof(float)));
+        os.write((char*) biases.data(), int(biases.size() * sizeof(float)));
         PX_CHECK(os.good(), "Could not write biases");
     }
 

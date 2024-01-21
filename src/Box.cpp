@@ -54,6 +54,10 @@ Detections nms(const Detections& detects, float threshold)
                 continue;
             }
 
+            if (detects[i].classIndex() != detects[j].classIndex()) {
+                continue;
+            }
+
             if (boxIoU(detects[i].box(), detects[j].box()) > threshold) {
                 if (detects[i].prob() < detects[j].prob()) {
                     discard[i] = true;
