@@ -166,8 +166,6 @@ inline void ConnLayer<Device::CUDA>::backward(const V& input)
 {
     Layer<Device::CUDA>::backward(input);
 
-    // TODO: force contstrain delta to 1.0f?
-
     activation_->gradient(this->output_, this->delta_);
 
     if (batchNorm_) {
