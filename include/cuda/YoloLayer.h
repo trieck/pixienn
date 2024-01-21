@@ -54,6 +54,20 @@ inline void YoloLayer<Device::CUDA>::forward(const V& input)
 }
 
 template<>
+inline void YoloLayer<Device::CUDA>::backward(const V& input)
+{
+    Layer<Device::CUDA>::backward(input);
+
+    auto alpha = 1.0f;
+
+    const auto& ctxt = this->cublasContext();
+
+    auto status = cublasSaxpy(ctxt, this->delta_.size(), &alpha, this->delta_.data(), 1, this->netDelta()->data(), 1);
+
+    PX_CHECK_CUBLAS(status);
+}
+
+template<>
 inline void YoloLayer<Device::CUDA>::addDetects(Detections& detections, int width, int height, float threshold)
 {
     auto pred = this->output_.asVector();

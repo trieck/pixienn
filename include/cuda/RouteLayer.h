@@ -43,4 +43,31 @@ inline void RouteLayer<Device::CUDA>::forward(const V& input)
     }
 }
 
+template<>
+inline void RouteLayer<Device::CUDA>::backward(const V& input)
+{
+    Layer<Device::CUDA>::backward(input);
+
+    auto alpha = 1.0f;
+    auto offset = 0;
+    auto* pdelta = this->delta_.data();
+
+    const auto& ctxt = this->cublasContext();
+
+    for (const auto& layer: layers_) {
+        auto* ldelta = layer->delta().data();
+        auto outputSize = layer->outputs();
+
+        for (auto i = 0; i < this->batch(); ++i) {
+            auto* in = pdelta + offset + i * this->outputs();
+            auto* out = ldelta + i * outputSize;
+
+            auto status = cublasSaxpy(ctxt, outputSize, &alpha, in, 1, out, 1);
+            PX_CHECK_CUBLAS(status);
+        }
+
+        offset += outputSize;
+    }
+}
+
 }   // px

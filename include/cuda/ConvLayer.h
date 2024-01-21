@@ -26,12 +26,13 @@ class CVExtras<Device::CUDA>
 protected:
     using V = typename Layer<Device::CUDA>::V;
 
-    V fwdWorkspace_, bwdFilterWorkspace_;
+    V fwdWorkspace_, bwdFilterWorkspace_, bwdDataWorkspace_;
     CudnnTensorDesc::Ptr xDesc_, yDesc_, sbmv_;
     CudnnConvDesc::Ptr convDesc_;
     CudnnFilterDesc::Ptr wDesc_;
     cudnnConvolutionFwdAlgo_t fwdAlgo_ = CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM;
     cudnnConvolutionBwdFilterAlgo_t bwdFilterAlgo_ = CUDNN_CONVOLUTION_BWD_FILTER_ALGO_1;
+    cudnnConvolutionBwdDataAlgo_t bwdDataAlgo_ = CUDNN_CONVOLUTION_BWD_DATA_ALGO_1;
 };
 
 template<>
@@ -99,23 +100,45 @@ inline void ConvLayer<Device::CUDA>::setup()
     status = cudnnGetConvolutionBackwardFilterAlgorithmMaxCount(ctxt, &requestCount);
     PX_CHECK_CUDNN(status);
 
-    auto bkwdResults = std::make_unique<cudnnConvolutionBwdFilterAlgoPerf_t[]>(requestCount);
+    auto bkwdFilterResults = std::make_unique<cudnnConvolutionBwdFilterAlgoPerf_t[]>(requestCount);
 
     status = cudnnFindConvolutionBackwardFilterAlgorithm(ctxt, *xDesc_, *yDesc_, *convDesc_, *wDesc_, requestCount,
-                                                         &returnedCount, bkwdResults.get());
+                                                         &returnedCount, bkwdFilterResults.get());
     PX_CHECK_CUDNN(status);
 
     workspaceSize = std::numeric_limits<size_t>::max();
     for (auto i = 0; i < returnedCount; ++i) {
-        if (bkwdResults[i].status == CUDNN_STATUS_SUCCESS) {
-            if (bkwdResults[i].memory < workspaceSize) {
-                bwdFilterAlgo_ = bkwdResults[i].algo;
-                workspaceSize = bkwdResults[i].memory;
+        if (bkwdFilterResults[i].status == CUDNN_STATUS_SUCCESS) {
+            if (bkwdFilterResults[i].memory < workspaceSize) {
+                bwdFilterAlgo_ = bkwdFilterResults[i].algo;
+                workspaceSize = bkwdFilterResults[i].memory;
             }
         }
     }
 
     bwdFilterWorkspace_ = V(workspaceSize / sizeof(float), 0.0f);
+
+    status = cudnnGetConvolutionBackwardDataAlgorithmMaxCount(ctxt, &requestCount);
+    PX_CHECK_CUDNN(status);
+
+    auto bkwdDataResults = std::make_unique<cudnnConvolutionBwdDataAlgoPerf_t[]>(requestCount);
+
+    status = cudnnFindConvolutionBackwardDataAlgorithm(ctxt, *wDesc_, *yDesc_, *convDesc_, *xDesc_, requestCount,
+                                                       &returnedCount, bkwdDataResults.get());
+
+    PX_CHECK_CUDNN(status);
+
+    workspaceSize = std::numeric_limits<size_t>::max();
+    for (auto i = 0; i < returnedCount; ++i) {
+        if (bkwdDataResults[i].status == CUDNN_STATUS_SUCCESS) {
+            if (bkwdDataResults[i].memory < workspaceSize) {
+                bwdDataAlgo_ = bkwdDataResults[i].algo;
+                workspaceSize = bkwdDataResults[i].memory;
+            }
+        }
+    }
+
+    bwdDataWorkspace_ = V(workspaceSize / sizeof(float), 0.0f);
 }
 
 template<>
@@ -154,6 +177,41 @@ inline std::streamoff ConvLayer<Device::CUDA>::loadWeights(std::istream& is)
 }
 
 template<>
+inline std::streamoff ConvLayer<Device::CUDA>::saveWeights(std::ostream& os)
+{
+    auto start = os.tellp();
+
+    PxCpuVector biases(biases_.size());
+    PxCpuVector weights(weights_.size());
+
+    biases.copyDevice(biases_.data(), biases_.size());
+    weights.copyDevice(weights_.data(), weights_.size());
+
+    if (batchNorm_) {
+        PxCpuVector scales(scales_.size());
+        PxCpuVector rollingMean(rollingMean_.size());
+        PxCpuVector rollingVar(rollingVar_.size());
+
+        scales.copyDevice(scales_.data(), scales_.size());
+        rollingMean.copyDevice(rollingMean_.data(), rollingMean_.size());
+        rollingVar.copyDevice(rollingVar_.data(), rollingVar_.size());
+
+        os.write((char*) biases.data(), int(sizeof(float) * biases.size()));
+        os.write((char*) scales.data(), int(sizeof(float) * scales.size()));
+        os.write((char*) rollingMean.data(), int(sizeof(float) * rollingMean.size()));
+        os.write((char*) rollingVar.data(), int(sizeof(float) * rollingVar.size()));
+    } else {
+        os.write((char*) biases_.data(), int(biases_.size() * sizeof(float)));
+        PX_CHECK(os.good(), "Could not write biases");
+    }
+
+    os.write((char*) weights.data(), int(sizeof(float) * weights.size()));
+    PX_CHECK(os.good(), "Could not write weights");
+
+    return os.tellp() - start;
+}
+
+template<>
 inline void ConvLayer<Device::CUDA>::forward(const V& input)
 {
     Layer<Device::CUDA>::forward(input);
@@ -173,8 +231,10 @@ inline void ConvLayer<Device::CUDA>::forward(const V& input)
 
     if (batchNorm_) {
         if (training()) {
+            x_.copy(output_);
+
             status = cudnnBatchNormalizationForwardTraining(ctxt, CUDNN_BATCHNORM_SPATIAL,
-                                                            &alpha, &beta, *yDesc_, this->output_.data(),
+                                                            &alpha, &beta, *yDesc_, x_.data(),
                                                             *yDesc_, this->output_.data(), *sbmv_, scales_.data(),
                                                             biases_.data(), expAvgFactor, rollingMean_.data(),
                                                             rollingVar_.data(), epsilon, mean_.data(), var_.data());
@@ -199,15 +259,81 @@ inline void ConvLayer<Device::CUDA>::backward(const V& input)
 {
     Layer<Device::CUDA>::backward(input);
 
+    activation_->gradient(this->output_, this->delta_);
+
+    const auto& ctxt = this->cudnnContext();
+
+    if (batchNorm_) {
+        auto alpha = 1.0f;
+        auto beta = 0.0f;
+        auto epsilon = 0.00001f;
+
+        auto status = cudnnBatchNormalizationBackward(ctxt, CUDNN_BATCHNORM_SPATIAL,
+                                                      &alpha, &beta, &alpha, &alpha, *yDesc_, this->x_.data(),
+                                                      *yDesc_, this->delta_.data(), *yDesc_, this->xNorm_.data(),
+                                                      *sbmv_, scales_.data(), scaleUpdates_.data(),
+                                                      biasUpdates_.data(), epsilon, mean_.data(), var_.data());
+        PX_CHECK_CUDNN(status);
+    } else {
+        backwardBiasGpu(biasUpdates_.data(), this->delta_.data(), this->batch(), this->outputs(), 1);
+    }
+
     auto alpha = 1.0f;
     auto beta = 1.0f;
 
-    auto status = cudnnConvolutionBackwardFilter(this->cudnnContext(), &alpha, *xDesc_, input.data(), *yDesc_,
+    auto status = cudnnConvolutionBackwardFilter(ctxt, &alpha, *xDesc_, input.data(), *yDesc_,
                                                  this->delta_.data(), *convDesc_, bwdFilterAlgo_,
                                                  bwdFilterWorkspace_.data(),
                                                  bwdFilterWorkspace_.size() * sizeof(float),
                                                  &beta, *wDesc_, weightUpdates_.data());
     PX_CHECK_CUDNN(status);
+
+    if (this->netDelta()) {
+        status = cudnnConvolutionBackwardData(ctxt, &alpha, *wDesc_, weights_.data(), *yDesc_,
+                                              this->delta_.data(), *convDesc_,
+                                              bwdDataAlgo_, bwdDataWorkspace_.data(),
+                                              bwdDataWorkspace_.size() * sizeof(float),
+                                              &beta, *xDesc_, this->netDelta()->data());
+        PX_CHECK_CUDNN(status);
+    }
 }
 
+template<>
+inline void ConvLayer<Device::CUDA>::update()
+{
+    const auto& net = this->model();
+    auto learningRate = net.learningRate();
+    auto momentum = net.momentum();
+    auto decay = net.decay();
+
+    const auto& ctxt = this->cublasContext();
+
+    auto alpha = -decay * this->batch();
+    auto status = cublasSaxpy(ctxt, weights_.size(), &alpha, weights_.data(), 1, weightUpdates_.data(), 1);
+    PX_CHECK_CUBLAS(status);
+
+    alpha = learningRate / this->batch();
+    status = cublasSaxpy(ctxt, weights_.size(), &alpha, weightUpdates_.data(), 1, weights_.data(), 1);
+    PX_CHECK_CUBLAS(status);
+
+    status = cublasSscal(ctxt, weights_.size(), &momentum, weightUpdates_.data(), 1);
+    PX_CHECK_CUBLAS(status);
+
+    alpha = learningRate / this->batch();
+    status = cublasSaxpy(ctxt, filters_, &alpha, biasUpdates_.data(), 1, biases_.data(), 1);
+    PX_CHECK_CUBLAS(status);
+
+    status = cublasSscal(ctxt, filters_, &momentum, biasUpdates_.data(), 1);
+    PX_CHECK_CUBLAS(status);
+
+    if (scales_.size()) {
+        alpha = learningRate / this->batch();
+        status = cublasSaxpy(ctxt, filters_, &alpha, scaleUpdates_.data(), 1, scales_.data(), 1);
+        PX_CHECK_CUBLAS(status);
+
+        status = cublasSscal(ctxt, filters_, &momentum, scaleUpdates_.data(), 1);
+        PX_CHECK_CUBLAS(status);
+    }
 }
+
+} // px

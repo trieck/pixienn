@@ -12,7 +12,7 @@ model:
   decay: 0.0005
 
   augmentation:
-    enabled: True
+    enabled: False
     flip: True
     jitter: 0.2
     saturation: 1.2
@@ -29,9 +29,9 @@ model:
 
   learning_rate:
     initial_learning_rate: 0.0005
-    policy: constant
+    policy: inverse
 
-    burn_in_batches: 300
+    burn_in_batches: 0
     burn_in_power: 4.0
 
     inverse:

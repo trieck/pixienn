@@ -87,6 +87,7 @@ if (USE_CUDA)
             src/BiasKernels.cu
             src/CudaError.cpp
             src/CudaUtils.cu
+            src/Gemm.cpp
             src/ShortcutKernel.cu
             src/UpsampleKernels.cu
     )

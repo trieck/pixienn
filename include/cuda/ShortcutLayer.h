@@ -33,4 +33,22 @@ inline void ShortcutLayer<Device::CUDA>::forward(const V& input)
     activation_->apply(this->output_);
 }
 
+template<>
+inline void ShortcutLayer<Device::CUDA>::backward(const V& input)
+{
+    Layer<Device::CUDA>::backward(input);
+
+    activation_->gradient(this->output_, this->delta_);
+
+    const auto& ctxt = this->cublasContext();
+
+    auto status = cublasSaxpy(ctxt, this->outputs() * this->batch(), &alpha_, this->delta_.data(), 1,
+                              this->netDelta()->data(), 1);
+
+    PX_CHECK_CUBLAS(status);
+
+    shortcutGpu(this->batch(), this->outWidth(), this->outHeight(), this->outChannels(), this->delta_.data(),
+                this->width(), this->height(), this->channels(), alpha_, beta_, from_->delta().data());
+}
+
 }   // px

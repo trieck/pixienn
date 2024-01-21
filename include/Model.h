@@ -694,6 +694,12 @@ void Model<D>::loadWeights()
 
 }   // px
 
+#ifdef USE_CUDA
+
+#include "cuda/Layer.h"
+
+#endif  // USE_CUDA
+
 #include "LayerFactory.h"
 
 namespace px {

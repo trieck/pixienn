@@ -1,5 +1,5 @@
 /********************************************************************************
-* Copyright 2023 Thomas A. Rieck, All Rights Reserved
+* Copyright 2020-2023 Thomas A. Rieck, All Rights Reserved
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -16,9 +16,22 @@
 
 #pragma once
 
+#include "Cublas.h"
+
 namespace px {
 
-void addBiasGpu(float* output, const float* biases, int batch, int n, int size);
-void backwardBiasGpu(float* biasUpdates, const float* delta, int batch, int n, int size);
-
-}   // px
+void cublasGemm(const CublasContext& ctx,
+                bool tA,
+                bool tB,
+                int m,
+                int n,
+                int k,
+                float alpha,
+                const float* a,
+                int lda,
+                const float* b,
+                int ldb,
+                float beta,
+                float* c,
+                int ldc);
+}  // px

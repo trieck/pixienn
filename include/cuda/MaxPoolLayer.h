@@ -25,8 +25,7 @@ class MPExtras<Device::CUDA>
 {
 protected:
     CudnnPoolingDesc::Ptr poolDesc_;
-    CudnnTensorDesc::Ptr xDesc_;
-    CudnnTensorDesc::Ptr yDesc_;
+    CudnnTensorDesc::Ptr xDesc_, yDesc_, dxDesc_, dyDesc_;
 };
 
 template<>
@@ -46,6 +45,17 @@ inline void MaxPoolLayer<Device::CUDA>::setup()
     yDesc_ = std::make_unique<CudnnTensorDesc>();
     status = cudnnSetTensor4dDescriptor(*yDesc_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
                                         this->batch(), this->outChannels(), this->outHeight(), this->outWidth());
+    PX_CHECK_CUDNN(status);
+
+    dxDesc_ = std::make_unique<CudnnTensorDesc>();
+    status = cudnnSetTensor4dDescriptor(*dxDesc_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
+                                        this->batch(), this->channels(), this->height(), this->width());
+    PX_CHECK_CUDNN(status);
+
+    dyDesc_ = std::make_unique<CudnnTensorDesc>();
+    status = cudnnSetTensor4dDescriptor(*dyDesc_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
+                                        this->batch(), this->outChannels(), this->outHeight(), this->outWidth());
+    PX_CHECK_CUDNN(status);
 }
 
 template<>
@@ -62,7 +72,13 @@ inline void MaxPoolLayer<Device::CUDA>::forward(const V& input)
 template<>
 inline void MaxPoolLayer<Device::CUDA>::backward(const V& input)
 {
-    // TODO: implement
+    auto alpha = 1.0f;
+    auto beta = 1.0f;
+
+    auto status = cudnnPoolingBackward(this->cudnnContext(), *poolDesc_, &alpha, *yDesc_, this->output_.data(),
+                                       *dyDesc_, delta_.data(), *xDesc_, input.data(), &beta,
+                                       *dxDesc_, this->netDelta()->data());
+    PX_CHECK_CUDNN(status);
 }
 
 }   // px

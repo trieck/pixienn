@@ -481,9 +481,3 @@ const CublasContext& Layer<D>::cublasContext() const noexcept
 
 }   // px
 
-#ifdef USE_CUDA
-
-#include "cuda/Layer.h"
-
-#endif  // USE_CUDA
-

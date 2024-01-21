@@ -1,7 +1,7 @@
 configuration:
   model: ../models/yolov3.yml
-  weights: ../weights/yolov3.weights
-  #weights: /home/trieck/src/pixienn/cmake-build-release/bin/backup/yolov3-coco.weights
+  #weights: ../weights/yolov3.weights
+  weights: /home/trieck/src/pixienn/cmake-build-debug/bin/backup/yolov3_800.weights
 
   labels: ../data/coco.names
 
