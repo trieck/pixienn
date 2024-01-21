@@ -39,12 +39,12 @@ inline void DetectLayer<Device::CUDA>::setup()
 template<>
 inline void DetectLayer<Device::CUDA>::forward(const V& input)
 {
+    Layer<Device::CUDA>::forward(input);
+
     if (this->inferring()) {
         this->output_.copy(input);
         return;
     }
-
-    Layer<Device::CUDA>::forward(input);
 
     PxCpuVector cpuInput(input.size());
     cpuInput.copyDevice(input.data(), input.size());

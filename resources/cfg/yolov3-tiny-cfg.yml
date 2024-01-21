@@ -3,12 +3,12 @@ configuration:
   #weights: ../weights/yolov3-tiny.weights
   #weights: /home/trieck/src/darknet/backup/yolov3-tiny_final.weights
   #weights: /home/trieck/src/darknet/backup/yolov3-tiny_last.weights
-  weights: /home/trieck/src/pixienn/cmake-build-release-cuda/bin/backup/yolov3-tiny_7000.weights
+  weights: /home/trieck/src/pixienn/cmake-build-release-cuda/bin/backup/yolov3-tiny_39000.weights
 
   labels: ../data/coco.names
 
 training:
-  train-images: ../data/coco/train-80000.txt
+  train-images: ../data/coco/train-5.txt
   val-images: ../data/coco/val-1.txt
 
   train-labels: ../data/coco/labels/train2014

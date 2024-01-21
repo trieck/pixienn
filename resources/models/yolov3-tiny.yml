@@ -23,7 +23,7 @@ model:
     threshold: 10.0
 
   gradient_clipping:
-    enabled: False
+    enabled: True
     value: 10.0
 
   learning_rate:
