@@ -256,4 +256,24 @@ inline void ConnLayer<Device::CUDA>::update()
     PX_CHECK_CUBLAS(status);
 }
 
+template<>
+inline void ConnLayer<Device::CUDA>::scaleGradients()
+{
+    Layer<Device::CUDA>::scaleGradients();
+
+    this->scaleTensor(weightUpdates_);
+    this->scaleTensor(biasUpdates_);
+    this->scaleTensor(scaleUpdates_);
+}
+
+template<>
+inline void ConnLayer<Device::CUDA>::clipGradients()
+{
+    Layer<Device::CUDA>::clipGradients();
+
+    constrainGpu(weightUpdates_.size(), gradientClipValue_, weightUpdates_.data());
+    constrainGpu(biasUpdates_.size(), gradientClipValue_, biasUpdates_.data());
+    constrainGpu(scaleUpdates_.size(), gradientClipValue_, scaleUpdates_.data());
+}
+
 }   // px

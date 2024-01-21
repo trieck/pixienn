@@ -47,6 +47,9 @@ public:
 
 private:
     void setup();
+    void scaleGradients() override;
+    void clipGradients() override;
+
     Activations<D>::Ptr activation_;
 
     V weights_, weightUpdates_, biases_, biasUpdates_;
@@ -296,6 +299,26 @@ void ConvLayer<D>::update()
         cblas_saxpy(filters_, learningRate / this->batch(), scaleUpdates_.data(), 1, scales_.data(), 1);
         cblas_sscal(filters_, momentum, scaleUpdates_.data(), 1);
     }
+}
+
+template<Device D>
+void ConvLayer<D>::scaleGradients()
+{
+    Layer<D>::scaleGradients();
+
+    this->scaleTensor(weightUpdates_);
+    this->scaleTensor(biasUpdates_);
+    this->scaleTensor(scaleUpdates_);
+}
+
+template<Device D>
+void ConvLayer<D>::clipGradients()
+{
+    Layer<D>::clipGradients();
+
+    constrain(weightUpdates_.size(), this->gradientClipValue_, weightUpdates_.data(), 1);
+    constrain(biasUpdates_.size(), this->gradientClipValue_, biasUpdates_.data(), 1);
+    constrain(scaleUpdates_.size(), this->gradientClipValue_, scaleUpdates_.data(), 1);
 }
 
 using CpuConv = ConvLayer<>;

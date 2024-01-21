@@ -113,8 +113,10 @@ protected:
     const GroundTruths& groundTruth() const noexcept;
     const GroundTruthVec& groundTruth(uint32_t batch) const noexcept;
 
-    void scaleGradients();
-    void clipGradients();
+    virtual void scaleGradients();
+    virtual void clipGradients();
+
+    void scaleTensor(V& tensor);
 
     bool gradientRescaling_ = false;
     float gradientThreshold_ = 0.0f;
@@ -442,10 +444,16 @@ const GroundTruthVec& Layer<D>::groundTruth(uint32_t batch) const noexcept
 template<Device D>
 void Layer<D>::scaleGradients()
 {
-    auto norm = magArray(delta_.data(), delta_.size());
+    scaleTensor(delta_);
+}
+
+template<Device D>
+void Layer<D>::scaleTensor(V& tensor)
+{
+    auto norm = magArray(tensor.data(), tensor.size());
     if (norm > 0 && norm > gradientThreshold_) {
         auto scale = gradientThreshold_ / norm;
-        cblas_sscal(delta_.size(), scale, delta_.data(), 1);
+        cblas_sscal(tensor.size(), scale, tensor.data(), 1);
     }
 }
 
