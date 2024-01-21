@@ -47,6 +47,9 @@ public:
 
 private:
     void setup();
+    void scaleGradients() override;
+    void clipGradients() override;
+
 
     V weights_, weightUpdates_, biases_, biasUpdates_;
     V scales_, scaleUpdates_, mean_, meanDelta_, var_, varDelta_;
@@ -236,6 +239,26 @@ void ConnLayer<D>::update()
     cblas_saxpy(size, -decay * this->batch(), weights_.data(), 1, weightUpdates_.data(), 1);
     cblas_saxpy(size, learningRate / this->batch(), weightUpdates_.data(), 1, weights_.data(), 1);
     cblas_sscal(size, momentum, weightUpdates_.data(), 1);
+}
+
+template<Device D>
+void ConnLayer<D>::scaleGradients()
+{
+    Layer<D>::scaleGradients();
+
+    this->scaleTensor(weightUpdates_);
+    this->scaleTensor(biasUpdates_);
+    this->scaleTensor(scaleUpdates_);
+}
+
+template<Device D>
+void ConnLayer<D>::clipGradients()
+{
+    Layer<D>::clipGradients();
+
+    constrain(weightUpdates_.size(), this->gradientClipValue_, weightUpdates_.data(), 1);
+    constrain(biasUpdates_.size(), this->gradientClipValue_, biasUpdates_.data(), 1);
+    constrain(scaleUpdates_.size(), this->gradientClipValue_, scaleUpdates_.data(), 1);
 }
 
 using CpuConn = ConnLayer<>;

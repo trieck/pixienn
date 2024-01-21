@@ -336,4 +336,24 @@ inline void ConvLayer<Device::CUDA>::update()
     }
 }
 
+template<>
+inline void ConvLayer<Device::CUDA>::scaleGradients()
+{
+    Layer<Device::CUDA>::scaleGradients();
+
+    this->scaleTensor(weightUpdates_);
+    this->scaleTensor(biasUpdates_);
+    this->scaleTensor(scaleUpdates_);
+}
+
+template<>
+inline void ConvLayer<Device::CUDA>::clipGradients()
+{
+    Layer<Device::CUDA>::clipGradients();
+
+    constrainGpu(weightUpdates_.size(), this->gradientThreshold_, this->weightUpdates_.data());
+    constrainGpu(biasUpdates_.size(), this->gradientThreshold_, this->biasUpdates_.data());
+    constrainGpu(scaleUpdates_.size(), this->gradientThreshold_, this->scaleUpdates_.data());
+}
+
 } // px
