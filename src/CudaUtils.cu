@@ -64,25 +64,44 @@ __host__ __device__ float random_generator::operator()(std::size_t n) const
 
 void fillGpu(float* ptr, std::size_t n, float value)
 {
-    thrust::device_ptr<float> dev_ptr = thrust::device_pointer_cast(ptr);
-    thrust::fill(dev_ptr, dev_ptr + n, value);
+    thrust::device_ptr<float> devPtr = thrust::device_pointer_cast(ptr);
+    thrust::fill(devPtr, devPtr + n, value);
 }
 
 void fillGpu(int* ptr, std::size_t n, int value)
 {
-    thrust::device_ptr<int> dev_ptr = thrust::device_pointer_cast(ptr);
-    thrust::fill(dev_ptr, dev_ptr + n, value);
+    thrust::device_ptr<int> devPtr = thrust::device_pointer_cast(ptr);
+    thrust::fill(devPtr, devPtr + n, value);
 }
 
 void randomGpu(float* ptr, std::size_t n, float a, float b)
 {
-    thrust::device_ptr<float> dev_ptr = thrust::device_pointer_cast(ptr);
+    thrust::device_ptr<float> devPtr = thrust::device_pointer_cast(ptr);
 
     thrust::counting_iterator<unsigned int> index_sequence_begin(0);
     thrust::transform(index_sequence_begin,
                       index_sequence_begin + n,
-                      dev_ptr,
+                      devPtr,
                       random_generator(a, b));
+}
+
+struct ConstrainOp
+{
+    float alpha;
+
+    __host__ __device__ float operator()(float val) const
+    {
+        return fminf(alpha, fmaxf(-alpha, val));
+    }
+};
+
+void constrainGpu(int n, float alpha, float* x)
+{
+    thrust::device_ptr<float> devPtr = thrust::device_pointer_cast(x);
+
+    ConstrainOp op{alpha};
+
+    thrust::transform(devPtr, devPtr + n, devPtr, op);
 }
 
 }   // px

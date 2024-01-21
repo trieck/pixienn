@@ -1,5 +1,5 @@
 /********************************************************************************
-* Copyright 2023 Thomas A. Rieck, All Rights Reserved
+* Copyright 2020-2023 Thomas A. Rieck, All Rights Reserved
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -14,11 +14,29 @@
 * limitations under the License.
 ********************************************************************************/
 
-#pragma once
+#include "Gemm.h"
 
 namespace px {
 
-void addBiasGpu(float* output, const float* biases, int batch, int n, int size);
-void backwardBiasGpu(float* biasUpdates, const float* delta, int batch, int n, int size);
+void cublasGemm(const CublasContext& ctx, bool tA, bool tB, int m, int n, int k, float alpha, const float* a, int lda,
+                const float* b, int ldb, float beta, float* c, int ldc)
+{
+    // Things are re-arranged here due to the fact that cuBLAS uses column-major order.
+
+    auto transA = tB ? CUBLAS_OP_T : CUBLAS_OP_N;
+    auto transB = tA ? CUBLAS_OP_T : CUBLAS_OP_N;
+
+    auto M = n;
+    auto N = m;
+    auto K = k;
+    auto* A = b;
+    auto* B = a;
+    auto LDA = ldb;
+    auto LDB = lda;
+
+    auto status = cublasSgemm(ctx, transA, transB, M, N, K, &alpha, A, LDA, B, LDB, &beta, c, ldc);
+
+    PX_CHECK_CUBLAS(status);
+}
 
 }   // px

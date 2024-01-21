@@ -20,7 +20,6 @@ public:
 
     void forward(const V& input) override;
     void backward(const V& input) override;
-    void update() override;
 
     std::streamoff loadWeights(std::istream& is) override;
     std::streamoff saveWeights(std::ostream& os) override;
@@ -135,14 +134,6 @@ void BatchNormLayer<D>::backward(const V& input)
 
     cblas_scopy(this->batch() * this->outputs(), this->delta_.data(), 1, this->netDelta()->data(), 1);
 }
-
-
-template<Device D>
-void BatchNormLayer<D>::update()
-{
-
-}
-
 
 using CpuBatchNorm = BatchNormLayer<>;
 using CudaBatchNorm = BatchNormLayer<Device::CUDA>;

@@ -41,13 +41,12 @@ public:
     void update() override;
 
     std::streamoff loadWeights(std::istream& is) override;
-    virtual std::streamoff saveWeights(std::ostream& os);
+    virtual std::streamoff saveWeights(std::ostream& os) override;
 
     std::ostream& print(std::ostream& os) override;
 
 private:
     void setup();
-
     Activations<D>::Ptr activation_;
 
     V weights_, weightUpdates_, biases_, biasUpdates_;

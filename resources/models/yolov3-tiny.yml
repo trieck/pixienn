@@ -11,7 +11,7 @@ model:
   decay: 0.0005
 
   augmentation:
-    enabled: False
+    enabled: True
     flip: True
     jitter: 0.2
     saturation: 1.2
@@ -31,10 +31,10 @@ model:
     burn_in_power: 4.0
 
     initial_learning_rate: 0.0001
-    policy: cosine_annealing
+    policy: sigmoid
 
     cosine_annealing:
-      min_learning_rate: 0.000001
+      min_learning_rate: 0.00001
       batches_per_cycle: 1000
 
     smooth_stepped:
@@ -42,12 +42,12 @@ model:
       targets: [ 0.0005, 0.0003, 0.0002, 0.0001 ]
 
     sigmoid:
-      target_learning_rate: 0.00001
+      target_learning_rate: 0.000001
       factor: 12.0
 
     inverse:
       gamma: 0.0001
-      power: 1
+      power: 4
 
     stepped:
       steps: [ 400000, 450000 ]
@@ -175,6 +175,10 @@ model:
       num: 6
       ignore_thresh: 0.7
       truth_thresh: 1.0
+      coord_scale: 1.0
+      object_scale: 5.0
+      noobject_scale: 1.0
+      class_scale: 1.0
 
     - type: route
       layers: [ -4 ]
@@ -217,3 +221,7 @@ model:
       num: 6
       ignore_thresh: 0.7
       truth_thresh: 1.0
+      coord_scale: 1.0
+      object_scale: 5.0
+      noobject_scale: 1.0
+      class_scale: 1.0

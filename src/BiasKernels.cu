@@ -36,12 +36,66 @@ __global__ void addBiasKernel(float* output, const float* biases, int batch, int
     }
 }
 
-void addBiasGpu(float* output, float* biases, int batch, int n, int size)
+__global__ void backwardBiasConnKernel(float* biasUpdates, const float* delta, int batch, int n)
+{
+    auto index = (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x + threadIdx.x;
+    if (index >= n) {
+        return;
+    }
+
+    auto sum = 0.0f;
+    for (auto b = 0; b < batch; ++b) {
+        auto i = b * n + index;
+        sum += delta[i];
+    }
+
+    biasUpdates[index] += sum;
+}
+
+__global__ void backwardBiasKernel(float* bias_updates, const float* delta, int batch, int n, int size)
+{
+    __shared__ float part[CUDA_BLOCK_SIZE];
+
+    auto filter = blockIdx.x;
+    auto p = threadIdx.x;
+
+    auto sum = 0.0f;
+
+    for (auto b = 0; b < batch; ++b) {
+        for (auto i = 0; i < size; i += CUDA_BLOCK_SIZE) {
+            auto index = p + i + size * (filter + n * b);
+            sum += (p + i < size) ? delta[index] : 0;
+        }
+    }
+
+    part[p] = sum;
+
+    __syncthreads();
+
+    if (p == 0) {
+        sum = 0;
+        for (auto i = 0; i < CUDA_BLOCK_SIZE; ++i) {
+            bias_updates[filter] += part[i];
+        }
+    }
+}
+
+void addBiasGpu(float* output, const float* biases, int batch, int n, int size)
 {
     auto num = n * size * batch;
 
     addBiasKernel<<<cudaGridsize(num), CUDA_BLOCK_SIZE>>>(output, biases, batch, n, size);
-    cudaDeviceSynchronize();
+
+    PX_CUDA_CHECK_LAST();
+}
+
+void backwardBiasGpu(float* biasUpdates, const float* delta, int batch, int n, int size)
+{
+    if (size == 1) {
+        backwardBiasConnKernel<<<cudaGridsize(n), CUDA_BLOCK_SIZE>>>(biasUpdates, delta, batch, n);
+    } else {
+        backwardBiasKernel<<<cudaGridsize(n), CUDA_BLOCK_SIZE>>>(biasUpdates, delta, batch, n, size);
+    }
 
     PX_CUDA_CHECK_LAST();
 }

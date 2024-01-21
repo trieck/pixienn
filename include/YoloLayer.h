@@ -81,8 +81,9 @@ private:
     std::vector<int> mask_, anchors_;
     int num_, n_;
     float ignoreThresh_, truthThresh_;
+    float coordScale_, objectScale_, noObjectScale_, classScale_;
 
-    LogisticActivation<Device::CPU> logistic_;
+    LogisticActivation <Device::CPU> logistic_;
     PxCpuVector* poutput_, * pdelta_;
 
     float avgIoU = 0.0f;
@@ -104,6 +105,10 @@ YoloLayer<D>::YoloLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D>(
     num_ = this->template property<int>("num", 1);
     ignoreThresh_ = this->template property<float>("ignore_thresh", 0.5f);
     truthThresh_ = this->template property<float>("truth_thresh", 1.0f);
+    coordScale_ = this->template property<float>("coord_scale", 1.0f);
+    objectScale_ = this->template property<float>("object_scale", 1.0f);
+    noObjectScale_ = this->template property<float>("noobject_scale", 1.0f);
+    classScale_ = this->template property<float>("class_scale", 1.0f);
 
     PX_CHECK(anchors_.size() == 2 * num_, "anchors must be twice num size");
 
@@ -205,14 +210,14 @@ void YoloLayer<D>::deltaYoloClass(int index, int classId)
     auto stride = this->width() * this->height();
 
     if (pdelta[index]) {
-        pdelta[index + classId * stride] = 1 - poutput[index + classId * stride];
+        pdelta[index + classId * stride] = classScale_ * (1 - poutput[index + classId * stride]);
         avgCat_ += poutput[index + classId * stride];
         return;
     }
 
     for (auto i = 0; i < this->classes(); ++i) {
         auto netTruth = (i == classId) ? 1.0f : 0.0f;
-        pdelta[index + i * stride] = netTruth - poutput[index + i * stride];
+        pdelta[index + i * stride] = classScale_ * (netTruth - poutput[index + i * stride]);
 
         if (netTruth) {
             avgCat_ += poutput[index + i * stride];
@@ -237,7 +242,7 @@ float YoloLayer<D>::deltaYoloBox(const GroundTruth& truth, int mask, int index, 
     auto tw = std::log(truth.box.w() * w / biases_[2 * mask]);
     auto th = std::log(truth.box.h() * h / biases_[2 * mask + 1]);
 
-    auto scale = 2 - truth.box.w() * truth.box.h();
+    auto scale = coordScale_ * (2 - truth.box.w() * truth.box.h());
     auto stride = this->width() * this->height();
 
     delta[index + 0 * stride] = scale * (tx - x[index + 0 * stride]);
@@ -299,7 +304,7 @@ void YoloLayer<D>::processObjects(int b)
 
             auto objIndex = entryIndex(b, location, 4);
             avgObj_ += poutput[objIndex];
-            pdelta[objIndex] = 1 - poutput[objIndex];
+            pdelta[objIndex] = noObjectScale_ * (1 - poutput[objIndex]);
 
             auto clsIndex = entryIndex(b, location, 4 + 1);
             deltaYoloClass(clsIndex, gt.classId);
@@ -340,7 +345,7 @@ void YoloLayer<D>::processRegion(int b, int i, int j)
         auto objIndex = entryIndex(b, entry, 4);
         avgAnyObj_ += poutput[objIndex];
 
-        pdelta[objIndex] = 0 - poutput[objIndex];
+        pdelta[objIndex] = noObjectScale_ * (0 - poutput[objIndex]);
         if (result.bestIoU > ignoreThresh_) {
             pdelta[objIndex] = 0;
         }
@@ -350,7 +355,7 @@ void YoloLayer<D>::processRegion(int b, int i, int j)
         }
 
         if (result.bestIoU > truthThresh_) {
-            pdelta[objIndex] = 1 - poutput[objIndex];
+            pdelta[objIndex] = objectScale_ * (1 - poutput[objIndex]);
 
             auto clsIndex = entryIndex(b, entry, 4 + 1);
             deltaYoloClass(clsIndex, gt->classId);

@@ -24,7 +24,7 @@ namespace px {
 
 constexpr auto CUDA_BLOCK_SIZE = 512;
 
-void addBiasGpu(float* output, float* biases, int batch, int n, int size);
+void constrainGpu(int n, float alpha, float* x);
 dim3 cudaGridsize(std::uint32_t n);
 void fillGpu(float* ptr, std::size_t n, float value);
 void fillGpu(int* ptr, std::size_t n, int value);
