@@ -13,6 +13,8 @@ list(APPEND PIXIENN_LIBS
         ${GLIB_GOBJECT_LIBRARIES}
         ${HARFBUZZ_LIBRARY}
         ${OpenCV_LIBS}
+        pixienn_proto
+        protobuf::libprotobuf
 )
 
 if (Cairo_FOUND)

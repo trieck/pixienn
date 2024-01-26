@@ -19,6 +19,7 @@ list(APPEND TEST_SOURCES
         src/blas.cpp
         src/confuse.cpp
         src/cosine.cpp
+        src/crc32.cpp
         src/darkbox.cpp
         src/imagebatch.cpp
         src/main.cpp

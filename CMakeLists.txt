@@ -30,12 +30,6 @@ find_package(nlohmann_json 3.10.5 REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(Protobuf REQUIRED)
 
-set(PROTOBUF_OUTPUT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tensorboard)
-set(Protobuf_PROTOC_EXECUTABLE /usr/bin/protoc)
-
-protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS --cpp_out=${PROTOBUF_OUTPUT_DIR} proto/*.proto)
-SET_SOURCE_FILES_PROPERTIES(${PROTO_SRCS} ${PROTO_HDRS} PROPERTIES GENERATED TRUE)
-
 if (USE_CAIRO)
     find_package(Cairo 1.16.0)
     if (Cairo_FOUND)
@@ -107,6 +101,7 @@ list(APPEND SOURCES
         src/ConstantLRPolicy.cpp
         src/CosineLRPolicy.cpp
         src/CpuUtil.cpp
+        src/CRC32.cpp
         src/DarkBox.cpp
         src/Detection.cpp
         src/Error.cpp
@@ -117,6 +112,8 @@ list(APPEND SOURCES
         src/InvLRPolicy.cpp
         src/Math.cpp
         src/Model.cpp
+        src/RandomLRPolicy.cpp
+        src/RecordWriter.cpp
         src/SigmoidLRPolicy.cpp
         src/SmoothSteppedLRPolicy.cpp
         src/SteppedLRPolicy.cpp
@@ -127,10 +124,13 @@ list(APPEND SOURCES
 )
 
 add_library(pixienn STATIC ${SOURCES})
-
 set_target_properties(pixienn PROPERTIES OUTPUT_NAME "pixienn")
 
+add_subdirectory(proto)
+add_dependencies(pixienn pixienn_proto)
+
 list(APPEND INCLUDE_DIRS
+        ${CMAKE_CURRENT_BINARY_DIR}/proto
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${OpenCV_INCLUDE_DIRS}
         ${CAIRO_INCLUDE_DIRS}

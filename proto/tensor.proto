@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package tensorboard;
+package tensorflow;
 
 import "resource_handle.proto";
 import "tensor_shape.proto";
