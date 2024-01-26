@@ -22,6 +22,7 @@
 #include "DeviceTraits.h"
 #include "Error.h"
 #include "PxTensor.h"
+#include "RecordWriter.h"
 #include "TrainBatch.h"
 
 #ifdef USE_CUDA
@@ -117,6 +118,8 @@ protected:
     virtual void clipGradients();
 
     void scaleTensor(V& tensor);
+
+    RecordWriter& recordWriter() const;
 
     bool gradientRescaling_ = false;
     float gradientThreshold_ = 0.0f;
@@ -467,6 +470,12 @@ template<Device D>
 std::size_t Layer<D>::seen() const noexcept
 {
     return model_.seen();
+}
+
+template<Device D>
+RecordWriter& Layer<D>::recordWriter() const
+{
+    return model_.recordWriter();
 }
 
 #ifdef USE_CUDA

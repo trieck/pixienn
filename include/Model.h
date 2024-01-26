@@ -27,6 +27,9 @@
 #include <utility>
 #include <yaml-cpp/node/node.h>
 
+#include "event.pb.h"
+#include "summary.pb.h"
+
 #include "BurnInLRPolicy.h"
 #include "ColorMaps.h"
 #include "ConstantLRPolicy.h"
@@ -39,6 +42,8 @@
 #include "ImageAugmenter.h"
 #include "InvLRPolicy.h"
 #include "Layer.h"
+#include "RandomLRPolicy.h"
+#include "RecordWriter.h"
 #include "PxTensor.h"
 #include "SigmoidLRPolicy.h"
 #include "SmoothSteppedLRPolicy.h"
@@ -48,6 +53,8 @@
 
 using namespace YAML;
 using namespace boost::filesystem;
+using namespace tensorflow;
+
 using json = nlohmann::json;
 
 namespace px {
@@ -177,6 +184,8 @@ public:
 
     std::size_t seen() const noexcept;
 
+    RecordWriter& recordWriter() const;
+
 private:
     enum class Category
     {
@@ -215,6 +224,9 @@ private:
     LRPolicy* currentPolicy() const noexcept;
     bool isBurningIn() const noexcept;
     void viewImageGT(const std::string& imgPath, const GroundTruthVec& gt, bool augment) const;
+    void writeMetrics();
+    void writeAvgLoss();
+    void writeLR();
 
     bool training_ = false;
     std::string cfgFile_;
@@ -229,6 +241,9 @@ private:
     LRPolicy::Ptr burnInPolicy_;
     ImageAugmenter::Ptr augmenter_;
     TrainBatch trainBatch_;
+    RecordWriter::Ptr writer_;
+
+    float avgLoss_ = 0.0f;
 
     std::size_t burnInBatches_ = 0;
 
@@ -246,6 +261,7 @@ private:
     std::string valLabelPath_;
     std::string backupDir_;
     std::string weightsFile_;
+    std::string eventFile_;
 
     int maxBatches_ = 0;
 
@@ -326,25 +342,25 @@ void Model<D>::train()
     loadTrainImages();
     loadValImages();
 
-    auto avgLoss = std::numeric_limits<float>::lowest();
+    avgLoss_ = std::numeric_limits<float>::lowest();
 
     Timer timer;
     std::printf("LR: %f%s, Momentum: %f, Decay: %f\n", learningRate(), isBurningIn() ? " (burn-in)" : "", momentum_,
                 decay_);
 
     const auto windowSize = 10;
-    const float alpha = 2.0 / (windowSize + 1);
+    const auto alpha = 2.0f / (windowSize + 1);
 
     while (currentBatch() < maxBatches_) {
         Timer batchTimer;
         auto loss = trainBatch();
-        avgLoss = avgLoss < 0 ? loss : (avgLoss * (1 - alpha) + loss * alpha);
+        avgLoss_ = avgLoss_ < 0 ? loss : (avgLoss_ * (1 - alpha) + loss * alpha);
 
         auto epoch = seen_ / trainImages_.size();
 
         if (seen_ % 10 == 0) {
             printf("Epoch: %zu, Seen: %zu, Loss: %f, Avg. Loss: %f, LR: %.12f%s, %s, %zu images\n",
-                   epoch, seen_, loss, avgLoss, learningRate(),
+                   epoch, seen_, loss, avgLoss_, learningRate(),
                    isBurningIn() ? " (burn-in)" : "",
                    batchTimer.str().c_str(), seen_ * batch_);
         }
@@ -353,14 +369,56 @@ void Model<D>::train()
             saveWeights();
         }
 
-        if (seen_ % 1000 == 0) {
-            validate();
+        if (seen_ % 100 == 0) {
+            //validate();
+            writeMetrics();
         }
     }
 
     saveWeights(true);
 
     std::printf("trained in %s.\n", timer.str().c_str());
+}
+
+template<Device D>
+void Model<D>::writeMetrics()
+{
+    writeAvgLoss();
+    writeLR();
+}
+
+template<Device D>
+void Model<D>::writeAvgLoss()
+{
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(seen_);
+
+    auto* summary = event.mutable_summary();
+    auto* value = summary->add_value();
+    value->set_tag("avg-loss");
+    value->set_simple_value(avgLoss_);
+
+    writer_->write(event);
+    event.release_summary();
+}
+
+template<Device D>
+void Model<D>::writeLR()
+{
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(seen_);
+
+    auto* summary = event.mutable_summary();
+    auto* value = summary->add_value();
+    value->set_tag("learning-rate");
+    value->set_simple_value(learningRate());
+
+    writer_->write(event);
+    event.release_summary();
 }
 
 template<Device D>
@@ -751,13 +809,17 @@ void Model<D>::parseModel(const Node& modelDoc)
             gradClip_ = gc["enabled"].as<bool>(false);
             gradClipValue_ = gc["value"].as<float>(1.0f);
         }
+
+        decay_ = model["decay"].as<float>(0.0001f);
+        momentum_ = model["momentum"].as<float>(0.9f);
+
+        eventFile_ = model["event_file"].as<std::string>("events.out.tfevents");
+        writer_ = RecordWriter::create(eventFile_);
     }
 
     batch_ = model["batch"].as<int>();
     channels_ = model["channels"].as<int>();
-    decay_ = model["decay"].as<float>(0.0001f);
     height_ = model["height"].as<int>();
-    momentum_ = model["momentum"].as<float>(0.9f);
     subdivs_ = model["subdivisions"].as<int>(1);
     timeSteps_ = model["time_steps"].as<int>(1);
     width_ = model["width"].as<int>();
@@ -863,6 +925,12 @@ void Model<D>::parsePolicy(const Node& model)
             auto power = invNode["power"].as<float>(1.0f);
 
             policy_ = std::make_unique<InvLRPolicy>(learningRate, gamma, power);
+        } else if (sPolicy == "random") {
+            auto randomNode = lrNode["random"];
+            auto minLR = randomNode["min_learning_rate"].as<float>(0.0f);
+            auto updateInterval = randomNode["update_interval"].as<int>(1000);
+
+            policy_ = std::make_unique<RandomLRPolicy>(learningRate, minLR, updateInterval);
         } else {
             PX_ERROR_THROW("Unknown policy \"%s\".", sPolicy.c_str());
         }
@@ -1281,6 +1349,14 @@ template<Device D>
 std::size_t Model<D>::seen() const noexcept
 {
     return seen_;
+}
+
+template<Device D>
+RecordWriter& Model<D>::recordWriter() const
+{
+    PX_CHECK(writer_, "No record writer.");
+
+    return *writer_;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

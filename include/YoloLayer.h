@@ -16,7 +16,10 @@
 
 #pragma once
 
+#include "event.pb.h"
 #include "Layer.h"
+
+using namespace tensorflow;
 
 namespace px {
 
@@ -76,6 +79,12 @@ private:
     int maskIndex(int n);
     float deltaYoloBox(const GroundTruth& truth, int mask, int index, int i, int j);
     void deltaYoloClass(int index, int classId);
+    void writeStats();
+    void writeAvgIoU();
+    void writeAvgClass();
+    void writeObjectness();
+    void writeRecall50();
+    void writeRecall75();
 
     PxCpuVector biases_;
     std::vector<int> mask_, anchors_;
@@ -83,10 +92,10 @@ private:
     float ignoreThresh_, truthThresh_;
     float coordScale_, objectScale_, noObjectScale_, classScale_;
 
-    LogisticActivation <Device::CPU> logistic_;
+    LogisticActivation<Device::CPU> logistic_;
     PxCpuVector* poutput_, * pdelta_;
 
-    float avgIoU = 0.0f;
+    float avgIoU_ = 0.0f;
     float recall_ = 0.0f;
     float recall75_ = 0.0f;
     float avgCat_ = 0.0f;
@@ -189,16 +198,126 @@ void YoloLayer<D>::forwardCpu(const PxCpuVector& input)
     this->cost_ = std::pow(magArray(pdelta_->data(), pdelta_->size()), 2);
 
     if (count_ > 0) {
-        printf("Yolo %d: Avg. IoU: %f, Class: %f, Obj: %f, No Obj: %f, .5R: %f, .75R: %f,  count: %d\n",
-               this->index(),
-               avgIoU / count_,
-               avgCat_ / classCount_,
-               avgObj_ / count_,
-               avgAnyObj_ / (this->batch() * this->width() * this->height() * this->n_),
-               recall_ / count_,
-               recall75_ / count_,
-               count_);
+        writeStats();
     }
+}
+
+template<Device D>
+void YoloLayer<D>::writeStats()
+{
+    writeAvgIoU();
+    writeAvgClass();
+    writeObjectness();
+    writeRecall50();
+    writeRecall75();
+}
+
+template<Device D>
+void YoloLayer<D>::writeAvgIoU()
+{
+    auto avgIoU = count_ > 0 ? avgIoU_ / count_ : 0.0f;
+
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(this->model().seen());
+
+    auto tag = boost::format { "yolo-%d-avg-iou" } % this->index();
+
+    auto* summary = event.mutable_summary();
+    auto* value = summary->add_value();
+    value->set_tag(tag.str());
+    value->set_simple_value(avgIoU);
+
+    this->recordWriter().write(event);
+
+    event.release_summary();
+}
+
+template<Device D>
+void YoloLayer<D>::writeAvgClass()
+{
+    auto avgClass = count_ > 0 ? avgCat_ / count_ : 0.0f;
+
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(this->model().seen());
+
+    auto tag = boost::format { "yolo-%d-avg-class" } % this->index();
+
+    auto* summary = event.mutable_summary();
+    auto* value = summary->add_value();
+    value->set_tag(tag.str());
+    value->set_simple_value(avgClass);
+
+    this->recordWriter().write(event);
+
+    event.release_summary();
+}
+
+template<Device D>
+void YoloLayer<D>::writeObjectness()
+{
+    auto objectness = count_ > 0 ? avgObj_ / count_ : 0.0f;
+
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(this->model().seen());
+
+    auto tag = boost::format { "yolo-%d-objectness" } % this->index();
+
+    auto* summary = event.mutable_summary();
+    auto* value = summary->add_value();
+    value->set_tag(tag.str());
+    value->set_simple_value(objectness);
+
+    this->recordWriter().write(event);
+
+    event.release_summary();
+}
+
+template<Device D>
+void YoloLayer<D>::writeRecall50()
+{
+    auto recall50 = recall_ > 0 ? recall_ / classCount_ : 0.0f;
+
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(this->model().seen());
+
+    auto tag = boost::format { "yolo-%d-recall50" } % this->index();
+
+    auto* summary = event.mutable_summary();
+    auto* value = summary->add_value();
+    value->set_tag(tag.str());
+    value->set_simple_value(recall50);
+
+    this->recordWriter().write(event);
+    event.release_summary();
+}
+
+template<Device D>
+void YoloLayer<D>::writeRecall75()
+{
+    auto recall75 = recall75_ > 0 ? recall75_ / classCount_ : 0.0f;
+
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(this->model().seen());
+
+    auto tag = boost::format { "yolo-%d-recall75" } % this->index();
+
+    auto* summary = event.mutable_summary();
+    auto* value = summary->add_value();
+    value->set_tag(tag.str());
+    value->set_simple_value(recall75);
+
+    this->recordWriter().write(event);
+    event.release_summary();
 }
 
 template<Device D>
@@ -319,7 +438,7 @@ void YoloLayer<D>::processObjects(int b)
                 ++recall75_;
             }
 
-            avgIoU += iou;
+            avgIoU_ += iou;
         }
     }
 }
@@ -367,7 +486,7 @@ void YoloLayer<D>::processRegion(int b, int i, int j)
 template<Device D>
 void YoloLayer<D>::resetStats()
 {
-    avgIoU = 0.0f;
+    avgIoU_ = 0.0f;
     recall_ = 0.0f;
     recall75_ = 0.0f;
     avgCat_ = 0.0f;

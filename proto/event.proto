@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package tensorboard;
+package tensorflow;
 
 import "summary.proto";
 
