@@ -222,7 +222,7 @@ void YoloLayer<D>::writeAvgIoU()
             std::chrono::system_clock::now().time_since_epoch()).count());
     event.set_step(this->model().seen());
 
-    auto tag = boost::format { "yolo-%d-avg-iou" } % this->index();
+    auto tag = boost::format{ "yolo-%d-avg-iou" } % this->index();
 
     auto* summary = event.mutable_summary();
     auto* value = summary->add_value();
@@ -244,7 +244,7 @@ void YoloLayer<D>::writeAvgClass()
             std::chrono::system_clock::now().time_since_epoch()).count());
     event.set_step(this->model().seen());
 
-    auto tag = boost::format { "yolo-%d-avg-class" } % this->index();
+    auto tag = boost::format{ "yolo-%d-avg-class" } % this->index();
 
     auto* summary = event.mutable_summary();
     auto* value = summary->add_value();
@@ -266,7 +266,7 @@ void YoloLayer<D>::writeObjectness()
             std::chrono::system_clock::now().time_since_epoch()).count());
     event.set_step(this->model().seen());
 
-    auto tag = boost::format { "yolo-%d-objectness" } % this->index();
+    auto tag = boost::format{ "yolo-%d-objectness" } % this->index();
 
     auto* summary = event.mutable_summary();
     auto* value = summary->add_value();
@@ -288,7 +288,7 @@ void YoloLayer<D>::writeRecall50()
             std::chrono::system_clock::now().time_since_epoch()).count());
     event.set_step(this->model().seen());
 
-    auto tag = boost::format { "yolo-%d-recall50" } % this->index();
+    auto tag = boost::format{ "yolo-%d-recall50" } % this->index();
 
     auto* summary = event.mutable_summary();
     auto* value = summary->add_value();
@@ -309,7 +309,7 @@ void YoloLayer<D>::writeRecall75()
             std::chrono::system_clock::now().time_since_epoch()).count());
     event.set_step(this->model().seen());
 
-    auto tag = boost::format { "yolo-%d-recall75" } % this->index();
+    auto tag = boost::format{ "yolo-%d-recall75" } % this->index();
 
     auto* summary = event.mutable_summary();
     auto* value = summary->add_value();
@@ -551,13 +551,15 @@ DarkBox YoloLayer<D>::yoloBox(const float* p, int mask, int index, int i, int j)
 template<Device D>
 void YoloLayer<D>::addDetects(Detections& detections, float threshold, const float* predictions) const
 {
-    // TODO: Implement
+    addDetects(detections, 0, 0, threshold, predictions);
 }
 
 template<Device D>
 void YoloLayer<D>::addDetects(Detections& detections, int width, int height, float threshold, const float* predictions)
 const
 {
+    const auto scaled = width > 0 && height > 0;
+
     auto area = std::max(1, this->width() * this->height());
     auto nclasses = this->classes();
 
@@ -573,7 +575,13 @@ const
             }
 
             auto boxIndex = entryIndex(0, n * area + i, 0);
-            auto box = scaledYoloBox(predictions, mask_[n], boxIndex, col, row, width, height);
+
+            cv::Rect2f box;
+            if (scaled) {
+                box = scaledYoloBox(predictions, mask_[n], boxIndex, col, row, width, height);
+            } else {
+                box = yoloBox(predictions, mask_[n], boxIndex, col, row).rect();
+            }
 
             int maxClass = 0;
             float maxProb = -std::numeric_limits<float>::max();

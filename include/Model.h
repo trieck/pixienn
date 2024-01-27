@@ -42,9 +42,9 @@
 #include "ImageAugmenter.h"
 #include "InvLRPolicy.h"
 #include "Layer.h"
+#include "PxTensor.h"
 #include "RandomLRPolicy.h"
 #include "RecordWriter.h"
-#include "PxTensor.h"
 #include "SigmoidLRPolicy.h"
 #include "SmoothSteppedLRPolicy.h"
 #include "SteppedLRPolicy.h"
@@ -136,6 +136,9 @@ public:
     void parseModel(const YAML::Node& modelDoc);
 
     Detections predict(const std::string& imageFile) override;
+    Detections detections() const;
+    Detections detections(const cv::Size& imageSize) const;
+
     void train() override;
 
     void overlay(const std::string& imageFile, const Detections& detects) const override;
@@ -151,13 +154,12 @@ public:
 
     template<typename T>
     void addLayer(YAML::Node layerDef = {});
-
     void addLayer(LayerPtr layer);
-
     const LayerVec& layers() const;
-
     bool inferring() const noexcept;
     bool training() const noexcept;
+    void setTraining(bool training) noexcept;
+    void setThreshold(float threshold) noexcept;
     int classes() const noexcept;
     float learningRate() const;
     float momentum() const noexcept;
@@ -196,9 +198,9 @@ private:
     void forward(const ImageVec& image);
     void update();
     void saveWeights(bool final = false);
-    void updateLR();
+    void saveWeights(const std::string& fileName);
 
-    Detections detections(const cv::Size& imageSize) const;
+    void updateLR();
 
     void loadModel();
     void loadLabels();
@@ -220,6 +222,8 @@ private:
     GroundTruthVec groundTruth(Category category, const std::string& imagePath);
     int currentBatch() const noexcept;
     std::string weightsFileName(bool final) const;
+    std::string weightsLatestFileName() const;
+
     void validate();
     LRPolicy* currentPolicy() const noexcept;
     bool isBurningIn() const noexcept;
@@ -227,6 +231,9 @@ private:
     void writeMetrics();
     void writeAvgLoss();
     void writeLR();
+    void writemAP();
+    void writeAvgRecall();
+    void writeMicroAvgF1();
 
     bool training_ = false;
     std::string cfgFile_;
@@ -273,6 +280,10 @@ private:
     int subdivs_ = 0;
     int timeSteps_ = 0;
     int width_ = 0;
+    int valInterval_ = 0;
+    int valBatchSize_ = 0;
+    int saveWeightsInterval_ = 0;
+    int writeMetricsInterval_ = 0;
 
     // network version
     int major_ = 0;
@@ -280,9 +291,11 @@ private:
     int revision_ = 0;
 
     size_t seen_ = 0;
-
     float threshold_ = 0.0f;    // Threshold for confidence
-    float cost_ = 0.0f;
+    float mAP_ = 0.0f;          // Mean Average Precision
+    float avgRecall_ = 0.0f;    // Average Recall
+    float microAvgF1_ = 0.0f;   // Micro Average F1
+    float cost_ = 0.0f;         // Network cost
 
     std::vector<std::string> labels_;
     std::vector<std::string> trainImages_;
@@ -365,12 +378,15 @@ void Model<D>::train()
                    batchTimer.str().c_str(), seen_ * batch_);
         }
 
-        if (seen_ % 1000 == 0 || (seen_ < 1000 && seen_ % 100 == 0)) {
+        if (valInterval_ && seen_ % valInterval_ == 0) {
+            validate();
+        }
+
+        if (saveWeightsInterval_ && seen_ % saveWeightsInterval_ == 0) {
             saveWeights();
         }
 
-        if (seen_ % 100 == 0) {
-            //validate();
+        if (writeMetricsInterval_ && seen_ % writeMetricsInterval_ == 0) {
             writeMetrics();
         }
     }
@@ -385,6 +401,9 @@ void Model<D>::writeMetrics()
 {
     writeAvgLoss();
     writeLR();
+    writemAP();
+    writeAvgRecall();
+    writeMicroAvgF1();
 }
 
 template<Device D>
@@ -416,6 +435,57 @@ void Model<D>::writeLR()
     auto* value = summary->add_value();
     value->set_tag("learning-rate");
     value->set_simple_value(learningRate());
+
+    writer_->write(event);
+    event.release_summary();
+}
+
+template<Device D>
+void Model<D>::writemAP()
+{
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(seen_);
+
+    auto* summary = event.mutable_summary();
+    auto* value = summary->add_value();
+    value->set_tag("mAP");
+    value->set_simple_value(mAP_);
+
+    writer_->write(event);
+    event.release_summary();
+}
+
+template<Device D>
+void Model<D>::writeAvgRecall()
+{
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(seen_);
+
+    auto* summary = event.mutable_summary();
+    auto* value = summary->add_value();
+    value->set_tag("avg-recall");
+    value->set_simple_value(avgRecall_);
+
+    writer_->write(event);
+    event.release_summary();
+}
+
+template<Device D>
+void Model<D>::writeMicroAvgF1()
+{
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(seen_);
+
+    auto* summary = event.mutable_summary();
+    auto* value = summary->add_value();
+    value->set_tag("micro-avg-f1");
+    value->set_simple_value(microAvgF1_);
 
     writer_->write(event);
     event.release_summary();
@@ -584,6 +654,21 @@ Detections Model<D>::predict(const std::string& imageFile)
     std::printf("predicted in %s.\n", timer.str().c_str());
 
     return detects;
+}
+
+template<Device D>
+Detections Model<D>::detections() const
+{
+    Detections detections;
+
+    for (auto& layer: layers()) {
+        auto* detector = dynamic_cast<Detector*>(layer.get());
+        if (detector) {
+            detector->addDetects(detections, threshold_);
+        }
+    }
+
+    return detections;
 }
 
 template<Device D>
@@ -759,6 +844,7 @@ void Model<D>::loadWeights()
 #endif  // USE_CUDA
 
 #include "LayerFactory.h"
+#include "Validator.h"
 
 namespace px {
 
@@ -815,6 +901,11 @@ void Model<D>::parseModel(const Node& modelDoc)
 
         eventFile_ = model["event_file"].as<std::string>("events.out.tfevents");
         writer_ = RecordWriter::create(eventFile_);
+
+        valInterval_ = model["validation_interval"].as<int>(1000);
+        valBatchSize_ = model["validation_batch_size"].as<int>(100);
+        saveWeightsInterval_ = model["save_weights_interval"].as<int>(1000);
+        writeMetricsInterval_ = model["write_metrics_interval"].as<int>(1000);
     }
 
     batch_ = model["batch"].as<int>();
@@ -1033,6 +1124,19 @@ bool Model<D>::training() const noexcept
 }
 
 template<Device D>
+void Model<D>::setTraining(bool training) noexcept
+{
+    training_ = training;
+}
+
+template<Device D>
+void Model<D>::setThreshold(float threshold) noexcept
+{
+    threshold_ = threshold;
+
+}
+
+template<Device D>
 int Model<D>::classes() const noexcept
 {
     return labels_.size();
@@ -1107,7 +1211,15 @@ void Model<D>::saveWeights(bool final)
     }
 
     auto fileName = weightsFileName(final);
+    saveWeights(fileName);
 
+    fileName = weightsLatestFileName();
+    saveWeights(fileName);
+}
+
+template<Device D>
+void Model<D>::saveWeights(const std::string& fileName)
+{
     std::ofstream ofs(fileName, std::ios::out | std::ios::trunc | std::ios::binary);
     PX_CHECK(ofs.good(), "Could not open file \"%s\". %s", fileName.c_str(), std::strerror(errno));
 
@@ -1220,17 +1332,35 @@ std::string Model<D>::weightsFileName(bool final) const
 }
 
 template<Device D>
+std::string Model<D>::weightsLatestFileName() const
+{
+    auto base = baseName(weightsFile_);
+
+    auto fileName = (boost::format("%s_latest.weights") % base).str();
+    boost::filesystem::path path(backupDir_);
+    path /= fileName;
+    fileName = path.string();
+
+    return fileName;
+}
+
+template<Device D>
 void Model<D>::validate()
 {
     std::cout << "Pausing training to validate..." << std::flush;
 
-    auto batch = loadBatch(Category::VAL, 100, false);
-/*
-    validator_.validate(std::move(batch));
+    auto batch = loadBatch(Category::VAL, valBatchSize_, false);
+
+    Validator <D> validator;
+
+    validator.validate(*this, std::move(batch));
+
+    mAP_ = validator.mAP();
+    avgRecall_ = validator.avgRecall();
+    microAvgF1_ = validator.microAvgF1();
 
     std::printf("\n%zu: mAP: %f, Avg. Recall: %f, micro-Avg. F1: %f\n",
-                seen_, validator_.mAP(), validator_.avgRecall(), validator_.microAvgF1());
-*/
+                seen_, mAP_, avgRecall_, microAvgF1_);
 
     std::cout << "Resuming training..." << std::endl << std::flush;
 }

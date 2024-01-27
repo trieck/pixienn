@@ -139,8 +139,10 @@ inline void ConnLayer<Device::CUDA>::forward(const V& input)
 
         cudnnStatus_t nstatus;
         if (training()) {
+            x_.copy(output_);
+
             nstatus = cudnnBatchNormalizationForwardTraining(cudnnContext, CUDNN_BATCHNORM_SPATIAL,
-                                                             &alpha, &beta, *yDesc_, this->output_.data(),
+                                                             &alpha, &beta, *yDesc_, x_.data(),
                                                              *yDesc_, this->output_.data(), *sbmv_, scales_.data(),
                                                              biases_.data(), expAvgFactor, rollingMean_.data(),
                                                              rollingVar_.data(), epsilon, mean_.data(),
@@ -180,7 +182,7 @@ inline void ConnLayer<Device::CUDA>::backward(const V& input)
                                                       *sbmv_, scales_.data(), scaleUpdates_.data(),
                                                       biasUpdates_.data(), epsilon, mean_.data(), var_.data());
 
-        //copy_gpu(l.outputs*l.batch, l.x_norm_gpu, 1, l.delta_gpu, 1);
+        this->delta_.copy(this->xNorm_);
 
         PX_CHECK_CUDNN(status);
     } else {

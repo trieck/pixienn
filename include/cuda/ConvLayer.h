@@ -274,8 +274,10 @@ inline void ConvLayer<Device::CUDA>::backward(const V& input)
                                                       *sbmv_, scales_.data(), scaleUpdates_.data(),
                                                       biasUpdates_.data(), epsilon, mean_.data(), var_.data());
         PX_CHECK_CUDNN(status);
+        this->delta_.copy(this->xNorm_);
     } else {
-        backwardBiasGpu(biasUpdates_.data(), this->delta_.data(), this->batch(), this->outputs(), 1);
+        backwardBiasGpu(biasUpdates_.data(), this->delta_.data(), this->batch(), filters_,
+                        this->outHeight() * this->outWidth());
     }
 
     auto alpha = 1.0f;
