@@ -31,6 +31,8 @@ template<Device D>
 class Validator
 {
 public:
+    Validator(float threshold);
+
     using V = typename DeviceTraits<D>::VectorType;
 
     void validate(Model<D>& model, TrainBatch&& batch);
@@ -48,7 +50,13 @@ private:
 
     ConfusionMatrix matrix_;
     std::unordered_set<int> classesSeen_;
+    float threshold_;
 };
+
+template<Device D>
+Validator<D>::Validator(float threshold) : threshold_(threshold)
+{
+}
 
 template<Device D>
 float Validator<D>::microAvgF1() const noexcept
@@ -74,7 +82,7 @@ void Validator<D>::validate(Model<D>& model, TrainBatch&& batch)
     classesSeen_.clear();
     matrix_.resize(model.classes());
     model.setTraining(false);
-    model.setThreshold(0.5f);
+    model.setThreshold(threshold_);
 
     auto inputSize = batch.height() * batch.width() * batch.channels();
     PxCpuVector input(inputSize, 0.0f);

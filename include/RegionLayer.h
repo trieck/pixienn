@@ -338,7 +338,7 @@ float RegionLayer<D>::bestIoU(int b, const DarkBox& pred)
 template<Device D>
 void RegionLayer<D>::addDetects(Detections& detections, float threshold, const float* predictions) const
 {
-    // TODO: implement
+    addDetects(detections, 1, 1, threshold, predictions);
 }
 
 template<Device D>

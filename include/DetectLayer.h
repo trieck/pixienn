@@ -191,7 +191,7 @@ void DetectLayer<D>::addDetects(Detections& detections, int width, int height, f
 template<Device D>
 void DetectLayer<D>::addDetects(Detections& detections, float threshold, const float* predictions) const
 {
-    // TODO: implement
+    addDetects(detections, 1, 1, threshold, predictions);
 }
 
 template<Device D>

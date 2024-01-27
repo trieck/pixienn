@@ -27,8 +27,9 @@ model:
     value: 1.0
 
   learning_rate:
-    burn_in_batches: 0
-    burn_in_power: 4.0
+    burn_in:
+      batches: 0
+      power: 4.0
 
     initial_learning_rate: 0.0001
     policy: cosine_annealing

@@ -40,7 +40,7 @@ end
 begin
   convert(ARGV[0], ARGV[1])
 rescue StandardError => e
-  eputs e, e.backtrace
+  puts e, e.backtrace
   exit(1)
 end
 

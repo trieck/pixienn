@@ -1,0 +1,12 @@
+configuration:
+  model: ../models/yolov7.yml
+  weights: /home/trieck/src/pixienn/cmake-build-debug-cuda/bin/backup/yolov7_latest.weights
+
+  labels: ../data/coco.names
+
+training:
+  train-images: ../data/coco/train-1.txt
+  val-images: ../data/coco/val-1.txt
+
+  train-labels: ../data/coco/labels/train2014
+  val-labels: ../data/coco/labels/val2014
