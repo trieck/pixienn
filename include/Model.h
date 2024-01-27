@@ -280,8 +280,11 @@ private:
     int subdivs_ = 0;
     int timeSteps_ = 0;
     int width_ = 0;
+    bool valEnabled_ = false;
     int valInterval_ = 0;
     int valBatchSize_ = 0;
+    float valThresh_ = 0.0f;
+
     int saveWeightsInterval_ = 0;
     int writeMetricsInterval_ = 0;
 
@@ -371,14 +374,12 @@ void Model<D>::train()
 
         auto epoch = seen_ / trainImages_.size();
 
-        if (seen_ % 10 == 0) {
-            printf("Epoch: %zu, Seen: %zu, Loss: %f, Avg. Loss: %f, LR: %.12f%s, %s, %zu images\n",
-                   epoch, seen_, loss, avgLoss_, learningRate(),
-                   isBurningIn() ? " (burn-in)" : "",
-                   batchTimer.str().c_str(), seen_ * batch_);
-        }
+        printf("Epoch: %zu, Seen: %zu, Loss: %f, Avg. Loss: %f, LR: %.12f%s, %s, %zu images\n",
+               epoch, seen_, loss, avgLoss_, learningRate(),
+               isBurningIn() ? " (burn-in)" : "",
+               batchTimer.str().c_str(), seen_ * batch_);
 
-        if (valInterval_ && seen_ % valInterval_ == 0) {
+        if (valEnabled_ && valInterval_ && seen_ % valInterval_ == 0) {
             validate();
         }
 
@@ -902,8 +903,14 @@ void Model<D>::parseModel(const Node& modelDoc)
         eventFile_ = model["event_file"].as<std::string>("events.out.tfevents");
         writer_ = RecordWriter::create(eventFile_);
 
-        valInterval_ = model["validation_interval"].as<int>(1000);
-        valBatchSize_ = model["validation_batch_size"].as<int>(100);
+        auto val = model["validation"];
+        if (val && val.IsMap()) {
+            valEnabled_ = val["enabled"].as<bool>(true);
+            valInterval_ = val["interval"].as<int>(1000);
+            valBatchSize_ = val["batch_size"].as<int>(100);
+            valThresh_ = val["threshold"].as<float>(0.2f);
+        }
+
         saveWeightsInterval_ = model["save_weights_interval"].as<int>(1000);
         writeMetricsInterval_ = model["write_metrics_interval"].as<int>(1000);
     }
@@ -965,10 +972,13 @@ void Model<D>::parsePolicy(const Node& model)
         PX_CHECK(lrNode.IsMap(), "learning_rate must be a map.");
         auto learningRate = lrNode["initial_learning_rate"].as<float>(0.001f);
 
-        burnInBatches_ = lrNode["burn_in_batches"].as<int>(0);
-        if (burnInBatches_ > 0) {
-            auto burnInPower = lrNode["burn_in_power"].as<float>(1.0f);
-            burnInPolicy_ = std::make_unique<BurnInLRPolicy>(learningRate, burnInBatches_, burnInPower);
+        auto burnInNode = lrNode["burn_in"];
+        if (burnInNode && burnInNode.IsMap()) {
+            auto burnInBatches = burnInNode["batches"].as<int>(0);
+            if (burnInBatches > 0) {
+                auto burnInPower = burnInNode["power"].as<float>(4.0f);
+                burnInPolicy_ = std::make_unique<BurnInLRPolicy>(learningRate, burnInBatches, burnInPower);
+            }
         }
 
         auto sPolicy = lrNode["policy"].as<std::string>("constant");
@@ -1351,7 +1361,7 @@ void Model<D>::validate()
 
     auto batch = loadBatch(Category::VAL, valBatchSize_, false);
 
-    Validator <D> validator;
+    Validator <D> validator(valThresh_);
 
     validator.validate(*this, std::move(batch));
 

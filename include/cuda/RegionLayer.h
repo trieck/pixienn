@@ -77,4 +77,12 @@ inline void RegionLayer<Device::CUDA>::addDetects(Detections& detects, int width
     addDetects(detects, width, height, threshold, preds.data());
 }
 
+template<>
+inline void RegionLayer<Device::CUDA>::addDetects(Detections& detects, float threshold)
+{
+    auto preds = this->output_.asVector();
+
+    addDetects(detects, threshold, preds.data());
+}
+
 }   // px

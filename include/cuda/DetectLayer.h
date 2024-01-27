@@ -75,9 +75,17 @@ inline void DetectLayer<Device::CUDA>::backward(const V& input)
 template<>
 inline void DetectLayer<Device::CUDA>::addDetects(Detections& detections, int width, int height, float threshold)
 {
-    PxCpuVector output(this->output_.size());
-    output.copyDevice(output_.data(), output_.size());
-    addDetects(detections, width, height, threshold, output.data());
+    auto pred = output_.asVector();
+
+    addDetects(detections, width, height, threshold, pred.data());
+}
+
+template<>
+inline void DetectLayer<Device::CUDA>::addDetects(Detections& detections, float threshold)
+{
+    auto pred = this->output_.asVector();
+
+    addDetects(detections, threshold, pred.data());
 }
 
 }   // px
