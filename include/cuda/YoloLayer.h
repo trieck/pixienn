@@ -75,5 +75,13 @@ inline void YoloLayer<Device::CUDA>::addDetects(Detections& detections, int widt
     addDetects(detections, width, height, threshold, pred.data());
 }
 
+template<>
+inline void YoloLayer<Device::CUDA>::addDetects(Detections& detections, float threshold)
+{
+    auto pred = this->output_.asVector();
+
+    addDetects(detections, threshold, pred.data());
+}
+
 }   // px
 

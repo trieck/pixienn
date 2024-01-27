@@ -96,12 +96,12 @@ list(APPEND SOURCES
         src/BatchNorm.cpp
         src/Box.cpp
         src/BurnInLRPolicy.cpp
+        src/CRC32.cpp
         src/ColorMaps.cpp
         src/ConfusionMatrix.cpp
         src/ConstantLRPolicy.cpp
         src/CosineLRPolicy.cpp
         src/CpuUtil.cpp
-        src/CRC32.cpp
         src/DarkBox.cpp
         src/Detection.cpp
         src/Error.cpp

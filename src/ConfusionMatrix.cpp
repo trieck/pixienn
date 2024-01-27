@@ -19,7 +19,7 @@
 
 namespace px {
 
-ConfusionMatrix::ConfusionMatrix()
+ConfusionMatrix::ConfusionMatrix() : numClasses_(0)
 {
 }
 
