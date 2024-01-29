@@ -195,7 +195,7 @@ public:
 
     CUDA_CALLABLE float gradient(float x) const
     {
-        auto val = 1 / (1 + std::exp(-x));
+        auto val = 1 / (1 + std::exp(-beta_ * x));
         return x * val + beta_ * val * (1 - x * val);
     }
 
