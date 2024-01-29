@@ -397,18 +397,10 @@ void DetectLayer<D>::backward(const V& input)
     Layer<D>::backward(input);
 
     auto* pDelta = this->delta_.data();
-    auto* pNetDelta = this->model().delta();
-
-    PX_CHECK(pNetDelta != nullptr, "Model delta tensor is null");
-    PX_CHECK(pNetDelta->data() != nullptr, "Model delta tensor is null");
-    PX_CHECK(pDelta != nullptr, "Delta tensor is null");
-
+    auto* pNetDelta = this->netDelta()->data();
     const auto n = this->batch() * this->inputs();
 
-    PX_CHECK(this->delta_.size() >= n, "Delta tensor is too small");
-    PX_CHECK(pNetDelta->size() >= n, "Model tensor is too small");
-
-    cblas_saxpy(n, 1, pDelta, 1, pNetDelta->data(), 1);
+    cblas_saxpy(n, 1, pDelta, 1, pNetDelta, 1);
 }
 
 using CpuDetect = DetectLayer<>;

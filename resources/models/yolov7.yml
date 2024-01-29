@@ -677,13 +677,8 @@ model:
       activation: swish
 
     - type: route
-      layers:
-        - -1
-        - -2
-        - -3
-        - -4
-        - -5
-        - -7
+      layers: [ -1, -2, -3, -4, -5, -7 ]
+
     - type: conv
       batch_normalize: True
       filters: 128

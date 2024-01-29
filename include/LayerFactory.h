@@ -1,5 +1,6 @@
 #pragma once
 
+#include "AvgPoolLayer.h"
 #include "BatchNormLayer.h"
 #include "ConnLayer.h"
 #include "ConvLayer.h"
@@ -9,6 +10,7 @@
 #include "RouteLayer.h"
 #include "ShortcutLayer.h"
 #include "Singleton.h"
+#include "SoftmaxLayer.h"
 #include "UpsampleLayer.h"
 #include "YoloLayer.h"
 
@@ -36,6 +38,7 @@ private:
 template<Device D>
 LayerFactories<D>::LayerFactories()
 {
+    registerFactory<AvgPoolLayer<D>>("avgpool");
     registerFactory<BatchNormLayer<D>>("batchnorm");
     registerFactory<ConnLayer<D>>("connected");
     registerFactory<ConvLayer<D>>("conv");
@@ -44,6 +47,7 @@ LayerFactories<D>::LayerFactories()
     registerFactory<RegionLayer<D>>("region");
     registerFactory<RouteLayer<D>>("route");
     registerFactory<ShortcutLayer<D>>("shortcut");
+    registerFactory<SoftmaxLayer<D>>("softmax");
     registerFactory<UpsampleLayer<D>>("upsample");
     registerFactory<YoloLayer<D>>("yolo");
 }

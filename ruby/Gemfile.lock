@@ -3,6 +3,7 @@ GEM
   specs:
     diff-lcs (1.5.0)
     json (2.7.1)
+    mini_magick (4.12.0)
     rake (13.1.0)
     rspec (3.12.0)
       rspec-core (~> 3.12.0)
@@ -24,6 +25,7 @@ PLATFORMS
 
 DEPENDENCIES
   json
+  mini_magick
   rake
   rspec
   yaml
