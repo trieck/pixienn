@@ -76,11 +76,12 @@ void RecordWriter::write(const std::string& record)
     populateHeader(header, record.data(), record.size());
     populateFooter(footer, record.data(), record.size());
 
-    PX_CHECK(file_.good(), "Could not write record");
-
     file_.write(header, sizeof(header));
     file_.write(record.data(), record.size());
     file_.write(footer, sizeof(footer));
+    file_.flush();
+
+    PX_CHECK(file_.good(), "Could not write record");
 }
 
 void RecordWriter::populateHeader(char* header, const char* data, size_t size)

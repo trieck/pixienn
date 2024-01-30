@@ -220,7 +220,6 @@ private:
     TrainBatch loadBatch(Category category, int size, bool augment);
     TrainBatch loadBatch(Category category, bool augment);
     GroundTruthVec groundTruth(Category category, const std::string& imagePath);
-    int currentBatch() const noexcept;
     std::string weightsFileName(bool final) const;
     std::string weightsLatestFileName() const;
 
@@ -364,10 +363,10 @@ void Model<D>::train()
     std::printf("LR: %f%s, Momentum: %f, Decay: %f\n", learningRate(), isBurningIn() ? " (burn-in)" : "", momentum_,
                 decay_);
 
-    const auto windowSize = 10;
-    const auto alpha = 2.0f / (windowSize + 1);
+    constexpr auto windowSize = 10;
+    constexpr auto alpha = 2.0f / (windowSize + 1);
 
-    while (currentBatch() < maxBatches_) {
+    while (seen_ < maxBatches_) {
         Timer batchTimer;
         auto loss = trainBatch();
         avgLoss_ = avgLoss_ < 0 ? loss : (avgLoss_ * (1 - alpha) + loss * alpha);
@@ -901,7 +900,7 @@ void Model<D>::parseModel(const Node& modelDoc)
         momentum_ = model["momentum"].as<float>(0.9f);
 
         eventFile_ = model["event_file"].as<std::string>("events.out.tfevents");
-        writer_ = RecordWriter::create(eventFile_);
+        writer_ = RecordWriter::create(eventFile_, true);
 
         auto val = model["validation"];
         if (val && val.IsMap()) {
@@ -1092,10 +1091,9 @@ void Model<D>::update()
 template<Device D>
 void Model<D>::updateLR()
 {
-    auto batchNum = currentBatch();
     auto* policy = currentPolicy();
 
-    policy->update(batchNum);
+    policy->update(seen_);
 }
 
 template<Device D>
@@ -1313,18 +1311,6 @@ GroundTruthVec Model<D>::groundTruth(Category category, const std::string& image
 }
 
 template<Device D>
-int Model<D>::currentBatch() const noexcept
-{
-    if (batch_ == 0 || subdivs_ == 0) {
-        return 0;
-    }
-
-    auto batchNum = seen_ / (batch_ * subdivs_);
-
-    return batchNum;
-}
-
-template<Device D>
 std::string Model<D>::weightsFileName(bool final) const
 {
     if (final) {
@@ -1378,10 +1364,8 @@ void Model<D>::validate()
 template<Device D>
 LRPolicy* Model<D>::currentPolicy() const noexcept
 {
-    auto batchNum = currentBatch();
-
     LRPolicy* policy;
-    if (batchNum < burnInBatches_) {
+    if (isBurningIn()) {
         policy = burnInPolicy_.get();
     } else {
         policy = policy_.get();
@@ -1393,9 +1377,7 @@ LRPolicy* Model<D>::currentPolicy() const noexcept
 template<Device D>
 bool Model<D>::isBurningIn() const noexcept
 {
-    auto batchNum = currentBatch();
-
-    return batchNum < burnInBatches_;
+    return seen_ < burnInBatches_;
 }
 
 template<Device D>

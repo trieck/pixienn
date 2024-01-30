@@ -1,19 +1,17 @@
 model:
 
-  batch: 1
+  batch: 4
   subdivisions: 1
   height: 256
   width: 256
   channels: 3
 
-  max_batches: 100
+  max_batches: 10000
   momentum: 0.9
   decay: 0.0005
 
   augmentation:
     enabled: True
-    # angle: 7
-    # aspect: 0.75
     flip: True
     jitter: 0.2
     saturation: 0.75
@@ -21,7 +19,7 @@ model:
     hue: 0.1
 
   gradient_rescale:
-    enabled: True
+    enabled: False
     threshold: 100.0
 
   gradient_clipping:
@@ -43,7 +41,7 @@ model:
       power: 4.0
 
     initial_learning_rate: 0.001
-    policy: smooth_stepped
+    policy: constant
 
     random:
       min_learning_rate: 0.00001
@@ -54,8 +52,8 @@ model:
       batches_per_cycle: 10000
 
     smooth_stepped:
-      steps: [ 0, 10000, 20000, 30000 ]
-      targets: [ 0.001, 0.0003, 0.0002, 0.0001 ]
+      steps: [ 10000, 20000, 30000 ]
+      targets: [ 0.0003, 0.0002, 0.0001 ]
 
     sigmoid:
       target_learning_rate: 0.000001

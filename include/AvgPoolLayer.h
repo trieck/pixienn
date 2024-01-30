@@ -21,7 +21,12 @@
 namespace px {
 
 template<Device D>
-class AvgPoolLayer : public Layer<D>
+class APExtras
+{
+};
+
+template<Device D>
+class AvgPoolLayer : public Layer<D>, public APExtras<D>
 {
 public:
     using V = typename Layer<D>::V;
@@ -34,7 +39,7 @@ public:
     std::ostream& print(std::ostream& os) override;
 
 private:
-
+    void setup();
 };
 
 template<Device D>
@@ -49,6 +54,13 @@ AvgPoolLayer<D>::AvgPoolLayer(Model<D>& model, const Node& layerDef) : Layer<D>(
 
     this->output_ = V(outputSize, 0.0f);
     this->delta_ = V(outputSize, 0.0f);
+
+    setup();
+}
+
+template<Device D>
+void AvgPoolLayer<D>::setup()
+{
 }
 
 template<Device D>
@@ -107,3 +119,9 @@ std::ostream& AvgPoolLayer<D>::print(std::ostream& os)
 }
 
 }   // px
+
+#ifdef USE_CUDA
+
+#include "cuda/AvgPoolLayer.h"
+
+#endif
