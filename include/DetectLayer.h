@@ -20,6 +20,9 @@
 #include "GroundTruth.h"
 #include "Layer.h"
 #include "Math.h"
+#include "event.pb.h"
+
+using namespace tensorflow;
 
 namespace px {
 
@@ -70,12 +73,18 @@ private:
     DarkBox predBox(const float* poutput) const;
     GroundTruthResult groundTruth(const GroundTruthContext& ctxt);
     void setup();
+    void writeStats();
+    void writeAvgIoU();
+    void writePosCat();
+    void writeAllCat();
+    void writePosObj();
+    void writeAnyObj();
 
     PxCpuVector* poutput_, * pdelta_;
 
-    int coords_, num_, side_, count_ = 0;
-    bool rescore_, softmax_, sqrt_, forced_, random_, reorg_;
-    float coordScale_, objectScale_, noObjectScale_, classScale_, jitter_;
+    int coords_, num_, side_, count_ = 0, logInterval_;
+    bool rescore_, softmax_, sqrt_;
+    float coordScale_, objectScale_, noObjectScale_, classScale_;
     float avgIoU_, avgObj_, avgAnyObj_, avgCat_, avgAllCat_;
 };
 
@@ -85,17 +94,14 @@ DetectLayer<D>::DetectLayer(Model<D>& model, const YAML::Node& layerDef) : Layer
     classScale_ = this->template property<float>("class_scale", 1.0f);
     coordScale_ = this->template property<float>("coord_scale", 1.0f);
     coords_ = this->template property<int>("coords", 1);
-    forced_ = this->template property<bool>("forced", false);
-    jitter_ = this->template property<float>("jitter", 0.2f);
     noObjectScale_ = this->template property<float>("noobject_scale", 1.0f);
     num_ = this->template property<int>("num", 1);
     objectScale_ = this->template property<float>("object_scale", 1.0f);
-    random_ = this->template property<bool>("random", false);
-    reorg_ = this->template property<bool>("reorg", false);
     rescore_ = this->template property<bool>("rescore", false);
     side_ = this->template property<int>("side", 7);
     softmax_ = this->template property<bool>("softmax", false);
     sqrt_ = this->template property<bool>("sqrt", false);
+    logInterval_ = this->template property<int>("log_interval", 1000);
 
     this->setOutChannels(this->channels());
     this->setOutHeight(this->height());
@@ -229,15 +235,121 @@ void DetectLayer<D>::forwardCpu(const PxCpuVector& input)
 
     this->cost_ = std::pow(magArray(this->pdelta_->data(), this->pdelta_->size()), 2);
 
-    if (count_ > 0) {
-        printf("Detection: Avg. IoU: %f, Pos Cat: %f, All Cat: %f, Pos Obj: %f, Any Obj: %f, count: %d\n",
-               (avgIoU_ / count_),
-               (avgCat_ / count_),
-               (avgAllCat_ / (count_ * this->classes())),
-               (avgObj_ / count_),
-               (avgAnyObj_ / (this->batch() * locations * num_)),
-               count_);
+    if (count_ > 0 && this->model().seen() % logInterval_ == 0) {
+        writeStats();
     }
+}
+
+template<Device D>
+void DetectLayer<D>::writeStats()
+{
+    writeAvgIoU();
+    writePosCat();
+    writeAllCat();
+    writePosObj();
+    writeAnyObj();
+}
+
+template<Device D>
+void DetectLayer<D>::writeAvgIoU()
+{
+    auto avgIoU = count_ > 0 ? avgIoU_ / count_ : 0.0f;
+
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(this->model().seen());
+
+    auto tag = boost::format{ "detect-%d-avg-iou" } % this->index();
+
+    auto* summary = event.mutable_summary();
+    auto* value = summary->add_value();
+    value->set_tag(tag.str());
+    value->set_simple_value(avgIoU);
+
+    this->recordWriter().write(event);
+}
+
+template<Device D>
+void DetectLayer<D>::writePosCat()
+{
+    auto posCat = count_ > 0 ? avgCat_ / count_ : 0.0f;
+
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(this->model().seen());
+
+    auto tag = boost::format{ "detect-%d-pos-cat" } % this->index();
+
+    auto* summary = event.mutable_summary();
+    auto* value = summary->add_value();
+    value->set_tag(tag.str());
+    value->set_simple_value(posCat);
+
+    this->recordWriter().write(event);
+}
+
+template<Device D>
+void DetectLayer<D>::writeAllCat()
+{
+    auto allCat = count_ > 0 ? avgAllCat_ / (count_ * this->classes()) : 0.0f;
+
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(this->model().seen());
+
+    auto tag = boost::format{ "detect-%d-all-cat" } % this->index();
+
+    auto* summary = event.mutable_summary();
+    auto* value = summary->add_value();
+    value->set_tag(tag.str());
+    value->set_simple_value(allCat);
+
+    this->recordWriter().write(event);
+}
+
+template<Device D>
+void DetectLayer<D>::writePosObj()
+{
+    auto posObj = count_ > 0 ? avgObj_ / count_ : 0.0f;
+
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(this->model().seen());
+
+    auto tag = boost::format{ "detect-%d-pos-obj" } % this->index();
+
+    auto* summary = event.mutable_summary();
+    auto* value = summary->add_value();
+    value->set_tag(tag.str());
+    value->set_simple_value(posObj);
+
+    this->recordWriter().write(event);
+}
+
+template<Device D>
+void DetectLayer<D>::writeAnyObj()
+{
+    auto locations = this->side_ * this->side_;
+
+    auto anyObj = count_ > 0 ? avgAnyObj_ / ( this->batch() * locations * num_) : 0.0f;
+
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(this->model().seen());
+
+    auto tag = boost::format{ "detect-%d-any-obj" } % this->index();
+
+    auto* summary = event.mutable_summary();
+    auto* value = summary->add_value();
+    value->set_tag(tag.str());
+    value->set_simple_value(anyObj);
+
+    this->recordWriter().write(event);
 }
 
 template<Device D>

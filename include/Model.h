@@ -420,7 +420,6 @@ void Model<D>::writeAvgLoss()
     value->set_simple_value(avgLoss_);
 
     writer_->write(event);
-    event.release_summary();
 }
 
 template<Device D>
@@ -437,7 +436,6 @@ void Model<D>::writeLR()
     value->set_simple_value(learningRate());
 
     writer_->write(event);
-    event.release_summary();
 }
 
 template<Device D>
@@ -454,7 +452,6 @@ void Model<D>::writemAP()
     value->set_simple_value(mAP_);
 
     writer_->write(event);
-    event.release_summary();
 }
 
 template<Device D>
@@ -471,7 +468,6 @@ void Model<D>::writeAvgRecall()
     value->set_simple_value(avgRecall_);
 
     writer_->write(event);
-    event.release_summary();
 }
 
 template<Device D>
@@ -488,7 +484,6 @@ void Model<D>::writeMicroAvgF1()
     value->set_simple_value(microAvgF1_);
 
     writer_->write(event);
-    event.release_summary();
 }
 
 template<Device D>

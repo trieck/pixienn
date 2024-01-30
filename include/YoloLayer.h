@@ -232,8 +232,6 @@ void YoloLayer<D>::writeAvgIoU()
     value->set_simple_value(avgIoU);
 
     this->recordWriter().write(event);
-
-    event.release_summary();
 }
 
 template<Device D>
@@ -254,8 +252,6 @@ void YoloLayer<D>::writeAvgClass()
     value->set_simple_value(avgClass);
 
     this->recordWriter().write(event);
-
-    event.release_summary();
 }
 
 template<Device D>
@@ -276,8 +272,6 @@ void YoloLayer<D>::writeObjectness()
     value->set_simple_value(objectness);
 
     this->recordWriter().write(event);
-
-    event.release_summary();
 }
 
 template<Device D>
@@ -298,7 +292,6 @@ void YoloLayer<D>::writeRecall50()
     value->set_simple_value(recall50);
 
     this->recordWriter().write(event);
-    event.release_summary();
 }
 
 template<Device D>
@@ -319,7 +312,6 @@ void YoloLayer<D>::writeRecall75()
     value->set_simple_value(recall75);
 
     this->recordWriter().write(event);
-    event.release_summary();
 }
 
 template<Device D>
