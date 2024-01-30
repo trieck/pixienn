@@ -9,7 +9,7 @@ model:
   decay: 0.0005
 
   augmentation:
-    enabled: False
+    enabled: True
     flip: True
     jitter: 0.2
     hue: 0.1
@@ -21,7 +21,7 @@ model:
     threshold: 100.0
 
   gradient_clipping:
-    enabled: True
+    enabled: False
     value: 100.0
 
   validation:

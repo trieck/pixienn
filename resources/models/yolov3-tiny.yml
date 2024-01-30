@@ -14,7 +14,7 @@ model:
   write_metrics_interval: 1000
 
   augmentation:
-    enabled: False
+    enabled: True
     flip: True
     jitter: 0.2
     saturation: 1.2
@@ -41,7 +41,7 @@ model:
       power: 4.0
 
     initial_learning_rate: 0.001
-    policy: random
+    policy: smooth_stepped
 
     random:
       min_learning_rate: 0.00001
