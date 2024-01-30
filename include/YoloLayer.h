@@ -103,6 +103,7 @@ private:
     float avgAnyObj_ = 0.0f;
     int count_ = 0;
     int classCount_ = 0;
+    int logInterval_ = 0;
 };
 
 template<Device D>
@@ -118,6 +119,7 @@ YoloLayer<D>::YoloLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D>(
     objectScale_ = this->template property<float>("object_scale", 1.0f);
     noObjectScale_ = this->template property<float>("noobject_scale", 1.0f);
     classScale_ = this->template property<float>("class_scale", 1.0f);
+    logInterval_ = this->template property<int>("log_interval", 1000);
 
     PX_CHECK(anchors_.size() == 2 * num_, "anchors must be twice num size");
 
@@ -197,7 +199,7 @@ void YoloLayer<D>::forwardCpu(const PxCpuVector& input)
 
     this->cost_ = std::pow(magArray(pdelta_->data(), pdelta_->size()), 2);
 
-    if (count_ > 0) {
+    if (count_ > 0 && this->model().seen() % logInterval_ == 0) {
         writeStats();
     }
 }

@@ -23,7 +23,12 @@
 namespace px {
 
 template<Device D>
-class SoftmaxLayer : public Layer<D>, public Detector
+class SMExtras
+{
+};
+
+template<Device D>
+class SoftmaxLayer : public Layer<D>, public SMExtras<D>, public Detector
 {
 public:
     using V = typename Layer<D>::V;
@@ -42,8 +47,9 @@ public:
 
 private:
     void addDetects(Detections& detections, int width, int height, float threshold, const float* predictions) const;
-
     void computeLoss();
+    void setup();
+
     V loss_;
     float temperature_;
     int groups_;
@@ -67,7 +73,14 @@ SoftmaxLayer<D>::SoftmaxLayer(Model<D>& model, const Node& layerDef) : Layer<D>(
     this->output_ = V(outputSize, 0.0f);
     this->delta_ = V(outputSize, 0.0f);
     loss_ = V(outputSize, 0.0f);
+
+    setup();
 };
+
+template<Device D>
+void SoftmaxLayer<D>::setup()
+{
+}
 
 template<Device D>
 void SoftmaxLayer<D>::forward(const V& input)
@@ -173,3 +186,9 @@ void SoftmaxLayer<D>::addDetects(Detections& detections, float threshold)
 }
 
 }   // px
+
+#ifdef USE_CUDA
+
+#include "cuda/SoftmaxLayer.h"
+
+#endif

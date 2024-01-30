@@ -83,6 +83,7 @@ if (USE_CUDA)
             src/CudaUtils.cu
             src/Gemm.cpp
             src/ShortcutKernel.cu
+            src/SoftmaxKernel.cu
             src/UpsampleKernels.cu
     )
     message(STATUS "CUDA FOUND AND ENABLED")
