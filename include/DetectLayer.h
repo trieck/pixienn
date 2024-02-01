@@ -64,8 +64,9 @@ public:
     void addDetects(Detections& detections, int width, int height, float threshold) override;
 
 private:
-    void addDetects(Detections& detections, int width, int height, float threshold, const float* predictions) const;
-    void addDetects(Detections& detections, float threshold, const float* predictions) const;
+    void addDetects(Detections& detections, int batch, int width, int height, float threshold,
+                    const float* predictions) const;
+    void addDetects(Detections& detections, int batch, float threshold, const float* predictions) const;
 
     void forwardCpu(const PxCpuVector& input);
     void resetStats();
@@ -146,17 +147,23 @@ std::ostream& DetectLayer<D>::print(std::ostream& os)
 template<Device D>
 void DetectLayer<D>::addDetects(Detections& detections, int width, int height, float threshold)
 {
-    addDetects(detections, width, height, threshold, this->output_.data());
+    for (auto b = 0; b < this->batch(); ++b) {
+        auto* pred = this->output_.data() + b * this->outputs();
+        addDetects(detections, b, width, height, threshold, pred);
+    }
 }
 
 template<Device D>
 void DetectLayer<D>::addDetects(Detections& detections, float threshold)
 {
-    addDetects(detections, threshold, this->output_.data());
+    for (auto b = 0; b < this->batch(); ++b) {
+        auto* pred = this->output_.data() + b * this->outputs();
+        addDetects(detections, b, threshold, pred);
+    }
 }
 
 template<Device D>
-void DetectLayer<D>::addDetects(Detections& detections, int width, int height, float threshold,
+void DetectLayer<D>::addDetects(Detections& detections, int batch, int width, int height, float threshold,
                                 const float* predictions) const
 {
     auto nclasses = this->classes();
@@ -186,8 +193,8 @@ void DetectLayer<D>::addDetects(Detections& detections, int width, int height, f
             }
 
             if (maxProb >= threshold) {
-                DarkBox b{ x, y, w, h };
-                Detection det{ b.rect(), maxClass, maxProb };
+                DarkBox box{ x, y, w, h };
+                Detection det{ box.rect(), batch, maxClass, maxProb };
                 detections.emplace_back(std::move(det));
             }
         }
@@ -195,9 +202,9 @@ void DetectLayer<D>::addDetects(Detections& detections, int width, int height, f
 }
 
 template<Device D>
-void DetectLayer<D>::addDetects(Detections& detections, float threshold, const float* predictions) const
+void DetectLayer<D>::addDetects(Detections& detections, int batch, float threshold, const float* predictions) const
 {
-    addDetects(detections, 1, 1, threshold, predictions);
+    addDetects(detections, batch, 1, 1, threshold, predictions);
 }
 
 template<Device D>
@@ -335,7 +342,7 @@ void DetectLayer<D>::writeAnyObj()
 {
     auto locations = this->side_ * this->side_;
 
-    auto anyObj = count_ > 0 ? avgAnyObj_ / ( this->batch() * locations * num_) : 0.0f;
+    auto anyObj = count_ > 0 ? avgAnyObj_ / (this->batch() * locations * num_) : 0.0f;
 
     Event event;
     event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(

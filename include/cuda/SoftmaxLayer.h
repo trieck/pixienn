@@ -102,17 +102,25 @@ inline void SoftmaxLayer<Device::CUDA>::backward(const V& input)
 }
 
 template<>
-inline void SoftmaxLayer<Device::CUDA>::addDetects(Detections& detections, float threshold)
+inline void SoftmaxLayer<Device::CUDA>::addDetects(Detections& detects, float threshold)
 {
-    auto predictions = output_.data();
-    addDetects(detections, 0, 0, threshold, predictions);
+    auto vout = output_.asVector();
+
+    for (auto b = 0; b < this->batch(); ++b) {
+        auto* pout = vout.data() + b * this->outputs();
+        addDetects(detects, b, this->model().width(), this->model().height(), threshold, pout);
+    }
 }
 
 template<>
-inline void SoftmaxLayer<Device::CUDA>::addDetects(Detections& detections, int width, int height, float threshold)
+inline void SoftmaxLayer<Device::CUDA>::addDetects(Detections& detects, int width, int height, float threshold)
 {
-    auto predictions = output_.data();
-    addDetects(detections, width, height, threshold, predictions);
+    auto vout = output_.asVector();
+
+    for (auto b = 0; b < this->batch(); ++b) {
+        auto* pout = vout.data() + b * this->outputs();
+        addDetects(detects, b, width, height, threshold, pout);
+    }
 }
 
 } // px

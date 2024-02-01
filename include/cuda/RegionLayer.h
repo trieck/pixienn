@@ -72,17 +72,23 @@ inline void RegionLayer<Device::CUDA>::backward(const V& input)
 template<>
 inline void RegionLayer<Device::CUDA>::addDetects(Detections& detects, int width, int height, float threshold)
 {
-    auto preds = this->output_.asVector();
+    auto vout = output_.asVector();
 
-    addDetects(detects, width, height, threshold, preds.data());
+    for (auto b = 0; b < this->batch(); ++b) {
+        auto* pout = vout.data() + b * this->outputs();
+        addDetects(detects, b, width, height, threshold, pout);
+    }
 }
 
 template<>
 inline void RegionLayer<Device::CUDA>::addDetects(Detections& detects, float threshold)
 {
-    auto preds = this->output_.asVector();
+    auto vout = output_.asVector();
 
-    addDetects(detects, threshold, preds.data());
+    for (auto b = 0; b < this->batch(); ++b) {
+        auto* pout = vout.data() + b * this->outputs();
+        addDetects(detects, b, threshold, pout);
+    }
 }
 
 }   // px

@@ -217,7 +217,6 @@ private:
 
     using ImageLabels = std::pair<PxCpuVector, GroundTruthVec>;
     ImageLabels loadImgLabels(Category category, const std::string& imagePath, bool augment);
-    TrainBatch loadBatch(Category category, int size, bool augment);
     TrainBatch loadBatch(Category category, bool augment);
     GroundTruthVec groundTruth(Category category, const std::string& imagePath);
     std::string weightsFileName(bool final) const;
@@ -281,7 +280,7 @@ private:
     int width_ = 0;
     bool valEnabled_ = false;
     int valInterval_ = 0;
-    int valBatchSize_ = 0;
+    int valBatches_ = 0;
     float valThresh_ = 0.0f;
 
     int saveWeightsInterval_ = 0;
@@ -750,6 +749,7 @@ std::string Model<D>::asJson(const Detections& detects) const noexcept
 
         geometry["coordinates"] = json::array({ coords });
 
+        props["batch_id"] = detect.batchId();
         props["class"] = labels_[index];
         props["confidence"] = detect.prob();
 
@@ -901,7 +901,7 @@ void Model<D>::parseModel(const Node& modelDoc)
         if (val && val.IsMap()) {
             valEnabled_ = val["enabled"].as<bool>(true);
             valInterval_ = val["interval"].as<int>(1000);
-            valBatchSize_ = val["batch_size"].as<int>(100);
+            valBatches_ = val["batches"].as<int>(100);
             valThresh_ = val["threshold"].as<float>(0.2f);
         }
 
@@ -909,7 +909,7 @@ void Model<D>::parseModel(const Node& modelDoc)
         writeMetricsInterval_ = model["write_metrics_interval"].as<int>(1000);
     }
 
-    batch_ = model["batch"].as<int>();
+    batch_ = training_ ? model["batch"].as<int>() : 1;
     channels_ = model["channels"].as<int>();
     height_ = model["height"].as<int>();
     subdivs_ = model["subdivisions"].as<int>(1);
@@ -1239,32 +1239,23 @@ void Model<D>::saveWeights(const std::string& fileName)
 }
 
 template<Device D>
-TrainBatch Model<D>::loadBatch(Category type, bool augment)
+TrainBatch Model<D>::loadBatch(Category category, bool augment)
 {
-    return loadBatch(type, batch_, augment);
-}
+    TrainBatch batch(batch_, channels_, height_, width_);
 
-template<Device D>
-TrainBatch Model<D>::loadBatch(Model::Category category, int size, bool augment)
-{
-    TrainBatch batch(size, channels_, height_, width_);
-
-    const auto& images = category == Category::TRAIN ?
-                         trainImages_ : valImages_;
+    const auto& images = category == Category::TRAIN ? trainImages_ : valImages_;
 
     std::random_device rd;
     std::default_random_engine generator(rd());
     std::uniform_int_distribution<int> distribution(0, images.size() - 1);
 
-    auto n = std::min<std::size_t>(size, images.size());
-
-    for (auto i = 0; i < n; ++i) {
+    for (auto b = 0; b < batch_; ++b) {
         auto j = distribution(generator);
         const auto& imagePath = images[j];
         auto imgLabels = loadImgLabels(category, imagePath, augment);
 
-        batch.setImageData(i, imgLabels.first);  // the image data must be copied
-        batch.setGroundTruth(i, std::move(imgLabels.second));
+        batch.setImageData(b, imgLabels.first);  // the image data must be copied
+        batch.setGroundTruth(b, std::move(imgLabels.second));
     }
 
     return batch;
@@ -1340,18 +1331,19 @@ void Model<D>::validate()
 {
     std::cout << "Pausing training to validate..." << std::flush;
 
-    auto batch = loadBatch(Category::VAL, valBatchSize_, false);
+    Validator<D> validator(valThresh_, classes());
 
-    Validator <D> validator(valThresh_);
-
-    validator.validate(*this, std::move(batch));
+    for (auto i = 0; i < valBatches_; ++i) {
+        auto batch = loadBatch(Category::VAL, false);
+        validator.validate(*this, std::move(batch));
+    }
 
     mAP_ = validator.mAP();
     avgRecall_ = validator.avgRecall();
     microAvgF1_ = validator.microAvgF1();
 
-    std::printf("\n%zu: mAP: %f, Avg. Recall: %f, micro-Avg. F1: %f\n",
-                seen_, mAP_, avgRecall_, microAvgF1_);
+    std::printf("\nEpoch: %zu, mAP: %f, Avg. Recall: %f, Micro-Avg. F1: %f\n",
+                seen_ / trainImages_.size(), mAP_, avgRecall_, microAvgF1_);
 
     std::cout << "Resuming training..." << std::endl << std::flush;
 }

@@ -99,11 +99,11 @@ public:
      * The average recall is the mean of recall values for each class, providing
      * an overall measure of model recall considering all classes.
      *
-     * @param classes The number of classes to consider. If -1, all classes are considered.
+     * @param classes The set of classes for which to calculate average recall.
      *
-     * @return The average recall value across all classes.
+     * @return The average recall value across all classes seen.
      */
-    float avgRecall(int classes = -1) const;
+    float avgRecall(const std::unordered_set<int>& classes) const;
 
     /**
      * @brief Calculates the mean Average Precision (mAP) across all classes.
@@ -111,11 +111,11 @@ public:
      * The mean Average Precision is the mean of precision values for each class, providing
      * an overall measure of model precision considering all classes.
      *
-     * @param classes The number of classes to consider. If -1, all classes are considered.
+     * @param classes The set of classes for which to calculate mAP.
      *
-     * @return The mAP value across all classes.
+     * @return The mAP value across all classes seen.
      */
-    float mAP(int classes = -1) const;
+    float mAP(const std::unordered_set<int>& classes) const;
 
     /**
      * @brief Calculates the micro-averaged F1 score across all classes.

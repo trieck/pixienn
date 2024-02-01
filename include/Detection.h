@@ -23,16 +23,18 @@ namespace px {
 class Detection
 {
 public:
-    Detection(cv::Rect2f box, int classIndex, float prob);
+    Detection(cv::Rect2f box, int batchId, int classIndex, float prob);
 
     float prob() const noexcept;
     const cv::Rect2f& box() const noexcept;
     int classIndex() const noexcept;
+    int batchId() const noexcept;
 
 private:
     cv::Rect2f box_;
     float prob_;
     int classIndex_ = 0;
+    int batchId_ = 0;
 };
 
 using Detections = std::vector<Detection>;
