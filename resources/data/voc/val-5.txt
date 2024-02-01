@@ -1,0 +1,5 @@
+/opt/VOCdevkit/VOC2007/JPEGImages/000012.jpg
+/opt/VOCdevkit/VOC2007/JPEGImages/000017.jpg
+/opt/VOCdevkit/VOC2007/JPEGImages/000023.jpg
+/opt/VOCdevkit/VOC2007/JPEGImages/000026.jpg
+/opt/VOCdevkit/VOC2007/JPEGImages/000032.jpg

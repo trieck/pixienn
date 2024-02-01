@@ -18,6 +18,7 @@
 
 #include "Layer.h"
 #include "Utility.h"
+#include "event.pb.h"
 
 namespace px {
 
@@ -48,8 +49,9 @@ public:
 private:
     void forwardCpu(const PxCpuVector& input);
 
-    void addDetects(Detections& detections, int width, int height, float threshold, const float* predictions) const;
-    void addDetects(Detections& detections, float threshold, const float* predictions) const;
+    void addDetects(Detections& detections, int batch, int width, int height, float threshold,
+                    const float* predictions) const;
+    void addDetects(Detections& detections, int batch, float threshold, const float* predictions) const;
 
     DarkBox regionBox(const float* p, int n, int index, int i, int j) const;
     float deltaRegionBox(const DarkBox& truth, int n, int index, int i, int j, float scale);
@@ -61,6 +63,12 @@ private:
     void processRegion(int b, int i, int j);
     void processObjects(int b);
     void setup();
+    void writeStats();
+    void writeAvgIoU();
+    void writeClass();
+    void writeObj();
+    void writeNoObj();
+    void writeRecall();
 
     LogisticActivation<Device::CPU> logistic_;
 
@@ -76,9 +84,120 @@ private:
     float avgObj_ = 0.0f;
     float recall_ = 0.0f;
     int count_ = 0, classCount_ = 0;
+    int logInterval_;
 
     PxCpuVector* poutput_, * pdelta_;
 };
+
+template<Device D>
+void RegionLayer<D>::writeStats()
+{
+    writeAvgIoU();
+    writeClass();
+    writeObj();
+    writeNoObj();
+    writeRecall();
+}
+
+template<Device D>
+void RegionLayer<D>::writeAvgIoU()
+{
+    auto avgIoU = count_ > 0 ? avgIoU_ / count_ : 0.0f;
+
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(this->model().seen());
+
+    auto tag = boost::format{ "region-%d-avg-iou" } % this->index();
+
+    auto* summary = event.mutable_summary();
+    auto* value = summary->add_value();
+    value->set_tag(tag.str());
+    value->set_simple_value(avgIoU);
+
+    this->recordWriter().write(event);
+}
+
+template<Device D>
+void RegionLayer<D>::writeClass()
+{
+    auto clazz = classCount_ > 0 ? avgCat_ / classCount_ : 0.0f;
+
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(this->model().seen());
+
+    auto tag = boost::format{ "region-%d-class" } % this->index();
+
+    auto* summary = event.mutable_summary();
+    auto* value = summary->add_value();
+    value->set_tag(tag.str());
+    value->set_simple_value(clazz);
+
+    this->recordWriter().write(event);
+}
+
+template<Device D>
+void RegionLayer<D>::writeObj()
+{
+    auto obj = count_ > 0 ? avgObj_ / count_ : 0.0f;
+
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(this->model().seen());
+
+    auto tag = boost::format{ "region-%d-object" } % this->index();
+
+    auto* summary = event.mutable_summary();
+    auto* value = summary->add_value();
+    value->set_tag(tag.str());
+    value->set_simple_value(obj);
+
+    this->recordWriter().write(event);
+}
+
+template<Device D>
+void RegionLayer<D>::writeNoObj()
+{
+    auto noObj = count_ > 0 ? avgAnyObj_ / (this->width() * this->height() * num_ * this->batch()) : 0.0f;
+
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(this->model().seen());
+
+    auto tag = boost::format{ "region-%d-noobject" } % this->index();
+
+    auto* summary = event.mutable_summary();
+    auto* value = summary->add_value();
+    value->set_tag(tag.str());
+    value->set_simple_value(noObj);
+
+    this->recordWriter().write(event);
+}
+
+template<Device D>
+void RegionLayer<D>::writeRecall()
+{
+    auto recall = count_ > 0 ? recall_ / count_ : 0.0f;
+
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(this->model().seen());
+
+    auto tag = boost::format{ "region-%d-recall" } % this->index();
+
+    auto* summary = event.mutable_summary();
+    auto* value = summary->add_value();
+    value->set_tag(tag.str());
+    value->set_simple_value(recall);
+
+    this->recordWriter().write(event);
+}
 
 template<Device D>
 RegionLayer<D>::RegionLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D>(model, layerDef)
@@ -94,6 +213,7 @@ RegionLayer<D>::RegionLayer(Model<D>& model, const YAML::Node& layerDef) : Layer
     rescore_ = this->template property<bool>("rescore", false);
     softmax_ = this->template property<bool>("softmax", false);
     thresh_ = this->template property<float>("thresh", 0.5f);
+    logInterval_ = this->template property<int>("log_interval", 1000);
 
     PX_CHECK(anchors_.size() == 2 * num_, "Anchors size does not match number of regions.");
 
@@ -190,14 +310,8 @@ void RegionLayer<D>::forwardCpu(const PxCpuVector& input)
 
     this->cost_ = std::pow(magArray(pdelta_->data(), pdelta_->size()), 2);
 
-    if (count_ > 0) {
-        printf("Region Avg. IoU: %f, Class: %f, Obj: %f, No Obj: %f, Avg. Recall: %f, count: %d\n",
-               avgIoU_ / count_,
-               avgCat_ / classCount_,
-               avgObj_ / count_,
-               avgAnyObj_ / (this->width() * this->height() * num_ * this->batch()),
-               recall_ / count_,
-               count_);
+    if (count_ > 0 && this->model().seen() % logInterval_ == 0) {
+        writeStats();
     }
 }
 
@@ -224,17 +338,23 @@ void RegionLayer<D>::backward(const V& input)
 template<Device D>
 void RegionLayer<D>::addDetects(Detections& detects, float threshold)
 {
-    addDetects(detects, threshold, this->output_.data());
+    for (auto b = 0; b < this->batch(); ++b) {
+        auto* pred = this->output_.data() + b * this->outputs();
+        addDetects(detects, b, threshold, pred);
+    }
 }
 
 template<Device D>
 void RegionLayer<D>::addDetects(Detections& detects, int width, int height, float threshold)
 {
-    addDetects(detects, width, height, threshold, this->output_.data());
+    for (auto b = 0; b < this->batch(); ++b) {
+        auto* pred = this->output_.data() + b * this->outputs();
+        addDetects(detects, b, width, height, threshold, pred);
+    }
 }
 
 template<Device D>
-void RegionLayer<D>::addDetects(Detections& detections, int width, int height, float threshold,
+void RegionLayer<D>::addDetects(Detections& detections, int batch, int width, int height, float threshold,
                                 const float* predictions) const
 {
     for (auto i = 0; i < this->height() * this->width(); ++i) {
@@ -253,7 +373,7 @@ void RegionLayer<D>::addDetects(Detections& detections, int width, int height, f
                 auto prob = scale * predictions[clsIndex + j];
                 if (prob >= threshold) {
                     auto rect = lightBox(box, { width, height });
-                    Detection det(rect, j, prob);
+                    Detection det(rect, batch, j, prob);
                     detections.emplace_back(std::move(det));
                 }
             }
@@ -336,9 +456,9 @@ float RegionLayer<D>::bestIoU(int b, const DarkBox& pred)
 }
 
 template<Device D>
-void RegionLayer<D>::addDetects(Detections& detections, float threshold, const float* predictions) const
+void RegionLayer<D>::addDetects(Detections& detections, int batch, float threshold, const float* predictions) const
 {
-    addDetects(detections, 1, 1, threshold, predictions);
+    addDetects(detections, batch, 1, 1, threshold, predictions);
 }
 
 template<Device D>

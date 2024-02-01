@@ -46,7 +46,8 @@ public:
     void addDetects(Detections& detections, int width, int height, float threshold) override;
 
 private:
-    void addDetects(Detections& detections, int width, int height, float threshold, const float* predictions) const;
+    void addDetects(Detections& detections, int batch, int width, int height, float threshold,
+                    const float* predictions) const;
     void computeLoss();
     void setup();
 
@@ -156,22 +157,9 @@ void SoftmaxLayer<D>::addDetects(Detections& detections, int width, int height, 
         return;
     }
 
-    addDetects(detections, width, height, threshold, this->output_.data());
-}
-
-template<Device D>
-void SoftmaxLayer<D>::addDetects(Detections& detections, int width, int height, float threshold,
-                                 const float* predictions) const
-{
-    auto maxClass = std::max_element(predictions, predictions + this->classes());
-    auto maxClassProb = *maxClass;
-    auto maxClassId = std::distance(predictions, maxClass);
-
-    if (maxClassProb >= threshold) {
-        cv::Rect box = { 0, 0, width, height };
-
-        auto detection = Detection(std::move(box), maxClassId, maxClassProb);
-        detections.emplace_back(std::move(detection));
+    for (auto b = 0; b < this->batch(); ++b) {
+        auto* pout = this->output_.data() + b * this->outputs();
+        addDetects(detections, b, width, height, threshold, pout);
     }
 }
 
@@ -182,7 +170,26 @@ void SoftmaxLayer<D>::addDetects(Detections& detections, float threshold)
         return;
     }
 
-    addDetects(detections, this->model().width(), this->model().height(), threshold, this->output_.data());
+    for (auto b = 0; b < this->batch(); ++b) {
+        auto* pout = this->output_.data() + b * this->outputs();
+        addDetects(detections, b, this->model().width(), this->model().height(), threshold, pout);
+    }
+}
+
+template<Device D>
+void SoftmaxLayer<D>::addDetects(Detections& detections, int batch, int width, int height, float threshold,
+                                 const float* predictions) const
+{
+    auto maxClass = std::max_element(predictions, predictions + this->classes());
+    auto maxClassProb = *maxClass;
+    auto maxClassId = std::distance(predictions, maxClass);
+
+    if (maxClassProb >= threshold) {
+        cv::Rect box = { 0, 0, width, height };
+
+        auto detection = Detection(std::move(box), batch, maxClassId, maxClassProb);
+        detections.emplace_back(std::move(detection));
+    }
 }
 
 }   // px

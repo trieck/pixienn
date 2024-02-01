@@ -145,42 +145,36 @@ void ConfusionMatrix::reset()
     }
 }
 
-float ConfusionMatrix::avgRecall(int classes) const
+float ConfusionMatrix::avgRecall(const std::unordered_set<int>& classes) const
 {
-    if (classes == -1) {
-        classes = numClasses_;
-    }
-
-    if (classes == 0) {
+    auto nclasses = classes.size();
+    if (nclasses == 0) {
         return 0.0f;
     }
 
     auto totalRecall = 0.0f;
-    for (auto i = 0; i < classes; ++i) {
-        auto recallValue = recall(i);
+    for (const auto& cls: classes) {
+        auto recallValue = recall(cls);
         totalRecall += recallValue;
     }
 
-    return totalRecall / classes;
+    return totalRecall / nclasses;
 }
 
-float ConfusionMatrix::mAP(int classes) const
+float ConfusionMatrix::mAP(const std::unordered_set<int>& classes) const
 {
-    if (classes == -1) {
-        classes = numClasses_;
-    }
-
-    if (classes == 0) {
+    auto nclasses = classes.size();
+    if (nclasses == 0) {
         return 0.0f;
     }
 
     auto totalPrecision = 0.0f;
-    for (int i = 0; i < classes; ++i) {
-        auto precisionValue = precision(i);
+    for (const auto& cls: classes) {
+        auto precisionValue = precision(cls);
         totalPrecision += precisionValue;
     }
 
-    return totalPrecision / classes;
+    return totalPrecision / nclasses;
 }
 
 float ConfusionMatrix::F1(int clsIndex) const

@@ -68,19 +68,25 @@ inline void YoloLayer<Device::CUDA>::backward(const V& input)
 }
 
 template<>
-inline void YoloLayer<Device::CUDA>::addDetects(Detections& detections, int width, int height, float threshold)
+inline void YoloLayer<Device::CUDA>::addDetects(Detections& detects, int width, int height, float threshold)
 {
-    auto pred = this->output_.asVector();
+    auto vout = output_.asVector();
 
-    addDetects(detections, width, height, threshold, pred.data());
+    for (auto b = 0; b < this->batch(); ++b) {
+        auto* pout = vout.data() + b * this->outputs();
+        addDetects(detects, b, width, height, threshold, pout);
+    }
 }
 
 template<>
-inline void YoloLayer<Device::CUDA>::addDetects(Detections& detections, float threshold)
+inline void YoloLayer<Device::CUDA>::addDetects(Detections& detects, float threshold)
 {
-    auto pred = this->output_.asVector();
+    auto vout = output_.asVector();
 
-    addDetects(detections, threshold, pred.data());
+    for (auto b = 0; b < this->batch(); ++b) {
+        auto* pout = vout.data() + b * this->outputs();
+        addDetects(detects, b, threshold, pout);
+    }
 }
 
 }   // px

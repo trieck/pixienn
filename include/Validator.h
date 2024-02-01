@@ -31,30 +31,39 @@ template<Device D>
 class Validator
 {
 public:
-    Validator(float threshold);
+    Validator(float threshold, int numClasses);
 
     using V = typename DeviceTraits<D>::VectorType;
 
     void validate(Model<D>& model, TrainBatch&& batch);
+    void reset() noexcept;
 
     float avgRecall() const noexcept;
     float mAP() const noexcept;
     float microAvgF1() const noexcept;
 
 private:
-    void forward(Model<D>& model, PxCpuVector& input);
+    void forward(Model<D>& model, const PxCpuVector& input);
 
-    void processDetects(const Detections& detects, const GroundTruthVec& gts);
-    GroundTruthVec::size_type findGroundTruth(const Detection& detection, const GroundTruthVec& gts);
+    void processDetects(const Detections& detects, const GroundTruths& gts);
+    GroundTruthVec::size_type bestGroundTruth(const Detection& detection, const GroundTruthVec& gtv);
     float iou(const Detection& detection, const GroundTruth& truth);
 
     ConfusionMatrix matrix_;
     std::unordered_set<int> classesSeen_;
+
     float threshold_;
 };
 
 template<Device D>
-Validator<D>::Validator(float threshold) : threshold_(threshold)
+void Validator<D>::reset() noexcept
+{
+    matrix_.reset();
+    classesSeen_.clear();
+}
+
+template<Device D>
+Validator<D>::Validator(float threshold, int numClasses) : threshold_(threshold), matrix_(numClasses)
 {
 }
 
@@ -67,42 +76,34 @@ float Validator<D>::microAvgF1() const noexcept
 template<Device D>
 float Validator<D>::mAP() const noexcept
 {
-    return matrix_.mAP(classesSeen_.size());
+    return matrix_.mAP(classesSeen_);
 }
 
 template<Device D>
 float Validator<D>::avgRecall() const noexcept
 {
-    return matrix_.avgRecall(classesSeen_.size());
+    return matrix_.avgRecall(classesSeen_);
 }
 
 template<Device D>
 void Validator<D>::validate(Model<D>& model, TrainBatch&& batch)
 {
-    classesSeen_.clear();
-    matrix_.resize(model.classes());
     model.setTraining(false);
     model.setThreshold(threshold_);
 
-    auto inputSize = batch.height() * batch.width() * batch.channels();
-    PxCpuVector input(inputSize, 0.0f);
+    const PxCpuVector& input = batch.imageData();
 
-    for (auto i = 0; i < batch.batchSize(); ++i) {
-        auto image = batch.slice(i);
-        input.copyHost(image, inputSize);
+    forward(model, input);
 
-        forward(model, input);
+    processDetects(model.detections(), batch.groundTruth());
 
-        processDetects(model.detections(), batch.groundTruth(i));
-
-        std::cout << '.' << std::flush;
-    }
+    std::cout << "." << std::flush;
 
     model.setTraining(true);
 }
 
 template<Device D>
-void Validator<D>::forward(Model<D>& model, PxCpuVector& input)
+void Validator<D>::forward(Model<D>& model, const PxCpuVector& input)
 {
     model.forward(input);
 }
@@ -118,7 +119,7 @@ float Validator<D>::iou(const Detection& detection, const GroundTruth& truth)
 }
 
 template<Device D>
-GroundTruthVec::size_type Validator<D>::findGroundTruth(const Detection& detection, const GroundTruthVec& gts)
+GroundTruthVec::size_type Validator<D>::bestGroundTruth(const Detection& detection, const GroundTruthVec& gts)
 {
     auto bestIt = std::end(gts);
     auto bestIoU = -std::numeric_limits<float>::max();
@@ -135,31 +136,37 @@ GroundTruthVec::size_type Validator<D>::findGroundTruth(const Detection& detecti
 }
 
 template<Device D>
-void Validator<D>::processDetects(const Detections& detects, const GroundTruthVec& gts)
+void Validator<D>::processDetects(const Detections& detects, const GroundTruths& gts)
 {
     auto results = nms(detects, 0.2f);
 
-    GroundTruthVec gtsCopy(gts);
+    for (std::size_t b = 0; b < gts.size(); ++b) {
+        auto gtv = gts[b];   // copy the ground truth vector
 
-    for (const auto& detect: results) {
-        classesSeen_.emplace(detect.classIndex());
-        auto index = findGroundTruth(detect, gtsCopy);
-        if (index < gtsCopy.size()) {
-            classesSeen_.emplace(gtsCopy[index].classId);
-            matrix_.update(gtsCopy[index].classId, detect.classIndex());   // true or false positive
-            gtsCopy.erase(gtsCopy.begin() + index);
-        } else {
-            matrix_.update(-1, detect.classIndex());    // this is a "ghost prediction", a false positive
+        for (const auto& detect: results) {
+            if (detect.batchId() != b) {
+                continue;
+            }
+
+            classesSeen_.emplace(detect.classIndex());
+            auto index = bestGroundTruth(detect, gtv);
+            if (index < gtv.size()) {
+                classesSeen_.emplace(gtv[index].classId);
+                matrix_.update(gtv[index].classId, detect.classIndex());   // true or false positive
+                gtv.erase(gtv.begin() + index);
+            } else {
+                matrix_.update(-1, detect.classIndex());    // this is a "ghost prediction", a false positive
+            }
+        }
+
+        for (const auto& gt: gtv) { // these are the "undetected objects", a false negative
+            classesSeen_.emplace(gt.classId);
+            matrix_.update(gt.classId, -1);
         }
     }
-
-    for (const auto& gt: gtsCopy) {
-        classesSeen_.emplace(gt.classId);
-        matrix_.update(gt.classId, -1);    // this is an "undetected object", a false negative
-    }
 }
 
-}
+}   // px
 
 #ifdef USE_CUDA
 

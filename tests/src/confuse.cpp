@@ -140,7 +140,6 @@ TEST_F(ConfusionMatrixTest, FalseNegatives)
     ASSERT_EQ(result, 3);
 }
 
-
 TEST_F(ConfusionMatrixTest, Precision)
 {
     const int trueClass = 1;
@@ -181,9 +180,9 @@ TEST_F(ConfusionMatrixTest, mAP)
     EXPECT_NEAR(matrix.precision(2), 0.5f, 1e-2);
     EXPECT_NEAR(matrix.recall(2), 0.5f, 1e-2);
 
-    const auto result = matrix.mAP();
+    const auto result = matrix.mAP({ 1, 2 });
 
-    const auto expectedMAP = 7.0f / 24;
+    const auto expectedMAP = 0.583;
 
     EXPECT_NEAR(result, expectedMAP, 1e-2);
 }

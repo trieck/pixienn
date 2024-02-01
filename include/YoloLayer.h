@@ -66,8 +66,8 @@ public:
 private:
     void forwardCpu(const PxCpuVector& input);
 
-    void addDetects(Detections& detections, int width, int height, float threshold, const float* predictions) const;
-    void addDetects(Detections& detections, float threshold, const float* predictions) const;
+    void addDetects(Detections& detections, int batch, int width, int height, float threshold, const float* predictions) const;
+    void addDetects(Detections& detections, int batch, float threshold, const float* predictions) const;
 
     int entryIndex(int batch, int location, int entry) const noexcept;
     DarkBox yoloBox(const float* p, int mask, int index, int i, int j) const;
@@ -543,13 +543,13 @@ DarkBox YoloLayer<D>::yoloBox(const float* p, int mask, int index, int i, int j)
 }
 
 template<Device D>
-void YoloLayer<D>::addDetects(Detections& detections, float threshold, const float* predictions) const
+void YoloLayer<D>::addDetects(Detections& detections, int batch, float threshold, const float* predictions) const
 {
-    addDetects(detections, 0, 0, threshold, predictions);
+    addDetects(detections, 0, 0, batch, threshold, predictions);
 }
 
 template<Device D>
-void YoloLayer<D>::addDetects(Detections& detections, int width, int height, float threshold, const float* predictions)
+void YoloLayer<D>::addDetects(Detections& detections, int batch, int width, int height, float threshold, const float* predictions)
 const
 {
     const auto scaled = width > 0 && height > 0;
@@ -590,7 +590,7 @@ const
             }
 
             if (maxProb >= threshold) {
-                Detection det(box, maxClass, maxProb);
+                Detection det(box, batch, maxClass, maxProb);
                 detections.emplace_back(std::move(det));
             }
         }
@@ -600,13 +600,19 @@ const
 template<Device D>
 void YoloLayer<D>::addDetects(Detections& detections, int width, int height, float threshold)
 {
-    addDetects(detections, width, height, threshold, this->output_.data());
+    for (auto b = 0; b < this->batch(); ++b) {
+        auto predictions = this->output_.data() + b * this->outputs();
+        addDetects(detections, b, width, height, threshold, predictions);
+    }
 }
 
 template<Device D>
 void YoloLayer<D>::addDetects(Detections& detections, float threshold)
 {
-    addDetects(detections, threshold, this->output_.data());
+    for (auto b = 0; b < this->batch(); ++b) {
+        auto predictions = this->output_.data() + b * this->outputs();
+        addDetects(detections, b, threshold, predictions);
+    }
 }
 
 template<Device D>

@@ -19,7 +19,7 @@
 namespace px {
 
 template<>
-inline void Validator<Device::CUDA>::forward(Model<Device::CUDA>& model, PxCpuVector& input)
+inline void Validator<Device::CUDA>::forward(Model<Device::CUDA>& model, const PxCpuVector& input)
 {
     V cudaInput(&(*input.begin()), &(*input.end()));
 
