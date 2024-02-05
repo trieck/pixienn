@@ -26,9 +26,9 @@ model:
 
   validation:
     enabled: True
-    interval: 1000
+    interval: 10000
     batches: 100
-    threshold: 0.2
+    threshold: 0.5
 
   save_weights_interval: 10000
   write_metrics_interval: 1000
@@ -38,8 +38,8 @@ model:
       batches: 1000
       power: 4.0
 
-    initial_learning_rate: 0.0001
-    policy: cosine_annealing
+    initial_learning_rate: 0.001
+    policy: inverse
 
     random:
       min_learning_rate: 0.00001
@@ -58,7 +58,7 @@ model:
       factor: 12.0
 
     inverse:
-      gamma: 0.0001
+      gamma: 0.00001
       power: 4
 
     stepped:
