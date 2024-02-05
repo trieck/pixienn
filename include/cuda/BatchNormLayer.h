@@ -86,9 +86,13 @@ inline void BatchNormLayer<Device::CUDA>::forward(const PxCudaVector& input)
 }
 
 template<>
-inline void BatchNormLayer<Device::CUDA>::backward(const px::PxCudaVectorT<float>& input)
+inline void BatchNormLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
-    Layer<Device::CUDA>::backward(input);
+    Layer<Device::CUDA>::backward(input, grad);
+
+    if (grad == nullptr) {
+        return;
+    }
 
     auto alpha = 1.0f;
     auto beta = 0.0f;
@@ -100,7 +104,7 @@ inline void BatchNormLayer<Device::CUDA>::backward(const px::PxCudaVectorT<float
             &alpha,
             &beta,
             &alpha,
-            &alpha,
+            &beta,
             *dstTens_,
             x_.data(),
             *dstTens_,
@@ -118,6 +122,10 @@ inline void BatchNormLayer<Device::CUDA>::backward(const px::PxCudaVectorT<float
     PX_CHECK_CUDNN(status);
 
     delta_.copy(xNorm_);
+
+    if (grad != nullptr) {
+        grad->copy(delta_);
+    }
 }
 
 }   // px

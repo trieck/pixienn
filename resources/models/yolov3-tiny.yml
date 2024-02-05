@@ -32,7 +32,7 @@ model:
   validation:
     enabled: True
     interval: 10000
-    batch_size: 100
+    batches: 100
     threshold: 0.2
 
   learning_rate:

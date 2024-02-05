@@ -55,7 +55,7 @@ public:
     DetectLayer(Model<D>& model, const YAML::Node& layerDef);
 
     void forward(const V& input) override;
-    void backward(const V& input) override;
+    void backward(const V& input, V* grad) override;
 
     bool hasCost() const noexcept override;
     std::ostream& print(std::ostream& os) override;
@@ -511,15 +511,19 @@ GroundTruthResult DetectLayer<D>::groundTruth(const GroundTruthContext& ctxt)
 }
 
 template<Device D>
-void DetectLayer<D>::backward(const V& input)
+void DetectLayer<D>::backward(const V& input, V* grad)
 {
-    Layer<D>::backward(input);
+    Layer<D>::backward(input, grad);
+
+    if (grad == nullptr) {
+        return;
+    }
 
     auto* pDelta = this->delta_.data();
-    auto* pNetDelta = this->netDelta()->data();
+
     const auto n = this->batch() * this->inputs();
 
-    cblas_saxpy(n, 1, pDelta, 1, pNetDelta, 1);
+    cblas_saxpy(n, 1, pDelta, 1, grad->data(), 1);
 }
 
 using CpuDetect = DetectLayer<>;

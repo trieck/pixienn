@@ -29,7 +29,7 @@ public:
     RouteLayer(Model<D>& model, const YAML::Node& layerDef);
 
     void forward(const V& input) override;
-    void backward(const V& input) override;
+    void backward(const V& input, V* grad) override;
 
     std::ostream& print(std::ostream& os) override;
 
@@ -113,9 +113,9 @@ void RouteLayer<D>::forward(const V& input)
 }
 
 template<Device D>
-void RouteLayer<D>::backward(const V& input)
+void RouteLayer<D>::backward(const V& input, V* grad)
 {
-    Layer<D>::backward(input);
+    Layer<D>::backward(input, grad);
 
     auto offset = 0;
     auto* pdelta = this->delta_.data();

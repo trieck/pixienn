@@ -54,17 +54,19 @@ inline void RegionLayer<Device::CUDA>::forward(const V& input)
 }
 
 template<>
-inline void RegionLayer<Device::CUDA>::backward(const V& input)
+inline void RegionLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
-    Layer<Device::CUDA>::backward(input);
+    Layer<Device::CUDA>::backward(input, grad);
 
-    // FIXME: flatten on GPU
+    if (grad == nullptr) {
+        return;
+    }
 
     auto alpha = 1.0f;
 
     const auto& ctxt = this->cublasContext();
 
-    auto status = cublasSaxpy(ctxt, this->delta_.size(), &alpha, this->delta_.data(), 1, this->netDelta()->data(), 1);
+    auto status = cublasSaxpy(ctxt, this->delta_.size(), &alpha, this->delta_.data(), 1, grad->data(), 1);
 
     PX_CHECK_CUBLAS(status);
 }

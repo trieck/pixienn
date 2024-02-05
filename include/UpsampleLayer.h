@@ -34,7 +34,7 @@ public:
     UpsampleLayer(Model<D>& model, const YAML::Node& layerDef);
 
     void forward(const V& input) override;
-    void backward(const V& input) override;
+    void backward(const V& input, V* grad) override;
 
     std::ostream& print(std::ostream& os) override;
 
@@ -85,9 +85,11 @@ void UpsampleLayer<D>::forward(const V& input)
 }
 
 template<Device D>
-void UpsampleLayer<D>::backward(const V& input)
+void UpsampleLayer<D>::backward(const V& input, V* grad)
 {
-    upsample(nullptr, this->delta_.data(), this->netDelta()->data(), false);
+    if (grad != nullptr) {
+        upsample(nullptr, this->delta_.data(), grad->data(), false);
+    }
 }
 
 template<Device D>

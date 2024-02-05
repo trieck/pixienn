@@ -27,9 +27,15 @@ model:
     enabled: False
     value: 1.0
 
+  validation:
+    enabled: True
+    interval: 10000
+    batches: 100
+    threshold: 0.2
+
   learning_rate:
-    initial_learning_rate: 0.0005
-    policy: inverse
+    initial_learning_rate: 0.001
+    policy: constant
 
     burn_in:
       batches: 0

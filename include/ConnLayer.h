@@ -37,7 +37,7 @@ public:
     ConnLayer(Model<D>& model, const YAML::Node& layerDef);
 
     void forward(const V& input) override;
-    void backward(const V& input) override;
+    void backward(const V& input, V* grad) override;
     void update() override;
 
     std::streamoff loadWeights(std::istream& is) override;
@@ -92,7 +92,7 @@ ConnLayer<D>::ConnLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D>(
     this->biasUpdates_ = V(this->outputs(), 0.0f);
 
     auto scale = std::sqrt(2.0f / this->inputs());
-    this->weights_ = random<V>(this->inputs() * this->outputs(), -1.0f * scale, 1.0f * scale);
+    this->weights_ = random<V>(this->inputs() * this->outputs(), -scale, scale);
     this->weightUpdates_ = V(this->inputs() * this->outputs(), 0.0f);
 
     this->output_ = V(this->batch() * this->outputs(), 0.0f);
@@ -182,9 +182,9 @@ void ConnLayer<D>::forward(const V& input)
 
 
 template<Device D>
-void ConnLayer<D>::backward(const V& input)
+void ConnLayer<D>::backward(const V& input, V* grad)
 {
-    Layer<D>::backward(input);
+    Layer<D>::backward(input, grad);
 
     activation_->gradient(this->output_, this->delta_);
 
@@ -208,7 +208,7 @@ void ConnLayer<D>::backward(const V& input)
     k = this->outputs();
     n = this->inputs();
     b = this->weights_.data();
-    c = this->model().delta()->data();
+    c = grad == nullptr ? nullptr : grad->data();
 
     if (c) {
         cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, 1.0f, a, k, b, n, 1.0f, c, n);

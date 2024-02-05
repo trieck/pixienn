@@ -170,7 +170,6 @@ public:
     int height() const noexcept;
     int width() const noexcept;
 
-    V* delta() const noexcept;
     float cost() const noexcept;
 
     int layerSize() const noexcept;
@@ -240,7 +239,6 @@ private:
     var_map options_;
 
     LayerVec layers_;
-    V* delta_ = nullptr;
 
     LRPolicy::Ptr policy_;
     LRPolicy::Ptr burnInPolicy_;
@@ -369,6 +367,9 @@ void Model<D>::train()
         Timer batchTimer;
         auto loss = trainBatch();
         avgLoss_ = avgLoss_ < 0 ? loss : (avgLoss_ * (1 - alpha) + loss * alpha);
+        if (std::isinf(avgLoss_) || std::isnan(avgLoss_)) {
+            avgLoss_ = loss;
+        }
 
         auto epoch = seen_ / trainImages_.size();
 
@@ -1057,19 +1058,21 @@ template<Device D>
 void Model<D>::backward(const V& input)
 {
     const V* in = &input;
+    V* grad = nullptr;
 
     for (int i = layers_.size() - 1; i >= 0; --i) {
         const auto& layer = layers_[i];
 
         if (i == 0) {
             in = &input;
+            grad = nullptr;
         } else {
             auto& prev = layers_[i - 1];
-            delta_ = &prev->delta();
+            grad = &prev->delta();
             in = &prev->output();
         }
 
-        layer->backward(*in);
+        layer->backward(*in, grad);
     }
 }
 
@@ -1143,12 +1146,6 @@ template<Device D>
 int Model<D>::classes() const noexcept
 {
     return labels_.size();
-}
-
-template<Device D>
-auto Model<D>::delta() const noexcept -> V*
-{
-    return delta_;
 }
 
 template<Device D>
@@ -1331,7 +1328,7 @@ void Model<D>::validate()
 {
     std::cout << "Pausing training to validate..." << std::flush;
 
-    Validator<D> validator(valThresh_, classes());
+    Validator <D> validator(valThresh_, classes());
 
     for (auto i = 0; i < valBatches_; ++i) {
         auto batch = loadBatch(Category::VAL, false);

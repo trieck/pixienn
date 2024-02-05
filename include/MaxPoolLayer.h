@@ -37,7 +37,7 @@ public:
     MaxPoolLayer(Model<D>& model, const YAML::Node& layerDef);
 
     void forward(const V& input) override;
-    void backward(const V& input) override;
+    void backward(const V& input, V* grad) override;
 
     std::ostream& print(std::ostream& os) override;
 
@@ -130,19 +130,23 @@ void MaxPoolLayer<D>::forward(const V& input)
 }
 
 template<Device D>
-void MaxPoolLayer<D>::backward(const V& input)
+void MaxPoolLayer<D>::backward(const V& input, V* grad)
 {
-    Layer<D>::backward(input);
+    Layer<D>::backward(input, grad);
+
+    if (grad == nullptr) {
+        return;
+    }
 
     auto size = this->batch() * this->outputs();
 
     auto* pindexes = this->indexes_.data();
-    auto* netDelta = this->netDelta()->data();
     const auto* pDelta = this->delta_.data();
+    auto pgrad = grad->data();
 
     for (auto i = 0; i < size; ++i) {
         auto index = pindexes[i];
-        netDelta[index] += pDelta[i];
+        pgrad[index] += pDelta[i];
     }
 }
 

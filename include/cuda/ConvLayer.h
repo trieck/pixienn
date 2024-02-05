@@ -255,21 +255,22 @@ inline void ConvLayer<Device::CUDA>::forward(const V& input)
 }
 
 template<>
-inline void ConvLayer<Device::CUDA>::backward(const V& input)
+inline void ConvLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
-    Layer<Device::CUDA>::backward(input);
+    Layer<Device::CUDA>::backward(input, grad);
 
     activation_->gradient(this->output_, this->delta_);
 
     const auto& ctxt = this->cudnnContext();
 
+    auto alpha = 1.0f;
+    auto beta = 0.0f;
+
     if (batchNorm_) {
-        auto alpha = 1.0f;
-        auto beta = 0.0f;
         auto epsilon = 0.00001f;
 
         auto status = cudnnBatchNormalizationBackward(ctxt, CUDNN_BATCHNORM_SPATIAL,
-                                                      &alpha, &beta, &alpha, &alpha, *yDesc_, this->x_.data(),
+                                                      &alpha, &beta, &alpha, &beta, *yDesc_, this->x_.data(),
                                                       *yDesc_, this->delta_.data(), *yDesc_, this->xNorm_.data(),
                                                       *sbmv_, scales_.data(), scaleUpdates_.data(),
                                                       biasUpdates_.data(), epsilon, mean_.data(), var_.data());
@@ -280,9 +281,6 @@ inline void ConvLayer<Device::CUDA>::backward(const V& input)
                         this->outHeight() * this->outWidth());
     }
 
-    auto alpha = 1.0f;
-    auto beta = 1.0f;
-
     auto status = cudnnConvolutionBackwardFilter(ctxt, &alpha, *xDesc_, input.data(), *yDesc_,
                                                  this->delta_.data(), *convDesc_, bwdFilterAlgo_,
                                                  bwdFilterWorkspace_.data(),
@@ -290,12 +288,12 @@ inline void ConvLayer<Device::CUDA>::backward(const V& input)
                                                  &beta, *wDesc_, weightUpdates_.data());
     PX_CHECK_CUDNN(status);
 
-    if (this->netDelta()) {
+    if (grad) {
         status = cudnnConvolutionBackwardData(ctxt, &alpha, *wDesc_, weights_.data(), *yDesc_,
                                               this->delta_.data(), *convDesc_,
                                               bwdDataAlgo_, bwdDataWorkspace_.data(),
                                               bwdDataWorkspace_.size() * sizeof(float),
-                                              &beta, *xDesc_, this->netDelta()->data());
+                                              &beta, *xDesc_, grad->data());
         PX_CHECK_CUDNN(status);
     }
 }

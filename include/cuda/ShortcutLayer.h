@@ -34,16 +34,20 @@ inline void ShortcutLayer<Device::CUDA>::forward(const V& input)
 }
 
 template<>
-inline void ShortcutLayer<Device::CUDA>::backward(const V& input)
+inline void ShortcutLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
-    Layer<Device::CUDA>::backward(input);
+    Layer<Device::CUDA>::backward(input, grad);
+
+    if (grad == nullptr) {
+        return;
+    }
 
     activation_->gradient(this->output_, this->delta_);
 
     const auto& ctxt = this->cublasContext();
 
     auto status = cublasSaxpy(ctxt, this->outputs() * this->batch(), &alpha_, this->delta_.data(), 1,
-                              this->netDelta()->data(), 1);
+                              grad->data(), 1);
 
     PX_CHECK_CUBLAS(status);
 

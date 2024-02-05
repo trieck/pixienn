@@ -3,6 +3,7 @@ configuration:
   #weights: ../weights/tiny-yolo-voc_final.weights
   weights: /home/trieck/src/pixienn/cmake-build-release-cuda/bin/backup/tiny-yolo-voc_latest.weights
 
+
   labels: ../data/voc.names
 
 training:
