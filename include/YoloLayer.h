@@ -51,7 +51,7 @@ public:
     YoloLayer(Model<D>& model, const YAML::Node& layerDef);
 
     void forward(const V& input) override;
-    void backward(const V& input) override;
+    void backward(const V& input, V* grad) override;
 
     bool hasCost() const noexcept override
     {
@@ -66,7 +66,8 @@ public:
 private:
     void forwardCpu(const PxCpuVector& input);
 
-    void addDetects(Detections& detections, int batch, int width, int height, float threshold, const float* predictions) const;
+    void addDetects(Detections& detections, int batch, int width, int height, float threshold,
+                    const float* predictions) const;
     void addDetects(Detections& detections, int batch, float threshold, const float* predictions) const;
 
     int entryIndex(int batch, int location, int entry) const noexcept;
@@ -549,7 +550,8 @@ void YoloLayer<D>::addDetects(Detections& detections, int batch, float threshold
 }
 
 template<Device D>
-void YoloLayer<D>::addDetects(Detections& detections, int batch, int width, int height, float threshold, const float* predictions)
+void YoloLayer<D>::addDetects(Detections& detections, int batch, int width, int height, float threshold,
+                              const float* predictions)
 const
 {
     const auto scaled = width > 0 && height > 0;
@@ -635,23 +637,14 @@ int YoloLayer<D>::entryIndex(int batch, int location, int entry) const noexcept
 }
 
 template<Device D>
-void YoloLayer<D>::backward(const V& input)
+void YoloLayer<D>::backward(const V& input, V* grad)
 {
-    Layer<D>::backward(input);
+    Layer<D>::backward(input, grad);
 
-    auto* pDelta = this->delta_.data();
-    auto* pNetDelta = this->model().delta();
-
-    PX_CHECK(pNetDelta != nullptr, "Model delta tensor is null");
-    PX_CHECK(pNetDelta->data() != nullptr, "Model delta tensor is null");
-    PX_CHECK(pDelta != nullptr, "Delta tensor is null");
-
-    const auto n = this->batch() * this->inputs();
-
-    PX_CHECK(this->delta_.size() >= n, "Delta tensor is too small");
-    PX_CHECK(pNetDelta->size() >= n, "Model tensor is too small");
-
-    cblas_saxpy(n, 1, pDelta, 1, pNetDelta->data(), 1);
+    if (grad != nullptr) {
+        const auto n = this->batch() * this->inputs();
+        cblas_saxpy(n, 1, this->delta_.data(), 1, grad->data(), 1);
+    }
 }
 
 YoloGTResult bestGT(const YoloGTCtxt& ctxt)

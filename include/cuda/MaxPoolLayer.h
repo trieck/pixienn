@@ -72,16 +72,20 @@ inline void MaxPoolLayer<Device::CUDA>::forward(const V& input)
 }
 
 template<>
-inline void MaxPoolLayer<Device::CUDA>::backward(const V& input)
+inline void MaxPoolLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
-    auto alpha = 1.0f;
-    auto beta = 1.0f;
+    Layer<Device::CUDA>::backward(input, grad);
 
-    Layer<Device::CUDA>::backward(input);
+    if (grad == nullptr) {
+        return;
+    }
+
+    auto alpha = 1.0f;
+    auto beta = 0.0f;
 
     auto status = cudnnPoolingBackward(this->cudnnContext(), *poolDesc_, &alpha, *yDesc_, this->output_.data(),
                                        *dyDesc_, delta_.data(), *xDesc_, input.data(), &beta,
-                                       *dxDesc_, this->netDelta()->data());
+                                       *dxDesc_, grad->data());
     PX_CHECK_CUDNN(status);
 }
 

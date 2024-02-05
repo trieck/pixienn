@@ -59,15 +59,18 @@ inline void DetectLayer<Device::CUDA>::forward(const V& input)
 }
 
 template<>
-inline void DetectLayer<Device::CUDA>::backward(const V& input)
+inline void DetectLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
-    Layer<Device::CUDA>::backward(input);
+    Layer<Device::CUDA>::backward(input, grad);
+
+    if (grad == nullptr) {
+        return;
+    }
 
     auto alpha = 1.0f;
 
     const auto& ctxt = this->cublasContext();
-
-    auto status = cublasSaxpy(ctxt, this->delta_.size(), &alpha, this->delta_.data(), 1, this->netDelta()->data(), 1);
+    auto status = cublasSaxpy(ctxt, this->delta_.size(), &alpha, this->delta_.data(), 1, grad->data(), 1);
 
     PX_CHECK_CUBLAS(status);
 }

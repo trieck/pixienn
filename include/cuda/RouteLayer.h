@@ -44,9 +44,9 @@ inline void RouteLayer<Device::CUDA>::forward(const V& input)
 }
 
 template<>
-inline void RouteLayer<Device::CUDA>::backward(const V& input)
+inline void RouteLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
-    Layer<Device::CUDA>::backward(input);
+    Layer<Device::CUDA>::backward(input, grad);
 
     auto alpha = 1.0f;
     auto offset = 0;

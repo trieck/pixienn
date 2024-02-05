@@ -46,7 +46,7 @@ private:
     void forward(Model<D>& model, const PxCpuVector& input);
 
     void processDetects(const Detections& detects, const GroundTruths& gts);
-    GroundTruthVec::size_type bestGroundTruth(const Detection& detection, const GroundTruthVec& gtv);
+    GroundTruthVec::size_type findGroundTruth(const Detection& detection, const GroundTruthVec& gtv);
     float iou(const Detection& detection, const GroundTruth& truth);
 
     ConfusionMatrix matrix_;
@@ -119,7 +119,7 @@ float Validator<D>::iou(const Detection& detection, const GroundTruth& truth)
 }
 
 template<Device D>
-GroundTruthVec::size_type Validator<D>::bestGroundTruth(const Detection& detection, const GroundTruthVec& gts)
+GroundTruthVec::size_type Validator<D>::findGroundTruth(const Detection& detection, const GroundTruthVec& gts)
 {
     auto bestIt = std::end(gts);
     auto bestIoU = -std::numeric_limits<float>::max();
@@ -130,6 +130,12 @@ GroundTruthVec::size_type Validator<D>::bestGroundTruth(const Detection& detecti
             bestIoU = IoU;
             bestIt = it;
         }
+    }
+
+    constexpr auto threshold = 0.5f;
+
+    if (bestIoU < threshold) {   // no match
+        return gts.size();
     }
 
     return std::distance(gts.cbegin(), bestIt);
@@ -149,7 +155,7 @@ void Validator<D>::processDetects(const Detections& detects, const GroundTruths&
             }
 
             classesSeen_.emplace(detect.classIndex());
-            auto index = bestGroundTruth(detect, gtv);
+            auto index = findGroundTruth(detect, gtv);
             if (index < gtv.size()) {
                 classesSeen_.emplace(gtv[index].classId);
                 matrix_.update(gtv[index].classId, detect.classIndex());   // true or false positive

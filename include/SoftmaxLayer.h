@@ -36,7 +36,7 @@ public:
     SoftmaxLayer(Model<D>& model, const YAML::Node& layerDef);
 
     void forward(const V& input) override;
-    void backward(const V& input) override;
+    void backward(const V& input, V* grad) override;
 
     virtual bool hasCost() const noexcept override;
 
@@ -124,15 +124,18 @@ void SoftmaxLayer<D>::computeLoss()
 }
 
 template<Device D>
-void SoftmaxLayer<D>::backward(const V& input)
+void SoftmaxLayer<D>::backward(const V& input, V* grad)
 {
-    Layer<D>::backward(input);
+    Layer<D>::backward(input, grad);
+
+    if (grad == nullptr) {
+        return;
+    }
 
     auto* pDelta = this->delta_.data();
-    auto* pNetDelta = this->netDelta()->data();
     const auto n = this->batch() * this->inputs();
 
-    cblas_saxpy(n, 1, pDelta, 1, pNetDelta, 1);
+    cblas_saxpy(n, 1, pDelta, 1, grad->data(), 1);
 }
 
 template<Device D>

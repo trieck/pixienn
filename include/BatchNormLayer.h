@@ -19,7 +19,7 @@ public:
     BatchNormLayer(Model<D>& model, YAML::Node layerDef);
 
     void forward(const V& input) override;
-    void backward(const V& input) override;
+    void backward(const V& input, V* grad) override;
 
     std::streamoff loadWeights(std::istream& is) override;
     std::streamoff saveWeights(std::ostream& os) override;
@@ -125,14 +125,18 @@ void BatchNormLayer<D>::forward(const V& input)
 }
 
 template<Device D>
-void BatchNormLayer<D>::backward(const V& input)
+void BatchNormLayer<D>::backward(const V& input, V* grad)
 {
-    Layer<D>::backward(input);
+    Layer<D>::backward(input, grad);
+
+    if (grad == nullptr) {
+        return;
+    }
 
     batchNormBackward(this->batch(), this->outChannels(), this->outHeight(), this->outWidth(), this->delta_,
                       mean_, var_, meanDelta_, varDelta_, scales_, scaleUpdates_, biasUpdates_, x_, xNorm_);
 
-    cblas_scopy(this->batch() * this->outputs(), this->delta_.data(), 1, this->netDelta()->data(), 1);
+    cblas_scopy(this->batch() * this->outputs(), this->delta_.data(), 1, grad->data(), 1);
 }
 
 using CpuBatchNorm = BatchNormLayer<>;

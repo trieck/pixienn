@@ -18,7 +18,7 @@ model:
 
   gradient_rescale:
     enabled: True
-    threshold: 100.0
+    threshold: 1000.0
 
   gradient_clipping:
     enabled: False
@@ -27,7 +27,7 @@ model:
   validation:
     enabled: True
     interval: 1000
-    batch_size: 100
+    batches: 100
     threshold: 0.2
 
   save_weights_interval: 10000
@@ -38,8 +38,8 @@ model:
       batches: 1000
       power: 4.0
 
-    initial_learning_rate: 0.001
-    policy: inverse
+    initial_learning_rate: 0.0001
+    policy: cosine_annealing
 
     random:
       min_learning_rate: 0.00001
@@ -54,12 +54,12 @@ model:
       targets: [ 0.001, 0.0003, 0.0002, 0.0001 ]
 
     sigmoid:
-      target_learning_rate: 0.000001
+      target_learning_rate: 0.00001
       factor: 12.0
 
     inverse:
-      gamma: 0.0000001
-      power: 12
+      gamma: 0.0001
+      power: 4
 
     stepped:
       steps: [ -1, 100, 20000, 30000 ]

@@ -164,9 +164,9 @@ inline void ConnLayer<Device::CUDA>::forward(const V& input)
 }
 
 template<>
-inline void ConnLayer<Device::CUDA>::backward(const V& input)
+inline void ConnLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
-    Layer<Device::CUDA>::backward(input);
+    Layer<Device::CUDA>::backward(input, grad);
 
     activation_->gradient(this->output_, this->delta_);
 
@@ -177,7 +177,7 @@ inline void ConnLayer<Device::CUDA>::backward(const V& input)
         const auto& ctxt = this->cudnnContext();
 
         auto status = cudnnBatchNormalizationBackward(ctxt, CUDNN_BATCHNORM_SPATIAL,
-                                                      &alpha, &beta, &alpha, &alpha, *yDesc_, this->x_.data(),
+                                                      &alpha, &beta, &alpha, &beta, *yDesc_, this->x_.data(),
                                                       *yDesc_, this->delta_.data(), *yDesc_, this->xNorm_.data(),
                                                       *sbmv_, scales_.data(), scaleUpdates_.data(),
                                                       biasUpdates_.data(), epsilon, mean_.data(), var_.data());
@@ -206,7 +206,7 @@ inline void ConnLayer<Device::CUDA>::backward(const V& input)
     k = this->outputs();
     a = this->delta_.data();
     b = this->weights_.data();
-    c = this->netDelta()->data();
+    c = grad == nullptr ? nullptr : grad->data();
 
     if (c) {
         cublasGemm(ctxt, false, false, m, n, k, alpha, a, k, b, n, beta, c, n);

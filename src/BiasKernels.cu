@@ -52,7 +52,7 @@ __global__ void backwardBiasConnKernel(float* biasUpdates, const float* delta, i
     biasUpdates[index] += sum;
 }
 
-__global__ void backwardBiasKernel(float* bias_updates, const float* delta, int batch, int n, int size)
+__global__ void backwardBiasKernel(float* biasUpdates, const float* delta, int batch, int n, int size)
 {
     __shared__ float part[CUDA_BLOCK_SIZE];
 
@@ -73,9 +73,8 @@ __global__ void backwardBiasKernel(float* bias_updates, const float* delta, int 
     __syncthreads();
 
     if (p == 0) {
-        sum = 0;
         for (auto i = 0; i < CUDA_BLOCK_SIZE; ++i) {
-            bias_updates[filter] += part[i];
+            biasUpdates[filter] += part[i];
         }
     }
 }
@@ -96,6 +95,8 @@ void backwardBiasGpu(float* biasUpdates, const float* delta, int batch, int n, i
     } else {
         backwardBiasKernel<<<cudaGridsize(n), CUDA_BLOCK_SIZE>>>(biasUpdates, delta, batch, n, size);
     }
+
+    cudaDeviceSynchronize();
 
     PX_CUDA_CHECK_LAST();
 }

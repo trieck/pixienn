@@ -34,7 +34,7 @@ public:
     AvgPoolLayer(Model<D>& model, const YAML::Node& layerDef);
 
     void forward(const V& input) override;
-    void backward(const V& input) override;
+    void backward(const V& input, V* delta) override;
 
     std::ostream& print(std::ostream& os) override;
 
@@ -88,22 +88,26 @@ void AvgPoolLayer<D>::forward(const V& input)
 }
 
 template<Device D>
-void AvgPoolLayer<D>::backward(const V& input)
+void AvgPoolLayer<D>::backward(const V& input, V* grad)
 {
-    Layer<D>::backward(input);
+    Layer<D>::backward(input, grad);
+
+    if (grad == nullptr) {
+        return;
+    }
 
     auto c = this->channels();
     auto area = std::max(1, this->width() * this->height());
 
-    auto pdelta = this->delta_.data();
-    auto pNetDelta = this->netDelta()->data();
+    auto* pdelta = this->delta_.data();
+    auto* pgrad = grad->data();
 
     for (auto b = 0; b < this->batch(); ++b) {
         for (auto k = 0; k < this->channels(); ++k) {
             auto outIndex = k + b * c;
             for (auto i = 0; i < area; ++i) {
                 auto inIndex = i + area * (k + b * c);
-                pNetDelta[inIndex] += pdelta[outIndex] / area;
+                pgrad[inIndex] += pdelta[outIndex] / area;
             }
         }
     }

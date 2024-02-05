@@ -36,7 +36,7 @@ public:
     RegionLayer(Model<D>& model, const YAML::Node& layerDef);
 
     void forward(const V& input) override;
-    void backward(const V& input) override;
+    void backward(const V& input, V* grad) override;
 
     std::ostream& print(std::ostream& os) override;
 
@@ -316,23 +316,17 @@ void RegionLayer<D>::forwardCpu(const PxCpuVector& input)
 }
 
 template<Device D>
-void RegionLayer<D>::backward(const V& input)
+void RegionLayer<D>::backward(const V& input, V* grad)
 {
-    Layer<D>::backward(input);
+    Layer<D>::backward(input, grad);
 
-    auto* pDelta = this->delta_.data();
-    auto* pNetDelta = this->model().delta();
-
-    PX_CHECK(pNetDelta != nullptr, "Model delta tensor is null");
-    PX_CHECK(pNetDelta->data() != nullptr, "Model delta tensor is null");
-    PX_CHECK(pDelta != nullptr, "Delta tensor is null");
+    if (grad == nullptr) {
+        return;
+    }
 
     const auto n = this->batch() * this->inputs();
 
-    PX_CHECK(this->delta_.size() >= n, "Delta tensor is too small");
-    PX_CHECK(pNetDelta->size() >= n, "Model tensor is too small");
-
-    cblas_saxpy(n, 1, pDelta, 1, pNetDelta->data(), 1);
+    cblas_saxpy(n, 1, this->delta_.data(), 1, grad->data(), 1);
 }
 
 template<Device D>

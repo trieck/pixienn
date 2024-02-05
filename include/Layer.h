@@ -51,7 +51,7 @@ public:
     virtual ~Layer() = default;
 
     virtual void forward(const V& input);
-    virtual void backward(const V& input);
+    virtual void backward(const V& input, V* grad);
     virtual void update();
 
     virtual std::ostream& print(std::ostream& os) = 0;
@@ -106,8 +106,6 @@ protected:
     bool inferring() const noexcept;
     bool training() const noexcept;
     int classes() const noexcept;
-
-    V* netDelta() const noexcept;
 
     const TrainBatch& trainingBatch() const noexcept;
 
@@ -368,7 +366,7 @@ void Layer<D>::forward(const V& input)
 }
 
 template<Device D>
-void Layer<D>::backward(const V& input)
+void Layer<D>::backward(const V& input, V* grad)
 {
     if (this->gradientRescaling_) {
         this->scaleGradients();
@@ -418,12 +416,6 @@ template<Device D>
 auto Layer<D>::delta() noexcept -> V&
 {
     return delta_;
-}
-
-template<Device D>
-auto Layer<D>::netDelta() const noexcept -> V*
-{
-    return model_.delta();
 }
 
 template<Device D>

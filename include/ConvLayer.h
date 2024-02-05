@@ -37,7 +37,7 @@ public:
     ConvLayer(Model<D>& model, YAML::Node layerDef);
 
     void forward(const V& input) override;
-    void backward(const V& input) override;
+    void backward(const V& input, V* grad) override;
     void update() override;
 
     std::streamoff loadWeights(std::istream& is) override;
@@ -99,8 +99,7 @@ ConvLayer<D>::ConvLayer(Model<D>& model, YAML::Node layerDef) : Layer<D>(model, 
 
     auto scale = std::sqrt(1.0f / (kernel_ * kernel_ * this->channels() / groups_));
 
-    weights_ = random<V>({ (size_t) filters_ * this->channels() / groups_ * kernel_ * kernel_ },
-                         -1.0f * scale, 1.0f * scale);
+    weights_ = random<V>({ (size_t) filters_ * this->channels() / groups_ * kernel_ * kernel_ }, -scale, scale);
     weightUpdates_ = V(filters_ * this->channels() / groups_ * kernel_ * kernel_, 0.0f);
 
     this->output_ = V(this->batch() * this->outputs(), 0.0f);
@@ -216,9 +215,9 @@ void ConvLayer<D>::forward(const V& input)
 }
 
 template<Device D>
-void ConvLayer<D>::backward(const V& input)
+void ConvLayer<D>::backward(const V& input, V* grad)
 {
-    Layer<D>::backward(input);
+    Layer<D>::backward(input, grad);
 
     activation_->gradient(this->output_, this->delta_);
 
@@ -240,7 +239,6 @@ void ConvLayer<D>::backward(const V& input)
 
     const auto* pin = input.data();
     auto* pdelta = this->delta_.data();
-    auto* pNetDelta = this->model().delta()->data();
     auto* pout = this->output_.data();
 
     auto alpha = 1.0f;
@@ -263,9 +261,10 @@ void ConvLayer<D>::backward(const V& input)
 
             cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, m, n, k, alpha, a, k, b, k, beta, c, n);
 
-            if (pNetDelta) {
-                auto* imd = pNetDelta + (i * groups_ + j) * (this->channels() / groups_) * this->height()
-                                        * this->width();
+            if (grad) {
+                auto* pgrad = grad->data();
+                auto* imd = pgrad + (i * groups_ + j) * (this->channels() / groups_) * this->height()
+                                    * this->width();
 
                 a = pweights + j * nweights / groups_;
                 b = pdelta + (i * groups_ + j) * m * k;

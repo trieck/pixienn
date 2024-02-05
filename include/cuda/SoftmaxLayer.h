@@ -85,9 +85,13 @@ inline void SoftmaxLayer<Device::CUDA>::forward(const V& input)
 }
 
 template<>
-inline void SoftmaxLayer<Device::CUDA>::backward(const V& input)
+inline void SoftmaxLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
-    Layer<Device::CUDA>::backward(input);
+    Layer<Device::CUDA>::backward(input, grad);
+
+    if (grad == nullptr) {
+        return;
+    }
 
     auto alpha = 1.0f;
     auto beta = 0.0f;
@@ -96,7 +100,7 @@ inline void SoftmaxLayer<Device::CUDA>::backward(const V& input)
 
     auto status = cudnnSoftmaxBackward(ctxt, CUDNN_SOFTMAX_ACCURATE, CUDNN_SOFTMAX_MODE_CHANNEL,
                                        &alpha, *yDesc_, output_.data(), *yDesc_, this->delta_.data(), &beta,
-                                       *xDesc_, this->netDelta()->data());
+                                       *xDesc_, grad->data());
 
     PX_CHECK_CUDNN(status);
 }

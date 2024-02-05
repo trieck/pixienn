@@ -40,12 +40,14 @@ inline void UpsampleLayer<Device::CUDA>::forward(const V& input)
 }
 
 template<>
-inline void UpsampleLayer<Device::CUDA>::backward(const px::UpsampleLayer<px::Device::CUDA>::V& input)
+inline void UpsampleLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
-    Layer<Device::CUDA>::backward(input);
+    Layer<Device::CUDA>::backward(input, grad);
 
-    upsampleGpu(nullptr, this->width(), this->height(), this->channels(), this->batch(), stride_,
-                0, scale_, this->netDelta()->data(), this->delta_.data());
+    if (grad != nullptr) {
+        upsampleGpu(nullptr, this->width(), this->height(), this->channels(), this->batch(), stride_,
+                    0, scale_, grad->data(), this->delta_.data());
+    }
 }
 
 }   // px
