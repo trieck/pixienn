@@ -129,14 +129,12 @@ void BatchNormLayer<D>::backward(const V& input, V* grad)
 {
     Layer<D>::backward(input, grad);
 
-    if (grad == nullptr) {
-        return;
-    }
-
     batchNormBackward(this->batch(), this->outChannels(), this->outHeight(), this->outWidth(), this->delta_,
                       mean_, var_, meanDelta_, varDelta_, scales_, scaleUpdates_, biasUpdates_, x_, xNorm_);
 
-    cblas_scopy(this->batch() * this->outputs(), this->delta_.data(), 1, grad->data(), 1);
+    if (grad != nullptr) {
+        cblas_scopy(this->batch() * this->outputs(), this->delta_.data(), 1, grad->data(), 1);
+    }
 }
 
 using CpuBatchNorm = BatchNormLayer<>;

@@ -74,14 +74,14 @@ inline void AvgPoolLayer<Device::CUDA>::forward(const V& input)
 template<>
 inline void AvgPoolLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
+    Layer<Device::CUDA>::backward(input, grad);
+
     if (grad == nullptr) {
         return;
     }
 
     auto alpha = 1.0f;
     auto beta = 0.0f;
-
-    Layer<Device::CUDA>::backward(input, grad);
 
     auto status = cudnnPoolingBackward(this->cudnnContext(), *poolDesc_, &alpha, *yDesc_, this->output_.data(),
                                        *dyDesc_, delta_.data(), *xDesc_, input.data(), &beta,

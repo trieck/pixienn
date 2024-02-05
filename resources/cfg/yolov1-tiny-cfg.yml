@@ -5,8 +5,8 @@ configuration:
   labels: ../data/voc.names
 
 training:
-  train-images: ../data/voc/train-200.txt
+  train-images: ../data/voc/train.txt
   train-labels: ../data/voc/labels
 
-  val-images: ../data/voc/train-1.txt
+  val-images: ../data/voc/val.txt
   val-labels: ../data/voc/labels

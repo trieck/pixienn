@@ -96,16 +96,14 @@ void ShortcutLayer<D>::backward(const V& input, V* grad)
 {
     Layer<D>::backward(input, grad);
 
-    if (grad == nullptr) {
-        return;
-    }
-
     activation_->gradient(this->output_, this->delta_);
-
-    cblas_saxpy(this->batch() * this->outputs(), alpha_, this->delta_.data(), 1, grad->data(), 1);
 
     shorcut(this->outWidth(), this->outHeight(), this->outChannels(), this->delta_,
             this->width(), this->height(), this->channels(), from_->delta());
+
+    if (grad != nullptr) {
+        cblas_saxpy(this->batch() * this->outputs(), alpha_, this->delta_.data(), 1, grad->data(), 1);
+    }
 }
 
 template<Device D>

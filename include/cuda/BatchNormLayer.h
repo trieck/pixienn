@@ -90,10 +90,6 @@ inline void BatchNormLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
     Layer<Device::CUDA>::backward(input, grad);
 
-    if (grad == nullptr) {
-        return;
-    }
-
     auto alpha = 1.0f;
     auto beta = 0.0f;
     auto epsilon = 0.00001f;
