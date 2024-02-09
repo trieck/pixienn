@@ -1,12 +1,12 @@
 model:
 
-  batch: 4
+  batch: 1
   subdivisions: 1
   height: 256
   width: 256
   channels: 3
 
-  max_batches: 10000
+  max_batches: 2500000
   momentum: 0.9
   decay: 0.0005
 
@@ -27,7 +27,7 @@ model:
     value: 100.0
 
   validation:
-    enabled: True
+    enabled: False
     interval: 10000
     batch_size: 100
     threshold: 0.2
@@ -41,7 +41,11 @@ model:
       power: 4.0
 
     initial_learning_rate: 0.001
-    policy: constant
+    policy: inverse
+
+    inverse:
+      gamma: 0.00001
+      power: 4
 
     random:
       min_learning_rate: 0.00001

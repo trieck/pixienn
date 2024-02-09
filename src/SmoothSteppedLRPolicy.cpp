@@ -41,13 +41,18 @@ float SmoothSteppedLRPolicy::update(int batchNum)
     }
 
     auto t = 0.0f;
-    auto start = currentLR_;
+    auto start = initialLR_;
     auto end = targets_[index];
 
     if (batchNum < steps_[index]) {
         auto diff = steps_[index] - batchNum;
         t = 1 - static_cast<float>(diff) / steps_[index];
     } else if (batchNum >= steps_[index]) {
+        if (index == steps_.size() - 1) {
+            currentLR_ = targets_[index];
+            return currentLR_;
+        }
+
         auto diff = batchNum - steps_[index];
         t = static_cast<float>(diff) / (steps_[index + 1] - steps_[index]);
         start = targets_[index];

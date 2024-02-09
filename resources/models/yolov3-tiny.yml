@@ -17,8 +17,8 @@ model:
     enabled: True
     flip: True
     jitter: 0.2
-    saturation: 1.2
-    exposure: 1.2
+    saturation: 0.75
+    exposure: 0.75
     hue: 0.1
 
   gradient_rescale:
@@ -26,8 +26,8 @@ model:
     threshold: 100.0
 
   gradient_clipping:
-    enabled: True
-    value: 100.0
+    enabled: False
+    value: 1.0
 
   validation:
     enabled: True
@@ -40,8 +40,8 @@ model:
       batches: 1000
       power: 4.0
 
-    initial_learning_rate: 0.001
-    policy: smooth_stepped
+    initial_learning_rate: 0.01
+    policy: inverse
 
     random:
       min_learning_rate: 0.00001
@@ -52,16 +52,16 @@ model:
       batches_per_cycle: 10000
 
     smooth_stepped:
-      steps: [ 10000, 20000, 30000 ]
-      targets: [ 0.0003, 0.0002, 0.0001 ]
+      steps: [ 10000, 20000, 30000, 40000, 50000 ]
+      targets: [ 0.0003, 0.0002, 0.0001, 0.00005, 0.00001 ]
 
     sigmoid:
       target_learning_rate: 0.000001
       factor: 12.0
 
     inverse:
-      gamma: 0.0000001
-      power: 12
+      gamma: 0.00001
+      power: 4
 
     stepped:
       steps: [ 400000, 450000 ]
