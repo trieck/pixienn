@@ -637,6 +637,7 @@ template<Device D>
 Detections Model<D>::predict(const std::string& imageFile)
 {
     auto image = imreadVector(imageFile.c_str(), width_, height_);
+    PX_CHECK(image.channels == channels_, "Image channels do not match model channels.");
 
     std::printf("\nRunning model...");
 
@@ -1328,7 +1329,7 @@ void Model<D>::validate()
 {
     std::cout << "Pausing training to validate..." << std::flush;
 
-    Validator <D> validator(valThresh_, classes());
+    Validator<D> validator(valThresh_, classes());
 
     for (auto i = 0; i < valBatches_; ++i) {
         auto batch = loadBatch(Category::VAL, false);

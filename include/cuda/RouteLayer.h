@@ -32,10 +32,10 @@ inline void RouteLayer<Device::CUDA>::forward(const V& input)
         auto inputSize = layer->outputs();
 
         for (auto i = 0; i < batch(); ++i) {
-            const auto* start = pin + i * inputSize;
+            const auto* in = pin + i * inputSize;
             auto* out = output + offset + i * outputs();
 
-            auto result = cudaMemcpy(out, start, inputSize * sizeof(float), cudaMemcpyDeviceToDevice);
+            auto result = cudaMemcpy(out, in, inputSize * sizeof(float), cudaMemcpyDeviceToDevice);
             PX_CUDA_CHECK_ERR(result);
         }
 
@@ -59,7 +59,7 @@ inline void RouteLayer<Device::CUDA>::backward(const V& input, V* grad)
         auto outputSize = layer->outputs();
 
         for (auto i = 0; i < this->batch(); ++i) {
-            auto* in = pdelta + offset + i * this->outputs();
+            const auto* in = pdelta + offset + i * this->outputs();
             auto* out = ldelta + i * outputSize;
 
             auto status = cublasSaxpy(ctxt, outputSize, &alpha, in, 1, out, 1);

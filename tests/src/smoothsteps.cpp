@@ -80,14 +80,32 @@ TEST(SmoothSteppedLRPolicy, Update)
 
 TEST(SmoothSteppedLRPolicy, Before)
 {
-    SmoothSteppedLRPolicy lrPolicy(0.0001, { 1000 }, { 0.00001 });
+    SmoothSteppedLRPolicy lrPolicy(0.001, { 10000, 20000, 30000 }, { 0.0003, 0.0002, 0.0001 });
 
     lrPolicy.update(0);
+    EXPECT_NEAR(lrPolicy.LR(), 0.001, 1e-5);
+
+    lrPolicy.update(5000);
+    EXPECT_NEAR(lrPolicy.LR(), 0.00065, 1e-5);
+
+    lrPolicy.update(10000);
+    EXPECT_NEAR(lrPolicy.LR(), 0.0003, 1e-5);
+
+    lrPolicy.update(15000);
+    EXPECT_NEAR(lrPolicy.LR(), 0.00025, 1e-5);
+
+    lrPolicy.update(20000);
+    EXPECT_NEAR(lrPolicy.LR(), 0.0002, 1e-5);
+
+    lrPolicy.update(25000);
+    EXPECT_NEAR(lrPolicy.LR(), 0.00015, 1e-5);
+
+    lrPolicy.update(30000);
     EXPECT_NEAR(lrPolicy.LR(), 0.0001, 1e-5);
 
-    lrPolicy.update(500);
-    EXPECT_NEAR(lrPolicy.LR(), 0.00005, 1e-5);
+    lrPolicy.update(35000);
+    EXPECT_NEAR(lrPolicy.LR(), 0.0001, 1e-5);
 
-    lrPolicy.update(1000);
-    EXPECT_NEAR(lrPolicy.LR(), 0.00001, 1e-5);
+    lrPolicy.update(0);
+    EXPECT_NEAR(lrPolicy.LR(), 0.001, 1e-5);
 }
