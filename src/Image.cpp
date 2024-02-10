@@ -51,7 +51,7 @@ cv::Mat imreadTiff(const char* path)
     return readTIFF(path);
 }
 
-Mat imread(const char* path)
+Mat imread(const char* path, int channels)
 {
     boost::filesystem::path filePath(path);
 
@@ -61,16 +61,29 @@ Mat imread(const char* path)
     if (extension == ".tiff" || extension == ".tif") {
         image = imreadTiff(path);
     } else {
-        image = imread(path, IMREAD_UNCHANGED);
+        image = cv::imread(path, IMREAD_UNCHANGED);
         PX_CHECK(!image.empty(), "Could not open image \"%s\".", path);
     }
+
+    if (channels == 1 && image.channels() == 3) {
+        cvtColor(image, image, COLOR_BGR2GRAY);
+    } else if (channels == 3 && image.channels() == 1) {
+        cvtColor(image, image, COLOR_GRAY2BGR);
+    } else if (channels == 4 && image.channels() == 3) {
+        cvtColor(image, image, COLOR_BGR2BGRA);
+    } else if (channels == 3 && image.channels() == 4) {
+        cvtColor(image, image, COLOR_BGRA2BGR);
+    }
+
+    PX_CHECK(image.channels() == channels, "Image \"%s\" has %d channels, expected %d.", path, image.channels(),
+             channels);
 
     return image;
 }
 
-LBMat imread(const char* path, int width, int height)
+LBMat imread(const char* path, int width, int height, int channels)
 {
-    auto image = imread(path);
+    auto image = imread(path, channels);
 
     // size image to match width and height
     auto lbmat = imletterbox(image, width, height);
@@ -78,9 +91,9 @@ LBMat imread(const char* path, int width, int height)
     return lbmat;
 }
 
-ImageVec imreadVector(const char* path)
+ImageVec imreadVector(const char* path, int channels)
 {
-    auto image = imreadNormalize(path);
+    auto image = imreadNormalize(path, channels);
 
     // convert the image from interleaved to planar
     auto vector = imvector(image);
@@ -99,9 +112,9 @@ ImageVec imreadVector(const char* path)
     return imageVec;
 }
 
-ImageVec imreadVector(const char* path, int width, int height)
+ImageVec imreadVector(const char* path, int width, int height, int channels)
 {
-    auto lbmat = imreadNormalize(path, width, height);
+    auto lbmat = imreadNormalize(path, width, height, channels);
 
     // convert the image from interleaved to planar
     auto vector = imvector(lbmat.image);
@@ -156,18 +169,18 @@ Mat imdenormalize(const Mat& image)
 }
 
 // read an image and normalize
-Mat imreadNormalize(const char* path)
+Mat imreadNormalize(const char* path, int channels)
 {
-    auto image = imread(path);
+    auto image = imread(path, channels);
 
     auto normal = imnormalize(image);
 
     return normal.clone();
 }
 
-LBMat imreadNormalize(const char* path, int width, int height)
+LBMat imreadNormalize(const char* path, int width, int height, int channels)
 {
-    auto image = imreadNormalize(path);
+    auto image = imreadNormalize(path, channels);
 
     auto lbmat = imletterbox(image, width, height);
 

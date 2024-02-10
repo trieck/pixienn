@@ -78,6 +78,7 @@ if (USE_CUDA)
     list(APPEND SOURCES
             ${CUDA_HEADERS}
             src/Activation.cu
+            src/Adam.cu
             src/BiasKernels.cu
             src/CudaError.cpp
             src/CudaUtils.cu

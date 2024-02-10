@@ -104,4 +104,15 @@ GTEST_TEST(VectorSuite, MakeCudaVectorInit)
     ASSERT_THAT(vector->asVector(), ElementsAre(1.0f, 2.0f, 3.0f, 4.0f));
 }
 
+GTEST_TEST(VectorSuite, Multiply)
+{
+    PxCudaVector w(10, 2.0f);
+    PxCudaVector d(10, 3.0f);
+
+    mulGpu(w.size(), w.data(), d.data());
+
+    auto result = d.asVector();
+    EXPECT_THAT(result, Each(FloatEq(6.0f)));
+}
+
 #endif // USE_CUDA
