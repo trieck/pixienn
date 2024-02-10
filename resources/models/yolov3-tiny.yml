@@ -41,7 +41,7 @@ model:
       power: 4.0
 
     initial_learning_rate: 0.01
-    policy: inverse
+    policy: smooth_stepped
 
     random:
       min_learning_rate: 0.00001
@@ -52,8 +52,8 @@ model:
       batches_per_cycle: 10000
 
     smooth_stepped:
-      steps: [ 10000, 20000, 30000, 40000, 50000 ]
-      targets: [ 0.0003, 0.0002, 0.0001, 0.00005, 0.00001 ]
+      steps: [ 40000, 45000 ]
+      targets: [ 0.0001, 0.00001 ]
 
     sigmoid:
       target_learning_rate: 0.000001

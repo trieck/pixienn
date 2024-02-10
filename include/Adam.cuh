@@ -16,19 +16,8 @@
 
 #pragma once
 
-#include <vector_types.h>
-
-#include "Common.h"
-
 namespace px {
 
-constexpr auto CUDA_BLOCK_SIZE = 512;
-
-void constrainGpu(int n, float alpha, float* x);
-dim3 cudaGridsize(std::uint32_t n);
-void fillGpu(float* ptr, std::size_t n, float value);
-void fillGpu(int* ptr, std::size_t n, int value);
-void mulGpu(int n, float* x, float* y);
-void randomGpu(float* ptr, std::size_t n, float a = 0.f, float b = 1.f);
+void adamGpu(int n, float* x, float* m, float* v, float beta1, float beta2, float rate, float eps, int t);
 
 }   // px

@@ -54,25 +54,25 @@ void implace(const cv::Mat& image, int w, int h, const cv::Rect& roiSrc, cv::Rec
 void calculateROI(int w, int h, int dx, int dy, cv::Rect& roiSrc, cv::Rect& roiDest, const cv::Mat& canvas);
 
 // Read an image from a file
-cv::Mat imread(const char* path);
+cv::Mat imread(const char* path, int channels);
 
-// Read an image from a file with a specific height and width
-LBMat imread(const char* path, int width, int height);
+// Read an image from a file with a specific height, width and channels
+LBMat imread(const char* path, int width, int height, int channels);
 
 // Read an image and normalize pixel values
-cv::Mat imreadNormalize(const char* path);
+cv::Mat imreadNormalize(const char* path, int channels);
 
-// Read an image and normalize pixel values with a specific height and width
-LBMat imreadNormalize(const char* path, int width, int height);
+// Read an image and normalize pixel values with a specific height, width and channels
+LBMat imreadNormalize(const char* path, int width, int height, int channels);
 
 // Read an image in TIFF format
 cv::Mat imreadTiff(const char* path);
 
 // Read an image as vector
-ImageVec imreadVector(const char* path);
+ImageVec imreadVector(const char* path, int channels);
 
 // Read an image as vector with a specific height and width
-ImageVec imreadVector(const char* path, int width, int height);
+ImageVec imreadVector(const char* path, int width, int height, int channels);
 
 // Save an image to a file
 void imsave(const char* path, const cv::Mat& image);

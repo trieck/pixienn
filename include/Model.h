@@ -184,8 +184,12 @@ public:
     float gradClipValue() const noexcept;
 
     std::size_t seen() const noexcept;
-
     RecordWriter& recordWriter() const;
+
+    bool adamEnabled() const noexcept;
+    float adamBeta1() const noexcept;
+    float adamBeta2() const noexcept;
+    float adamEpsilon() const noexcept;
 
 private:
     enum class Category
@@ -280,6 +284,11 @@ private:
     int valInterval_ = 0;
     int valBatches_ = 0;
     float valThresh_ = 0.0f;
+
+    bool adamEnabled_ = false;
+    float adamBeta1_ = 0.0f;
+    float adamBeta2_ = 0.0f;
+    float adamEpsilon_ = 0.0f;
 
     int saveWeightsInterval_ = 0;
     int writeMetricsInterval_ = 0;
@@ -636,8 +645,7 @@ Model<D>::Model(std::string cfgFile, var_map options) : Model<D>(options)
 template<Device D>
 Detections Model<D>::predict(const std::string& imageFile)
 {
-    auto image = imreadVector(imageFile.c_str(), width_, height_);
-    PX_CHECK(image.channels == channels_, "Image channels do not match model channels.");
+    auto image = imreadVector(imageFile.c_str(), width_, height_, channels_);
 
     std::printf("\nRunning model...");
 
@@ -685,7 +693,7 @@ Detections Model<D>::detections(const cv::Size& imageSize) const
 template<Device D>
 void Model<D>::overlay(const std::string& imageFile, const Detections& detects) const
 {
-    auto img = imread(imageFile.c_str());
+    auto img = imread(imageFile.c_str(), channels_);
     cv::cvtColor(img, img, cv::COLOR_BGR2BGRA);
 
     ColorMaps colors(option<std::string>("color-map"));
@@ -867,6 +875,7 @@ void Model<D>::parseModel(const Node& modelDoc)
         PX_CHECK(maxBatches_ > 0, "Model has no max_batches.");
 
         parsePolicy(model);
+
         auto augmentNode = model["augmentation"];
         if (augmentNode && augmentNode.IsMap()) {
             auto augment = augmentNode["enabled"].as<bool>(false);
@@ -879,6 +888,14 @@ void Model<D>::parseModel(const Node& modelDoc)
             if (augment) {
                 augmenter_ = std::make_unique<ImageAugmenter>(jitter, hue, saturation, exposure, flip);
             }
+        }
+
+        auto adamNode = model["adam"];
+        if (adamNode && adamNode.IsMap()) {
+            adamEnabled_ = adamNode["enabled"].as<bool>(false);
+            adamBeta1_ = adamNode["beta1"].as<float>(0.9f);
+            adamBeta2_ = adamNode["beta2"].as<float>(0.999f);
+            adamEpsilon_ = adamNode["epsilon"].as<float>(1e-8f);
         }
 
         auto gr = model["gradient_rescale"];
@@ -1165,16 +1182,15 @@ Model<D>::ImageLabels Model<D>::loadImgLabels(Model::Category category, const st
     }
 
     if (augment && augmenter_) {
-        auto orig = imreadNormalize(imagePath.c_str());
+        auto orig = imreadNormalize(imagePath.c_str(), channels_);
 
         auto augmented = augmenter_->augment(orig, { width(), height() }, gts);
-        augmenter_->distort(augmented.first);
 
         auto vector = imvector(augmented.first);
 
         return { vector, augmented.second };
     } else {
-        auto vec = imreadVector(imagePath.c_str(), width(), height());
+        auto vec = imreadVector(imagePath.c_str(), width(), height(), channels_);
 
         GroundTruthVec newGts;
 
@@ -1373,11 +1389,10 @@ void Model<D>::viewImageGT(const std::string& imagePath, const GroundTruthVec& g
     cv::Mat image;
 
     if (augment && augmenter_) {
-        auto orig = imread(imagePath.c_str());
+        auto orig = imread(imagePath.c_str(), channels_);
         auto augmented = augmenter_->augment(orig, { width(), height() }, gt);
 
         image = augmented.first;
-        augmenter_->distort(image);
 
         cv::cvtColor(image, image, cv::COLOR_BGR2BGRA);
 
@@ -1394,7 +1409,7 @@ void Model<D>::viewImageGT(const std::string& imagePath, const GroundTruthVec& g
             imtabbedText(image, label.c_str(), lb.tl(), textColor, bgColor, 2);
         }
     } else {
-        auto mat = imread(imagePath.c_str(), width(), height());
+        auto mat = imread(imagePath.c_str(), width(), height(), channels_);
         image = mat.image;
 
         cv::cvtColor(image, image, cv::COLOR_BGR2BGRA);
@@ -1464,6 +1479,30 @@ RecordWriter& Model<D>::recordWriter() const
     PX_CHECK(writer_, "No record writer.");
 
     return *writer_;
+}
+
+template<Device D>
+float Model<D>::adamEpsilon() const noexcept
+{
+    return adamEpsilon_;
+}
+
+template<Device D>
+float Model<D>::adamBeta2() const noexcept
+{
+    return adamBeta2_;
+}
+
+template<Device D>
+float Model<D>::adamBeta1() const noexcept
+{
+    return adamBeta1_;
+}
+
+template<Device D>
+bool Model<D>::adamEnabled() const noexcept
+{
+    return adamEnabled_;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

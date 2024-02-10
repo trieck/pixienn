@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "Adam.h"
 #include "BiasKernels.cuh"
 #include "Gemm.h"
 
@@ -25,7 +26,12 @@ template<>
 class FCExtras<Device::CUDA>
 {
 protected:
+    using V = typename Layer<Device::CUDA>::V;
+
     CudnnTensorDesc::Ptr yDesc_, sbmv_;
+    V m_, v_;
+    V bias_m_, bias_v_;
+    V scale_m_, scale_v_;
 };
 
 template<>
@@ -42,6 +48,15 @@ inline void ConnLayer<Device::CUDA>::setup()
     status = cudnnSetTensor4dDescriptor(*this->sbmv_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
                                         1, this->outChannels(), 1, 1);
     PX_CHECK_CUDNN(status);
+
+    if (this->model().adamEnabled()) {
+        m_ = V(weights_.size(), 0.0f);
+        v_ = V(weights_.size(), 0.0f);
+        bias_m_ = V(biases_.size(), 0.0f);
+        bias_v_ = V(biases_.size(), 0.0f);
+        scale_m_ = V(scales_.size(), 0.0f);
+        scale_v_ = V(scales_.size(), 0.0f);
+    }
 }
 
 template<>
@@ -220,11 +235,29 @@ inline void ConnLayer<Device::CUDA>::update()
     auto learningRate = net.learningRate();
     auto momentum = net.momentum();
     auto decay = net.decay();
+    auto batch = this->batch();
 
     const auto& ctxt = this->cublasContext();
 
+    if (net.adamEnabled()) {
+        auto beta1 = net.adamBeta1();
+        auto beta2 = net.adamBeta2();
+        auto epsilon = net.adamEpsilon();
+        auto t = net.seen();
+
+        Adam<Device::CUDA> adam(ctxt, batch, t, learningRate, beta1, beta2, epsilon, decay);
+        adam.update(weights_, weightUpdates_, m_, v_);
+        adam.update(biases_, biasUpdates_, bias_m_, bias_v_);
+
+        if (scales_.size()) {
+            adam.update(scales_, scaleUpdates_, scale_m_, scale_v_);
+        }
+
+        return;
+    }
+
     // update biases
-    auto alpha = learningRate / this->batch();
+    auto alpha = learningRate / batch;
     auto status = cublasSaxpy(ctxt, this->outputs(), &alpha, biasUpdates_.data(), 1, biases_.data(), 1);
     PX_CHECK_CUBLAS(status);
 
@@ -233,7 +266,7 @@ inline void ConnLayer<Device::CUDA>::update()
 
     // update scales (if batch normalized)
     if (batchNorm_) {
-        alpha = learningRate / this->batch();
+        alpha = learningRate / batch;
         status = cublasSaxpy(ctxt, this->outputs(), &alpha, scaleUpdates_.data(), 1, scales_.data(), 1);
         PX_CHECK_CUBLAS(status);
 
@@ -244,11 +277,11 @@ inline void ConnLayer<Device::CUDA>::update()
     // update weights with weight decay
     auto size = this->inputs() * this->outputs();
 
-    alpha = -decay * this->batch();
+    alpha = -decay * batch;
     status = cublasSaxpy(ctxt, size, &alpha, weights_.data(), 1, weightUpdates_.data(), 1);
     PX_CHECK_CUBLAS(status);
 
-    alpha = learningRate / this->batch();
+    alpha = learningRate / batch;
     status = cublasSaxpy(ctxt, size, &alpha, weightUpdates_.data(), 1, weights_.data(), 1);
     PX_CHECK_CUBLAS(status);
 

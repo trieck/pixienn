@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "Adam.h"
 #include "Cudnn.h"
 
 namespace px {
@@ -27,6 +28,10 @@ protected:
     using V = typename Layer<Device::CUDA>::V;
 
     V fwdWorkspace_, bwdFilterWorkspace_, bwdDataWorkspace_;
+    V m_, v_;
+    V bias_m_, bias_v_;
+    V scale_m_, scale_v_;
+
     CudnnTensorDesc::Ptr xDesc_, yDesc_, sbmv_;
     CudnnConvDesc::Ptr convDesc_;
     CudnnFilterDesc::Ptr wDesc_;
@@ -139,6 +144,15 @@ inline void ConvLayer<Device::CUDA>::setup()
     }
 
     bwdDataWorkspace_ = V(workspaceSize / sizeof(float), 0.0f);
+
+    if (this->model().adamEnabled()) {
+        m_ = V(weights_.size(), 0.0f);
+        v_ = V(weights_.size(), 0.0f);
+        bias_m_ = V(biases_.size(), 0.0f);
+        bias_v_ = V(biases_.size(), 0.0f);
+        scale_m_ = V(scales_.size(), 0.0f);
+        scale_v_ = V(scales_.size(), 0.0f);
+    }
 }
 
 template<>
@@ -305,21 +319,40 @@ inline void ConvLayer<Device::CUDA>::update()
     auto learningRate = net.learningRate();
     auto momentum = net.momentum();
     auto decay = net.decay();
+    auto batch = this->batch();
 
     const auto& ctxt = this->cublasContext();
 
-    auto alpha = -decay * this->batch();
+    if (net.adamEnabled()) {
+        auto beta1 = net.adamBeta1();
+        auto beta2 = net.adamBeta2();
+        auto epsilon = net.adamEpsilon();
+        auto t = net.seen();
+
+        Adam<Device::CUDA> adam(ctxt, batch, t, learningRate, beta1, beta2, epsilon, decay);
+
+        adam.update(weights_, weightUpdates_, m_, v_);
+        adam.update(biases_, biasUpdates_, bias_m_, bias_v_);
+
+        if (scales_.size()) {
+            adam.update(scales_, scaleUpdates_, scale_m_, scale_v_);
+        }
+
+        return;
+    }
+
+    auto alpha = -decay * batch;
     auto status = cublasSaxpy(ctxt, weights_.size(), &alpha, weights_.data(), 1, weightUpdates_.data(), 1);
     PX_CHECK_CUBLAS(status);
 
-    alpha = learningRate / this->batch();
+    alpha = learningRate / batch;
     status = cublasSaxpy(ctxt, weights_.size(), &alpha, weightUpdates_.data(), 1, weights_.data(), 1);
     PX_CHECK_CUBLAS(status);
 
     status = cublasSscal(ctxt, weights_.size(), &momentum, weightUpdates_.data(), 1);
     PX_CHECK_CUBLAS(status);
 
-    alpha = learningRate / this->batch();
+    alpha = learningRate / batch;
     status = cublasSaxpy(ctxt, filters_, &alpha, biasUpdates_.data(), 1, biases_.data(), 1);
     PX_CHECK_CUBLAS(status);
 

@@ -73,6 +73,8 @@ Augmentation ImageAugmenter::augment(Mat& image, const cv::Size& targetSize) con
 
     implace(image, nw, nh, roiSrc, roiDst, canvas);
 
+    distort(canvas);
+
     auto w = targetSize.width;
     auto h = targetSize.height;
 

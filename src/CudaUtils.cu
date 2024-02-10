@@ -104,4 +104,12 @@ void constrainGpu(int n, float alpha, float* x)
     thrust::transform(devPtr, devPtr + n, devPtr, op);
 }
 
+void mulGpu(int n, float* x, float* y)
+{
+    thrust::device_ptr<float> devPtrX = thrust::device_pointer_cast(x);
+    thrust::device_ptr<float> devPtrY = thrust::device_pointer_cast(y);
+
+    thrust::transform(devPtrX, devPtrX + n, devPtrY, devPtrY, thrust::multiplies<float>());
+}
+
 }   // px
