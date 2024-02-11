@@ -1,5 +1,5 @@
 model:
-  batch: 1
+  batch: 8
   subdivisions: 1
   width: 416
   height: 416
@@ -47,7 +47,7 @@ model:
       power: 4.0
 
     initial_learning_rate: 0.001
-    policy: constant
+    policy: smooth_stepped
 
     stepped:
       steps: [ 200,400,600,800,20000,30000 ]
