@@ -14,35 +14,136 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_ROUTELAYER_H
-#define PIXIENN_ROUTELAYER_H
+#pragma once
 
 #include "Layer.h"
 
 namespace px {
 
-class RouteLayer : public Layer
+template<Device D = Device::CPU>
+class RouteLayer : public Layer<D>
 {
-protected:
-    RouteLayer(const Model& model, const YAML::Node& layerDef);
-
 public:
-    ~RouteLayer() override = default;
+    using V = typename Layer<D>::V;
+
+    RouteLayer(Model<D>& model, const YAML::Node& layerDef);
+
+    void forward(const V& input) override;
+    void backward(const V& input, V* grad) override;
 
     std::ostream& print(std::ostream& os) override;
-    void forward(const PxCpuVector& input) override;
-
-#ifdef USE_CUDA
-    void forwardGpu(const PxCudaVector& input) override;
-#endif
 
 private:
-    void setup() override;
-
-    friend LayerFactories;
-    std::vector<Layer::Ptr> layers_;
+    std::vector<typename Layer<D>::Ptr> layers_;
 };
+
+template<Device D>
+RouteLayer<D>::RouteLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D>(model, layerDef)
+{
+    auto layers = this->template property<std::vector<int>>("layers");
+
+    layers_.resize(layers.size());
+
+    auto i = 0, outputs = 0, outWidth = 0, outHeight = 0, outChannels = 0;
+    for (auto index: layers) {
+        if (index < 0) {   // relative backwards
+            index = this->index() + index;
+        }
+
+        PX_CHECK(index < model.layerSize(), "Layer index out of range.");
+        PX_CHECK(index < this->index(), "Layer index ahead of current layer.");
+
+        const auto& layer = model.layerAt(index);
+
+        outputs += layer->outputs();
+
+        if (outWidth == 0 && outHeight == 0 && outChannels == 0) {
+            outWidth = layer->outWidth();
+            outHeight = layer->outHeight();
+            outChannels = layer->outChannels();
+        } else if (outWidth == layer->outWidth() && outHeight == layer->outHeight()) {
+            outChannels += layer->outChannels();
+        } else {
+            outWidth = outHeight = outChannels;
+        }
+
+        layers_[i++] = layer;
+    }
+
+    this->setOutChannels(outChannels);
+    this->setOutHeight(outHeight);
+    this->setOutWidth(outWidth);
+    this->setOutputs(outputs);
+
+    this->output_ = V(this->batch() * outputs, 0.0f);
+    this->delta_ = V(this->batch() * outputs, 0.0f);
+}
+
+template<Device D>
+std::ostream& RouteLayer<D>::print(std::ostream& os)
+{
+    Layer<D>::print(os, "route", { this->height(), this->width(), this->channels() },
+                    { this->outHeight(), this->outWidth(), this->outChannels() });
+
+    return os;
+}
+
+template<Device D>
+void RouteLayer<D>::forward(const V& input)
+{
+    Layer<D>::forward(input);
+
+    auto offset = 0;
+
+    auto* output = this->output_.data();
+
+    for (const auto& layer: layers_) {
+        const auto* pin = layer->output().data();
+        auto inputSize = layer->outputs();
+
+        for (auto i = 0; i < this->batch(); ++i) {
+            const auto* in = pin + i * inputSize;
+            auto* out = output + offset + i * this->outputs();
+
+            cblas_scopy(inputSize, in, 1, out, 1);
+        }
+
+        offset += inputSize;
+    }
+}
+
+template<Device D>
+void RouteLayer<D>::backward(const V& input, V* grad)
+{
+    Layer<D>::backward(input, grad);
+
+    auto offset = 0;
+    auto* pdelta = this->delta_.data();
+
+    for (const auto& layer: layers_) {
+        auto* ldelta = layer->delta().data();
+        auto outputSize = layer->outputs();
+
+        for (auto i = 0; i < this->batch(); ++i) {
+            auto* in = pdelta + offset + i * this->outputs();
+            auto* out = ldelta + i * outputSize;
+
+            cblas_saxpy(outputSize, 1, in, 1, out, 1);
+        }
+
+        offset += outputSize;
+    }
+}
+
+using CpuRoute = RouteLayer<>;
+using CudaRoute = RouteLayer<Device::CUDA>;
 
 } // px
 
-#endif //PIXIENN_ROUTELAYER_H
+#ifdef USE_CUDA
+
+#include "cuda/RouteLayer.h"
+
+#endif // USE_CUDA
+
+

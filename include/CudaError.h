@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_CUDA_ERROR_H
-#define PIXIENN_CUDA_ERROR_H
+#pragma once
 
 #include "Error.h"
 #include <driver_types.h>
@@ -46,5 +45,3 @@ private:
     px::CudaError::check(__FILENAME__, __LINE__, __FUNCTION__)
 
 } // px
-
-#endif // PIXIENN_CUDA_ERROR_H

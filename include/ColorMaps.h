@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_COLORMAPS_H
-#define PIXIENN_COLORMAPS_H
+#pragma once
 
 namespace px {
 
@@ -27,12 +26,10 @@ public:
     ~ColorMaps();
 
     uint32_t color(uint32_t index) const;
-
+    static std::vector<std::string> maps();
 private:
     class Iterator;
     Iterator* it_;
 };
 
 }
-
-#endif //PIXIENN_COLORMAPS_H

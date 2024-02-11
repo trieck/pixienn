@@ -37,7 +37,7 @@ Error::Error(const Error& error, std::string message) noexcept:
     init();
 }
 
-Error::Error(const char* file, unsigned int line, const char* function, const char* message) noexcept:
+Error::Error(const char* file, uint32_t line, const char* function, const char* message) noexcept:
         file_(file ? file : ""),
         line_(line),
         function_(function ? function : ""),
@@ -46,7 +46,7 @@ Error::Error(const char* file, unsigned int line, const char* function, const ch
     init();
 }
 
-Error::Error(std::string file, unsigned int line, std::string function, std::string message) noexcept:
+Error::Error(std::string file, uint32_t line, std::string function, std::string message) noexcept:
         file_(std::move(file)),
         line_(line),
         function_(std::move(function)),
@@ -55,7 +55,7 @@ Error::Error(std::string file, unsigned int line, std::string function, std::str
     init();
 }
 
-Error::Error(const char* file, unsigned int line, const char* function, std::string  message) noexcept:
+Error::Error(const char* file, uint32_t line, const char* function, std::string  message) noexcept:
         file_(file ? file : ""),
         line_(line),
         function_(function ? function : ""),
@@ -64,7 +64,7 @@ Error::Error(const char* file, unsigned int line, const char* function, std::str
     init();
 }
 
-Error::Error(const char* file, unsigned int line, const char* function, const std::exception_ptr& ptr,
+Error::Error(const char* file, uint32_t line, const char* function, const std::exception_ptr& ptr,
              const char* format, ...) noexcept
 {
     std::string message;
@@ -108,7 +108,7 @@ Error& Error::operator=(const Error& rhs) noexcept
     return *this;
 }
 
-Error Error::fromFormat(const char* file, unsigned int line, const char* function, const char* format, ...) noexcept
+Error Error::fromFormat(const char* file, uint32_t line, const char* function, const char* format, ...) noexcept
 {
     char buf[PX_ERROR_MAX_LEN] = { 0 };
 
@@ -130,7 +130,7 @@ const std::string& Error::file() const noexcept
     return file_;
 }
 
-unsigned int Error::line() const noexcept
+uint32_t Error::line() const noexcept
 {
     return line_;
 }

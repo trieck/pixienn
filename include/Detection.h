@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_DETECTION_H
-#define PIXIENN_DETECTION_H
+#pragma once
 
 #include <opencv2/core/types.hpp>
 
@@ -24,36 +23,26 @@ namespace px {
 class Detection
 {
 public:
-    Detection(int classes, cv::Rect box, float objectness);
+    Detection(cv::Rect2f box, int batchId, int classIndex, float prob);
 
-    float& operator[](int clazz);
-    const float& operator[](int clazz) const;
-
-    [[nodiscard]] const std::vector<float>& prob() const noexcept;
-    [[nodiscard]] int size() const noexcept;
-    [[nodiscard]] const cv::Rect& box() const noexcept;
-    [[nodiscard]] float max() const noexcept;
-    [[nodiscard]] int maxClass() const noexcept;
-
-    void setMaxClass(int max);
+    float prob() const noexcept;
+    const cv::Rect2f& box() const noexcept;
+    int classIndex() const noexcept;
+    int batchId() const noexcept;
 
 private:
-    cv::Rect box_;
-    std::vector<float> prob_;
-    float objectness_;
-    int maxClass_ = 0;
+    cv::Rect2f box_;
+    float prob_;
+    int classIndex_ = 0;
+    int batchId_ = 0;
 };
 
 using Detections = std::vector<Detection>;
 
 struct Detector
 {
+    virtual void addDetects(Detections& detects, float threshold) = 0;
     virtual void addDetects(Detections& detects, int width, int height, float threshold) = 0;
-#ifdef USE_CUDA
-    virtual void addDetectsGpu(Detections& detects, int width, int height, float threshold) = 0;
-#endif // USE_CUDA
 };
 
 }   // px
-
-#endif // PIXIENN_DETECTION_H

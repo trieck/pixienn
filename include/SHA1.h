@@ -14,11 +14,11 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_SHA1_H
-#define PIXIENN_SHA1_H
+#pragma once
+
+#include <boost/uuid/detail/sha1.hpp>
 
 #include "Common.h"
-#include <boost/uuid/detail/sha1.hpp>
 
 namespace px {
 
@@ -34,7 +34,7 @@ std::string sha1(const T* x, std::size_t n)
     std::ostringstream ss;
     ss << std::setfill('0') << std::hex;
 
-    for (unsigned int i: digest) {
+    for (uint32_t i: digest) {
         ss << i;
     }
 
@@ -42,5 +42,3 @@ std::string sha1(const T* x, std::size_t n)
 }
 
 }   // px
-
-#endif // PIXIENN_SHA1_H

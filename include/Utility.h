@@ -1,5 +1,5 @@
 /********************************************************************************
-* Copyright 2020-2023 Thomas A. Rieck, All Rights Reserved
+* Copyright 2023 Thomas A. Rieck, All Rights Reserved
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -14,17 +14,44 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_UTILITY_H
-#define PIXIENN_UTILITY_H
+#pragma once
+
+#include <opencv2/core/types.hpp>
 
 #include "Common.h"
 
 namespace px {
 
-void im2col_cpu(const float* im, int channels, int height, int width, int ksize, int stride, int pad, float* dataCol);
-void addBias(float* output, const float* biases, int batch, int n, int size);
-void random_generate_cpu(float* ptr, std::size_t n, float a = 0.f, float b = 1.f);
+std::string fmtInt(int number);
+
+template<typename T>
+T randomUniform(T min = 0, T max = 1)
+{
+    if (max < min) {
+        std::swap(min, max);
+    }
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    if constexpr (std::is_integral<T>::value) {
+        std::uniform_int_distribution<T> distribution(min, max);
+        return distribution(gen);
+    } else {
+        std::uniform_real_distribution<T> distribution(min, max);
+        return distribution(gen);
+    }
+}
+
+template<typename T>
+T randomScale(T s)
+{
+    auto scale = randomUniform<T>(1, s);
+    if (randomUniform<T>() > 0.5) {
+        return scale;
+    } else {
+        return 1 / scale;
+    }
+}
 
 }   // px
-
-#endif // PIXIENN_UTILITY_H

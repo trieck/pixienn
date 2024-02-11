@@ -14,15 +14,13 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_TIFFIO_H
-#define PIXIENN_TIFFIO_H
+#pragma once
 
 #include <opencv2/core/mat.hpp>
 
 namespace px {
 
 cv::Mat readTIFF(const char* path);
+void writeTIFF(const char* path, const cv::Mat& image);
 
 }
-
-#endif // PIXIENN_TIFFIO_H

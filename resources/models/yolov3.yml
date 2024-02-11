@@ -1,25 +1,57 @@
 model:
+
   batch: 1
   subdivisions: 1
-  width: 608
-  height: 608
+  width: 416
+  height: 416
   channels: 3
+
+  max_batches: 10000
+
   momentum: 0.9
   decay: 0.0005
-  angle: 0
-  saturation: 1.5
-  exposure: 1.5
-  hue: 0.1
-  learning_rate: 0.001
-  burn_in: 1000
-  max_batches: 500200
-  policy: steps
-  steps:
-    - 400000
-    - 450000
-  scales:
-    - 0.1
-    - 0.1
+
+  augmentation:
+    enabled: False
+    flip: True
+    jitter: 0.2
+    saturation: 1.2
+    exposure: 1.2
+    hue: 0.05
+
+  gradient_rescale:
+    enabled: False
+    threshold: 10.0
+
+  gradient_clipping:
+    enabled: False
+    value: 1.0
+
+  validation:
+    enabled: True
+    interval: 10000
+    batches: 100
+    threshold: 0.2
+
+  learning_rate:
+    initial_learning_rate: 0.001
+    policy: constant
+
+    burn_in:
+      batches: 0
+      power: 4.0
+
+    inverse:
+      gamma: 0.0001
+      power: 1
+
+    smooth_stepped:
+      steps: [ 10, 25, 50, 75, 90, 100, 200, 300 ]
+      targets: [ 0.00002, 0.00004, 0.00006, 0.00008, 0.00009, 0.0001, 0.0005, 0.001 ]
+
+    stepped:
+      steps: [ 100, 200, 300, 20000, 30000 ]
+      scales: [ 0.5, 0.5, 0.5, 0.1, 0.1 ]
 
   layers:
     - type: conv
@@ -29,6 +61,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 64
@@ -36,6 +69,7 @@ model:
       stride: 2
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 32
@@ -43,6 +77,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 64
@@ -50,9 +85,11 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: shortcut
       from: -3
       activation: linear
+
     - type: conv
       batch_normalize: True
       filters: 128
@@ -60,6 +97,7 @@ model:
       stride: 2
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 64
@@ -67,6 +105,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 128
@@ -74,9 +113,11 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: shortcut
       from: -3
       activation: linear
+
     - type: conv
       batch_normalize: True
       filters: 64
@@ -84,6 +125,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 128
@@ -91,9 +133,11 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: shortcut
       from: -3
       activation: linear
+
     - type: conv
       batch_normalize: True
       filters: 256
@@ -101,6 +145,7 @@ model:
       stride: 2
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 128
@@ -108,6 +153,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 256
@@ -115,9 +161,11 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: shortcut
       from: -3
       activation: linear
+
     - type: conv
       batch_normalize: True
       filters: 128
@@ -125,6 +173,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 256
@@ -132,9 +181,11 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: shortcut
       from: -3
       activation: linear
+
     - type: conv
       batch_normalize: True
       filters: 128
@@ -142,6 +193,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 256
@@ -149,9 +201,11 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: shortcut
       from: -3
       activation: linear
+
     - type: conv
       batch_normalize: True
       filters: 128
@@ -159,6 +213,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 256
@@ -166,9 +221,11 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: shortcut
       from: -3
       activation: linear
+
     - type: conv
       batch_normalize: True
       filters: 128
@@ -176,6 +233,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 256
@@ -183,9 +241,11 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: shortcut
       from: -3
       activation: linear
+
     - type: conv
       batch_normalize: True
       filters: 128
@@ -193,6 +253,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 256
@@ -200,9 +261,11 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: shortcut
       from: -3
       activation: linear
+
     - type: conv
       batch_normalize: True
       filters: 128
@@ -210,6 +273,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 256
@@ -217,9 +281,11 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: shortcut
       from: -3
       activation: linear
+
     - type: conv
       batch_normalize: True
       filters: 128
@@ -227,6 +293,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 256
@@ -234,9 +301,11 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: shortcut
       from: -3
       activation: linear
+
     - type: conv
       batch_normalize: True
       filters: 512
@@ -244,6 +313,7 @@ model:
       stride: 2
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 256
@@ -251,6 +321,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 512
@@ -258,9 +329,11 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: shortcut
       from: -3
       activation: linear
+
     - type: conv
       batch_normalize: True
       filters: 256
@@ -268,6 +341,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 512
@@ -275,9 +349,11 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: shortcut
       from: -3
       activation: linear
+
     - type: conv
       batch_normalize: True
       filters: 256
@@ -285,6 +361,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 512
@@ -292,9 +369,11 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: shortcut
       from: -3
       activation: linear
+
     - type: conv
       batch_normalize: True
       filters: 256
@@ -302,6 +381,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 512
@@ -309,9 +389,11 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: shortcut
       from: -3
       activation: linear
+
     - type: conv
       batch_normalize: True
       filters: 256
@@ -319,6 +401,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 512
@@ -326,9 +409,11 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: shortcut
       from: -3
       activation: linear
+
     - type: conv
       batch_normalize: True
       filters: 256
@@ -336,6 +421,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 512
@@ -343,9 +429,11 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: shortcut
       from: -3
       activation: linear
+
     - type: conv
       batch_normalize: True
       filters: 256
@@ -353,6 +441,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 512
@@ -360,9 +449,11 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: shortcut
       from: -3
       activation: linear
+
     - type: conv
       batch_normalize: True
       filters: 256
@@ -370,6 +461,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 512
@@ -377,9 +469,11 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: shortcut
       from: -3
       activation: linear
+
     - type: conv
       batch_normalize: True
       filters: 1024
@@ -387,6 +481,7 @@ model:
       stride: 2
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 512
@@ -394,6 +489,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 1024
@@ -401,9 +497,11 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: shortcut
       from: -3
       activation: linear
+
     - type: conv
       batch_normalize: True
       filters: 512
@@ -411,6 +509,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 1024
@@ -418,9 +517,11 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: shortcut
       from: -3
       activation: linear
+
     - type: conv
       batch_normalize: True
       filters: 512
@@ -428,6 +529,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 1024
@@ -435,9 +537,11 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: shortcut
       from: -3
       activation: linear
+
     - type: conv
       batch_normalize: True
       filters: 512
@@ -445,6 +549,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 1024
@@ -452,9 +557,11 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: shortcut
       from: -3
       activation: linear
+
     - type: conv
       batch_normalize: True
       filters: 512
@@ -462,6 +569,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       kernel: 3
@@ -469,6 +577,7 @@ model:
       pad: True
       filters: 1024
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 512
@@ -476,6 +585,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       kernel: 3
@@ -483,6 +593,7 @@ model:
       pad: True
       filters: 1024
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 512
@@ -490,6 +601,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       kernel: 3
@@ -497,44 +609,27 @@ model:
       pad: True
       filters: 1024
       activation: leaky
+
     - type: conv
       kernel: 1
       stride: 1
       pad: True
       filters: 255
       activation: linear
+
     - type: yolo
-      mask:
-        - 6
-        - 7
-        - 8
-      anchors:
-        - 10
-        - 13
-        - 16
-        - 30
-        - 33
-        - 23
-        - 30
-        - 61
-        - 62
-        - 45
-        - 59
-        - 119
-        - 116
-        - 90
-        - 156
-        - 198
-        - 373
-        - 326
+      mask: [ 6, 7, 8 ]
+      anchors: [ 10, 13, 16, 30, 33, 23, 30, 61, 62, 45, 59, 119, 116, 90, 156, 198, 373, 326 ]
       classes: 80
       num: 9
       jitter: 0.3
       ignore_thresh: 0.7
-      truth_thresh: True
+      truth_thresh: 1.0
       random: True
+
     - type: route
       layers: [ -4 ]
+
     - type: conv
       batch_normalize: True
       filters: 256
@@ -542,10 +637,13 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: upsample
       stride: 2
+
     - type: route
       layers: [ -1, 61 ]
+
     - type: conv
       batch_normalize: True
       filters: 256
@@ -553,6 +651,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       kernel: 3
@@ -560,6 +659,7 @@ model:
       pad: True
       filters: 512
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 256
@@ -567,6 +667,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       kernel: 3
@@ -574,6 +675,7 @@ model:
       pad: True
       filters: 512
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 256
@@ -581,6 +683,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       kernel: 3
@@ -588,44 +691,27 @@ model:
       pad: True
       filters: 512
       activation: leaky
+
     - type: conv
       kernel: 1
       stride: 1
       pad: True
       filters: 255
       activation: linear
+
     - type: yolo
-      mask:
-        - 3
-        - 4
-        - 5
-      anchors:
-        - 10
-        - 13
-        - 16
-        - 30
-        - 33
-        - 23
-        - 30
-        - 61
-        - 62
-        - 45
-        - 59
-        - 119
-        - 116
-        - 90
-        - 156
-        - 198
-        - 373
-        - 326
+      mask: [ 3, 4, 5 ]
+      anchors: [ 10, 13, 16, 30, 33, 23, 30, 61, 62, 45, 59, 119, 116, 90, 156, 198, 373, 326 ]
       classes: 80
       num: 9
       jitter: 0.3
       ignore_thresh: 0.7
-      truth_thresh: True
+      truth_thresh: 1.0
       random: True
+
     - type: route
       layers: [ -4 ]
+
     - type: conv
       batch_normalize: True
       filters: 128
@@ -633,10 +719,13 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: upsample
       stride: 2
+
     - type: route
       layers: [ -1, 36 ]
+
     - type: conv
       batch_normalize: True
       filters: 128
@@ -644,6 +733,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       kernel: 3
@@ -651,6 +741,7 @@ model:
       pad: True
       filters: 256
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 128
@@ -658,6 +749,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       kernel: 3
@@ -665,6 +757,7 @@ model:
       pad: True
       filters: 256
       activation: leaky
+
     - type: conv
       batch_normalize: True
       filters: 128
@@ -672,6 +765,7 @@ model:
       stride: 1
       pad: True
       activation: leaky
+
     - type: conv
       batch_normalize: True
       kernel: 3
@@ -679,39 +773,20 @@ model:
       pad: True
       filters: 256
       activation: leaky
+
     - type: conv
       kernel: 1
       stride: 1
       pad: True
       filters: 255
       activation: linear
+
     - type: yolo
-      mask:
-        - 0
-        - 1
-        - 2
-      anchors:
-        - 10
-        - 13
-        - 16
-        - 30
-        - 33
-        - 23
-        - 30
-        - 61
-        - 62
-        - 45
-        - 59
-        - 119
-        - 116
-        - 90
-        - 156
-        - 198
-        - 373
-        - 326
+      mask: [ 0, 1, 2 ]
+      anchors: [ 10, 13, 16, 30, 33, 23, 30, 61, 62, 45, 59, 119, 116, 90, 156, 198, 373, 326 ]
       classes: 80
       num: 9
       jitter: 0.3
       ignore_thresh: 0.7
-      truth_thresh: True
+      truth_thresh: 1.0
       random: True

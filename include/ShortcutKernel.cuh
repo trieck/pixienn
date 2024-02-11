@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_SHORTCUTKERNEL_CUH
-#define PIXIENN_SHORTCUTKERNEL_CUH
+#pragma once
 
 namespace px {
 
@@ -23,4 +22,3 @@ void shortcutGpu(int batch, int w1, int h1, int c1, const float* add, int w2, in
                  float* out);
 }
 
-#endif // PIXIENN_SHORTCUTKERNEL_CUH

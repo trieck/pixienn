@@ -14,17 +14,18 @@
 * limitations under the License.
 ********************************************************************************/
 
-#include "CudaUtils.cuh"
-#include <cuda_runtime.h>
 
+#include <cuda_runtime.h>
 #include <thrust/device_vector.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/random.h>
 #include <thrust/transform.h>
 
+#include "CudaUtils.cuh"
+
 namespace px {
 
-dim3 cuda_gridsize(std::uint32_t n)
+dim3 cudaGridsize(std::uint32_t n)
 {
     std::uint32_t k = (n - 1) / CUDA_BLOCK_SIZE + 1;
     std::uint32_t x = k;
@@ -61,21 +62,54 @@ __host__ __device__ float random_generator::operator()(std::size_t n) const
     return dist(rng);
 }
 
-void fill_gpu(float* ptr, std::size_t n, float value)
+void fillGpu(float* ptr, std::size_t n, float value)
 {
-    thrust::device_ptr<float> dev_ptr = thrust::device_pointer_cast(ptr);
-    thrust::fill(dev_ptr, dev_ptr + n, value);
+    thrust::device_ptr<float> devPtr = thrust::device_pointer_cast(ptr);
+    thrust::fill(devPtr, devPtr + n, value);
 }
 
-void random_generate_gpu(float* ptr, std::size_t n, float a, float b)
+void fillGpu(int* ptr, std::size_t n, int value)
 {
-    thrust::device_ptr<float> dev_ptr = thrust::device_pointer_cast(ptr);
+    thrust::device_ptr<int> devPtr = thrust::device_pointer_cast(ptr);
+    thrust::fill(devPtr, devPtr + n, value);
+}
+
+void randomGpu(float* ptr, std::size_t n, float a, float b)
+{
+    thrust::device_ptr<float> devPtr = thrust::device_pointer_cast(ptr);
 
     thrust::counting_iterator<unsigned int> index_sequence_begin(0);
     thrust::transform(index_sequence_begin,
                       index_sequence_begin + n,
-                      dev_ptr,
+                      devPtr,
                       random_generator(a, b));
+}
+
+struct ConstrainOp
+{
+    float alpha;
+
+    __host__ __device__ float operator()(float val) const
+    {
+        return fminf(alpha, fmaxf(-alpha, val));
+    }
+};
+
+void constrainGpu(int n, float alpha, float* x)
+{
+    thrust::device_ptr<float> devPtr = thrust::device_pointer_cast(x);
+
+    ConstrainOp op{alpha};
+
+    thrust::transform(devPtr, devPtr + n, devPtr, op);
+}
+
+void mulGpu(int n, float* x, float* y)
+{
+    thrust::device_ptr<float> devPtrX = thrust::device_pointer_cast(x);
+    thrust::device_ptr<float> devPtrY = thrust::device_pointer_cast(y);
+
+    thrust::transform(devPtrX, devPtrX + n, devPtrY, devPtrY, thrust::multiplies<float>());
 }
 
 }   // px
