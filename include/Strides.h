@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_STRIDES_H
-#define PIXIENN_STRIDES_H
+#pragma once
 
 namespace px {
 
@@ -43,5 +42,3 @@ inline std::size_t compute_strides(const shape_type& shape, strides_type& stride
 }
 
 }   // px
-
-#endif // PIXIENN_STRIDES_H

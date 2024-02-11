@@ -14,38 +14,91 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_IMAGE_H
-#define PIXIENN_IMAGE_H
+#pragma once
 
 #include <opencv2/core/mat.hpp>
 #include <opencv2/imgproc.hpp>
 #include "PxTensor.h"
+#include "ImageVec.h"
 
 namespace px {
 
-cv::Mat imchannel(const cv::Mat& image, int c);
-cv::Mat imletterbox(const cv::Mat& image, int width, int height);
-cv::Mat immake(int height, int width, int channels, float value = 0.0f);
+struct LBMat
+{
+    cv::Mat image;
+    int originalWidth;
+    int originalHeight;
+    float ax;
+    float ay;
+    float dx;
+    float dy;
+};
+
+cv::Scalar immidpoint(const cv::Mat& image);
+
+// Distort the image with hue, saturation and exposure
+void imdistort(cv::Mat& image, float hue, float saturation, float exposure);
+
+// Resize image with letterboxing
+LBMat imletterbox(const cv::Mat& image, int width, int height);
+
+// Normalize image pixel values
 cv::Mat imnormalize(const cv::Mat& image);
-cv::Mat imrandom(int height, int width, int channels);
-cv::Mat imread(const char* path);
-cv::Mat imread_normalize(const char* path);
-cv::Mat imread_tiff(const char* path);
+
+// Denormalize image pixel values
+cv::Mat imdenormalize(const cv::Mat& image);
+
+// Place an image on a background
+void implace(const cv::Mat& image, int w, int h, int dx, int dy, cv::Mat& canvas);
+void implace(const cv::Mat& image, int w, int h, const cv::Rect& roiSrc, cv::Rect& roiDest, cv::Mat& canvas);
+void calculateROI(int w, int h, int dx, int dy, cv::Rect& roiSrc, cv::Rect& roiDest, const cv::Mat& canvas);
+
+// Read an image from a file
+cv::Mat imread(const char* path, int channels);
+
+// Read an image from a file with a specific height, width and channels
+LBMat imread(const char* path, int width, int height, int channels);
+
+// Read an image and normalize pixel values
+cv::Mat imreadNormalize(const char* path, int channels);
+
+// Read an image and normalize pixel values with a specific height, width and channels
+LBMat imreadNormalize(const char* path, int width, int height, int channels);
+
+// Read an image in TIFF format
+cv::Mat imreadTiff(const char* path);
+
+// Read an image as vector
+ImageVec imreadVector(const char* path, int channels);
+
+// Read an image as vector with a specific height and width
+ImageVec imreadVector(const char* path, int width, int height, int channels);
+
+// Save an image to a file
 void imsave(const char* path, const cv::Mat& image);
-void imsave_tiff(const char* path, const cv::Mat& image);
-float imget(const cv::Mat& image, int x, int y, int c);
-float imgetextend(const cv::Mat& image, int x, int y, int c);
-void imadd(cv::Mat& image, int x, int y, int c, float value);
-void imset(cv::Mat& image, int x, int y, int c, float value);
-void imzero(const cv::Mat& image, int c);
+
+// Save an image in TIFF format
+void imsaveTiff(const char* path, const cv::Mat& image);
+
+// Save an ImageVector in TIFF format
+void imsave(const char* path, ImageVec& image);
+
+// Convert image to a PxCpuVector
 PxCpuVector imvector(const cv::Mat& image);
+
+// Draw a rectangle on the image
 void imrect(cv::Mat& image, const cv::Rect& rect, uint32_t color, int thickness = 1, int lineType = cv::LINE_AA);
-void imtabbed_rect(cv::Mat& img, const cv::Point& pt1, const cv::Point& pt2, uint32_t color,
-                   int thickness = 1, int lineType = cv::LINE_AA, int cornerRadius = 2);
-void imtabbed_text(cv::Mat& image, const char* text, const cv::Point& ptOrg, uint32_t textColor, uint32_t bgColor,
-                   int thickness = 1);
+
+// Draw a rectangle with tabbed corners on the image
+void imtabbedRect(cv::Mat& img, const cv::Point& pt1, const cv::Point& pt2, uint32_t color,
+                  int thickness = 1, int lineType = cv::LINE_AA, int cornerRadius = 2);
+
+// Draw tabbed text on the image
+void imtabbedText(cv::Mat& image, const char* text, const cv::Point& ptOrg, uint32_t textColor, uint32_t bgColor,
+                  int thickness = 1);
+
+// Get the text color for an image background color
 uint32_t imtextcolor(uint32_t color);
 
 } // px
 
-#endif // PIXIENN_IMAGE_H

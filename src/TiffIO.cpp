@@ -15,23 +15,27 @@
 ********************************************************************************/
 
 #include <boost/endian/conversion.hpp>
-
 #include <opencv2/core/utility.hpp>
+#include <opencv2/imgproc/types_c.h>
 #include <tiffio.h>
+
 #include "Common.h"
 #include "Error.h"
 #include "TiffIO.h"
 
+using namespace cv;
+
 namespace px {
 
-class TIFFReader
+class TIFFIO
 {
 public:
-    TIFFReader(const char* path);
-    ~TIFFReader();
+    TIFFIO(const char* path, const char* mode = "r");
+    ~TIFFIO();
 
     uint32_t field(uint32_t tag) const;
-    cv::Mat read();
+    Mat read() const;
+    void write(const Mat& image) const;
 
 private:
     using buffer_ptr = std::unique_ptr<uint8_t[]>;
@@ -41,13 +45,13 @@ private:
     TIFF* tiff_ = nullptr;
 };
 
-TIFFReader::TIFFReader(const char* path)
+TIFFIO::TIFFIO(const char* path, const char* mode)
 {
-    tiff_ = TIFFOpen(path, "r");
+    tiff_ = TIFFOpen(path, mode);
     PX_CHECK(tiff_, "Could not open image \"%s\".", path);
 }
 
-TIFFReader::~TIFFReader()
+TIFFIO::~TIFFIO()
 {
     if (tiff_ != nullptr) {
         TIFFClose(tiff_);
@@ -55,14 +59,14 @@ TIFFReader::~TIFFReader()
     }
 }
 
-uint32_t TIFFReader::field(uint32_t tag) const
+uint32_t TIFFIO::field(uint32_t tag) const
 {
     uint32_t value = 0;
     TIFFGetField(tiff_, tag, &value);
     return value;
 }
 
-TIFFReader::buffer_ptr TIFFReader::scanLineBuffer() const
+TIFFIO::buffer_ptr TIFFIO::scanLineBuffer() const
 {
     auto scanLineSize = TIFFScanlineSize(tiff_);
 
@@ -71,7 +75,7 @@ TIFFReader::buffer_ptr TIFFReader::scanLineBuffer() const
     return results;
 }
 
-float TIFFReader::maxValue() const
+float TIFFIO::maxValue() const
 {
     auto bitsPerSample = field(TIFFTAG_BITSPERSAMPLE);
     auto sampleFormat = field(TIFFTAG_SAMPLEFORMAT);
@@ -95,7 +99,7 @@ float TIFFReader::maxValue() const
     return 0;
 }
 
-cv::Mat TIFFReader::read()
+Mat TIFFIO::read() const
 {
     auto width = field(TIFFTAG_IMAGEWIDTH);
     auto height = field(TIFFTAG_IMAGELENGTH);
@@ -103,7 +107,7 @@ cv::Mat TIFFReader::read()
     auto bitsPerSample = field(TIFFTAG_BITSPERSAMPLE);
     auto sampleFormat = field(TIFFTAG_SAMPLEFORMAT);
 
-    cv::Mat image(height, width, CV_MAKETYPE(CV_32F, numChannels));
+    Mat image(height, width, CV_MAKETYPE(CV_32F, numChannels));
 
     auto max = maxValue();
     auto buffer = scanLineBuffer();
@@ -144,10 +148,52 @@ cv::Mat TIFFReader::read()
     return image;
 }
 
-cv::Mat readTIFF(const char* path)
+void TIFFIO::write(const Mat& image) const
 {
-    TIFFReader reader(path);
-    return reader.read();
+    auto channels = image.channels();
+    auto width = image.cols, height = image.rows;
+    auto type = image.type();
+    auto depth = CV_MAT_DEPTH(type);
+
+    PX_CHECK(depth == CV_32F, "Only 32-bit floating point images supported.");
+
+    TIFFSetField(tiff_, TIFFTAG_IMAGEWIDTH, width);
+    TIFFSetField(tiff_, TIFFTAG_IMAGELENGTH, height);
+
+    size_t fileStep = (width * channels * 32) / 8;
+
+    auto rowsPerStrip = (int) ((1 << 13) / fileStep);
+    rowsPerStrip = std::max(1, std::min(height, rowsPerStrip));
+
+    auto colorspace = channels > 1 ? PHOTOMETRIC_RGB : PHOTOMETRIC_MINISBLACK;
+
+    TIFFSetField(tiff_, TIFFTAG_BITSPERSAMPLE, 32);
+    TIFFSetField(tiff_, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
+    TIFFSetField(tiff_, TIFFTAG_PHOTOMETRIC, colorspace);
+    TIFFSetField(tiff_, TIFFTAG_SAMPLESPERPIXEL, channels);
+    TIFFSetField(tiff_, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+    TIFFSetField(tiff_, TIFFTAG_ROWSPERSTRIP, rowsPerStrip);
+    TIFFSetField(tiff_, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_IEEEFP);
+
+    auto scanlineSize = TIFFScanlineSize(tiff_);
+    AutoBuffer<uchar> buffer(scanlineSize + 32);
+
+    for (auto y = 0; y < height; ++y) {
+        memcpy(buffer, image.ptr(y), scanlineSize);
+        PX_CHECK(TIFFWriteScanline(tiff_, buffer, y, 0) == 1, "Cannot write scan line.");
+    }
+}
+
+Mat readTIFF(const char* path)
+{
+    TIFFIO io(path, "r");
+    return io.read();
+}
+
+void writeTIFF(const char* path, const Mat& image)
+{
+    TIFFIO io(path, "w");
+    io.write(image);
 }
 
 }   // px

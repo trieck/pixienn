@@ -15,13 +15,17 @@
 ********************************************************************************/
 
 #include <boost/filesystem.hpp>
+
+#ifdef USE_PANGO
+
 #include <cairo/cairo.h>
 #include <pango/pangocairo.h>
+
+#endif
 
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/imgproc/types_c.h>
-#include <tiffio.h>
 
 #include "Common.h"
 #include "Error.h"
@@ -42,12 +46,12 @@ using namespace cv;
 
 namespace px {
 
-cv::Mat imread_tiff(const char* path)
+cv::Mat imreadTiff(const char* path)
 {
     return readTIFF(path);
 }
 
-Mat imread(const char* path)
+Mat imread(const char* path, int channels)
 {
     boost::filesystem::path filePath(path);
 
@@ -55,13 +59,78 @@ Mat imread(const char* path)
 
     auto extension = filePath.extension().string();
     if (extension == ".tiff" || extension == ".tif") {
-        image = imread_tiff(path);
+        image = imreadTiff(path);
     } else {
-        image = imread(path, IMREAD_UNCHANGED);
+        image = cv::imread(path, IMREAD_UNCHANGED);
         PX_CHECK(!image.empty(), "Could not open image \"%s\".", path);
     }
 
+    if (channels == 1 && image.channels() == 3) {
+        cvtColor(image, image, COLOR_BGR2GRAY);
+    } else if (channels == 3 && image.channels() == 1) {
+        cvtColor(image, image, COLOR_GRAY2BGR);
+    } else if (channels == 4 && image.channels() == 3) {
+        cvtColor(image, image, COLOR_BGR2BGRA);
+    } else if (channels == 3 && image.channels() == 4) {
+        cvtColor(image, image, COLOR_BGRA2BGR);
+    }
+
+    PX_CHECK(image.channels() == channels, "Image \"%s\" has %d channels, expected %d.", path, image.channels(),
+             channels);
+
     return image;
+}
+
+LBMat imread(const char* path, int width, int height, int channels)
+{
+    auto image = imread(path, channels);
+
+    // size image to match width and height
+    auto lbmat = imletterbox(image, width, height);
+
+    return lbmat;
+}
+
+ImageVec imreadVector(const char* path, int channels)
+{
+    auto image = imreadNormalize(path, channels);
+
+    // convert the image from interleaved to planar
+    auto vector = imvector(image);
+
+    ImageVec imageVec;
+    imageVec.imagePath = path;
+    imageVec.data = std::move(vector);
+    imageVec.channels = image.channels();
+    imageVec.size = { image.cols, image.rows };
+    imageVec.originalSize = imageVec.size;
+    imageVec.ax = 1.0f;
+    imageVec.ay = 1.0f;
+    imageVec.dx = 0.0f;
+    imageVec.dy = 0.0f;
+
+    return imageVec;
+}
+
+ImageVec imreadVector(const char* path, int width, int height, int channels)
+{
+    auto lbmat = imreadNormalize(path, width, height, channels);
+
+    // convert the image from interleaved to planar
+    auto vector = imvector(lbmat.image);
+
+    ImageVec imageVec;
+    imageVec.imagePath = path;
+    imageVec.data = std::move(vector);
+    imageVec.channels = lbmat.image.channels();
+    imageVec.size = { lbmat.image.cols, lbmat.image.rows };
+    imageVec.originalSize = { lbmat.originalWidth, lbmat.originalHeight };
+    imageVec.ax = lbmat.ax;
+    imageVec.ay = lbmat.ay;
+    imageVec.dx = lbmat.dx;
+    imageVec.dy = lbmat.dy;
+
+    return imageVec;
 }
 
 // normalize 8-bit RGB bands and convert to float
@@ -74,6 +143,8 @@ cv::Mat imnormalize(const cv::Mat& image)
     Mat swapped;
     if (image.channels() == 3) {
         cv::cvtColor(image, swapped, CV_BGR2RGB);
+    } else if (image.channels() == 4) {
+        cv::cvtColor(image, swapped, CV_BGRA2RGB);
     } else {
         swapped = image;
     }
@@ -87,14 +158,33 @@ cv::Mat imnormalize(const cv::Mat& image)
     return out;
 }
 
-// read an image and normalize
-Mat imread_normalize(const char* path)
+Mat imdenormalize(const Mat& image)
 {
-    auto image = imread(path);
+    Mat swapped;
+
+    cvtColor(image, swapped, CV_RGB2BGR);
+    swapped.convertTo(swapped, CV_8UC3, 255.0);
+
+    return swapped;
+}
+
+// read an image and normalize
+Mat imreadNormalize(const char* path, int channels)
+{
+    auto image = imread(path, channels);
 
     auto normal = imnormalize(image);
 
-    return normal;
+    return normal.clone();
+}
+
+LBMat imreadNormalize(const char* path, int width, int height, int channels)
+{
+    auto image = imreadNormalize(path, channels);
+
+    auto lbmat = imletterbox(image, width, height);
+
+    return lbmat;
 }
 
 void imsave(const char* path, const cv::Mat& image)
@@ -104,51 +194,52 @@ void imsave(const char* path, const cv::Mat& image)
 }
 
 // save an image in normalized float format as TIFF
-void imsave_tiff(const char* path, const cv::Mat& image)
+void imsave(const char* path, ImageVec& image)
+{
+    cv::Mat mat(image.size.height, image.size.width, CV_MAKETYPE(CV_32F, image.channels));
+
+    auto* pimage = image.data.data();
+    auto* pmat = mat.ptr<float>();
+    auto planeSize = image.size.height * image.size.width;
+
+    // convert planar image to interleaved mat
+    for (auto i = 0; i < planeSize; ++i) {
+        for (auto j = 0; j < image.channels; ++j) {
+            pmat[i * image.channels + j] = pimage[i + j * planeSize];
+        }
+    }
+
+    imsaveTiff(path, mat);
+}
+
+// save an image in normalized float format as TIFF
+void imsaveTiff(const char* path, const cv::Mat& image)
 {
     Mat tiffImage(image);
     if (tiffImage.type() != CV_32FC3 && tiffImage.type() != CV_32FC1) {
         tiffImage = imnormalize(image);
     }
 
-    auto* tif = TIFFOpen(path, "w");
-    PX_CHECK(tif != nullptr, "Cannot open image \"%s\".", path);
-
-    auto channels = tiffImage.channels();
-    auto width = tiffImage.cols, height = tiffImage.rows;
-    auto type = tiffImage.type();
-    auto depth = CV_MAT_DEPTH(type);
-
-    TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, width);
-    TIFFSetField(tif, TIFFTAG_IMAGELENGTH, height);
-
-    size_t fileStep = (width * channels * 32) / 8;
-
-    auto rowsPerStrip = (int) ((1 << 13) / fileStep);
-    rowsPerStrip = std::max(1, std::min(height, rowsPerStrip));
-
-    auto colorspace = channels > 1 ? PHOTOMETRIC_RGB : PHOTOMETRIC_MINISBLACK;
-
-    TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 32);
-    TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
-    TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, colorspace);
-    TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, channels);
-    TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-    TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, rowsPerStrip);
-    TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, depth >= CV_32F ? SAMPLEFORMAT_IEEEFP : SAMPLEFORMAT_UINT);
-
-    auto scanlineSize = TIFFScanlineSize(tif);
-    AutoBuffer<uchar> buffer(scanlineSize + 32);
-
-    for (auto y = 0; y < height; ++y) {
-        memcpy(buffer, tiffImage.ptr(y), scanlineSize);
-        PX_CHECK(TIFFWriteScanline(tif, buffer, y, 0) == 1, "Cannot write scan line.");
-    }
-
-    TIFFClose(tif);
+    writeTIFF(path, tiffImage);
 }
 
-Mat imletterbox(const Mat& image, int width, int height)
+cv::Scalar immidpoint(const cv::Mat& image)
+{
+    int depth = image.depth();
+    double midpoint;
+
+    if (depth == CV_8U) {
+        midpoint = 255.0 / 2.0;
+    } else if (depth == CV_32F) {
+        midpoint = 0.5;
+    } else {
+        PX_ERROR_THROW("Unsupported image depth.");
+    }
+
+    return cv::Scalar::all(midpoint);
+}
+
+LBMat imletterbox(const Mat& image, int width, int height)
 {
     int newWidth, newHeight;
     auto imageWidth = image.cols;
@@ -165,103 +256,108 @@ Mat imletterbox(const Mat& image, int width, int height)
     Mat resized;
     resize(image, resized, { newWidth, newHeight });
 
-    auto boxed = immake(height, width, image.channels(), 0.5f);
+    auto midpoint = immidpoint(image);
+    Mat boxed{ height, width, image.type(), midpoint };
 
     auto x = (width - newWidth) / 2;
     auto y = (height - newHeight) / 2;
 
     resized.copyTo(boxed(Rect(x, y, resized.cols, resized.rows)));
 
-    return boxed;
-}
+    LBMat lbmat;
+    lbmat.image = boxed;
+    lbmat.originalWidth = imageWidth;
+    lbmat.originalHeight = imageHeight;
+    lbmat.ax = newWidth / (float) width;
+    lbmat.ay = newHeight / (float) height;
+    lbmat.dx = x / static_cast<float>(width);
+    lbmat.dy = y / static_cast<float>(height);
 
-Mat imchannel(const Mat& image, int c)
-{
-    PX_CHECK(c < image.channels(), "Channel out of bounds.");
-
-    Mat channel;
-    extractChannel(image, channel, c);
-
-    return channel;
-}
-
-float imget(const Mat& image, int x, int y, int c)
-{
-    PX_CHECK(image.rows > y, "Row out of bounds");
-    PX_CHECK(image.cols > x, "Column out of bounds");
-    PX_CHECK(image.channels() > c, "Channel out of bounds");
-
-    return image.ptr<float>(y, x)[c];
-}
-
-float imgetextend(const Mat& image, int x, int y, int c)
-{
-    if (x < 0 || x >= image.cols || y < 0 || y >= image.rows || c < 0 || c >= image.channels()) return 0;
-
-    return imget(image, x, y, c);
-}
-
-void imset(Mat& image, int x, int y, int c, float value)
-{
-    PX_CHECK(image.rows > y, "Row out of bounds.");
-    PX_CHECK(image.cols > x, "Column out of bounds.");
-    PX_CHECK(image.channels() > c, "Channel out of bounds.");
-
-    image.ptr<float>(y, x)[c] = value;
-}
-
-void imadd(Mat& image, int x, int y, int c, float value)
-{
-    PX_CHECK(image.rows > y, "Row out of bounds.");
-    PX_CHECK(image.cols > x, "Column out of bounds.");
-    PX_CHECK(image.channels() > c, "Channel out of bounds.");
-
-    image.ptr<float>(y, x)[c] += value;
-}
-
-Mat imrandom(int height, int width, int channels)
-{
-    Mat image = immake(height, width, channels);
-
-    randu(image, Scalar::all(0.f), Scalar::all(1.f));
-
-    return image;
-}
-
-Mat immake(int height, int width, int channels, float value)
-{
-    return { height, width, CV_32FC(channels), Scalar_<float>::all(value) };
-}
-
-void imzero(const Mat& image, int c)
-{
-    PX_CHECK(c < image.channels(), "Channel out of bounds.");
-
-    auto channel = imchannel(image, c);
-    channel.setTo(Scalar::all(0.0f));
+    return lbmat;
 }
 
 PxCpuVector imvector(const cv::Mat& image)
 {
     PX_CHECK(image.isContinuous(), "Non-continuous mat not supported.");
 
-    int channels = image.channels();
-    int width = image.cols;
-    int height = image.rows;
+    auto channels = image.channels();
+    auto width = image.cols;
+    auto height = image.rows;
+    auto depth = image.depth();
 
-    PxCpuVector vector(height * width * channels);
-    auto* pimage = vector.data();
+    PX_CHECK(depth == CV_32F, "Only 32-bit floating point images supported.");
+
+    auto planeSize = height * width;
+    PxCpuVector vector(planeSize * channels);
+    auto* pvector = vector.data();
+    auto* pimage = image.ptr<float>();
 
     // convert interleaved mat to planar image
-    for (auto i = 0; i < height; ++i) {
-        for (auto j = 0; j < width; ++j) {
-            for (auto k = 0; k < channels; ++k) {
-                pimage[k * width * height + i * width + j] = image.ptr<float>(i, j)[k];
-            }
+    for (auto i = 0; i < planeSize; ++i) {
+        for (auto j = 0; j < channels; ++j) {
+            pvector[i + j * planeSize] = pimage[i * channels + j];
         }
     }
 
     return vector;
+}
+
+void calculateROI(int w, int h, int dx, int dy, cv::Rect& roiSrc, cv::Rect& roiDest, const cv::Mat& canvas)
+{
+    int xStart = std::max(0, dx);
+    int yStart = std::max(0, dy);
+    int xEnd = std::min(canvas.cols, dx + w);
+    int yEnd = std::min(canvas.rows, dy + h);
+
+    roiSrc = { xStart - dx, yStart - dy, xEnd - xStart, yEnd - yStart };
+    roiDest = { xStart, yStart, xEnd - xStart, yEnd - yStart };
+}
+
+void implace(const cv::Mat& image, int w, int h, const cv::Rect& roiSrc, cv::Rect& roiDest, cv::Mat& canvas)
+{
+    cv::Mat resized;
+    cv::resize(image, resized, cv::Size(w, h), cv::INTER_AREA);
+
+    resized(roiSrc).copyTo(canvas(roiDest));
+}
+
+void implace(const cv::Mat& image, int w, int h, int dx, int dy, cv::Mat& canvas)
+{
+    cv::Rect roiSrc, roiDest;
+    calculateROI(w, h, dx, dy, roiSrc, roiDest, canvas);
+
+    implace(image, w, h, roiSrc, roiDest, canvas);
+}
+
+void imdistort(cv::Mat& image, float hue, float saturation, float exposure)
+{
+    auto imageType = image.type();
+
+    if (image.channels() != 3) {
+        return;
+    }
+
+    if (imageType == CV_8UC3) {
+        image.convertTo(image, CV_32FC3, 1.0 / 255.0);
+    }
+
+    cv::cvtColor(image, image, cv::COLOR_RGB2HSV);
+
+    std::vector<cv::Mat> hsv;
+    cv::split(image, hsv);
+
+    hsv[0] = cv::max(0.0f, cv::min(hsv[0] + 360 * hue, 360.0f));
+    hsv[1] = cv::max(0.0f, cv::min(hsv[1] * saturation, 1.0f));
+    hsv[2] = cv::max(0.0f, cv::min(hsv[2] * exposure, 1.0f));
+
+    cv::Mat merged;
+    cv::merge(hsv, merged);
+
+    cv::cvtColor(merged, image, cv::COLOR_HSV2RGB);
+
+    if (imageType == CV_8UC3) {
+        image.convertTo(image, CV_8UC3, 255.0);
+    }
 }
 
 void imrect(cv::Mat& image, const cv::Rect& rect, uint32_t rgb, int thickness, int lineType)
@@ -269,8 +365,8 @@ void imrect(cv::Mat& image, const cv::Rect& rect, uint32_t rgb, int thickness, i
     rectangle(image, rect, MAKE_CV_COLOR(rgb), thickness, lineType, 0);
 }
 
-void imtabbed_rect(cv::Mat& image, const cv::Point& pt1, const cv::Point& pt2, uint32_t rgb, int thickness,
-                   int lineType, int cornerRadius)
+void imtabbedRect(cv::Mat& image, const cv::Point& pt1, const cv::Point& pt2, uint32_t rgb, int thickness,
+                  int lineType, int cornerRadius)
 {
     auto lineColor = MAKE_CV_COLOR(rgb);
 
@@ -304,8 +400,10 @@ void imtabbed_rect(cv::Mat& image, const cv::Point& pt1, const cv::Point& pt2, u
     }
 }
 
-void imtabbed_text(cv::Mat& image, const char* text, const cv::Point& ptOrg, uint32_t textColor, uint32_t bgColor,
-                   int thickness)
+#ifdef USE_PANGO
+
+void imtabbedText(cv::Mat& image, const char* text, const cv::Point& ptOrg, uint32_t textColor, uint32_t bgColor,
+                  int thickness)
 {
     constexpr auto xpad = 4;
 
@@ -318,7 +416,7 @@ void imtabbed_text(cv::Mat& image, const char* text, const cv::Point& ptOrg, uin
     auto* layout = pango_cairo_create_layout(cr);
 
     // Set font description
-    auto* desc = pango_font_description_from_string("Sans 8");
+    auto* desc = pango_font_description_from_string("Quicksand Semi-Bold 12, Sans 12");
     pango_layout_set_font_description(layout, desc);
     pango_font_description_free(desc);
 
@@ -331,26 +429,68 @@ void imtabbed_text(cv::Mat& image, const char* text, const cv::Point& ptOrg, uin
     textSize.width += xpad;
 
     auto yoffset = thickness / 2;
-    Point ptStart(ptOrg.x, ptOrg.y - yoffset);
-    Point ptEnd(ptStart.x + textSize.width + xpad, ptStart.y - textSize.height);
 
-    auto x = ptStart.x + xpad;
-    auto y = ptStart.y - textSize.height;
+    auto x0 = std::max(0, std::min(ptOrg.x, image.cols - 1));
+    auto y0 = std::max(0, std::min(ptOrg.y - yoffset, image.rows - 1));
 
-    imtabbed_rect(image, ptStart, ptEnd, bgColor, thickness, FILLED);
+    auto x1 = std::max(0, std::min(x0 + textSize.width, image.cols - 1));
+    auto y1 = std::max(0, std::min(y0 - textSize.height, image.rows - 1));
+
+    if (x1 - x0 < textSize.width) {
+        x0 = std::max(x1 - textSize.width, 0);
+    }
+
+    if (y0 - y1 < textSize.height) {
+        y0 = std::min(y1 + textSize.height, image.rows - 1);
+    }
+
+    Point ptStart(x0, y0);
+    Point ptEnd(x1, y1);
+
+    auto x = std::min(ptStart.x + xpad, image.cols - 1);
+
+    imtabbedRect(image, ptStart, ptEnd, bgColor, thickness, FILLED);
 
     auto red = COLOR_REDF(textColor);
     auto green = COLOR_GREENF(textColor);
     auto blue = COLOR_BLUEF(textColor);
     cairo_set_source_rgb(cr, red, green, blue);
 
-    cairo_move_to(cr, x, y);
+    cairo_move_to(cr, x, y1);
     pango_cairo_show_layout(cr, layout);
 
     g_object_unref(layout);
     cairo_surface_destroy(surface);
     cairo_destroy(cr);
 }
+
+#else
+
+void imtabbedText(cv::Mat& image, const char* text, const cv::Point& ptOrg, uint32_t textColor, uint32_t bgColor,
+                  int thickness)
+{
+    constexpr auto fontFace = FONT_HERSHEY_SIMPLEX;
+    constexpr auto fontScale = 0.5f;
+    constexpr auto xpad = 4;
+
+    auto baseline = 0;
+    auto textSize = getTextSize(text, fontFace, fontScale, thickness, &baseline);
+
+    baseline += thickness;
+    textSize.width += xpad;
+    textSize.height += baseline;
+
+    auto yoffset = thickness / 2;
+    Point ptStart(ptOrg.x, ptOrg.y - yoffset);
+    Point ptEnd(ptStart.x + textSize.width + xpad, ptStart.y - textSize.height);
+    Point ptText(ptStart.x + xpad, ptStart.y - baseline + thickness);
+
+    imtabbedRect(image, ptStart, ptEnd, bgColor, thickness, FILLED);
+
+    putText(image, text, ptText, fontFace, fontScale, MAKE_CV_COLOR(textColor), 1, LINE_AA);
+}
+
+#endif // USE_PANGO
 
 uint32_t imtextcolor(uint32_t bgColor)
 {

@@ -14,19 +14,16 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_CUDNN_H
-#define PIXIENN_CUDNN_H
-
-#if USE_CUDA
+#pragma once
 
 #include <cudnn.h>
 
 #include "Error.h"
 
-namespace px {
-
 #define PX_CHECK_CUDNN(x) \
     PX_CHECK(x == CUDNN_STATUS_SUCCESS, cudnnGetErrorString(x));
+
+namespace px {
 
 template<typename T>
 using cudnn_create = cudnnStatus_t (*)(T**);
@@ -106,10 +103,7 @@ cudnnStatus_t cudnnDestroyContext(T* c)
 using CudnnContext = cudnn_descriptor<cudnnContext, cudnnCreate, cudnnDestroyContext>;
 using CudnnConvDesc = cudnn_descriptor<cudnnConvolutionStruct, cudnnCreateConvolutionDescriptor, cudnnDestroyConvolutionDescriptor>;
 using CudnnFilterDesc = cudnn_descriptor<cudnnFilterStruct, cudnnCreateFilterDescriptor, cudnnDestroyFilterDescriptor>;
+using CudnnPoolingDesc = cudnn_descriptor<cudnnPoolingStruct, cudnnCreatePoolingDescriptor, cudnnDestroyPoolingDescriptor>;
 using CudnnTensorDesc = cudnn_descriptor<cudnnTensorStruct, cudnnCreateTensorDescriptor, cudnnDestroyTensorDescriptor>;
 
 }   // px
-
-#endif // USE_CUDA
-
-#endif // PIXIENN_CUDNN_H

@@ -1,0 +1,13 @@
+configuration:
+  model: ../models/resnet18.yml
+  #weights: ../weights/resnet18.weights
+  weights: /home/trieck/src/pixienn/cmake-build-release-cuda/bin/backup/resnet18_latest.weights
+  labels: ../data/imagenet.names
+
+training:
+  train-images: ../data/imagenet/train-2000.txt
+  train-labels: /opt/imagenet/train/labels
+
+  val-images: ../data/imagenet/val-1.txt
+  val-labels: /opt/imagenet/val/labels
+

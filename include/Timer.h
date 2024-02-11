@@ -14,8 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_TIMER_H
-#define PIXIENN_TIMER_H
+#pragma once
 
 #include <chrono>
 #include "Common.h"
@@ -28,7 +27,7 @@ public:
     Timer();
     ~Timer();
 
-    [[nodiscard]] std::string str() const;
+    std::string str() const;
     void restart();
 private:
     using Clock = std::chrono::high_resolution_clock;
@@ -43,4 +42,3 @@ inline std::ostream& operator<<(std::ostream& s, const Timer& timer)
 
 }   // px
 
-#endif // PIXIENN_TIMER_H

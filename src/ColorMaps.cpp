@@ -727,32 +727,63 @@ constexpr uint32_t plasma[] = {
         0xf0f921
 };
 
+constexpr uint32_t tailwind[] = {
+        0xffbe0b, // Orange
+        0xfb5607, // Red Orange
+        0xff006e, // Pink
+        0x8338ec, // Purple
+        0x3a86ff  // Blue
+};
+
+constexpr uint32_t sunset[] = {
+        0x001219, // Midnight Blue
+        0x005f73, // Teal Blue
+        0x0a9396, // Turquoise Blue
+        0x94d2bd, // Pastel Green
+        0xe9d8a6, // Light Tan
+        0xee9b00, // Sunset Orange
+        0xca6702, // Rust Orange
+        0xbb3e03, // Burnt Orange
+        0xae2012, // Reddish Brown
+        0x9b2226  // Brick Red
+};
+
+constexpr uint32_t vibrant[] = {
+        0xff595e, // Reddish
+        0xffca3a, // Amber
+        0x8ac926, // Green
+        0x1982c4, // Blue
+        0x6a4c93  // Purple
+};
+
+#define TABLE_SIZE(tbl) (sizeof(tbl)/sizeof(uint32_t))
+
 using ColorMap = std::unordered_map<std::string, std::pair<const uint32_t*, std::size_t>>;
 
 static const ColorMap colorMap = {
-        { "Accent",        { Accent,        sizeof(Accent) } },
-        { "Paired",        { Paired,        sizeof(Paired) } },
-        { "Paired",        { Paired,        sizeof(Paired) } },
-        { "Set1",          { Set1,          sizeof(Set1) } },
-        { "crayola16",     { crayola16,     sizeof(crayola16) } },
-        { "darknet",       { darknet,       sizeof(darknet) } },
-        { "deep_ocean32",  { deep_ocean32,  sizeof(deep_ocean32) } },
-        { "fluorescent",   { fluorescent,   sizeof(fluorescent) } },
-        { "frogs32",       { frogs32,       sizeof(frogs32), } },
-        { "interesting32", { interesting32, sizeof(interesting32) } },
-        { "off_the_path",  { off_the_path,  sizeof(off_the_path) } },
-        { "Paired",        { Paired,        sizeof(Paired) } },
-        { "plasma",        { plasma,        sizeof(plasma) } },
-        { "reds",          { reds,          sizeof(reds) } },
-        { "Set1",          { Set1,          sizeof(Set1) } },
-        { "sunset32",      { sunset32,      sizeof(sunset32), } },
-        { "tab10",         { tab10,         sizeof(tab10) } },
-        { "tab20",         { tab20,         sizeof(tab20) } },
-        { "tab20c",        { tab20c,        sizeof(tab20c) } },
-        { "vga",           { vga,           sizeof(vga) } },
-        { "vibrant32",     { vibrant32,     sizeof(vibrant32) } },
-        { "viridis",       { viridis,       sizeof(viridis) } },
-        { "vivid",         { vivid,         sizeof(vivid) } },
+        { "Accent",        { Accent,        TABLE_SIZE(Accent) } },
+        { "Paired",        { Paired,        TABLE_SIZE(Paired) } },
+        { "Set1",          { Set1,          TABLE_SIZE(Set1) } },
+        { "crayola16",     { crayola16,     TABLE_SIZE(crayola16) } },
+        { "darknet",       { darknet,       TABLE_SIZE(darknet) } },
+        { "deep_ocean32",  { deep_ocean32,  TABLE_SIZE(deep_ocean32) } },
+        { "fluorescent",   { fluorescent,   TABLE_SIZE(fluorescent) } },
+        { "frogs32",       { frogs32,       TABLE_SIZE(frogs32), } },
+        { "interesting32", { interesting32, TABLE_SIZE(interesting32) } },
+        { "off_the_path",  { off_the_path,  TABLE_SIZE(off_the_path) } },
+        { "plasma",        { plasma,        TABLE_SIZE(plasma) } },
+        { "reds",          { reds,          TABLE_SIZE(reds) } },
+        { "sunset",        { sunset,        TABLE_SIZE(sunset) } },
+        { "sunset32",      { sunset32,      TABLE_SIZE(sunset32), } },
+        { "tab10",         { tab10,         TABLE_SIZE(tab10) } },
+        { "tab20",         { tab20,         TABLE_SIZE(tab20) } },
+        { "tab20c",        { tab20c,        TABLE_SIZE(tab20c) } },
+        { "tailwind",      { tailwind,      TABLE_SIZE(tailwind) } },
+        { "vga",           { vga,           TABLE_SIZE(vga) } },
+        { "vibrant",       { vibrant,       TABLE_SIZE(vibrant) } },
+        { "vibrant32",     { vibrant32,     TABLE_SIZE(vibrant32) } },
+        { "viridis",       { viridis,       TABLE_SIZE(viridis) } },
+        { "vivid",         { vivid,         TABLE_SIZE(vivid) } },
 };
 
 class ColorMaps::Iterator
@@ -787,7 +818,35 @@ uint32_t ColorMaps::color(uint32_t index) const
 
     index *= 2654435761U;
 
-    return table[index % sz];
+    auto color = table[index % sz];
+
+    auto gamma = 1.2f; // gamma correction
+    auto r = static_cast<float>((color >> 16) & 0xFF) / 255.0f;
+    auto g = static_cast<float>((color >> 8) & 0xFF) / 255.0f;
+    auto b = static_cast<float>(color & 0xFF) / 255.0f;
+
+    r = std::pow(r, gamma);
+    g = std::pow(g, gamma);
+    b = std::pow(b, gamma);
+
+    color = ((static_cast<uint32_t>(r * 255.0f) & 0xFF) << 16) |
+            ((static_cast<uint32_t>(g * 255.0f) & 0xFF) << 8) |
+            (static_cast<uint32_t>(b * 255.0f) & 0xFF);
+
+    return color;
+}
+
+std::vector<std::string> ColorMaps::maps()
+{
+    std::vector<std::string> colors;
+
+    for (auto const& entry: colorMap) {
+        colors.emplace_back(entry.first);
+    }
+
+    std::sort(colors.begin(), colors.end());
+
+    return colors;
 }
 
 }   // px

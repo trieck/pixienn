@@ -19,54 +19,29 @@
 
 namespace px {
 
-Detection::Detection(int classes, cv::Rect box, float objectness) : box_(std::move(box)), objectness_(objectness)
+Detection::Detection(cv::Rect2f box, int batchId, int classIndex, float prob)
+        : box_(std::move(box)), batchId_(batchId), classIndex_(classIndex), prob_(prob)
 {
-    prob_.resize(classes);
 }
 
-float& Detection::operator[](int clazz)
-{
-    PX_CHECK(clazz < prob_.size(), "Class out of range");
-
-    return prob_[clazz];
-}
-
-const float& Detection::operator[](int clazz) const
-{
-    PX_CHECK(clazz < prob_.size(), "Class out of range");
-
-    return prob_[clazz];
-}
-
-int Detection::size() const noexcept
-{
-    return (int)prob_.size();
-}
-
-const cv::Rect& Detection::box() const noexcept
+const cv::Rect2f& Detection::box() const noexcept
 {
     return box_;
 }
 
-const std::vector<float>& Detection::prob() const noexcept
+float Detection::prob() const noexcept
 {
     return prob_;
 }
 
-void Detection::setMaxClass(int max)
+int Detection::classIndex() const noexcept
 {
-    PX_CHECK(max >= 0 && max < prob_.size(), "Index out of range.");
-    maxClass_ = max;
+    return classIndex_;
 }
 
-int Detection::maxClass() const noexcept
+int Detection::batchId() const noexcept
 {
-    return maxClass_;
-}
-
-float Detection::max() const noexcept
-{
-    return prob_[maxClass_];
+    return batchId_;
 }
 
 }   // px

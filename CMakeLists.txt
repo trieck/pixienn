@@ -9,20 +9,53 @@ if (NOT DEFINED USE_CUDA OR USE_CUDA STREQUAL "")
     set(USE_CUDA 1)
 endif ()
 
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+if (NOT DEFINED USE_CAIRO OR USE_CAIRO STREQUAL "")
+    set(USE_CAIRO 1)
+endif ()
 
-find_package(BLAS REQUIRED)
+if (NOT DEFINED USE_PANGO OR USE_PANGO STREQUAL "")
+    set(USE_PANGO 1)
+endif ()
+
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+include_directories(${CMAKE_SOURCE_DIR}/cmake)
+
+find_package(OpenBLAS REQUIRED)
 find_package(Boost 1.74 REQUIRED)
-find_package(Cairo 1.16.0 REQUIRED)
 find_package(GLIB REQUIRED COMPONENTS gobject)
 find_package(HarfBuzz REQUIRED)
 find_package(OpenCV 4.5.4 REQUIRED COMPONENTS core imgproc highgui)
-find_package(Pango REQUIRED)
 find_package(TIFF REQUIRED)
 find_package(nlohmann_json 3.10.5 REQUIRED)
 find_package(yaml-cpp REQUIRED)
+find_package(Protobuf REQUIRED)
+
+if (USE_CAIRO)
+    find_package(Cairo 1.16.0)
+    if (Cairo_FOUND)
+        message(STATUS "CAIRO FOUND AND ENABLED")
+    else ()
+        message(STATUS "CAIRO NOT FOUND, WILL BE DISABLED")
+    endif ()
+else ()
+    message(STATUS "CAIRO WILL BE DISABLED")
+endif (USE_CAIRO)
+
+if (USE_PANGO)
+    find_package(Pango)
+    if (PANGO_FOUND)
+        find_package(Cairo 1.16.0 REQUIRED)
+        message(STATUS "PANGO FOUND AND ENABLED")
+    else ()
+        message(STATUS "PANGO NOT FOUND, WILL BE DISABLED")
+    endif ()
+else ()
+    message(STATUS "PANGO WILL BE DISABLED")
+endif (USE_PANGO)
 
 if (USE_CUDA)
+    set(CMAKE_CUDA_STANDARD 20)
+
     if (NOT DEFINED CMAKE_CUDA_ARCHITECTURES OR CMAKE_CUDA_ARCHITECTURES STREQUAL "")
         set(CMAKE_CUDA_ARCHITECTURES "75")
     endif ()
@@ -44,12 +77,14 @@ if (USE_CUDA)
     file(GLOB CUDA_HEADERS "include/*.cuh")
     list(APPEND SOURCES
             ${CUDA_HEADERS}
-            src/ActivationKernels.cu
+            src/Activation.cu
+            src/Adam.cu
             src/BiasKernels.cu
             src/CudaError.cpp
             src/CudaUtils.cu
-            src/PoolKernels.cu
+            src/Gemm.cpp
             src/ShortcutKernel.cu
+            src/SoftmaxKernel.cu
             src/UpsampleKernels.cu
     )
     message(STATUS "CUDA FOUND AND ENABLED")
@@ -60,82 +95,76 @@ endif (USE_CUDA)
 file(GLOB HEADERS "include/*.h")
 list(APPEND SOURCES
         ${HEADERS}
-        src/Activation.cpp
-        src/BatchNormAlgo.cpp
-        src/BatchNormLayer.cpp
+        src/BatchNorm.cpp
+        src/Box.cpp
+        src/BurnInLRPolicy.cpp
+        src/CRC32.cpp
         src/ColorMaps.cpp
-        src/ConnAlgo.cpp
-        src/ConnLayer.cpp
-        src/ConvAlgo.cpp
-        src/ConvLayer.cpp
-        src/DetectLayer.cpp
+        src/ConfusionMatrix.cpp
+        src/ConstantLRPolicy.cpp
+        src/CosineLRPolicy.cpp
+        src/CpuUtil.cpp
+        src/DarkBox.cpp
         src/Detection.cpp
         src/Error.cpp
+        src/FileUtil.cpp
         src/Image.cpp
-        src/Layer.cpp
+        src/ImageAugmenter.cpp
+        src/ImageVec.cpp
+        src/InvLRPolicy.cpp
         src/Math.cpp
-        src/MaxPoolAlgo.cpp
-        src/MaxPoolLayer.cpp
         src/Model.cpp
-        src/NMS.cpp
-        src/RouteLayer.cpp
-        src/ShortcutAlgo.cpp
-        src/ShortcutLayer.cpp
+        src/RandomLRPolicy.cpp
+        src/RecordWriter.cpp
+        src/SigmoidLRPolicy.cpp
+        src/SmoothSteppedLRPolicy.cpp
+        src/SteppedLRPolicy.cpp
         src/TiffIO.cpp
         src/Timer.cpp
-        src/UpsampleAlgo.cpp
-        src/UpsampleLayer.cpp
+        src/TrainBatch.cpp
         src/Utility.cpp
-        src/YoloLayer.cpp
 )
 
 add_library(pixienn STATIC ${SOURCES})
 set_target_properties(pixienn PROPERTIES OUTPUT_NAME "pixienn")
 
-target_include_directories(pixienn PRIVATE
+add_subdirectory(proto)
+add_dependencies(pixienn pixienn_proto)
+
+list(APPEND INCLUDE_DIRS
+        ${CMAKE_CURRENT_BINARY_DIR}/proto
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${OpenCV_INCLUDE_DIRS}
         ${CAIRO_INCLUDE_DIRS}
         ${Pango_INCLUDE_DIR}
         ${GLIB_INCLUDE_DIRS}
         ${HARFBUZZ_INCLUDE_DIR}
-        include)
+        ${OpenBLAS_INCLUDE_DIR}
+)
+
+target_include_directories(pixienn PRIVATE ${INCLUDE_DIRS})
+
+if (Cairo_FOUND)
+    target_compile_definitions(pixienn PRIVATE USE_CAIRO)
+else ()
+    remove_definitions(-DUSE_CAIRO)
+endif ()
+
+if (PANGO_FOUND)
+    target_compile_definitions(pixienn PRIVATE USE_PANGO)
+else ()
+    remove_definitions(-DUSE_PANGO)
+endif ()
 
 if (USE_CUDA)
     target_include_directories(pixienn PRIVATE ${CUDNN_INCLUDE_DIR} ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
-    target_compile_definitions(pixienn PRIVATE -DUSE_CUDA)
+    target_compile_definitions(pixienn PRIVATE USE_CUDA)
+else ()
+    remove_definitions(-DUSE_CUDA)
 endif ()
 
-add_executable(pixienn-bin src/main.cpp)
-
-if (USE_CUDA)
-    target_compile_definitions(pixienn-bin PRIVATE -DUSE_CUDA)
-    target_include_directories(pixienn-bin PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
-    set_target_properties(pixienn-bin PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-    set_target_properties(pixienn-bin PROPERTIES CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
-endif ()
-
-set_target_properties(pixienn-bin PROPERTIES POSITION_INDEPENDENT_CODE ON)
-set_target_properties(pixienn-bin PROPERTIES OUTPUT_NAME "pixienn")
-
-target_include_directories(pixienn-bin PRIVATE include)
-
-target_link_libraries(pixienn-bin
-        pixienn
-        tiff
-        yaml-cpp
-        ${BLAS_openblas_LIBRARY}
-        boost_filesystem
-        boost_program_options
-        ${CUDART_LIBRARY}
-        ${CUBLAS_LIBRARY}
-        ${CUDNN_LIBRARY}
-        ${CAIRO_LIBRARIES}
-        ${GLIB_LIBRARIES}
-        ${GLIB_GOBJECT_LIBRARIES}
-        ${HARFBUZZ_LIBRARY}
-        ${Pango_LIBRARIES}
-        ${OpenCV_LIBS}
-)
+include(PixiennLibs)
+include(Pixienn)
+include(PixiennTrain)
 
 add_subdirectory(tests)
-

@@ -14,10 +14,7 @@
 * limitations under the License.
 ********************************************************************************/
 
-#ifndef PIXIENN_CUBLAS_H
-#define PIXIENN_CUBLAS_H
-
-#if USE_CUDA
+#pragma once
 
 #include <cublas_v2.h>
 #include "Common.h"
@@ -90,8 +87,4 @@ private:
 };
 
 using CublasContext = cublas_descriptor<cublasContext, cublasCreate, cublasDestroy>;
-
-#endif  // USE_CUDA
-
-#endif  // PIXIENN_CUBLAS_H
 
