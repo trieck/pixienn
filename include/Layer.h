@@ -23,7 +23,7 @@
 #include "Error.h"
 #include "PxTensor.h"
 #include "RecordWriter.h"
-#include "TrainBatch.h"
+#include "MiniBatch.h"
 
 #ifdef USE_CUDA
 
@@ -105,9 +105,11 @@ protected:
 
     bool inferring() const noexcept;
     bool training() const noexcept;
+    bool validating() const noexcept;
+
     int classes() const noexcept;
 
-    const TrainBatch& trainingBatch() const noexcept;
+    const MiniBatch& trainingBatch() const noexcept;
 
     const GroundTruths& groundTruth() const noexcept;
     const GroundTruthVec& groundTruth(uint32_t batch) const noexcept;
@@ -403,7 +405,13 @@ bool Layer<D>::training() const noexcept
 template<Device D>
 bool Layer<D>::inferring() const noexcept
 {
-    return !model_.training();
+    return model_.inferring();
+}
+
+template<Device D>
+bool Layer<D>::validating() const noexcept
+{
+    return model_.validating();
 }
 
 template<Device D>
@@ -419,7 +427,7 @@ auto Layer<D>::delta() noexcept -> V&
 }
 
 template<Device D>
-const TrainBatch& Layer<D>::trainingBatch() const noexcept
+const MiniBatch& Layer<D>::trainingBatch() const noexcept
 {
     return model_.trainingBatch();
 }
