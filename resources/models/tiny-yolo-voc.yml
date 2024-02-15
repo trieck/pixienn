@@ -8,7 +8,7 @@ model:
   momentum: 0.9
   decay: 0.0005
 
-  max_batches: 2500000
+  max_batches: 40000
 
   adam:
     enabled: True
@@ -23,6 +23,11 @@ model:
     saturation: 0.75
     exposure: 0.75
     hue: 0.1
+
+  early_stopping:
+    enabled: True
+    patience: 1000
+    threshold: 0.0001
 
   gradient_rescale:
     enabled: True

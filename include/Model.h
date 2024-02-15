@@ -30,6 +30,7 @@
 #include "event.pb.h"
 #include "summary.pb.h"
 
+#include "BatchLoader.h"
 #include "BurnInLRPolicy.h"
 #include "ColorMaps.h"
 #include "ConstantLRPolicy.h"
@@ -42,6 +43,7 @@
 #include "ImageAugmenter.h"
 #include "InvLRPolicy.h"
 #include "Layer.h"
+#include "MiniBatch.h"
 #include "PxTensor.h"
 #include "RandomLRPolicy.h"
 #include "RecordWriter.h"
@@ -49,7 +51,6 @@
 #include "SmoothSteppedLRPolicy.h"
 #include "SteppedLRPolicy.h"
 #include "Timer.h"
-#include "TrainBatch.h"
 
 using namespace YAML;
 using namespace boost::filesystem;
@@ -114,6 +115,11 @@ inline const CudnnContext& DeviceExtras<Device::CUDA>::cudnnContext() const noex
 
 #endif  // USE_CUDA
 
+enum class Mode
+{
+    INFERRING, VALIDATING, TRAINING
+};
+
 ///////////////////////////////////////////////////////////////////////////////
 template<Device D = Device::CPU>
 class Model : public BaseModel, public DeviceExtras<D>
@@ -158,7 +164,9 @@ public:
     const LayerVec& layers() const;
     bool inferring() const noexcept;
     bool training() const noexcept;
-    void setTraining(bool training) noexcept;
+    bool validating() const noexcept;
+
+    void setMode(Mode mode) noexcept;
     void setThreshold(float threshold) noexcept;
     int classes() const noexcept;
     float learningRate() const;
@@ -175,7 +183,7 @@ public:
     int layerSize() const noexcept;
     const LayerPtr& layerAt(int index) const;
 
-    const TrainBatch& trainingBatch() const noexcept;
+    const MiniBatch& trainingBatch() const noexcept;
 
     bool gradRescaling() const noexcept;
     float gradThreshold() const noexcept;
@@ -192,12 +200,6 @@ public:
     float adamEpsilon() const noexcept;
 
 private:
-    enum class Category
-    {
-        TRAIN = 0,
-        VAL = 1
-    };
-
     void forward(const ImageVec& image);
     void update();
     void saveWeights(bool final = false);
@@ -211,17 +213,12 @@ private:
     void parseModel();
     void parsePolicy(const Node& model);
     void parseTrainConfig();
-    void loadTrainImages();
-    void loadValImages();
     void loadWeights();
     void setup();
     float trainBatch();
     float trainOnce(const V& input);
 
     using ImageLabels = std::pair<PxCpuVector, GroundTruthVec>;
-    ImageLabels loadImgLabels(Category category, const std::string& imagePath, bool augment);
-    TrainBatch loadBatch(Category category, bool augment);
-    GroundTruthVec groundTruth(Category category, const std::string& imagePath);
     std::string weightsFileName(bool final) const;
     std::string weightsLatestFileName() const;
 
@@ -235,8 +232,11 @@ private:
     void writemAP();
     void writeAvgRecall();
     void writeMicroAvgF1();
+    void writeAvgValLoss();
+    void writeAccuracy();
 
-    bool training_ = false;
+    Mode mode_ = Mode::INFERRING;
+
     std::string cfgFile_;
     YAML::Node config_;
 
@@ -247,7 +247,10 @@ private:
     LRPolicy::Ptr policy_;
     LRPolicy::Ptr burnInPolicy_;
     ImageAugmenter::Ptr augmenter_;
-    TrainBatch trainBatch_;
+    BatchLoader::Ptr trainLoader_;
+    BatchLoader::Ptr valLoader_;
+
+    MiniBatch trainBatch_;
     RecordWriter::Ptr writer_;
 
     float avgLoss_ = 0.0f;
@@ -290,6 +293,10 @@ private:
     float adamBeta2_ = 0.0f;
     float adamEpsilon_ = 0.0f;
 
+    bool esEnabled_ = false;    // Early stopping
+    float esThreshold_ = 0.0f;
+    int esPatience_ = 0;
+
     int saveWeightsInterval_ = 0;
     int writeMetricsInterval_ = 0;
 
@@ -303,11 +310,11 @@ private:
     float mAP_ = 0.0f;          // Mean Average Precision
     float avgRecall_ = 0.0f;    // Average Recall
     float microAvgF1_ = 0.0f;   // Micro Average F1
+    float avgValLoss_ = 0.0f;   // Average Validation Loss
+    float valAccuracy_ = 0.0f;  // Validation Accuracy
     float cost_ = 0.0f;         // Network cost
 
     std::vector<std::string> labels_;
-    std::vector<std::string> trainImages_;
-    std::vector<std::string> valImages_;
 };
 
 template<Device D>
@@ -360,35 +367,61 @@ void Model<D>::train()
     std::printf("\nTraining model...\n");
 
     parseTrainConfig();
-    loadTrainImages();
-    loadValImages();
+
+    trainLoader_ = std::make_unique<BatchLoader>(trainImagePath_, trainLabelPath_, batch_, channels_, height_, width_,
+                                                 augmenter_);
+
+    if (valEnabled_) {
+        valLoader_ = std::make_unique<BatchLoader>(valImagePath_, valLabelPath_, batch_, channels_, height_, width_);
+    }
 
     avgLoss_ = std::numeric_limits<float>::lowest();
+    auto bestValLoss = std::numeric_limits<float>::max();
+    auto valsWithoutImprovement = 0;
+    constexpr auto windowSize = 10;
+    constexpr auto alpha = 2.0f / (windowSize + 1);
 
     Timer timer;
     std::printf("LR: %f%s, Momentum: %f, Decay: %f\n", learningRate(), isBurningIn() ? " (burn-in)" : "", momentum_,
                 decay_);
 
-    constexpr auto windowSize = 10;
-    constexpr auto alpha = 2.0f / (windowSize + 1);
-
     while (seen_ < maxBatches_) {
         Timer batchTimer;
         auto loss = trainBatch();
+
+        if (std::isinf(loss) || std::isnan(loss)) {
+            loss = std::numeric_limits<float>::max();
+        }
+
         avgLoss_ = avgLoss_ < 0 ? loss : (avgLoss_ * (1 - alpha) + loss * alpha);
         if (std::isinf(avgLoss_) || std::isnan(avgLoss_)) {
             avgLoss_ = loss;
         }
 
-        auto epoch = seen_ / trainImages_.size();
+        auto imagesSeen = seen_ * batch_;
+        auto epoch = imagesSeen / trainLoader_->size();
 
         printf("Epoch: %zu, Seen: %zu, Loss: %f, Avg. Loss: %f, LR: %.12f%s, %s, %zu images\n",
                epoch, seen_, loss, avgLoss_, learningRate(),
                isBurningIn() ? " (burn-in)" : "",
-               batchTimer.str().c_str(), seen_ * batch_);
+               batchTimer.str().c_str(), imagesSeen);
 
         if (valEnabled_ && valInterval_ && seen_ % valInterval_ == 0) {
             validate();
+
+            if (esEnabled_) {   // check for early stopping
+                if (avgValLoss_ < bestValLoss - esThreshold_) {
+                    bestValLoss = avgValLoss_;
+                    valsWithoutImprovement = 0;
+                } else {
+                    valsWithoutImprovement++;
+                }
+
+                if (valsWithoutImprovement >= esPatience_) {
+                    std::printf("Early stopping due to lack of improvement in validation loss.\n");
+                    break;
+                }
+            }
         }
 
         if (saveWeightsInterval_ && seen_ % saveWeightsInterval_ == 0) {
@@ -413,6 +446,8 @@ void Model<D>::writeMetrics()
     writemAP();
     writeAvgRecall();
     writeMicroAvgF1();
+    writeAvgValLoss();
+    writeAccuracy();
 }
 
 template<Device D>
@@ -496,9 +531,41 @@ void Model<D>::writeMicroAvgF1()
 }
 
 template<Device D>
+void Model<D>::writeAvgValLoss()
+{
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(seen_);
+
+    auto* summary = event.mutable_summary();
+    auto* value = summary->add_value();
+    value->set_tag("avg-val-loss");
+    value->set_simple_value(avgValLoss_);
+
+    writer_->write(event);
+}
+
+template<Device D>
+void Model<D>::writeAccuracy()
+{
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(seen_);
+
+    auto* summary = event.mutable_summary();
+    auto* value = summary->add_value();
+    value->set_tag("accuracy");
+    value->set_simple_value(valAccuracy_);
+
+    writer_->write(event);
+}
+
+template<Device D>
 float Model<D>::trainBatch()
 {
-    trainBatch_ = loadBatch(Category::TRAIN, augmenter_ != nullptr);
+    trainBatch_ = trainLoader_->next();
 
     auto error = trainOnce(trainBatch_.imageData());
 
@@ -539,32 +606,6 @@ void Model<D>::parseTrainConfig()
 
     auto valLabels = training["val-labels"].as<std::string>();
     valLabelPath_ = canonical(valLabels, cfgPath.parent_path()).string();
-}
-
-template<Device D>
-void Model<D>::loadTrainImages()
-{
-    std::ifstream ifs(trainImagePath_, std::ios::in | std::ios::binary);
-    PX_CHECK(ifs.good(), "Could not open file \"%s\".", trainImagePath_.c_str());
-
-    trainImages_.clear();
-
-    for (std::string label; std::getline(ifs, label);) {
-        trainImages_.push_back(label);
-    }
-}
-
-template<Device D>
-void Model<D>::loadValImages()
-{
-    std::ifstream ifs(valImagePath_, std::ios::in | std::ios::binary);
-    PX_CHECK(ifs.good(), "Could not open file \"%s\".", valImagePath_.c_str());
-
-    valImages_.clear();
-
-    for (std::string label; std::getline(ifs, label);) {
-        valImages_.push_back(label);
-    }
 }
 
 template<Device D>
@@ -621,7 +662,7 @@ void Model<D>::addLayer(YAML::Node layerDef)
 template<Device D>
 Model<D>::Model(var_map options) : options_(std::move(options))
 {
-    training_ = hasOption("train");
+    mode_ = hasOption("train") ? Mode::TRAINING : Mode::INFERRING;
 
     if (options_.count("confidence") != 0) {
         threshold_ = option<float>("confidence");
@@ -870,7 +911,7 @@ void Model<D>::parseModel(const Node& modelDoc)
     const auto model = modelDoc["model"];
     PX_CHECK(model.IsMap(), "Model is not a map.");
 
-    if (training_) {
+    if (training() || validating()) {
         maxBatches_ = model["max_batches"].as<int>(0);
         PX_CHECK(maxBatches_ > 0, "Model has no max_batches.");
 
@@ -896,6 +937,15 @@ void Model<D>::parseModel(const Node& modelDoc)
             adamBeta1_ = adamNode["beta1"].as<float>(0.9f);
             adamBeta2_ = adamNode["beta2"].as<float>(0.999f);
             adamEpsilon_ = adamNode["epsilon"].as<float>(1e-8f);
+        }
+
+        auto esNode = model["early_stopping"];
+        if (esNode && esNode.IsMap()) {
+            esEnabled_ = esNode["enabled"].as<bool>(true);
+            if (esEnabled_) {
+                esPatience_ = esNode["patience"].as<int>(10);
+                esThreshold_ = esNode["threshold"].as<float>(0.0001f);
+            }
         }
 
         auto gr = model["gradient_rescale"];
@@ -928,7 +978,7 @@ void Model<D>::parseModel(const Node& modelDoc)
         writeMetricsInterval_ = model["write_metrics_interval"].as<int>(1000);
     }
 
-    batch_ = training_ ? model["batch"].as<int>() : 1;
+    batch_ = training() || validating() ? model["batch"].as<int>() : 1;
     channels_ = model["channels"].as<int>();
     height_ = model["height"].as<int>();
     subdivs_ = model["subdivisions"].as<int>(1);
@@ -1061,7 +1111,7 @@ void Model<D>::forward(const V& input)
 
     for (const auto& layer: layers_) {
         layer->forward(*in);
-        if (training_ && layer->hasCost()) {
+        if (!inferring() && layer->hasCost()) {
             sum += layer->cost();
             ++count;
         }
@@ -1138,19 +1188,25 @@ const Model<D>::LayerVec& Model<D>::layers() const
 template<Device D>
 bool Model<D>::inferring() const noexcept
 {
-    return !training_;
+    return mode_ == Mode::INFERRING;
 }
 
 template<Device D>
 bool Model<D>::training() const noexcept
 {
-    return training_;
+    return mode_ == Mode::TRAINING;
 }
 
 template<Device D>
-void Model<D>::setTraining(bool training) noexcept
+bool Model<D>::validating() const noexcept
 {
-    training_ = training;
+    return mode_ == Mode::VALIDATING;
+}
+
+template<Device D>
+void Model<D>::setMode(Mode mode) noexcept
+{
+    mode_ = mode;
 }
 
 template<Device D>
@@ -1170,42 +1226,6 @@ template<Device D>
 float Model<D>::cost() const noexcept
 {
     return cost_;
-}
-
-template<Device D>
-Model<D>::ImageLabels Model<D>::loadImgLabels(Model::Category category, const std::string& imagePath, bool augment)
-{
-    auto gts = groundTruth(category, imagePath);
-
-    if (hasOption("view-image")) {
-        viewImageGT(imagePath, gts, augment);
-    }
-
-    if (augment && augmenter_) {
-        auto orig = imreadNormalize(imagePath.c_str(), channels_);
-
-        auto augmented = augmenter_->augment(orig, { width(), height() }, gts);
-
-        auto vector = imvector(augmented.first);
-
-        return { vector, augmented.second };
-    } else {
-        auto vec = imreadVector(imagePath.c_str(), width(), height(), channels_);
-
-        GroundTruthVec newGts;
-
-        for (const auto& gt: gts) {
-            GroundTruth newGt(gt);
-            newGt.box.x() = (gt.box.x() * vec.ax) + vec.dx;
-            newGt.box.y() = (gt.box.y() * vec.ay) + vec.dy;
-            newGt.box.w() *= vec.ax;
-            newGt.box.h() *= vec.ay;
-
-            newGts.emplace_back(std::move(newGt));
-        }
-
-        return { vec.data, newGts };
-    }
 }
 
 template<Device D>
@@ -1253,64 +1273,6 @@ void Model<D>::saveWeights(const std::string& fileName)
 }
 
 template<Device D>
-TrainBatch Model<D>::loadBatch(Category category, bool augment)
-{
-    TrainBatch batch(batch_, channels_, height_, width_);
-
-    const auto& images = category == Category::TRAIN ? trainImages_ : valImages_;
-
-    std::random_device rd;
-    std::default_random_engine generator(rd());
-    std::uniform_int_distribution<int> distribution(0, images.size() - 1);
-
-    for (auto b = 0; b < batch_; ++b) {
-        auto j = distribution(generator);
-        const auto& imagePath = images[j];
-        auto imgLabels = loadImgLabels(category, imagePath, augment);
-
-        batch.setImageData(b, imgLabels.first);  // the image data must be copied
-        batch.setGroundTruth(b, std::move(imgLabels.second));
-    }
-
-    return batch;
-}
-
-template<Device D>
-GroundTruthVec Model<D>::groundTruth(Category category, const std::string& imagePath)
-{
-    auto basePath = baseName(imagePath);
-
-    const auto& path = category == Category::TRAIN ? trainLabelPath_ : valLabelPath_;
-
-    boost::filesystem::path gtFile(path);
-    gtFile /= basePath + ".txt";
-    gtFile = canonical(gtFile);
-
-    std::ifstream ifs(gtFile);
-    PX_CHECK(ifs.good(), "Could not open file \"%s\".", gtFile.c_str());
-
-    GroundTruthVec vector;
-
-    auto nclasses = classes();
-    std::size_t id;
-    float x, y, w, h;
-
-    while (ifs >> id >> x >> y >> w >> h) {
-        GroundTruth gt;
-        gt.classId = id;
-
-        gt.box.x() = constrain(0.0f, 1.0f, x);
-        gt.box.y() = constrain(0.0f, 1.0f, y);
-        gt.box.w() = constrain(0.0f, 1.0f, w);
-        gt.box.h() = constrain(0.0f, 1.0f, h);
-
-        vector.emplace_back(std::move(gt));
-    }
-
-    return vector;
-}
-
-template<Device D>
 std::string Model<D>::weightsFileName(bool final) const
 {
     if (final) {
@@ -1345,19 +1307,21 @@ void Model<D>::validate()
 {
     std::cout << "Pausing training to validate..." << std::flush;
 
-    Validator<D> validator(valThresh_, classes());
+    Validator <D> validator(valThresh_, classes());
 
     for (auto i = 0; i < valBatches_; ++i) {
-        auto batch = loadBatch(Category::VAL, false);
+        auto batch = valLoader_->next();
         validator.validate(*this, std::move(batch));
     }
 
     mAP_ = validator.mAP();
     avgRecall_ = validator.avgRecall();
     microAvgF1_ = validator.microAvgF1();
+    avgValLoss_ = validator.avgLoss();
+    valAccuracy_ = validator.accuracy();
 
-    std::printf("\nEpoch: %zu, mAP: %f, Avg. Recall: %f, Micro-Avg. F1: %f\n",
-                seen_ / trainImages_.size(), mAP_, avgRecall_, microAvgF1_);
+    std::printf("\nEpoch: %zu, mAP: %f, Avg. Recall: %f, Micro-Avg. F1: %f, Avg. Val. Loss: %f, Accuracy: %f\n",
+                seen_ / valLoader_->size(), mAP_, avgRecall_, microAvgF1_, avgValLoss_, valAccuracy_);
 
     std::cout << "Resuming training..." << std::endl << std::flush;
 }
@@ -1438,7 +1402,7 @@ void Model<D>::viewImageGT(const std::string& imagePath, const GroundTruthVec& g
 }
 
 template<Device D>
-const TrainBatch& Model<D>::trainingBatch() const noexcept
+const MiniBatch& Model<D>::trainingBatch() const noexcept
 {
     return trainBatch_;
 }

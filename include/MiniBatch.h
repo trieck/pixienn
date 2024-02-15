@@ -21,17 +21,17 @@
 
 namespace px {
 
-class TrainBatch
+class MiniBatch
 {
 public:
-    TrainBatch();
-    TrainBatch(std::uint32_t batchSize, std::uint32_t channels, std::uint32_t height, std::uint32_t width);
-    TrainBatch(const TrainBatch& rhs);
-    TrainBatch(TrainBatch&& rhs);
-    ~TrainBatch() = default;
+    MiniBatch();
+    MiniBatch(std::uint32_t batchSize, std::uint32_t channels, std::uint32_t height, std::uint32_t width);
+    MiniBatch(const MiniBatch& rhs);
+    MiniBatch(MiniBatch&& rhs);
+    ~MiniBatch() = default;
 
-    TrainBatch& operator=(const TrainBatch& rhs);
-    TrainBatch& operator=(TrainBatch&& rhs);
+    MiniBatch& operator=(const MiniBatch& rhs);
+    MiniBatch& operator=(MiniBatch&& rhs);
 
     std::uint32_t batchSize() const noexcept;
     std::uint32_t channels() const noexcept;

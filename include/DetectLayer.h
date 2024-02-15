@@ -242,7 +242,7 @@ void DetectLayer<D>::forwardCpu(const PxCpuVector& input)
 
     this->cost_ = std::pow(magArray(this->pdelta_->data(), this->pdelta_->size()), 2);
 
-    if (count_ > 0 && this->model().seen() % logInterval_ == 0) {
+    if (this->training() && count_ > 0 && this->model().seen() % logInterval_ == 0) {
         writeStats();
     }
 }

@@ -1,17 +1,20 @@
 model:
-  batch: 1
+  batch: 16
   subdivisions: 1
   channels: 3
   height: 416
   width: 416
 
-  max_batches: 2500000
+  max_batches: 40000
 
   momentum: 0.9
   decay: 0.0005
 
-  save_weights_interval: 10000
-  write_metrics_interval: 1000
+  adam:
+    enabled: True
+    beta1: 0.9
+    beta2: 0.999
+    epsilon: 1e-8
 
   augmentation:
     enabled: True
@@ -20,6 +23,11 @@ model:
     saturation: 0.75
     exposure: 0.75
     hue: 0.1
+
+  early_stopping:
+    enabled: False
+    patience: 10
+    threshold: 0.0001
 
   gradient_rescale:
     enabled: True
@@ -31,9 +39,12 @@ model:
 
   validation:
     enabled: True
-    interval: 10000
+    interval: 1000
     batches: 100
     threshold: 0.2
+
+  save_weights_interval: 1000
+  write_metrics_interval: 1000
 
   learning_rate:
     burn_in:
@@ -52,8 +63,8 @@ model:
       batches_per_cycle: 10000
 
     smooth_stepped:
-      steps: [ 40000, 45000 ]
-      targets: [ 0.0001, 0.00001 ]
+      steps: [ 400000 ]
+      targets: [ 0.0001 ]
 
     sigmoid:
       target_learning_rate: 0.000001

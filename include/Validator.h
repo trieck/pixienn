@@ -35,12 +35,14 @@ public:
 
     using V = typename DeviceTraits<D>::VectorType;
 
-    void validate(Model<D>& model, TrainBatch&& batch);
+    void validate(Model<D>& model, MiniBatch&& batch);
     void reset() noexcept;
 
     float avgRecall() const noexcept;
     float mAP() const noexcept;
     float microAvgF1() const noexcept;
+    float avgLoss() const noexcept;
+    float accuracy() const noexcept;
 
 private:
     void forward(Model<D>& model, const PxCpuVector& input);
@@ -53,17 +55,16 @@ private:
     std::unordered_set<int> classesSeen_;
 
     float threshold_;
+    float totalLoss_ = 0.0f;
+    int seen_ = 0;
+    int correctPredictions_ = 0;
+    int totalPredictions_ = 0;
 };
 
 template<Device D>
-void Validator<D>::reset() noexcept
-{
-    matrix_.reset();
-    classesSeen_.clear();
-}
-
-template<Device D>
-Validator<D>::Validator(float threshold, int numClasses) : threshold_(threshold), matrix_(numClasses)
+Validator<D>::Validator(float threshold, int numClasses)
+        : threshold_(threshold), matrix_(numClasses), totalLoss_(0.0f), seen_(0), correctPredictions_(0),
+          totalPredictions_(0)
 {
 }
 
@@ -86,20 +87,55 @@ float Validator<D>::avgRecall() const noexcept
 }
 
 template<Device D>
-void Validator<D>::validate(Model<D>& model, TrainBatch&& batch)
+float Validator<D>::avgLoss() const noexcept
 {
-    model.setTraining(false);
+    if (seen_ == 0) {
+        return 0;
+    }
+
+    return static_cast<float>(totalLoss_) / seen_;
+}
+
+template<Device D>
+float Validator<D>::accuracy() const noexcept
+{
+    if (totalPredictions_ == 0) {
+        return 0;
+    }
+
+    return static_cast<float>(correctPredictions_) / totalPredictions_;
+}
+
+template<Device D>
+void Validator<D>::reset() noexcept
+{
+    matrix_.reset();
+    classesSeen_.clear();
+    totalLoss_ = 0.0f;
+    seen_ = 0;
+    correctPredictions_ = 0;
+    totalPredictions_ = 0;
+}
+
+template<Device D>
+void Validator<D>::validate(Model<D>& model, MiniBatch&& batch)
+{
+    model.setMode(Mode::VALIDATING);
+
     model.setThreshold(threshold_);
 
     const PxCpuVector& input = batch.imageData();
 
     forward(model, input);
 
+    totalLoss_ += model.cost();
+    seen_++;
+
     processDetects(model.detections(), batch.groundTruth());
 
     std::cout << "." << std::flush;
 
-    model.setTraining(true);
+    model.setMode(Mode::TRAINING);
 }
 
 template<Device D>
@@ -160,9 +196,15 @@ void Validator<D>::processDetects(const Detections& detects, const GroundTruths&
                 classesSeen_.emplace(gtv[index].classId);
                 matrix_.update(gtv[index].classId, detect.classIndex());   // true or false positive
                 gtv.erase(gtv.begin() + index);
+
+                if (detect.classIndex() == gtv[index].classId) {
+                    correctPredictions_++;
+                }
             } else {
                 matrix_.update(-1, detect.classIndex());    // this is a "ghost prediction", a false positive
             }
+
+            totalPredictions_++;
         }
 
         for (const auto& gt: gtv) { // these are the "undetected objects", a false negative

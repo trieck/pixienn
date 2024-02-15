@@ -95,6 +95,7 @@ endif (USE_CUDA)
 file(GLOB HEADERS "include/*.h")
 list(APPEND SOURCES
         ${HEADERS}
+        src/BatchLoader.cpp
         src/BatchNorm.cpp
         src/Box.cpp
         src/BurnInLRPolicy.cpp
@@ -113,6 +114,7 @@ list(APPEND SOURCES
         src/ImageVec.cpp
         src/InvLRPolicy.cpp
         src/Math.cpp
+        src/MiniBatch.cpp
         src/Model.cpp
         src/RandomLRPolicy.cpp
         src/RecordWriter.cpp
@@ -121,7 +123,6 @@ list(APPEND SOURCES
         src/SteppedLRPolicy.cpp
         src/TiffIO.cpp
         src/Timer.cpp
-        src/TrainBatch.cpp
         src/Utility.cpp
 )
 

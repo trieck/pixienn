@@ -4,17 +4,17 @@
 - [x] Implement basic inference functionality
 - [x] Test inference on various object detector models
 - [ ] Optimize inference performance
-- [ ] Explore and integrate additional pre-trained models
+- [x] Explore and integrate additional pre-trained models
 
 ## Training
 - [x] Begin implementation of training functionality
 - [x] Set up training pipeline
 - [x] Train initial models on a small dataset
-- [ ] Implement validation every N iterations
-- [ ] Output PR/mAP statistics
+- [x] Implement validation every N iterations
+- [x] Output PR/mAP statistics
 - [x] Log in a [TensorBoard](https://www.tensorflow.org/tensorboard) format
 - [ ] Compare training results with pre-trained weights from darknet
-- [ ] Implement data augmentation techniques
+- [x] Implement data augmentation techniques
 - [ ] Fine-tune hyperparameters for improved training results
 
 ## Documentation

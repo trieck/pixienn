@@ -362,7 +362,12 @@ void imdistort(cv::Mat& image, float hue, float saturation, float exposure)
 
 void imrect(cv::Mat& image, const cv::Rect& rect, uint32_t rgb, int thickness, int lineType)
 {
-    rectangle(image, rect, MAKE_CV_COLOR(rgb), thickness, lineType, 0);
+    auto x1 = std::max(0, std::min(rect.x, image.cols - 1));
+    auto y1 = std::max(0, std::min(rect.y, image.rows - 1));
+    auto x2 = std::max(0, std::min(rect.x + rect.width, image.cols - 1));
+    auto y2 = std::max(0, std::min(rect.y + rect.height, image.rows - 1));
+
+    cv::rectangle(image, cv::Point(x1, y1), cv::Point(x2, y2), MAKE_CV_COLOR(rgb), thickness, lineType, 0);
 }
 
 void imtabbedRect(cv::Mat& image, const cv::Point& pt1, const cv::Point& pt2, uint32_t rgb, int thickness,

@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
-#include "TrainBatch.h"
+#include "MiniBatch.h"
 
 using namespace px;
 using namespace testing;
@@ -29,7 +29,7 @@ GTEST_TEST(ImageBatchTest, ConstructorAndGetters)
     const std::uint32_t height = 32;
     const std::uint32_t width = 32;
 
-    TrainBatch imageBatch(batchSize, channels, height, width);
+    MiniBatch imageBatch(batchSize, channels, height, width);
 
     EXPECT_EQ(imageBatch.batchSize(), batchSize);
     EXPECT_EQ(imageBatch.channels(), channels);
@@ -44,8 +44,8 @@ GTEST_TEST(ImageBatchTest, CopyConstructor)
     const std::uint32_t height = 32;
     const std::uint32_t width = 32;
 
-    TrainBatch original(batchSize, channels, height, width);
-    TrainBatch copy(original);
+    MiniBatch original(batchSize, channels, height, width);
+    MiniBatch copy(original);
 
     // Test that the two objects are independent (deep copy)
     EXPECT_NE(original.imageData().data(), copy.imageData().data());
@@ -59,8 +59,8 @@ GTEST_TEST(ImageBatchTest, MoveConstructor)
     const std::uint32_t height = 32;
     const std::uint32_t width = 32;
 
-    TrainBatch original(batchSize, channels, height, width);
-    TrainBatch moved(std::move(original));
+    MiniBatch original(batchSize, channels, height, width);
+    MiniBatch moved(std::move(original));
 
     // Test that the moved object took ownership of resources
     EXPECT_EQ(original.imageData().size(), 0);
@@ -80,7 +80,7 @@ GTEST_TEST(ImageBatchTest, SetImageDataAndGetters)
     const std::uint32_t height = 32;
     const std::uint32_t width = 32;
 
-    TrainBatch imageBatch(batchSize, channels, height, width);
+    MiniBatch imageBatch(batchSize, channels, height, width);
 
     // Set image data for index 0
     PxCpuVector imageData0(height * channels * width, 1.0f);
@@ -108,7 +108,7 @@ GTEST_TEST(ImageBatchTest, SetImageDataAndGetters)
 
 TEST(ImageBatchTest, AddGroundTruth)
 {
-    TrainBatch imageBatch(2, 3, 4, 5);
+    MiniBatch imageBatch(2, 3, 4, 5);
 
     GroundTruth groundTruth;
     groundTruth.classId = 1;
@@ -126,7 +126,7 @@ TEST(ImageBatchTest, AddGroundTruth)
 
 TEST(ImageBatchTest, SetGroundTruth)
 {
-    TrainBatch imageBatch(2, 3, 4, 5);
+    MiniBatch imageBatch(2, 3, 4, 5);
 
     GroundTruthVec groundTruthVec = {
             { 1, DarkBox(1.0f, 2.0f, 3.0f, 4.0f) },
@@ -152,7 +152,7 @@ TEST(ImageBatchTest, SetGroundTruth)
 
 TEST(ImageBatchTest, AllocateMethod)
 {
-    TrainBatch imageBatch;
+    MiniBatch imageBatch;
     imageBatch.allocate(2, 3, 32, 32);
 
     EXPECT_EQ(imageBatch.batchSize(), 2u);

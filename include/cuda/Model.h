@@ -39,7 +39,7 @@ inline void Model<Device::CUDA>::forward(const ImageVec& image)
 template<>
 inline float Model<Device::CUDA>::trainBatch()
 {
-    trainBatch_ = loadBatch(Category::TRAIN, augmenter_ != nullptr);
+    trainBatch_ = trainLoader_->next();
 
     const auto& imageData = trainBatch_.imageData();
 
