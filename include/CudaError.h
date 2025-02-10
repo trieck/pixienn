@@ -29,6 +29,8 @@ public:
     CudaError(cudaError_t error, const char* file, unsigned int line, const char* function,
               const std::string& message) noexcept;
 
+    cudaError_t error() const noexcept;
+
     static void check(cudaError_t error, const char* file, unsigned int line, const char* function,
                       const char* format, ...);
     static void check(cudaError_t error, const char* file, unsigned int line, const char* function);
