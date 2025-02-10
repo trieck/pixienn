@@ -78,4 +78,9 @@ void CudaError::check(const char* file, unsigned int line, const char* function)
     check(cudaPeekAtLastError(), file, line, function);
 }
 
+cudaError_t CudaError::error() const noexcept
+{
+    return error_;
+}
+
 }   // px
