@@ -1,12 +1,13 @@
 configuration:
   model: ../models/yolov1-tiny.yml
   #weights: ../weights/yolov1-tiny.weights
-  weights: /home/trieck/src/pixienn/cmake-build-release-cuda/bin/backup/yolov1-tiny-voc_latest.weights
+  #weights: /home/trieck/src/pixienn/cmake-build-release-cuda/bin/backup/yolov1-tiny-voc_latest.weights
+  weights: /home/trieck/src/pixienn/cmake-build-debug-cuda/backup/yolov1-tiny-voc_latest.weights
   labels: ../data/voc.names
 
 training:
-  train-images: ../data/voc/train.txt
+  train-images: ../data/voc/train-10.txt
   train-labels: ../data/voc/labels
 
-  val-images: ../data/voc/val.txt
+  val-images: ../data/voc/val-10.txt
   val-labels: ../data/voc/labels

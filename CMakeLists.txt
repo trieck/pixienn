@@ -5,6 +5,10 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(BLA_VENDOR OpenBLAS)
 
+if(POLICY CMP0167)
+    cmake_policy(SET CMP0167 OLD)
+endif()
+
 if (NOT DEFINED USE_CUDA OR USE_CUDA STREQUAL "")
     set(USE_CUDA 1)
 endif ()
@@ -68,11 +72,10 @@ if (USE_CUDA)
     endif ()
 
     enable_language(CUDA)
+    find_package(CUDAToolkit REQUIRED)
     find_package(CUDNN 8 REQUIRED)
 
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++20 $<$<CONFIG:Debug>:-G>")
-    find_library(CUDART_LIBRARY cudart ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
-    find_library(CUBLAS_LIBRARY cublas ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
 
     file(GLOB CUDA_HEADERS "include/*.cuh")
     list(APPEND SOURCES

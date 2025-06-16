@@ -38,3 +38,19 @@ TEST(MathSuite, Softmax)
                                     FloatNear(expected[1], 1e-6),
                                     FloatNear(expected[2], 1e-6)));
 }
+
+TEST(MathSuite, Sigmoid)
+{
+    PxCpuVector input = { -2.0f, 0.0f, 2.0f };
+    PxCpuVector result = sigmoid(input);
+
+    PxCpuVector expected = {
+            1.0f / (1.0f + std::exp(2.0f)),   // sigmoid(-2)
+            0.5f,                             // sigmoid(0)
+            1.0f / (1.0f + std::exp(-2.0f))   // sigmoid(2)
+    };
+
+    EXPECT_THAT(result, ElementsAre(FloatNear(expected[0], 1e-6),
+                                    FloatNear(expected[1], 1e-6),
+                                    FloatNear(expected[2], 1e-6)));
+}

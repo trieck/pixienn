@@ -265,6 +265,7 @@ inline void ConvLayer<Device::CUDA>::forward(const V& input)
         addBiasGpu(this->output_.data(), biases_.data(), this->batch(), filters_, this->outHeight() * this->outWidth());
     }
 
+    this->preActivation_.copy(this->output_);
     activation_->apply(this->output_);
 }
 
@@ -273,7 +274,7 @@ inline void ConvLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
     Layer<Device::CUDA>::backward(input, grad);
 
-    activation_->gradient(this->output_, this->delta_);
+    activation_->gradient(this->preActivation_, this->delta_);
 
     const auto& ctxt = this->cudnnContext();
 
@@ -289,7 +290,6 @@ inline void ConvLayer<Device::CUDA>::backward(const V& input, V* grad)
                                                       *sbmv_, scales_.data(), scaleUpdates_.data(),
                                                       biasUpdates_.data(), epsilon, mean_.data(), var_.data());
         PX_CHECK_CUDNN(status);
-        this->delta_.copy(this->xNorm_);
     } else {
         backwardBiasGpu(biasUpdates_.data(), this->delta_.data(), this->batch(), filters_,
                         this->outHeight() * this->outWidth());
@@ -320,6 +320,8 @@ inline void ConvLayer<Device::CUDA>::update()
     auto momentum = net.momentum();
     auto decay = net.decay();
     auto batch = this->batch();
+
+    Layer<Device::CUDA>::update();
 
     const auto& ctxt = this->cublasContext();
 

@@ -107,4 +107,21 @@ void softmax(const float* input, int n, int batch, int batchOffset, int groups, 
     }
 }
 
+PxCpuVector sigmoid(const PxCpuVector& input)
+{
+    PxCpuVector result(input.size());
+
+    for (auto i = 0; i < input.size(); ++i) {
+        result[i] = sigmoid(input[i]);
+    }
+
+    return result;
+}
+
+float sigmoid(float x)
+{
+    x = std::clamp(x, -100.0f, 100.0f);  // Prevent overflow
+    return 1.0f / (1.0f + std::exp(-x));
+}
+
 }   // px

@@ -564,13 +564,13 @@ const
         auto col = i % this->width();
 
         for (auto n = 0; n < n_; ++n) {
-            auto objIndex = entryIndex(0, n * area + i, 4);
+            auto objIndex = entryIndex(batch, n * area + i, 4);
             auto objectness = predictions[objIndex];
             if (objectness < threshold) {
                 continue;
             }
 
-            auto boxIndex = entryIndex(0, n * area + i, 0);
+            auto boxIndex = entryIndex(batch, n * area + i, 0);
 
             cv::Rect2f box;
             if (scaled) {
@@ -583,7 +583,7 @@ const
             float maxProb = -std::numeric_limits<float>::max();
 
             for (auto j = 0; j < nclasses; ++j) {
-                int clsIndex = entryIndex(0, n * area + i, 5 + j);
+                int clsIndex = entryIndex(batch, n * area + i, 5 + j);
                 auto prob = objectness * predictions[clsIndex];
                 if (prob > maxProb) {
                     maxClass = j;
