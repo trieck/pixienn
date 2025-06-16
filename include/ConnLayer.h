@@ -54,6 +54,7 @@ private:
     V weights_, weightUpdates_, biases_, biasUpdates_;
     V scales_, scaleUpdates_, mean_, meanDelta_, var_, varDelta_;
     V rollingMean_, rollingVar_, x_, xNorm_;
+    V preActivation_;
 
     Activations<D>::Ptr activation_;
     bool batchNorm_;
@@ -177,16 +178,16 @@ void ConnLayer<D>::forward(const V& input)
         addBias(this->output_.data(), this->biases_.data(), this->batch(), this->outputs(), 1);
     }
 
+    this->preActivation_ = this->output_;
     activation_->apply(this->output_);
 }
-
 
 template<Device D>
 void ConnLayer<D>::backward(const V& input, V* grad)
 {
     Layer<D>::backward(input, grad);
 
-    activation_->gradient(this->output_, this->delta_);
+    activation_->gradient(this->preActivation_, this->delta_);
 
     if (batchNorm_) {
         batchNormBackward(this->batch(), this->outChannels(), this->outHeight(), this->outWidth(), this->delta_,
@@ -222,6 +223,8 @@ void ConnLayer<D>::update()
     auto learningRate = net.learningRate();
     auto momentum = net.momentum();
     auto decay = net.decay();
+
+    Layer<D>::update();
 
     // update biases
     cblas_saxpy(this->outputs(), learningRate / this->batch(), biasUpdates_.data(), 1, biases_.data(), 1);

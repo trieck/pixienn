@@ -174,7 +174,7 @@ void DetectLayer<D>::addDetects(Detections& detections, int batch, int width, in
         auto col = i % this->side_;
         for (auto n = 0; n < this->num_; ++n) {
             auto pindex = locations * nclasses + i * this->num_ + n;
-            auto scale = predictions[pindex];
+            auto scale = sigmoid(predictions[pindex]);
             auto bindex = locations * (nclasses + this->num_) + (i * this->num_ + n) * this->coords_;
             auto x = (predictions[bindex + 0] + col) / this->side_ * width;
             auto y = (predictions[bindex + 1] + row) / this->side_ * height;
@@ -185,7 +185,7 @@ void DetectLayer<D>::addDetects(Detections& detections, int batch, int width, in
             auto maxProb = std::numeric_limits<float>::lowest();
             for (auto j = 0; j < nclasses; ++j) {
                 auto index = i * nclasses + j;
-                auto prob = scale * predictions[index];
+                auto prob = scale * sigmoid(predictions[index]);
                 if (prob > maxProb) {
                     maxClass = j;
                     maxProb = prob;
@@ -397,7 +397,7 @@ void DetectLayer<D>::processDetects(int b, int i)
     //  |<----- C*S*S elements ----->|<------- B*S*S elements ------->|<----- B*S*S*4 elements ----->
 
     const auto* poutput = this->poutput_->data();
-    const auto index = b * i;
+    const auto index = b * this->outputs();
     const auto nclasses = this->classes();
     const auto locations = this->side_ * this->side_;
     auto* pdelta = this->pdelta_->data();

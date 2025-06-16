@@ -382,6 +382,13 @@ void Layer<D>::backward(const V& input, V* grad)
 template<Device D>
 void Layer<D>::update()
 {
+    if (this->gradientRescaling_) {
+        this->scaleGradients();
+    }
+
+    if (this->gradientClipping_) {
+        this->clipGradients();
+    }
 }
 
 template<Device D>

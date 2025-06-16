@@ -32,6 +32,7 @@ protected:
     V m_, v_;
     V bias_m_, bias_v_;
     V scale_m_, scale_v_;
+    V preActivation_;
 };
 
 template<>
@@ -175,6 +176,7 @@ inline void ConnLayer<Device::CUDA>::forward(const V& input)
         addBiasGpu(this->output_.data(), biases_.data(), this->batch(), this->outputs(), 1);
     }
 
+    this->preActivation_ = this->output_;
     activation_->apply(this->output_);
 }
 
@@ -183,7 +185,7 @@ inline void ConnLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
     Layer<Device::CUDA>::backward(input, grad);
 
-    activation_->gradient(this->output_, this->delta_);
+    activation_->gradient(this->preActivation_, this->delta_);
 
     if (batchNorm_) {
         float alpha = 1.0f, beta = 0.0f;
@@ -196,9 +198,6 @@ inline void ConnLayer<Device::CUDA>::backward(const V& input, V* grad)
                                                       *yDesc_, this->delta_.data(), *yDesc_, this->xNorm_.data(),
                                                       *sbmv_, scales_.data(), scaleUpdates_.data(),
                                                       biasUpdates_.data(), epsilon, mean_.data(), var_.data());
-
-        this->delta_.copy(this->xNorm_);
-
         PX_CHECK_CUDNN(status);
     } else {
         backwardBiasGpu(biasUpdates_.data(), this->delta_.data(), this->batch(), this->outputs(), 1);
@@ -211,7 +210,7 @@ inline void ConnLayer<Device::CUDA>::backward(const V& input, V* grad)
     auto* b = input.data();
     auto* c = this->weightUpdates_.data();
 
-    float alpha = 1.0f, beta = 1.0f;
+    float alpha = 1.0f, beta = 0.0f;
 
     const auto& ctxt = this->cublasContext();
     cublasGemm(ctxt, true, false, m, n, k, alpha, a, m, b, n, beta, c, n);
@@ -236,6 +235,8 @@ inline void ConnLayer<Device::CUDA>::update()
     auto momentum = net.momentum();
     auto decay = net.decay();
     auto batch = this->batch();
+
+    Layer<Device::CUDA>::update();
 
     const auto& ctxt = this->cublasContext();
 

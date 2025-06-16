@@ -23,6 +23,8 @@ namespace px {
 PxCpuVector exp(const PxCpuVector& input);
 PxCpuVector log(const PxCpuVector& input);
 PxCpuVector softmax(const PxCpuVector& input);
+PxCpuVector sigmoid(const PxCpuVector& input);
+float sigmoid(float x);
 void softmax(const float* input, int n, float temp, float* output, int stride);
 void softmax(const float* input, int n, int batch, int batchOffset, int groups, int groupOffset, int stride, float temp,
              float* output);

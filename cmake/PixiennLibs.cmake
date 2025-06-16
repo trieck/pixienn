@@ -6,8 +6,8 @@ list(APPEND PIXIENN_LIBS
         ${OpenBLAS_LIB}
         boost_filesystem
         boost_program_options
-        ${CUDART_LIBRARY}
-        ${CUBLAS_LIBRARY}
+        CUDA::cudart
+        CUDA::cublas
         ${CUDNN_LIBRARY}
         ${GLIB_LIBRARIES}
         ${GLIB_GOBJECT_LIBRARIES}

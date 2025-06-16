@@ -55,7 +55,7 @@ private:
     V weights_, weightUpdates_, biases_, biasUpdates_;
     V scales_, scaleUpdates_, mean_, meanDelta_, var_, varDelta_;
     V rollingMean_, rollingVar_, x_, xNorm_;
-    V column_;
+    V column_, preActivation_;
 
     int dilation_, filters_, kernel_, padding_, stride_, groups_;
     bool batchNorm_;
@@ -104,6 +104,7 @@ ConvLayer<D>::ConvLayer(Model<D>& model, YAML::Node layerDef) : Layer<D>(model, 
 
     this->output_ = V(this->batch() * this->outputs(), 0.0f);
     this->delta_ = V(this->batch() * this->outputs(), 0.0f);
+    this->preActivation_ = V(this->batch() * this->outputs(), 0.0f);
 
     setup();
 }
@@ -182,7 +183,7 @@ void ConvLayer<D>::forward(const V& input)
     auto* pout = this->output_.data();
 
     auto alpha = 1.0f;
-    auto beta = 1.0f;
+    auto beta = 0.0f;
 
     for (auto i = 0; i < this->batch(); ++i) {
         for (auto j = 0; j < groups_; ++j) {
@@ -191,13 +192,9 @@ void ConvLayer<D>::forward(const V& input)
             const auto* b = column_.data();
             auto* c = pout + (i * groups_ + j) * n * m;
 
-            if (kernel_ == 1 && stride_ == 1 && dilation_ == 1) {
-                b = im;
-            } else {
-                im2ColCpuExt(im, this->channels() / groups_, this->height(), this->width(), kernel_, kernel_,
-                             padding_ * dilation_, padding_ * dilation_,
-                             stride_, stride_, dilation_, dilation_, column_.data());
-            }
+            im2ColCpuExt(im, this->channels() / groups_, this->height(), this->width(), kernel_, kernel_,
+                         padding_ * dilation_, padding_ * dilation_,
+                         stride_, stride_, dilation_, dilation_, column_.data());
 
             cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, alpha, a, k, b, n, beta, c, n);
         }
@@ -211,6 +208,7 @@ void ConvLayer<D>::forward(const V& input)
         addBias(this->output_.data(), biases_.data(), this->batch(), filters_, this->outHeight() * this->outWidth());
     }
 
+    this->preActivation_.copy(this->output_);
     activation_->apply(this->output_);
 }
 
@@ -219,7 +217,7 @@ void ConvLayer<D>::backward(const V& input, V* grad)
 {
     Layer<D>::backward(input, grad);
 
-    activation_->gradient(this->output_, this->delta_);
+    activation_->gradient(this->preActivation_, this->delta_);
 
     if (batchNorm_) {
         batchNormBackward(this->batch(), this->outChannels(), this->outHeight(), this->outWidth(), this->delta_,
@@ -251,13 +249,9 @@ void ConvLayer<D>::backward(const V& input, V* grad)
             const auto* b = column_.data();
             auto* c = pweightUpdates + j * nweights / groups_;
 
-            if (kernel_ == 1 && stride_ == 1 && dilation_ == 1) {
-                b = im;
-            } else {
-                im2ColCpuExt(im, this->channels() / groups_, this->height(), this->width(), kernel_, kernel_,
-                             padding_ * dilation_, padding_ * dilation_,
-                             stride_, stride_, dilation_, dilation_, column_.data());
-            }
+            im2ColCpuExt(im, this->channels() / groups_, this->height(), this->width(), kernel_, kernel_,
+                         padding_ * dilation_, padding_ * dilation_,
+                         stride_, stride_, dilation_, dilation_, column_.data());
 
             cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, m, n, k, alpha, a, k, b, k, beta, c, n);
 
@@ -287,6 +281,8 @@ void ConvLayer<D>::update()
     auto momentum = net.momentum();
     auto decay = net.decay();
 
+    Layer<D>::update();
+
     cblas_saxpy(weights_.size(), -decay * this->batch(), weights_.data(), 1, weightUpdates_.data(), 1);
     cblas_saxpy(weights_.size(), learningRate / this->batch(), weightUpdates_.data(), 1, weights_.data(), 1);
     cblas_sscal(weights_.size(), momentum, weightUpdates_.data(), 1);
@@ -294,9 +290,13 @@ void ConvLayer<D>::update()
     cblas_saxpy(filters_, learningRate / this->batch(), biasUpdates_.data(), 1, biases_.data(), 1);
     cblas_sscal(filters_, momentum, biasUpdates_.data(), 1);
 
+    weightUpdates_.fill(0.0f);
+    biasUpdates_.fill(0.0f);
+
     if (scales_.size()) {
         cblas_saxpy(filters_, learningRate / this->batch(), scaleUpdates_.data(), 1, scales_.data(), 1);
         cblas_sscal(filters_, momentum, scaleUpdates_.data(), 1);
+        scaleUpdates_.fill(0.0f);
     }
 }
 
