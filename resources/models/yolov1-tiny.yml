@@ -4,7 +4,7 @@ model:
   height: 448
   width: 448
 
-  max_batches: 100000
+  max_batches: 105000
   momentum: 0.9
   decay: 0.0005
 
@@ -169,7 +169,7 @@ model:
     - type: detection
       log_interval: 100
       class_scale: 1
-      coord_scale: 5
+      coord_scale: 1
       coords: 4
       jitter: 0.2
       noobject_scale: 0.5

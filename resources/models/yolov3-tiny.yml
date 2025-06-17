@@ -11,13 +11,13 @@ model:
   decay: 0.0005
 
   adam:
-    enabled: True
+    enabled: False
     beta1: 0.9
     beta2: 0.999
     epsilon: 1e-8
 
   augmentation:
-    enabled: True
+    enabled: False
     flip: True
     jitter: 0.2
     saturation: 0.75
@@ -34,8 +34,8 @@ model:
     threshold: 100.0
 
   gradient_clipping:
-    enabled: False
-    value: 1.0
+    enabled: True
+    value: 10.0
 
   validation:
     enabled: True
@@ -51,7 +51,7 @@ model:
       batches: 1000
       power: 4.0
 
-    initial_learning_rate: 0.01
+    initial_learning_rate: 0.001
     policy: smooth_stepped
 
     random:

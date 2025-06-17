@@ -401,7 +401,7 @@ void Model<D>::train()
         auto imagesSeen = seen_ * batch_;
         auto epoch = imagesSeen / trainLoader_->size();
 
-        printf("Epoch: %zu, Seen: %zu, Loss: %f, Avg. Loss: %f, LR: %.12f%s, %s, %zu images\n",
+        std::printf("Epoch: %zu, Seen: %zu, Loss: %f, Avg. Loss: %f, LR: %.12f%s, %s, %zu images\n",
                epoch, seen_, loss, avgLoss_, learningRate(),
                isBurningIn() ? " (burn-in)" : "",
                batchTimer.str().c_str(), imagesSeen);
@@ -849,11 +849,22 @@ void Model<D>::loadWeights()
     }
 
     std::ifstream ifs(weightsFile_, std::ios::in | std::ios::binary);
-    if (inferring() && ifs.bad()) { // it is not an error for training weights to not exist.
+    if (inferring() && ifs.fail()) { // it is not an error for training weights to not exist.
         PX_ERROR_THROW("Could not open file \"%s\".", weightsFile_.c_str());
     }
 
-    if (ifs.good()) {
+    if (training() && ifs.fail()) { // if not found, let's try to load the latest weights
+        auto latestWeightsFile = weightsLatestFileName();
+        std::printf("\nweights not found, trying latest weights \"%s\"...", latestWeightsFile.c_str());
+        ifs.open(latestWeightsFile, std::ios::in | std::ios::binary);
+        if (ifs.is_open()) {
+            std::printf("found.\n");
+        } else {
+            std::printf("not found.\n");
+        }
+    }
+
+    if (ifs.is_open()) {
         ifs.seekg(0, std::ifstream::end);
         auto length = ifs.tellg();
         ifs.seekg(0, std::ifstream::beg);
