@@ -103,7 +103,7 @@ void RouteLayer<D>::forward(const V& input)
 
         for (auto i = 0; i < this->batch(); ++i) {
             const auto* in = pin + i * inputSize;
-            auto* out = output + offset + i * this->outputs();
+            auto* out = output + i * this->outputs() + offset;
 
             cblas_scopy(inputSize, in, 1, out, 1);
         }
@@ -125,7 +125,8 @@ void RouteLayer<D>::backward(const V& input, V* grad)
         auto outputSize = layer->outputs();
 
         for (auto i = 0; i < this->batch(); ++i) {
-            auto* in = pdelta + offset + i * this->outputs();
+            const auto* in = pdelta + i * this->outputs() + offset;
+
             auto* out = ldelta + i * outputSize;
 
             cblas_saxpy(outputSize, 1, in, 1, out, 1);
