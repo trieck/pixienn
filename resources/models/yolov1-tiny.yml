@@ -1,5 +1,5 @@
 model:
-  batch: 24
+  batch: 1
   channels: 3
   height: 448
   width: 448
@@ -17,15 +17,15 @@ model:
     exposure: 0.75
 
   gradient_rescale:
-    enabled: True
+    enabled: False
     threshold: 1000.0
 
   gradient_clipping:
-    enabled: True
+    enabled: False
     value: 10.0
 
   validation:
-    enabled: True
+    enabled: False
     interval: 5000
     batches: 100
     threshold: 0.5
