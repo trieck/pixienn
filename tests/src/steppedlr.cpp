@@ -42,7 +42,7 @@ TEST(LRPolicy, SteppedLRPolicyTest)
     ASSERT_FLOAT_EQ(policy.LR(), lr * scales[0] * scales[1]);
 
     policy.update(200);
-    ASSERT_FLOAT_EQ(policy.LR(), lr * scales[0] * scales[1]);
+    ASSERT_FLOAT_EQ(policy.LR(), lr * scales[0]);
 
     policy.update(600);
     ASSERT_FLOAT_EQ(policy.LR(), lr * scales[0] * scales[1] * scales[2]);

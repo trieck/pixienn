@@ -27,8 +27,9 @@ class BatchLoader
 {
 public:
     BatchLoader(std::string imagesPath, std::string labelsPath, std::uint32_t batchSize, std::uint32_t channels,
-                std::uint32_t height, std::uint32_t width, const ImageAugmenter::Ptr& augmenter = nullptr,
-                std::uint32_t queueSize = 10);
+                std::uint32_t height, std::uint32_t width,
+                std::vector<std::string> labels, const ImageAugmenter::Ptr& augmenter = nullptr,
+                bool viewImage = false, std::uint32_t queueSize = 10);
     ~BatchLoader();
 
     using Ptr = std::unique_ptr<BatchLoader>;
@@ -44,18 +45,19 @@ private:
     void loadBatches();
     ImageLabels loadImgLabels(const std::string& imagePath);
     GroundTruthVec groundTruth(const std::string& imagePath);
+    void viewImageGT(const std::string& imgPath, const GroundTruthVec& gt) const;
 
     ImageAugmenter::Ptr augmenter_;
     std::thread worker_;
 
-    std::vector<std::string> imageFiles_;
+    std::vector<std::string> imageFiles_, labels_;
     std::queue<MiniBatch> batches_;
     std::mutex mutex_;
     std::condition_variable cv_;
 
     std::string imagesPath_, labelsPath_;
     std::uint32_t batchSize_, channels_, height_, width_, queueSize_;
-    bool stop_;
+    bool stop_, viewImage_;
 };
 
 } // px

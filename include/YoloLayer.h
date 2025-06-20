@@ -323,11 +323,8 @@ void YoloLayer<D>::deltaYoloClass(int index, int classId)
 
     auto stride = this->width() * this->height();
 
-    if (pdelta[index]) {
-        pdelta[index + classId * stride] = classScale_ * (1 - poutput[index + classId * stride]);
-        avgCat_ += poutput[index + classId * stride];
-        return;
-    }
+    pdelta[index + classId * stride] = classScale_ * (1 - poutput[index + classId * stride]);
+    avgCat_ += poutput[index + classId * stride];
 
     for (auto i = 0; i < this->classes(); ++i) {
         auto netTruth = (i == classId) ? 1.0f : 0.0f;
@@ -418,7 +415,7 @@ void YoloLayer<D>::processObjects(int b)
 
             auto objIndex = entryIndex(b, location, 4);
             avgObj_ += poutput[objIndex];
-            pdelta[objIndex] = noObjectScale_ * (1 - poutput[objIndex]);
+            pdelta[objIndex] = objectScale_ * (1 - poutput[objIndex]);
 
             auto clsIndex = entryIndex(b, location, 4 + 1);
             deltaYoloClass(clsIndex, gt.classId);

@@ -1,26 +1,33 @@
 model:
-  batch: 8
+  batch: 16
+  subdivisions: 1
   channels: 3
-  height: 448
-  width: 448
+  height: 416
+  width: 416
 
-  max_batches: 200000
+  max_batches: 100000
+
   momentum: 0.9
   decay: 0.0005
 
   adam:
-    enabled: False
+    enabled: True
     beta1: 0.9
     beta2: 0.999
     epsilon: 1e-8
 
   augmentation:
-    enabled: True
+    enabled: False
     flip: True
     jitter: 0.2
-    hue: 0.1
     saturation: 0.75
     exposure: 0.75
+    hue: 0.1
+
+  early_stopping:
+    enabled: False
+    patience: 10
+    threshold: 0.0001
 
   gradient_rescale:
     enabled: True
@@ -32,44 +39,44 @@ model:
 
   validation:
     enabled: False
-    interval: 5000
+    interval: 1000
     batches: 100
-    threshold: 0.5
+    threshold: 0.2
 
   save_weights_interval: 1000
   write_metrics_interval: 50
 
   learning_rate:
     burn_in:
-      batches: 200
-      power: 2.0
+      batches: 1000
+      power: 4.0
 
-    initial_learning_rate: 0.01
+    initial_learning_rate: 0.001
     policy: cosine_annealing
 
     random:
-      min_learning_rate: 0.0001
-      update_interval: 1000
+      min_learning_rate: 0.00001
+      update_interval: 10000
 
     cosine_annealing:
-      min_learning_rate: 0.00001
-      batches_per_cycle: 1000
+      min_learning_rate: 1e-5
+      batches_per_cycle: 10000
 
     smooth_stepped:
-      steps: [ 10000, 20000, 30000 ]
-      targets: [ 0.0003, 0.0002, 0.0001 ]
+      steps: [ 4000 ]
+      targets: [ 0.0001 ]
 
     sigmoid:
-      target_learning_rate: 0.00001
-      factor: 8.0
+      target_learning_rate: 0.000001
+      factor: 12.0
 
     inverse:
       gamma: 0.00001
       power: 4
 
     stepped:
-      steps: [ -1, 100, 20000, 30000 ]
-      scales: [ 0.1, 10, 0.1, 0.1 ]
+      steps: [ 400000, 450000 ]
+      scales: [ 0.1, 0.1 ]
 
   layers:
     - type: conv
@@ -148,7 +155,7 @@ model:
 
     - type: maxpool
       kernel: 2
-      stride: 2
+      stride: 1
 
     - type: conv
       activation: leaky
@@ -159,6 +166,64 @@ model:
       pad: True
       stride: 1
 
+    ###########
+
+    - type: conv
+      activation: leaky
+      batch_normalize: True
+      dilation: 1
+      filters: 256
+      kernel: 1
+      pad: True
+      stride: 1
+
+    - type: conv
+      activation: leaky
+      batch_normalize: True
+      dilation: 1
+      filters: 512
+      kernel: 3
+      pad: True
+      stride: 1
+
+    - type: conv
+      activation: linear
+      dilation: 1
+      filters: 75
+      kernel: 1
+      pad: True
+      stride: 1
+
+    - type: yolo
+      mask: [ 3, 4, 5 ]
+      anchors: [ 10,14, 23,27, 37,58, 81,82, 135,169, 344,319 ]
+      num: 6
+      ignore_thresh: 0.7
+      truth_thresh: 1.0
+      coord_scale: 1.0
+      object_scale: 1.0
+      noobject_scale: 1.0
+      class_scale: 1.0
+      log_interval: 50
+
+    - type: route
+      layers: [ -4 ]
+
+    - type: conv
+      activation: leaky
+      batch_normalize: True
+      dilation: 1
+      filters: 128
+      kernel: 1
+      pad: True
+      stride: 1
+
+    - type: upsample
+      stride: 2
+
+    - type: route
+      layers: [ -1, 8 ]
+
     - type: conv
       activation: leaky
       batch_normalize: True
@@ -168,19 +233,22 @@ model:
       pad: True
       stride: 1
 
-    - type: connected
+    - type: conv
       activation: linear
-      output: 1470
+      dilation: 1
+      filters: 75
+      kernel: 1
+      pad: True
+      stride: 1
 
-    - type: detection
+    - type: yolo
+      mask: [ 0, 1, 2 ]
+      anchors: [ 10,14, 23,27, 37,58, 81,82, 135,169, 344, 319 ]
+      num: 6
+      ignore_thresh: 0.7
+      truth_thresh: 1.0
+      coord_scale: 1.0
+      object_scale: 1.0
+      noobject_scale: 1.0
+      class_scale: 1.0
       log_interval: 50
-      class_scale: 1
-      coord_scale: 1
-      coords: 4
-      noobject_scale: 0.5
-      num: 2
-      object_scale: 2
-      rescore: True
-      side: 7
-      softmax: False
-      sqrt: True

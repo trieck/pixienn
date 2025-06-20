@@ -19,7 +19,7 @@
 
 namespace px {
 
-SteppedLRPolicy::SteppedLRPolicy() : lr_(0), origLr_(0), step_(0)
+SteppedLRPolicy::SteppedLRPolicy() : lr_(0), origLr_(0)
 {
 }
 
@@ -34,16 +34,16 @@ void SteppedLRPolicy::set(float lr, std::vector<int> steps, const std::vector<fl
     PX_CHECK(steps.size() > 0, "steps and scales must have a non-zero size.");
 
     lr_ = origLr_ = lr;
-    step_ = 0;
     steps_ = std::move(steps);
     scales_ = std::move(scales);
 }
 
 float SteppedLRPolicy::update(int batchNum)
 {
-    for (auto i = step_; i < steps_.size(); ++i) {
+    lr_ = origLr_;
+
+    for (auto i = 0; i < steps_.size(); ++i) {
         if (steps_[i] > batchNum) {
-            step_ = i;
             break;
         }
 
@@ -66,17 +66,6 @@ float SteppedLRPolicy::origLR() const noexcept
 void SteppedLRPolicy::reset()
 {
     lr_ = origLr_;
-    step_ = 0;
-}
-
-int SteppedLRPolicy::step() const noexcept
-{
-    return steps_[step_];
-}
-
-float SteppedLRPolicy::scale() const noexcept
-{
-    return scales_[step_];
 }
 
 }   // px

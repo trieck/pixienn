@@ -1,11 +1,11 @@
 model:
-  batch: 8
+  batch: 1
   subdivisions: 1
   channels: 3
   height: 416
   width: 416
 
-  max_batches: 20000
+  max_batches: 100000
 
   momentum: 0.9
   decay: 0.0005
@@ -13,7 +13,7 @@ model:
   adam:
     enabled: True
     beta1: 0.9
-    beta2: 0.98
+    beta2: 0.999
     epsilon: 1e-8
 
   augmentation:
@@ -43,7 +43,7 @@ model:
     batches: 100
     threshold: 0.2
 
-  save_weights_interval: 1000
+  save_weights_interval: 100
   write_metrics_interval: 50
 
   learning_rate:
@@ -200,7 +200,7 @@ model:
       num: 6
       ignore_thresh: 0.7
       truth_thresh: 1.0
-      coord_scale: 5.0
+      coord_scale: 1.0
       object_scale: 1.0
       noobject_scale: 1.0
       class_scale: 1.0
@@ -247,7 +247,7 @@ model:
       num: 6
       ignore_thresh: 0.7
       truth_thresh: 1.0
-      coord_scale: 5.0
+      coord_scale: 1.0
       object_scale: 1.0
       noobject_scale: 1.0
       class_scale: 1.0

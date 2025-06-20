@@ -56,23 +56,11 @@ public:
     float origLR() const noexcept;
 
     /**
-     * @brief Get the scaling factor for the current step.
-     * @return The scaling factor for the current step.
-     */
-    float scale() const noexcept;
-
-    /**
      * @brief Update the learning rate based on the stepped schedule.
      * @param batchNum The current batch number or iteration count.
      * @return The updated learning rate.
      */
     float update(int batchNum) override;
-
-    /**
-     * @brief Get the current step number.
-     * @return The current step number.
-     */
-    int step() const noexcept;
 
     /**
      * @brief Set the learning rate, steps, and scales.
@@ -88,7 +76,6 @@ public:
     void reset() override;
 
 private:
-    int step_ = 0;                /**< The current step number. */
     float lr_ = 0;                /**< The current learning rate. */
     float origLr_ = 0;            /**< The original (initial) learning rate. */
     std::vector<int> steps_;      /**< A vector of batch numbers at which the learning rate will be adjusted. */

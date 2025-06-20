@@ -199,6 +199,10 @@ public:
     float adamBeta2() const noexcept;
     float adamEpsilon() const noexcept;
 
+    void setLabels(const std::vector<std::string>& labels);
+    const std::vector<std::string>& labels() const noexcept;
+
+    void setTrainBatch(MiniBatch batch) noexcept;
 private:
     void forward(const ImageVec& image);
     void update();
@@ -225,7 +229,6 @@ private:
     void validate();
     LRPolicy* currentPolicy() const noexcept;
     bool isBurningIn() const noexcept;
-    void viewImageGT(const std::string& imgPath, const GroundTruthVec& gt, bool augment) const;
     void writeMetrics();
     void writeAvgLoss();
     void writeLR();
@@ -368,11 +371,14 @@ void Model<D>::train()
 
     parseTrainConfig();
 
+    auto viewImage = hasOption("view-image");
+
     trainLoader_ = std::make_unique<BatchLoader>(trainImagePath_, trainLabelPath_, batch_, channels_, height_, width_,
-                                                 augmenter_);
+                                                 labels_, augmenter_, viewImage);
 
     if (valEnabled_) {
-        valLoader_ = std::make_unique<BatchLoader>(valImagePath_, valLabelPath_, batch_, channels_, height_, width_);
+        valLoader_ = std::make_unique<BatchLoader>(valImagePath_, valLabelPath_, batch_, channels_, height_, width_,
+                                                   labels_, augmenter_);
     }
 
     avgLoss_ = std::numeric_limits<float>::lowest();
@@ -402,9 +408,9 @@ void Model<D>::train()
         auto epoch = imagesSeen / trainLoader_->size();
 
         std::printf("Epoch: %zu, Seen: %zu, Loss: %f, Avg. Loss: %f, LR: %.12f%s, %s, %zu images\n",
-               epoch, seen_, loss, avgLoss_, learningRate(),
-               isBurningIn() ? " (burn-in)" : "",
-               batchTimer.str().c_str(), imagesSeen);
+                    epoch, seen_, loss, avgLoss_, learningRate(),
+                    isBurningIn() ? " (burn-in)" : "",
+                    batchTimer.str().c_str(), imagesSeen);
 
         if (valEnabled_ && valInterval_ && seen_ % valInterval_ == 0) {
             validate();
@@ -1002,8 +1008,11 @@ void Model<D>::parseModel(const Node& modelDoc)
     auto inputs = batch_ * height_ * width_ * channels_;
 
     const auto layers = model["layers"];
-    PX_CHECK(layers.IsSequence(), "Model has no layers.");
-    PX_CHECK(layers.size() > 0, "Model has no layers.");
+    if (!layers) {
+        return;
+    }
+
+    PX_CHECK(layers.IsSequence(), "Model layers must be a sequence.");
 
     std::cout << std::setfill('_');
     std::cout << std::setw(21) << std::left << "Layer"
@@ -1357,62 +1366,6 @@ bool Model<D>::isBurningIn() const noexcept
 }
 
 template<Device D>
-void Model<D>::viewImageGT(const std::string& imagePath, const GroundTruthVec& gt, bool augment) const
-{
-    ColorMaps colors("plasma");
-
-    cv::Mat image;
-
-    if (augment && augmenter_) {
-        auto orig = imread(imagePath.c_str(), channels_);
-        auto augmented = augmenter_->augment(orig, { width(), height() }, gt);
-
-        image = augmented.first;
-
-        cv::cvtColor(image, image, cv::COLOR_BGR2BGRA);
-
-        for (const auto& g: augmented.second) {
-            auto index = g.classId;
-            const auto& label = labels_[index];
-
-            auto bgColor = colors.color(index);
-            auto textColor = imtextcolor(bgColor);
-
-            auto lb = lightBox(g.box, { width(), height() });
-
-            imrect(image, lb, bgColor, 2);
-            imtabbedText(image, label.c_str(), lb.tl(), textColor, bgColor, 2);
-        }
-    } else {
-        auto mat = imread(imagePath.c_str(), width(), height(), channels_);
-        image = mat.image;
-
-        cv::cvtColor(image, image, cv::COLOR_BGR2BGRA);
-
-        for (const auto& g: gt) {
-            auto index = g.classId;
-            const auto& label = labels_[index];
-
-            auto bgColor = colors.color(index);
-            auto textColor = imtextcolor(bgColor);
-
-            auto x = (g.box.x() * mat.ax) + mat.dx;
-            auto y = (g.box.y() * mat.ay) + mat.dy;
-            auto w = g.box.w() * mat.ax;
-            auto h = g.box.h() * mat.ay;
-
-            auto lb = lightBox({ x, y, w, h }, { width(), height() });
-
-            imrect(image, lb, bgColor, 2);
-            imtabbedText(image, label.c_str(), lb.tl(), textColor, bgColor, 2);
-        }
-    }
-
-    cv::imshow("image", image);
-    cv::waitKey();
-}
-
-template<Device D>
 const MiniBatch& Model<D>::trainingBatch() const noexcept
 {
     return trainBatch_;
@@ -1478,6 +1431,24 @@ template<Device D>
 bool Model<D>::adamEnabled() const noexcept
 {
     return adamEnabled_;
+}
+
+template<Device D>
+void Model<D>::setLabels(const std::vector<std::string>& labels)
+{
+    this->labels_ = labels;
+}
+
+template<Device D>
+const std::vector<std::string>& Model<D>::labels() const noexcept
+{
+    return labels_;
+}
+
+template<Device D>
+void Model<D>::setTrainBatch(MiniBatch batch) noexcept
+{
+    this->trainBatch_ = std::move(batch);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
