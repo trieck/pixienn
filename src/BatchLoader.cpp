@@ -15,8 +15,11 @@
 ********************************************************************************/
 
 #include <boost/filesystem.hpp>
-
+#include <boost/format.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc/types_c.h>
 #include "BatchLoader.h"
+#include "ColorMaps.h"
 #include "Error.h"
 #include "FileUtil.h"
 #include "Image.h"
@@ -26,10 +29,11 @@ namespace px {
 
 BatchLoader::BatchLoader(std::string imagesPath, std::string labelsPath, std::uint32_t batchSize,
                          std::uint32_t channels, std::uint32_t height, std::uint32_t width,
-                         const ImageAugmenter::Ptr& augmenter, std::uint32_t queueSize)
+                         std::vector<std::string> labels, const ImageAugmenter::Ptr& augmenter,
+                         bool viewImage, std::uint32_t queueSize)
         : imagesPath_(std::move(imagesPath)), labelsPath_(std::move(labelsPath)), batchSize_(batchSize),
-          channels_(channels), height_(height), width_(width), stop_(false), augmenter_(augmenter),
-          queueSize_(queueSize)
+          channels_(channels), height_(height), width_(width), stop_(false), labels_(std::move(labels)),
+          augmenter_(augmenter), viewImage_(viewImage), queueSize_(queueSize)
 {
     loadPaths();
 
@@ -42,30 +46,36 @@ void BatchLoader::loadBatches()
     std::default_random_engine generator(rd());
     std::uniform_int_distribution<int> distribution(0, imageFiles_.size() - 1);
 
-    while (true) {
-        std::unique_lock<std::mutex> lock(mutex_);
-        cv_.wait(lock, [this] { return stop_ || batches_.size() < queueSize_; });
-        if (stop_) {
-            break;
+    try {
+        while (true) {
+            std::unique_lock<std::mutex> lock(mutex_);
+            cv_.wait(lock, [this] { return stop_ || batches_.size() < queueSize_; });
+            if (stop_) {
+                break;
+            }
+
+            if (batches_.size() >= queueSize_) {
+                continue;
+            }
+
+            MiniBatch batch(batchSize_, channels_, height_, width_);
+            for (auto i = 0; i < batchSize_; ++i) {
+                auto j = distribution(generator);
+                const auto& path = imageFiles_[j];
+                auto imgLabels = loadImgLabels(path);
+
+                batch.setImageData(i, imgLabels.first);  // the image data must be copied
+                batch.setGroundTruth(i, std::move(imgLabels.second));
+            }
+
+            batches_.push(std::move(batch));
+            lock.unlock();
+            cv_.notify_all();
         }
-
-        if (batches_.size() >= queueSize_) {
-            continue;
-        }
-
-        MiniBatch batch(batchSize_, channels_, height_, width_);
-        for (auto i = 0; i < batchSize_; ++i) {
-            auto j = distribution(generator);
-            const auto& path = imageFiles_[j];
-            auto imgLabels = loadImgLabels(path);
-
-            batch.setImageData(i, imgLabels.first);  // the image data must be copied
-            batch.setGroundTruth(i, std::move(imgLabels.second));
-        }
-
-        batches_.push(std::move(batch));
-        lock.unlock();
-        cv_.notify_all();
+    } catch (const std::exception& e) {
+        std::cerr << boost::format{ "BatchLoader thread encountered an error: %s " } % e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "BatchLoader thread encountered an unknown error" << std::endl;
     }
 }
 
@@ -115,6 +125,10 @@ void BatchLoader::loadPaths()
 auto BatchLoader::loadImgLabels(const std::string& imagePath) -> ImageLabels
 {
     auto gts = groundTruth(imagePath);
+
+    if (viewImage_) {
+        viewImageGT(imagePath, gts);
+    }
 
     if (augmenter_) {
         auto orig = imreadNormalize(imagePath.c_str(), channels_);
@@ -175,6 +189,61 @@ GroundTruthVec BatchLoader::groundTruth(const std::string& imagePath)
 std::size_t BatchLoader::size() const
 {
     return imageFiles_.size();
+}
+
+void BatchLoader::viewImageGT(const std::string& imagePath, const GroundTruthVec& gt) const
+{
+    ColorMaps colors("plasma");
+
+    cv::Mat image;
+
+    if (augmenter_) {
+        auto orig = imread(imagePath.c_str(), channels_);
+        auto augmented = augmenter_->augment(orig, { static_cast<int>(width_), static_cast<int>(height_) }, gt);
+
+        image = augmented.first;
+
+        cv::cvtColor(image, image, cv::COLOR_BGR2BGRA);
+
+        for (const auto& g: augmented.second) {
+            auto index = g.classId;
+            const auto& label = labels_[index];
+
+            auto bgColor = colors.color(index);
+            auto textColor = imtextcolor(bgColor);
+
+            auto lb = lightBox(g.box, { static_cast<int>(width_), static_cast<int>(height_) });
+
+            imrect(image, lb, bgColor, 2);
+            imtabbedText(image, label.c_str(), lb.tl(), textColor, bgColor, 2);
+        }
+    } else {
+        auto mat = imread(imagePath.c_str(), width_, height_, channels_);
+        image = mat.image;
+
+        cv::cvtColor(image, image, cv::COLOR_BGR2BGRA);
+
+        for (const auto& g: gt) {
+            auto index = g.classId;
+            const auto& label = labels_[index];
+
+            auto bgColor = colors.color(index);
+            auto textColor = imtextcolor(bgColor);
+
+            auto x = (g.box.x() * mat.ax) + mat.dx;
+            auto y = (g.box.y() * mat.ay) + mat.dy;
+            auto w = g.box.w() * mat.ax;
+            auto h = g.box.h() * mat.ay;
+
+            auto lb = lightBox({ x, y, w, h }, { static_cast<int>(width_), static_cast<int>(height_) });
+
+            imrect(image, lb, bgColor, 2);
+            imtabbedText(image, label.c_str(), lb.tl(), textColor, bgColor, 2);
+        }
+    }
+
+    cv::imshow("image", image);
+    cv::waitKey();
 }
 
 } // px
