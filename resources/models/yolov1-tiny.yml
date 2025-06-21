@@ -1,5 +1,5 @@
 model:
-  batch: 16
+  batch: 4
   channels: 3
   height: 448
   width: 448
@@ -9,7 +9,7 @@ model:
   decay: 0.0005
 
   adam:
-    enabled: True
+    enabled: False
     beta1: 0.9
     beta2: 0.999
     epsilon: 1e-8
@@ -23,15 +23,15 @@ model:
     exposure: 0.75
 
   gradient_rescale:
-    enabled: True
+    enabled: False
     threshold: 100.0
 
   gradient_clipping:
     enabled: True
-    value: 10.0
+    value: 100.0
 
   validation:
-    enabled: True
+    enabled: False
     interval: 1000
     batches: 100
     threshold: 0.5

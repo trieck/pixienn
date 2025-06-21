@@ -1,0 +1,128 @@
+model:
+  batch: 2
+  channels: 3
+  height: 320
+  width: 320
+
+  max_batches: 50000
+  momentum: 0.9
+  decay: 0.0005
+
+  adam:
+    enabled: True
+    beta1: 0.9
+    beta2: 0.999
+    epsilon: 1e-8
+
+  augmentation:
+    enabled: False
+    flip: True
+    jitter: 0.2
+    hue: 0.1
+    saturation: 0.75
+    exposure: 0.75
+
+  gradient_rescale:
+    enabled: False
+    threshold: 100.0
+
+  gradient_clipping:
+    enabled: True
+    value: 100.0
+
+  validation:
+    enabled: False
+    interval: 1000
+    batches: 100
+    threshold: 0.5
+
+  save_weights_interval: 1000
+  write_metrics_interval: 50
+
+  learning_rate:
+    burn_in:
+      batches: 200
+      power: 2.0
+
+    initial_learning_rate: 0.01
+    policy: sigmoid
+
+    sigmoid:
+      target_learning_rate: 0.00001
+      factor: 8.0
+
+    cosine_annealing:
+      min_learning_rate: 0.0005
+      batches_per_cycle: 10000
+
+  layers:
+    - type: conv
+      activation: mish
+      batch_normalize: True
+      dilation: 1
+      filters: 16
+      kernel: 3
+      pad: True
+      stride: 1
+
+    - type: conv
+      filters: 16
+      kernel: 3
+      stride: 2
+      pad: True
+      groups: 16
+      activation: mish
+      batch_normalize: True
+
+    - type: conv
+      filters: 32
+      kernel: 1
+      stride: 1
+      pad: False
+      activation: mish
+      batch_normalize: True
+
+    - type: conv
+      filters: 32
+      kernel: 3
+      stride: 2
+      pad: True
+      groups: 32
+      activation: mish
+      batch_normalize: True
+
+    - type: conv
+      filters: 64
+      kernel: 1
+      stride: 1
+      pad: False
+      activation: mish
+      batch_normalize: True
+
+    - type: conv
+      filters: 64
+      kernel: 3
+      stride: 2
+      pad: True
+      groups: 64
+      activation: mish
+      batch_normalize: True
+
+    - type: conv
+      filters: 75
+      kernel: 1
+      stride: 1
+      pad: False
+      activation: linear
+
+    - type: yolo
+      mask: [ 0, 1, 2 ]
+      anchors: [ 10,14, 23,27, 37,58, 81,82, 135,169, 344,319 ]
+      num: 6
+      ignore_thresh: 0.7
+      truth_thresh: 1.0
+      coord_scale: 1.0
+      object_scale: 1.0
+      noobject_scale: 1.0
+      class_scale: 1.0
+      log_interval: 50

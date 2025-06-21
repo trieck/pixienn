@@ -325,7 +325,7 @@ void YoloLayer<D>::deltaYoloClass(int index, int classId)
         pdelta[index + i * stride] = classScale_ * (netTruth - poutput[index + i * stride]);
 
         if (netTruth) {
-            avgCat_ += poutput[index + i * stride];
+            avgCat_ += std::min(1.0f, poutput[index + i * stride]);
         }
     }
 }
@@ -452,16 +452,9 @@ void YoloLayer<D>::processRegion(int b, int i, int j)
         auto objIndex = entryIndex(b, entry, 4);
         avgAnyObj_ += poutput[objIndex];
 
-        pdelta[objIndex] = noObjectScale_ * (0 - poutput[objIndex]);
-        if (result.bestIoU > ignoreThresh_) {
-            pdelta[objIndex] = 0;
-        }
-
-        if (gt == nullptr) {
-            continue;   // no ground truth
-        }
-
-        if (result.bestIoU > truthThresh_) {
+        if (gt == nullptr || result.bestIoU < ignoreThresh_) {
+            pdelta[objIndex] = noObjectScale_ * (0 - poutput[objIndex]);
+        } else if (result.bestIoU > truthThresh_) {
             pdelta[objIndex] = objectScale_ * (1 - poutput[objIndex]);
 
             auto clsIndex = entryIndex(b, entry, 4 + 1);
