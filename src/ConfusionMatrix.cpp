@@ -63,7 +63,7 @@ int ConfusionMatrix::FP(int clsIndex) const
     auto falsePositives = 0;
     for (auto i = 0; i <= numClasses_; ++i) {
         if (i != clsIndex) {
-            falsePositives += matrix_[clsIndex][i];
+            falsePositives += matrix_[i][clsIndex];
         }
     }
 
@@ -77,7 +77,7 @@ int ConfusionMatrix::FN(int clsIndex) const
     auto falseNegatives = 0;
     for (auto i = 0; i <= numClasses_; ++i) {
         if (i != clsIndex) {
-            falseNegatives += matrix_[i][clsIndex];
+            falseNegatives += matrix_[clsIndex][i];
         }
     }
 

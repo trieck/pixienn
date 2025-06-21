@@ -168,9 +168,7 @@ GroundTruthVec::size_type Validator<D>::findGroundTruth(const Detection& detecti
         }
     }
 
-    constexpr auto threshold = 0.5f;
-
-    if (bestIoU < threshold) {   // no match
+    if (bestIoU < threshold_) {   // no match
         return gts.size();
     }
 
@@ -193,11 +191,12 @@ void Validator<D>::processDetects(const Detections& detects, const GroundTruths&
             classesSeen_.emplace(detect.classIndex());
             auto index = findGroundTruth(detect, gtv);
             if (index < gtv.size()) {
-                classesSeen_.emplace(gtv[index].classId);
-                matrix_.update(gtv[index].classId, detect.classIndex());   // true or false positive
+                auto trueClass = gtv[index].classId;
+                classesSeen_.emplace(trueClass);
+                matrix_.update(trueClass, detect.classIndex());   // true or false positive
                 gtv.erase(gtv.begin() + index);
 
-                if (detect.classIndex() == gtv[index].classId) {
+                if (detect.classIndex() == trueClass) {
                     correctPredictions_++;
                 }
             } else {
