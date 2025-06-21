@@ -87,9 +87,8 @@ private:
     void writeRecall50();
     void writeRecall75();
 
-    PxCpuVector biases_;
     std::vector<int> mask_, anchors_;
-    int num_, n_;
+    int numAnchors_, numMasks_;
     float ignoreThresh_, truthThresh_;
     float coordScale_, objectScale_, noObjectScale_, classScale_;
 
@@ -112,8 +111,8 @@ YoloLayer<D>::YoloLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D>(
 {
     anchors_ = this->template property<std::vector<int>>("anchors");
     mask_ = this->template property<std::vector<int>>("mask");
-    n_ = mask_.size();
-    num_ = this->template property<int>("num", 1);
+    numMasks_ = mask_.size();
+    numAnchors_ = this->template property<int>("num", 1);
     ignoreThresh_ = this->template property<float>("ignore_thresh", 0.5f);
     truthThresh_ = this->template property<float>("truth_thresh", 1.0f);
     coordScale_ = this->template property<float>("coord_scale", 1.0f);
@@ -122,21 +121,19 @@ YoloLayer<D>::YoloLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D>(
     classScale_ = this->template property<float>("class_scale", 1.0f);
     logInterval_ = this->template property<int>("log_interval", 1000);
 
-    PX_CHECK(anchors_.size() == 2 * num_, "anchors must be twice num size");
-
     auto nclasses = this->classes();
+
+    PX_CHECK(anchors_.size() == 2 * numAnchors_, "anchors must be twice num size");
+    PX_CHECK(this->channels() == numMasks_ * (nclasses + 4 + 1),
+             "YoloLayer: output channel count must match mask-based anchor count");
+
     this->setOutChannels(this->channels());
     this->setOutHeight(this->height());
     this->setOutWidth(this->width());
-    this->setOutputs(this->outHeight() * this->outWidth() * n_ * (nclasses + 4 + 1));
+    this->setOutputs(this->outHeight() * this->outWidth() * numMasks_ * (nclasses + 4 + 1));
 
     this->output_ = V(this->batch() * this->outputs(), 0.0f);
     this->delta_ = V(this->batch() * this->outputs(), 0.0f);
-
-    biases_ = PxCpuVector(num_ * 2);
-    for (auto i = 0; i < num_ * 2; ++i) {
-        biases_[i] = static_cast<float>(anchors_[i]);
-    }
 
     setup();
 }
@@ -169,7 +166,7 @@ void YoloLayer<D>::forwardCpu(const PxCpuVector& input)
 
     auto* poutput = this->poutput_->data();
     for (auto b = 0; b < this->batch(); ++b) {
-        for (auto n = 0; n < n_; ++n) {
+        for (auto n = 0; n < numMasks_; ++n) {
             auto index = entryIndex(b, n * area, 0);
             auto* start = poutput + index;
             auto* end = start + 2 * area;
@@ -323,9 +320,6 @@ void YoloLayer<D>::deltaYoloClass(int index, int classId)
 
     auto stride = this->width() * this->height();
 
-    pdelta[index + classId * stride] = classScale_ * (1 - poutput[index + classId * stride]);
-    avgCat_ += poutput[index + classId * stride];
-
     for (auto i = 0; i < this->classes(); ++i) {
         auto netTruth = (i == classId) ? 1.0f : 0.0f;
         pdelta[index + i * stride] = classScale_ * (netTruth - poutput[index + i * stride]);
@@ -348,10 +342,12 @@ float YoloLayer<D>::deltaYoloBox(const GroundTruth& truth, int mask, int index, 
     auto pred = yoloBox(x, mask, index, i, j);
     auto iou = pred.iou(truth.box);
 
+    constexpr float eps = 1e-9f;
+
     auto tx = truth.box.x() * this->width() - i;
     auto ty = truth.box.y() * this->height() - j;
-    auto tw = std::log(truth.box.w() * w / biases_[2 * mask]);
-    auto th = std::log(truth.box.h() * h / biases_[2 * mask + 1]);
+    auto tw = std::log(std::max(eps, truth.box.w() * w / anchors_[2 * mask]));
+    auto th = std::log(std::max(eps, truth.box.h() * h / anchors_[2 * mask + 1]));
 
     auto scale = coordScale_ * (2 - truth.box.w() * truth.box.h());
     auto stride = this->width() * this->height();
@@ -395,10 +391,10 @@ void YoloLayer<D>::processObjects(int b)
         truthShift.x() = 0;
         truthShift.y() = 0;
 
-        for (auto n = 0; n < num_; ++n) {
+        for (auto n = 0; n < numAnchors_; ++n) {
             DarkBox pred;
-            pred.w() = biases_[2 * n] / this->model().width();
-            pred.h() = biases_[2 * n + 1] / this->model().height();
+            pred.w() = anchors_[2 * n] / this->model().width();
+            pred.h() = anchors_[2 * n + 1] / this->model().height();
 
             auto iou = pred.iou(truthShift);
             if (iou > bestIoU) {
@@ -444,7 +440,7 @@ void YoloLayer<D>::processRegion(int b, int i, int j)
     YoloGTCtxt ctxt;
     ctxt.gt = &this->groundTruth(b);
 
-    for (auto n = 0; n < n_; ++n) {
+    for (auto n = 0; n < numMasks_; ++n) {
         auto entry = n * this->width() * this->height() + j * this->width() + i;
 
         auto boxIndex = entryIndex(b, entry, 0);
@@ -510,10 +506,10 @@ cv::Rect YoloLayer<D>::scaledYoloBox(const float* p, int mask, int index, int i,
     auto y = (j + p[index + 1 * stride]) / this->height();
     y = (y - (netH - newH) / 2.0f / netH) / ((float) newH / netH);
 
-    auto width = std::exp(p[index + 2 * stride]) * biases_[2 * mask] / netW;
+    auto width = std::exp(p[index + 2 * stride]) * anchors_[2 * mask] / netW;
     width *= (float) netW / newW;
 
-    auto height = std::exp(p[index + 3 * stride]) * biases_[2 * mask + 1] / netH;
+    auto height = std::exp(p[index + 3 * stride]) * anchors_[2 * mask + 1] / netH;
     height *= (float) netH / newH;
 
     auto left = std::max<int>(0, (x - width / 2) * w);
@@ -534,8 +530,8 @@ DarkBox YoloLayer<D>::yoloBox(const float* p, int mask, int index, int i, int j)
 
     auto x = (i + p[index + 0 * stride]) / this->width();
     auto y = (j + p[index + 1 * stride]) / this->height();
-    auto width = std::exp(p[index + 2 * stride]) * biases_[2 * mask] / w;
-    auto height = std::exp(p[index + 3 * stride]) * biases_[2 * mask + 1] / h;
+    auto width = std::exp(p[index + 2 * stride]) * anchors_[2 * mask] / w;
+    auto height = std::exp(p[index + 3 * stride]) * anchors_[2 * mask + 1] / h;
 
     return { x, y, width, height };
 }
@@ -560,7 +556,7 @@ const
         auto row = i / this->width();
         auto col = i % this->width();
 
-        for (auto n = 0; n < n_; ++n) {
+        for (auto n = 0; n < numMasks_; ++n) {
             auto objIndex = entryIndex(batch, n * area + i, 4);
             auto objectness = predictions[objIndex];
             if (objectness < threshold) {
