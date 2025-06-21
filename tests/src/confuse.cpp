@@ -51,8 +51,8 @@ TEST_F(ConfusionMatrixTest, Update)
     matrix.update(trueClass, predictedClass);
 
     ASSERT_EQ(matrix.TP(trueClass), 0);
-    ASSERT_EQ(matrix.FP(trueClass), 1);
-    ASSERT_EQ(matrix.FN(predictedClass), 1);
+    ASSERT_EQ(matrix.FP(predictedClass), 1);
+    ASSERT_EQ(matrix.FN(trueClass), 1);
 }
 
 TEST_F(ConfusionMatrixTest, Reset)
@@ -63,8 +63,8 @@ TEST_F(ConfusionMatrixTest, Reset)
     matrix.update(trueClass, predictedClass);
 
     ASSERT_EQ(matrix.TP(trueClass), 0);
-    ASSERT_EQ(matrix.FP(trueClass), 1);
-    ASSERT_EQ(matrix.FN(predictedClass), 1);
+    ASSERT_EQ(matrix.FP(predictedClass), 1);
+    ASSERT_EQ(matrix.FN(trueClass), 1);
 
     matrix.reset();
 
@@ -95,7 +95,7 @@ TEST_F(ConfusionMatrixTest, FalsePositives)
     matrix.update(trueClass, predictedClass);
     matrix.update(trueClass, predictedClass);
 
-    const auto result = matrix.FP(trueClass);
+    const auto result = matrix.FP(predictedClass);
 
     ASSERT_EQ(result, 3);
 }
@@ -135,7 +135,7 @@ TEST_F(ConfusionMatrixTest, FalseNegatives)
     matrix.update(trueClass, predictedClass);
     matrix.update(trueClass, predictedClass);
 
-    const auto result = matrix.FN(predictedClass);
+    const auto result = matrix.FN(trueClass);
 
     ASSERT_EQ(result, 3);
 }

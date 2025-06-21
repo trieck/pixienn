@@ -1,21 +1,21 @@
 model:
-  batch: 8
+  batch: 16
   channels: 3
   height: 448
   width: 448
 
-  max_batches: 200000
+  max_batches: 500000
   momentum: 0.9
   decay: 0.0005
 
   adam:
-    enabled: False
+    enabled: True
     beta1: 0.9
     beta2: 0.999
     epsilon: 1e-8
 
   augmentation:
-    enabled: True
+    enabled: False
     flip: True
     jitter: 0.2
     hue: 0.1
@@ -31,8 +31,8 @@ model:
     value: 10.0
 
   validation:
-    enabled: False
-    interval: 5000
+    enabled: True
+    interval: 1000
     batches: 100
     threshold: 0.5
 
