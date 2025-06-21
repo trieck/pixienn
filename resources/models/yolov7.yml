@@ -1,8 +1,8 @@
 model:
-  batch: 1
+  batch: 3
   subdivisions: 1
-  width: 640
-  height: 640
+  width: 416
+  height: 416
   channels: 3
 
   max_batches: 2000200
@@ -10,8 +10,14 @@ model:
   momentum: 0.9
   decay: 0.0005
 
-  augmentation:
+  adam:
     enabled: True
+    beta1: 0.9
+    beta2: 0.999
+    epsilon: 1e-8
+
+  augmentation:
+    enabled: False
     flip: True
     jitter: 0.2
     saturation: 1.5
@@ -27,7 +33,7 @@ model:
     value: 100.0
 
   validation:
-    enabled: True
+    enabled: False
     interval: 10000
     batches: 100
     threshold: 0.2
@@ -40,8 +46,8 @@ model:
       batches: 0
       power: 4.0
 
-    initial_learning_rate: 0.00261
-    policy: stepped
+    initial_learning_rate: 0.001
+    policy: sigmoid
 
     stepped:
       steps: [ 1600000, 1800000 ]
@@ -900,7 +906,6 @@ model:
     - type: yolo
       mask: [ 0, 1, 2 ]
       anchors: [ 12, 16, 19, 36, 40, 28, 36, 75, 76, 55, 72, 146, 142, 110, 192, 243, 459, 401 ]
-      classes: 80
       num: 9
       jitter: 0.1
       ignore_thresh: 0.7
@@ -927,7 +932,6 @@ model:
     - type: yolo
       mask: [ 3, 4, 5 ]
       anchors: [ 12, 16, 19, 36, 40, 28, 36, 75, 76, 55, 72, 146, 142, 110, 192, 243, 459, 401 ]
-      classes: 80
       num: 9
       ignore_thresh: 0.7
       truth_thresh: 1
@@ -953,7 +957,6 @@ model:
     - type: yolo
       mask: [ 6, 7, 8 ]
       anchors: [ 12, 16, 19, 36, 40, 28, 36, 75, 76, 55, 72, 146, 142, 110, 192, 243, 459, 401 ]
-      classes: 80
       num: 9
       ignore_thresh: 0.7
       truth_thresh: 1
