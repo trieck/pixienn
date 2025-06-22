@@ -1,15 +1,15 @@
 model:
-  batch: 3
+  batch: 1
   channels: 3
   height: 320
   width: 320
 
-  max_batches: 500000
+  max_batches: 10000
   momentum: 0.9
   decay: 0.0005
 
   adam:
-    enabled: False
+    enabled: True
     beta1: 0.9
     beta2: 0.999
     epsilon: 1e-8
@@ -23,7 +23,7 @@ model:
     exposure: 0.75
 
   gradient_rescale:
-    enabled: False
+    enabled: True
     threshold: 100.0
 
   gradient_clipping:
@@ -51,9 +51,13 @@ model:
       target_learning_rate: 0.00001
       factor: 5.0
 
-    cosine_annealing:
-      min_learning_rate: 0.0005
-      batches_per_cycle: 10000
+    inverse:
+      gamma: 0.00001
+      power: 4
+
+    stepped:
+      steps: [ -1, 100, 20000, 30000 ]
+      scales: [ 0.1, 10, 0.1, 0.1 ]
 
   layers:
     # Initial conv
@@ -84,7 +88,6 @@ model:
       activation: mish
       batch_normalize: True
 
-
     # Depthwise + pointwise block #2
     - type: conv
       filters: 32
@@ -113,11 +116,31 @@ model:
       activation: mish
       batch_normalize: True
 
-    # Dropout
-    - type: dropout
-      probability: 0.2
+    # Residual refinement block (depthwise skip)
+    - type: conv
+      filters: 64
+      kernel: 3
+      pad: True
+      groups: 64
+      activation: mish
+      batch_normalize: True
 
-    # Final detection head 1 (low-res)
+    # Final refinement conv
+    - type: conv
+      filters: 64
+      kernel: 3
+      pad: True
+      activation: mish
+      batch_normalize: True
+
+    # Optional compression layer (comment if you want full 64-dim)
+    - type: conv
+      filters: 48
+      kernel: 1
+      pad: False
+      activation: mish
+
+    # Detection head
     - type: conv
       filters: 75
       kernel: 1
