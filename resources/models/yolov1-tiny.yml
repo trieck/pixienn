@@ -1,10 +1,10 @@
 model:
-  batch: 4
+  batch: 1
   channels: 3
   height: 448
   width: 448
 
-  max_batches: 500000
+  max_batches: 5000
   momentum: 0.9
   decay: 0.0005
 
@@ -23,12 +23,12 @@ model:
     exposure: 0.75
 
   gradient_rescale:
-    enabled: False
+    enabled: True
     threshold: 100.0
 
   gradient_clipping:
     enabled: True
-    value: 100.0
+    value: 10.0
 
   validation:
     enabled: False
@@ -45,23 +45,11 @@ model:
       power: 2.0
 
     initial_learning_rate: 0.01
-    policy: cosine_annealing
-
-    random:
-      min_learning_rate: 0.0001
-      update_interval: 1000
-
-    cosine_annealing:
-      min_learning_rate: 0.00001
-      batches_per_cycle: 1000
-
-    smooth_stepped:
-      steps: [ 10000, 20000, 30000 ]
-      targets: [ 0.0003, 0.0002, 0.0001 ]
+    policy: sigmoid
 
     sigmoid:
-      target_learning_rate: 0.00001
-      factor: 8.0
+      target_learning_rate: 0.0001
+      factor: 3
 
     inverse:
       gamma: 0.00001
@@ -177,9 +165,9 @@ model:
       class_scale: 1
       coord_scale: 1
       coords: 4
-      noobject_scale: 0.5
+      noobject_scale: 1
       num: 2
-      object_scale: 2
+      object_scale: 1
       rescore: True
       side: 7
       softmax: False
