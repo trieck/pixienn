@@ -5,6 +5,7 @@
 #include "ConnLayer.h"
 #include "ConvLayer.h"
 #include "DetectLayer.h"
+#include "DropoutLayer.h"
 #include "MaxPoolLayer.h"
 #include "RegionLayer.h"
 #include "RouteLayer.h"
@@ -43,6 +44,7 @@ LayerFactories<D>::LayerFactories()
     registerFactory<ConnLayer<D>>("connected");
     registerFactory<ConvLayer<D>>("conv");
     registerFactory<DetectLayer<D>>("detection");
+    registerFactory<DropoutLayer<D>>("dropout");
     registerFactory<MaxPoolLayer<D>>("maxpool");
     registerFactory<RegionLayer<D>>("region");
     registerFactory<RouteLayer<D>>("route");
