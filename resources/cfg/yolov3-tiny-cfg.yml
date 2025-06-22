@@ -1,11 +1,11 @@
 configuration:
   model: ../models/yolov3-tiny.yml
   #weights: ../weights/yolov3-tiny.weights
-  weights: /home/trieck/src/pixienn/cmake-build-debug-cuda/backup/yolov3-tiny-coco_latest.weights
+  weights: /home/trieck/src/pixienn/cmake-build-debug-cuda/backup/yolov3-tiny_latest.weights
   labels: ../data/coco.names
 
 training:
-  train-images: ../data/coco/train-1.txt
+  train-images: ../data/coco/train-5.txt
   train-labels: ../data/coco/labels/train2014
 
   val-images: ../data/coco/val-1.txt
