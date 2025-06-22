@@ -60,10 +60,6 @@ ShortcutLayer<D>::ShortcutLayer(Model<D>& model, const YAML::Node& layerDef) : L
 
     from_ = this->model().layerAt(index);
 
-    assert(this->width() == from_->width());
-    assert(this->height() == from_->height());
-    assert(this->channels() == from_->channels());
-
     this->setOutChannels(this->channels());
     this->setOutHeight(this->height());
     this->setOutWidth(this->width());
