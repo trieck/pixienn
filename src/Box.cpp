@@ -48,8 +48,8 @@ Detections nms(const Detections& detects, float threshold)
     std::vector<bool> discard(detects.size(), false);
 
     for (auto i = 0; i < detects.size(); ++i) {
-        for (auto j = i + 1; j < detects.size(); ++j) {
-            if (discard[j]) {
+        for (auto j = 0; j < detects.size(); ++j) {
+            if (i == j || discard[j]) {
                 continue;
             }
 

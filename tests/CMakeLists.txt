@@ -17,6 +17,7 @@ list(APPEND TEST_SOURCES
         src/activations.cpp
         src/augment.cpp
         src/blas.cpp
+        src/box.cpp
         src/confuse.cpp
         src/cosine.cpp
         src/crc32.cpp
