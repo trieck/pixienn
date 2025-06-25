@@ -1,10 +1,10 @@
 model:
-  batch: 1
+  batch: 32
   channels: 3
   height: 320
   width: 320
 
-  max_batches: 10000
+  max_batches: 200000
   momentum: 0.9
   decay: 0.0005
 
@@ -15,10 +15,10 @@ model:
     epsilon: 1e-8
 
   augmentation:
-    enabled: False
+    enabled: True
     flip: True
     jitter: 0.2
-    hue: 0.1
+    hue: 0.2
     saturation: 0.75
     exposure: 0.75
 
@@ -44,7 +44,7 @@ model:
       batches: 200
       power: 2.0
 
-    initial_learning_rate: 0.01
+    initial_learning_rate: 0.004
     policy: sigmoid
 
     sigmoid:
@@ -133,13 +133,6 @@ model:
       activation: mish
       batch_normalize: True
 
-    # Optional compression layer (comment if you want full 64-dim)
-    - type: conv
-      filters: 48
-      kernel: 1
-      pad: False
-      activation: mish
-
     # Detection head
     - type: conv
       filters: 75
@@ -155,7 +148,7 @@ model:
       ignore_thresh: 0.7
       truth_thresh: 1.0
       coord_scale: 1.0
-      object_scale: 1.0
-      noobject_scale: 1.0
+      object_scale: 2.0
+      noobject_scale: 0.1
       class_scale: 1.0
       log_interval: 50

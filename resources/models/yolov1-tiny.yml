@@ -1,10 +1,10 @@
 model:
-  batch: 1
+  batch: 32
   channels: 3
   height: 448
   width: 448
 
-  max_batches: 5000
+  max_batches: 500000
   momentum: 0.9
   decay: 0.0005
 
@@ -15,7 +15,7 @@ model:
     epsilon: 1e-8
 
   augmentation:
-    enabled: False
+    enabled: True
     flip: True
     jitter: 0.2
     hue: 0.1
@@ -44,11 +44,11 @@ model:
       batches: 200
       power: 2.0
 
-    initial_learning_rate: 0.01
+    initial_learning_rate: 0.005
     policy: sigmoid
 
     sigmoid:
-      target_learning_rate: 0.0001
+      target_learning_rate: 0.00001
       factor: 3
 
     inverse:

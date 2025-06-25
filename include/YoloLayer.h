@@ -86,6 +86,7 @@ private:
     void writeObjectness();
     void writeRecall50();
     void writeRecall75();
+    void writeCost();
 
     std::vector<int> mask_, anchors_;
     int numAnchors_, numMasks_;
@@ -210,6 +211,7 @@ void YoloLayer<D>::writeStats()
     writeObjectness();
     writeRecall50();
     writeRecall75();
+    writeCost();
 }
 
 template<Device D>
@@ -313,6 +315,26 @@ void YoloLayer<D>::writeRecall75()
 }
 
 template<Device D>
+void YoloLayer<D>::writeCost()
+{
+    auto cost = this->cost_ > 0 ? this->cost_ : 0.0f;
+
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(this->model().seen());
+
+    auto tag = boost::format{ "yolo-%d-cost" } % this->index();
+
+    auto* summary = event.mutable_summary();
+    auto* value = summary->add_value();
+    value->set_tag(tag.str());
+    value->set_simple_value(cost);
+
+    this->recordWriter().write(event);
+}
+
+template<Device D>
 void YoloLayer<D>::deltaYoloClass(int index, int classId)
 {
     auto* poutput = poutput_->data();
@@ -379,7 +401,7 @@ void YoloLayer<D>::processObjects(int b)
     auto* pdelta = pdelta_->data();
 
     for (const auto& gt: this->groundTruth(b)) {
-        auto bestIoU = -std::numeric_limits<float>::max();
+        auto bestIoU = std::numeric_limits<float>::lowest();
         auto bestN = 0;
 
         auto i = static_cast<int>(gt.box.x() * this->width());
@@ -566,7 +588,7 @@ const
             }
 
             int maxClass = 0;
-            float maxProb = -std::numeric_limits<float>::max();
+            float maxProb = std::numeric_limits<float>::lowest();
 
             for (auto j = 0; j < nclasses; ++j) {
                 int clsIndex = entryIndex(batch, n * area + i, 5 + j);
