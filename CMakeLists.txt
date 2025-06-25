@@ -61,7 +61,7 @@ if (USE_CUDA)
     set(CMAKE_CUDA_STANDARD 20)
 
     if (NOT DEFINED CMAKE_CUDA_ARCHITECTURES OR CMAKE_CUDA_ARCHITECTURES STREQUAL "")
-        set(CMAKE_CUDA_ARCHITECTURES "89")
+        set(CMAKE_CUDA_ARCHITECTURES "75")
     endif ()
 
     if (NOT DEFINED CMAKE_CUDA_COMPILER OR CMAKE_CUDA_COMPILER STREQUAL "")
@@ -102,6 +102,7 @@ list(APPEND SOURCES
         src/BatchNorm.cpp
         src/Box.cpp
         src/BurnInLRPolicy.cpp
+        src/CenterNetTargetBuilder.cpp
         src/CRC32.cpp
         src/ColorMaps.cpp
         src/ConfusionMatrix.cpp

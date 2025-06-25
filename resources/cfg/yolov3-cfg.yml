@@ -6,7 +6,7 @@ configuration:
   labels: ../data/coco.names
 
 training:
-  train-images: ../data/coco/train-1.txt
+  train-images: ../data/coco/train-200.txt
   train-labels: ../data/coco/labels/train2014
 
   val-images: ../data/coco/val-1.txt
