@@ -18,6 +18,7 @@ list(APPEND TEST_SOURCES
         src/augment.cpp
         src/blas.cpp
         src/box.cpp
+        src/centernet.cpp
         src/confuse.cpp
         src/cosine.cpp
         src/crc32.cpp

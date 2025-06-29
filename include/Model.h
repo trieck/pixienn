@@ -850,7 +850,10 @@ void Model<D>::loadLabels()
 template<Device D>
 void Model<D>::loadWeights()
 {
-    if (training() && hasOption("clear-weights")) {
+    auto clearWeights = hasOption("clear-weights");
+    auto latestWeightsFile = weightsLatestFileName();
+
+    if (training() && clearWeights) {
         boost::filesystem::remove(weightsFile_);
     }
 
@@ -859,8 +862,7 @@ void Model<D>::loadWeights()
         PX_ERROR_THROW("Could not open file \"%s\".", weightsFile_.c_str());
     }
 
-    if (training() && ifs.fail()) { // if not found, let's try to load the latest weights
-        auto latestWeightsFile = weightsLatestFileName();
+    if (training() && ifs.fail() && !clearWeights) { // if not found, let's try to load the latest weights
         std::printf("\nweights not found, trying latest weights \"%s\"...", latestWeightsFile.c_str());
         ifs.open(latestWeightsFile, std::ios::in | std::ios::binary);
         if (ifs.is_open()) {

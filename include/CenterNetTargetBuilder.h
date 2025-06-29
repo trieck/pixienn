@@ -33,13 +33,10 @@ class CenterNetTargetBuilder
 {
 public:
     CenterNetTargetBuilder(int numClasses, int stride, int imageW, int imageH);
-
     CenterNetTargets buildTargets(const GroundTruthVec& truth);
-    void drawGaussian(PxCpuVector& heatmap, int classId, int cx, int cy, float radius);
-    float focalLoss(const PxCpuVector& pred, const PxCpuVector& target, int numClasses, int H, int W, float alpha = 2.0f,
-              float beta = 4.0f);
 
 private:
+    void drawGaussian(PxCpuVector& heatmap, int classId, int cx, int cy, float radius);
     float gaussianRadius(float width, float height) const;
 
     int numClasses_;

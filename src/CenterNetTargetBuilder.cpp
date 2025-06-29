@@ -1,5 +1,5 @@
 /********************************************************************************
-* Copyright 2020-2023 Thomas A. Rieck, All Rights Reserved
+* Copyright 2020-2025 Thomas A. Rieck, All Rights Reserved
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -13,6 +13,50 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 ********************************************************************************/
+
+/**
+ * @class CenterNetTargetBuilder
+ * @brief Generates training targets for CenterNet-style object detection.
+ *
+ * This class prepares the dense regression targets needed to train a
+ * CenterNet model head from ground truth bounding boxes. The targets are
+ * designed to supervise a fully convolutional detection head, which predicts:
+ *
+ *   1. A per-class heatmap indicating object center likelihood.
+ *   2. A size map encoding object width and height at each center.
+ *   3. A subpixel offset map for refining the object center position.
+ *   4. A binary mask that indicates where valid object centers exist.
+ *
+ * Ground truth boxes are provided in normalized format (relative to image
+ * width and height), and the feature map resolution is derived from the
+ * image dimensions and stride (downsampling factor of the backbone).
+ *
+ * Each target is stored in a flat PxCpuVector in the following format:
+ *
+ *   - heatmap  : [numClasses x H x W] — Gaussian peaks per object center
+ *   - size     : [2 x H x W] — width and height (normalized) per center
+ *   - offset   : [2 x H x W] — subpixel center offset (cx, cy) - (int(cx), int(cy))
+ *   - mask     : [H x W] — 1 if a center exists at that location, 0 otherwise
+ *
+ * The heatmap uses a 2D Gaussian kernel centered at the integer coordinate
+ * nearest the ground truth center, with radius computed to guarantee a
+ * minimum IOU between the predicted and actual box.
+ *
+ * This structure allows for efficient dense detection by enabling the network
+ * to predict object locations and sizes directly on the feature map, without
+ * needing anchor boxes or proposal mechanisms.
+ *
+ * Example usage:
+ *     CenterNetTargetBuilder builder(numClasses, stride, imageW, imageH);
+ *     CenterNetTargets targets = builder.buildTargets(groundTruthVec);
+ *
+ * Reference: CenterNet (Objects as Points), Zhou et al. (2019)
+ *  https://arxiv.org/abs/1904.07850
+ *
+ * @author
+ *     Thomas A. Rieck (2020–2025)
+ */
+
 
 #include "CenterNetTargetBuilder.h"
 
@@ -29,9 +73,16 @@ CenterNetTargets CenterNetTargetBuilder::buildTargets(const GroundTruthVec& trut
 {
     CenterNetTargets targets;
 
+    // Heatmap: [numClasses x H x W], where each channel holds a 2D Gaussian for object centers
     targets.heatmap = PxCpuVector(numClasses_ * fmapH_ * fmapW_, 0.0f);
+
+    // Size: [2 x H x W], where channel 0 holds width and channel 1 holds height (normalized to image size)
     targets.size = PxCpuVector(2 * fmapH_ * fmapW_, 0.0f);
+
+    // Offset: [2 x H x W], holds subpixel offset from the integer (cx, cy) to the true center
     targets.offset = PxCpuVector(2 * fmapH_ * fmapW_, 0.0f);
+
+    // Mask: [H x W], indicates whether a valid object center exists at each location
     targets.mask = PxCpuVector(fmapH_ * fmapW_, 0.0f);
 
     for (const auto& gt: truth) {
@@ -70,16 +121,41 @@ CenterNetTargets CenterNetTargetBuilder::buildTargets(const GroundTruthVec& trut
     return targets;
 }
 
+/**
+ * @brief Computes the Gaussian radius for a given object size to ensure sufficient heatmap overlap.
+ *
+ * This function calculates the radius of a 2D Gaussian to be drawn on the heatmap
+ * such that the Gaussian blob overlaps with the ground truth bounding box by at least
+ * a specified minimum IoU (Intersection over Union), typically 0.7.
+ *
+ * The formula is derived from geometric constraints and ensures that the effective
+ * receptive field of the heatmap Gaussian provides sufficient supervision signal.
+ *
+ * @param width  Width of the object (in feature map coordinates)
+ * @param height Height of the object (in feature map coordinates)
+ * @return Radius (in pixels) of the 2D Gaussian kernel
+ */
 float CenterNetTargetBuilder::gaussianRadius(float width, float height) const
 {
-    auto minOverlap = 0.7f; // Minimum overlap for Gaussian radius
+    // Desired minimum IoU between the generated blob and ground truth box
+    constexpr auto minOverlap = 0.7f; // Minimum overlap for Gaussian radius
 
-    auto a1 = 1.0f;
+    // Coefficients for a quadratic equation derived from geometric constraints
+    constexpr auto a1 = 1.0f;
+
+    // Linear coefficient: sum of box width and height
     auto b1 = height + width;
+
+    // Constant term: derived from the desired minimum IoU
     auto c1 = width * height * (1 - minOverlap) / (1 + minOverlap);
+
+    // Discriminant of the quadratic equation
     auto sq1 = std::sqrt(b1 * b1 - 4 * a1 * c1);
+
+    // Positive root of the quadratic — gives the required radius
     auto r1 = (b1 + sq1) / 2;
 
+    // Clamp to non-negative radius to ensure numerical safety
     return std::max(0.0f, r1);
 }
 
@@ -119,32 +195,6 @@ void CenterNetTargetBuilder::drawGaussian(PxCpuVector& heatmap, int classId, int
             heatmap[index] = std::max(heatmap[index], value); // preserve max if overlapping
         }
     }
-}
-
-float
-CenterNetTargetBuilder::focalLoss(const PxCpuVector& pred, const PxCpuVector& target, int numClasses, int H, int W,
-                                  float alpha, float beta)
-{
-    float loss = 0.0f;
-    auto spatialSize = H * W;
-
-    for (auto c = 0; c < numClasses; ++c) {
-        auto base = c * spatialSize;
-        for (auto i = 0; i < spatialSize; ++i) {
-            auto p = std::clamp(pred[base + i], 1e-6f, 1.0f - 1e-6f);
-            auto y = target[base + i];
-
-            if (y == 1.0f) {
-                // positive center
-                loss += std::pow(1 - p, alpha) * std::log(p);
-            } else {
-                // background
-                loss += std::pow(1 - y, beta) * std::pow(p, alpha) * std::log(1 - p);
-            }
-        }
-    }
-
-    return -loss / numClasses;
 }
 
 } // namespace px

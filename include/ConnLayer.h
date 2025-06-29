@@ -27,7 +27,6 @@ class FCExtras
 {
 };
 
-
 template<Device D = Device::CPU>
 class ConnLayer : public Layer<D>, public FCExtras<D>
 {
