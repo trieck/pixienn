@@ -102,7 +102,6 @@ list(APPEND SOURCES
         src/BatchNorm.cpp
         src/Box.cpp
         src/BurnInLRPolicy.cpp
-        src/CenterNetTargetBuilder.cpp
         src/CRC32.cpp
         src/ColorMaps.cpp
         src/ConfusionMatrix.cpp
