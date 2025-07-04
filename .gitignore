@@ -9,3 +9,4 @@
 *.aux.xml
 /docs/html/
 /docs/latex/
+/python/.idea/
