@@ -1,5 +1,5 @@
 model:
-  batch: 32
+  batch: 1
   channels: 3
   height: 448
   width: 448

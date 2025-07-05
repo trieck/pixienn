@@ -42,7 +42,7 @@ class Leaky
 public:
     static constexpr ActivationType type = ActivationType::LEAKY;
 
-    Leaky(float alpha = 0.1f) : alpha_(alpha)
+    Leaky(float alpha = 0.01f) : alpha_(alpha)
     {
     }
 

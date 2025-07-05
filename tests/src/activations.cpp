@@ -48,9 +48,9 @@ TYPED_TEST(LeakyTest, Apply)
     std::vector<float> results = input.asVector();
 
     ASSERT_FLOAT_EQ(results[0], 1.0f);
-    ASSERT_FLOAT_EQ(results[1], -0.2f);
+    ASSERT_FLOAT_EQ(results[1], -0.02f);
     ASSERT_FLOAT_EQ(results[2], 3.0f);
-    ASSERT_FLOAT_EQ(results[3], -0.4f);
+    ASSERT_FLOAT_EQ(results[3], -0.04f);
 }
 
 TYPED_TEST(LeakyTest, Gradient)
@@ -63,9 +63,9 @@ TYPED_TEST(LeakyTest, Gradient)
     std::vector<float> results = delta.asVector();
 
     ASSERT_FLOAT_EQ(results[0], 0.1f);
-    ASSERT_FLOAT_EQ(results[1], -0.01f);
+    ASSERT_FLOAT_EQ(results[1], -0.001f);
     ASSERT_FLOAT_EQ(results[2], 0.2f);
-    ASSERT_FLOAT_EQ(results[3], -0.02f);
+    ASSERT_FLOAT_EQ(results[3], -0.002f);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
