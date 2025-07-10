@@ -1,0 +1,110 @@
+name: "test_1"
+
+image_filename: "../resources/images/dog.jpg"
+image_channels: 1
+image_size: [ 448, 448 ]
+
+layers:
+  - type: conv
+    filters: 16
+    kernel: 3
+    pad: 1
+    stride: 1
+    dilation: 1
+    activation: leaky
+
+  - type: maxpool
+    kernel: 2
+    stride: 2
+    pad: 0
+    dilation: 1
+
+  - type: conv
+    filters: 32
+    kernel: 3
+    pad: 1
+    stride: 1
+    dilation: 1
+    activation: leaky
+
+  - type: maxpool
+    kernel: 2
+    stride: 2
+    pad: 0
+    dilation: 1
+
+  - type: conv
+    filters: 64
+    kernel: 3
+    pad: 1
+    stride: 1
+    dilation: 1
+    activation: leaky
+
+  - type: maxpool
+    kernel: 2
+    stride: 2
+    pad: 0
+    dilation: 1
+
+  - type: conv
+    filters: 128
+    kernel: 3
+    pad: 1
+    stride: 1
+    dilation: 1
+    activation: leaky
+
+  - type: maxpool
+    kernel: 2
+    stride: 2
+    pad: 0
+    dilation: 1
+
+  - type: conv
+    filters: 256
+    kernel: 3
+    pad: 1
+    stride: 1
+    dilation: 1
+    activation: leaky
+
+  - type: maxpool
+    kernel: 2
+    stride: 2
+    pad: 0
+    dilation: 1
+
+  - type: conv
+    filters: 512
+    kernel: 3
+    pad: 1
+    stride: 1
+    dilation: 1
+    activation: leaky
+
+  - type: maxpool
+    kernel: 2
+    stride: 2
+    pad: 0
+    dilation: 1
+
+  - type: conv
+    filters: 1024
+    kernel: 3
+    pad: 1
+    stride: 1
+    dilation: 1
+    activation: leaky
+
+  - type: conv
+    filters: 256
+    kernel: 3
+    pad: 1
+    stride: 1
+    dilation: 1
+    activation: leaky
+
+  - type: connected
+    activation: linear
+    output: 1470
