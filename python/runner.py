@@ -43,29 +43,26 @@ def run_spec(h5_file_path):
     return tensors, metadata
 
 
-def save_test_case(file_path, test_name, tensors, metadata):
+def save_layer(h5_file: h5py.File, layer_name: str, tensors: dict, metadata: dict):
     """
-    Save a single test case under the group /<test_name>/ in an HDF5 file.
+    Save a single test layer in an HDF5 file.
 
     Parameters:
-        file_path  : path to .h5 file
-        test_name  : name of the test case, used as group name
+        h5_file    : h5py file
+        layer_name : name of layer
         tensors    : dict of {name: torch.Tensor}
         metadata   : dict of layer config and operation info
     """
-    with h5py.File(file_path, "w") as f:
-        if test_name in f:
-            raise ValueError(f"Test case '{test_name}' already exists in {file_path}")
+    grp = h5_file.create_group(layer_name)
 
-        grp = f.create_group(test_name)
+    # Write tensors
+    for name, tensor in tensors.items():
+        data = tensor.detach().cpu().numpy()
+        grp.create_dataset(name, data=data)
 
-        # Write tensors
-        for name, tensor in tensors.items():
-            data = tensor.detach().cpu().numpy()
-            grp.create_dataset(name, data=data)
-
-        for key, value in metadata.items():
-            grp.attrs[key] = value
+    # Write metadata
+    for key, value in metadata.items():
+        grp.attrs[key] = value
 
 
 def load_spec(path):
@@ -78,24 +75,23 @@ def load_spec(path):
         return yaml.safe_load(f)
 
 
-def load_image_tensor(image_path, size, in_channels):
-    """
-    Load an image from the given path, resize it to the specified size,
-    :param image_path: path to the image file
-    :param size:  tuple of (width, height)
-    :param in_channels: number of input channels (e.g., 3 for RGB, 1 for grayscale)
-    :return: torch.Tensor
-    """
-    img = cv2.imread(image_path)
+def load_image_tensor(spec):
+    image_filename = spec["image_filename"]
+    image_channels = spec["image_channels"]
+    image_size = spec["image_size"]
+
+    img = cv2.imread(image_filename)
     if img.shape[2] == 3:  # RGB image
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    img = letterbox(img, tuple(size))
+    img = letterbox(img, tuple(image_size))
+
+    if image_channels == 1:
+        img = img.mean(axis=2).astype(img.dtype)
+
     tensor = transforms.ToTensor()(img)
 
-    tensor = tensor[:in_channels, :, :]
-
-    return tensor.unsqueeze(0)
+    return tensor.unsqueeze(0)  # NCHW
 
 
 def letterbox(image, size):
@@ -141,6 +137,8 @@ def apply_activation(x, act):
     :param act: str, name of the activation function
     :return: torch.Tensor
     """
+    if act == "hardtanh":
+        return F.hardtanh(x)
     if act == "relu":
         return F.relu(x)
     if act == "linear":
@@ -150,100 +148,213 @@ def apply_activation(x, act):
     if act == "mish":
         return x * torch.tanh(F.softplus(x))
     if act == "leaky":
-        return F.leaky_relu(x, negative_slope=0.01)
+        return F.leaky_relu(x, negative_slope=0.1)
+    if act == "loggy":
+        return 2 * torch.sigmoid(x) - 1
+    if act == "softplus":
+        return F.softplus(x)
+    if act == "swish":
+        return x * torch.sigmoid(x)
+    if act == "tanh":
+        return torch.tanh(x)
+    if act == "selu":
+        return F.selu(x)
+    if act == "rrelu":
+        return F.rrelu(x)
+    if act == "hardshrink":
+        return F.hardshrink(x)
+    if act == "hardsigmoid":
+        return F.hardsigmoid(x)
+    if act == "gelu":
+        return F.gelu(x, approximate='tanh')
 
-    raise ValueError(f"Unknown activation: {act}")
+    raise ValueError(f"Unknown activation: \"{act}\"")
 
 
-def display_tensors(tensor: torch.Tensor):
+def display_tensors(tensor: torch.Tensor, title: str = ""):
     """
     Display each of the channels of a tensor as an image.
     :param tensor: torch.Tensor, expected shape (1, C, H, W)
-    """ 
+    :param title: str, optional
+    """
 
-    for channel in range(tensor.shape[1]):
+    len = min(20, tensor.shape[1])
+
+    for channel in range(len):
         img = tensor[0, channel, :, :]
         img = img.detach().numpy()
+
+        img_min = img.min()
+        img_max = img.max()
+
+        if img_max > img_min:  # avoid divide by zero
+            img = (img - img_min) / (img_max - img_min)
+        else:
+            img = np.zeros_like(img)
+
         img = (img * 255).astype(np.uint8)  # Scale to 0-255
 
-        title = f"Channel {channel} - Shape: {img.shape}"
+        title = f"{title}: Channel {channel} - Shape: {img.shape}"
         cv2.imshow(title, img)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
 
-def compile_spec(spec_path, output_file):
-    """
-    Compile a specification from a YAML file into an HDF5 test case.
-    :param spec_path: path to the YAML specification file
-    :param output_file: path to the output HDF5 file
-    """
-    spec = load_spec(spec_path)
+def compile_conv(layer_idx: int, layer: dict, input: torch.Tensor, h5_file: h5py.File):
+    filters = layer["filters"]
+    kernel = [layer["kernel"], layer["kernel"]]
+    pad = layer["pad"] or 0
+    stride = layer["stride"] or 1
+    dilation = layer["dilation"] or 1
+    activation = layer["activation"] or "linear"
 
-    torch.manual_seed(spec.get("seed", 42))
+    weights = torch.empty(filters, input.shape[1], *kernel, dtype=input.dtype).uniform_(-1.0, 1.0)
+    bias = torch.empty(filters).uniform_(-0.5, 0.5)
 
-    c_in = spec['input_channels']
-    c_out = spec['conv']['out_channels']
-    k_h, k_w = spec['conv']['kernel_size']
-    padding = spec['conv']['padding']
-    stride = spec['conv']['stride']
-    dilation = spec['conv']['dilation']
-
-    weights = torch.empty(c_out, c_in, k_h, k_w).uniform_(-1.0, 1.0)
-    bias = torch.empty(c_out).uniform_(-0.5, 0.5)
-
-    conv = torch.nn.Conv2d(c_in, c_out, (k_h, k_w),
-                           stride=stride,
-                           padding=padding,
-                           dilation=dilation,
-                           bias=True)
+    conv = torch.nn.Conv2d(in_channels=input.shape[1], out_channels=filters, kernel_size=kernel, stride=stride,
+                           padding=pad, bias=True)
     with torch.no_grad():
         conv.weight.copy_(weights)
         conv.bias.copy_(bias)
 
-    input_image = spec['input_image']
-    resize = spec['resize']
+    input.requires_grad_(True)
 
-    input_tensor = load_image_tensor(input_image, resize, c_in)
-
-    display_tensors(input_tensor)
-
-    input_tensor.requires_grad_(True)
-    out = conv(input_tensor)
-
-    display_tensors(out)
-
-    activation = spec.get('activation', 'relu')
-    act_out = apply_activation(out, activation)
-
-    display_tensors(act_out)
+    pre_activation = conv(input)
+    output = apply_activation(pre_activation, activation)
 
     tensors = {
-        "input_tensor": input_tensor,
-        "pre_activation_output": out,
-        "post_activation_output": act_out,
-        "weights": weights,
         "bias": bias,
+        "input": input,
+        "output": output,
+        "pre_activation": pre_activation,
+        "weights": weights,
     }
 
     metadata = {
+        "activation": activation,
+        "dilation": dilation,
+        "input_channels": input.shape[1],
+        "input_shape": list(input.shape),
+        "kernel": kernel,
         "layer_type": "conv",
         "operation": "forward",
-        "activation": "relu",
-        "input_shape": list(input_tensor.shape)[1:],  # CHW
-        "output_shape": list(act_out.shape)[1:],  # CHW
-        "kernel_size": [k_h, k_w],
-        "output_channels": c_out,
+        "output_channels": output.shape[1],
+        "output_shape": list(output.shape),
+        "padding": pad,
+        "stride": stride
+    }
+
+    layer_name = "Conv_{}".format(layer_idx + 1)
+
+    save_layer(h5_file=h5_file, layer_name=layer_name, tensors=tensors, metadata=metadata)
+
+    return output
+
+
+def compile_maxpool(layer_idx: int, layer: dict, input: torch.Tensor, h5_file: h5py.File):
+    kernel = layer["kernel"]
+    stride = layer["stride"]
+    pad = layer["pad"] or 0
+    dilation = layer["dilation"] or 1
+
+    maxpool = torch.nn.MaxPool2d(kernel_size=kernel, stride=stride, padding=pad, dilation=dilation)
+
+    output = maxpool(input)
+
+    tensors = {
+        "input": input,
+        "output": output,
+    }
+
+    metadata = {
+        "input_shape": list(input.shape),
+        "output_shape": list(output.shape),
+        "kernel": kernel,
         "stride": stride,
-        "padding": padding,
+        "padding": pad,
         "dilation": dilation,
     }
 
-    test_name = spec.get("name")
+    layer_name = "MaxPool_{}".format(layer_idx + 1)
 
-    save_test_case(output_file, test_name, tensors, metadata)
+    save_layer(h5_file=h5_file, layer_name=layer_name, tensors=tensors, metadata=metadata)
+
+    return output
+
+
+def compile_fc(layer_idx: int, layer: dict, input: torch.Tensor, h5_file: h5py.File):
+    activation = layer["activation"]
+    out_features = layer["output"]
+
+    input = input.view(input.size(0), -1)  # Flatten
+    in_features = input.shape[1]
+
+    weights = torch.empty(out_features, in_features, dtype=input.dtype).uniform_(-1.0, 1.0)
+    bias = torch.empty(out_features).uniform_(-0.5, 0.5)
+
+    fc = torch.nn.Linear(in_features=input.shape[1], out_features=out_features)
+
+    with torch.no_grad():
+        fc.weight.copy_(weights)
+        fc.bias.copy_(bias)
+
+    pre_activation = fc(input)
+    output = apply_activation(pre_activation, activation)
+
+    tensors = {
+        "input": input,
+        "pre_activation": pre_activation,
+        "output": output,
+        "weights": weights,
+        "bias": bias
+    }
+
+    metadata = {
+        "activation": activation,
+        "in_features": in_features,
+        "out_features": out_features
+    }
+
+    layer_name = "Connected_{}".format(layer_idx + 1)
+
+    save_layer(h5_file=h5_file, layer_name=layer_name, tensors=tensors, metadata=metadata)
+
+    return output
+
+
+def compile_layer(layer_idx: int, layer: dict, input: torch.Tensor, h5_file: h5py.File):
+    type = layer["type"]
+
+    if type == "conv":
+        return compile_conv(layer_idx, layer, input, h5_file)
+    elif type == "maxpool":
+        return compile_maxpool(layer_idx, layer, input, h5_file)
+    elif type == "connected":
+        return compile_fc(layer_idx, layer, input, h5_file)
+    else:
+        raise TypeError(f"Unknown layer type: {type}")
+
+
+def compile_spec(spec_file: str, output_file: str):
+    """
+    Compile a specification from a YAML file into an HDF5 test case.
+    :param spec_file: path to the YAML specification file
+    :param output_file: path to the output HDF5 file
+    """
+    h5_file = h5py.File(output_file, "w")
+
+    spec = load_spec(spec_file)
+
+    torch.manual_seed(spec.get("seed", 42))
+
+    layers = spec.get("layers", [])
+    input = load_image_tensor(spec)
+
+    for i in range(0, len(layers)):
+        input = compile_layer(i, layers[i], input, h5_file)
+
+    h5_file.close()
 
 
 if __name__ == "__main__":
-    compile_spec("specs/basic_conv_test.yaml", "tests.h5")
-    run_spec("tests.h5")
+    compile_spec("specs/test_1.yaml", "tests.h5")
