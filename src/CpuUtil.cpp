@@ -70,48 +70,33 @@ void im2ColCpu(const float* im, int channels, int height, int width, int ksize, 
     }
 }
 
-// Function uses casting from int to unsigned to compare if value of
-// parameter "a" is greater or equal to zero and lower than value of
-// parameter b. The b parameter is of type signed and is always positive,
-// therefore its value is always lower than 0x800... where casting
-// negative value of a parameter converts it to value higher than 0x800...
-// The casting allows to use one condition instead of two.
-inline static int isAGeZeroAndALtB(int a, int b)
-{
-    return (unsigned) (a) < (unsigned) (b);
-}
-
-// https://github.com/BVLC/caffe/blob/master/src/caffe/util/im2col.cpp
 void im2ColCpuExt(const float* im, const int channels, const int height, const int width, const int kernelH,
                   const int kernelW, const int padH, const int padW, const int strideH, const int strideW,
                   const int dilationH, const int dilationW, float* dataCol)
 {
     const auto outputH = (height + 2 * padH - (dilationH * (kernelH - 1) + 1)) / strideH + 1;
     const auto outputW = (width + 2 * padW - (dilationW * (kernelW - 1) + 1)) / strideW + 1;
-    const auto channelSize = height * width;
-    int channel, kernelRow, kernelCol, outputRows, outputCol;
 
-    for (channel = channels; channel--; im += channelSize) {
-        for (kernelRow = 0; kernelRow < kernelH; kernelRow++) {
-            for (kernelCol = 0; kernelCol < kernelW; kernelCol++) {
-                auto inputRow = -padH + kernelRow * dilationH;
-                for (outputRows = outputH; outputRows; outputRows--) {
-                    if (!isAGeZeroAndALtB(inputRow, height)) {
-                        for (outputCol = outputW; outputCol; outputCol--) {
-                            *(dataCol++) = 0;
+    for (auto c = 0; c < channels; ++c) {
+        for (auto kh = 0; kh < kernelH; ++kh) {
+            for (auto kw = 0; kw < kernelW; ++kw) {
+                auto row = c * kernelH * kernelW + kh * kernelW + kw;
+
+                for (auto oh = 0; oh < outputH; ++oh) {
+                    auto inY = oh * strideH - padH + kh * dilationH;
+
+                    for (auto ow = 0; ow < outputW; ++ow) {
+                        auto inX = ow * strideW - padW + kw * dilationW;
+
+                        auto col = oh * outputW + ow;
+                        auto val = 0.0f;
+
+                        if (inY >= 0 && inY < height && inX >= 0 && inX < width) {
+                            val = im[c * height * width + inY * width + inX];
                         }
-                    } else {
-                        auto inputCol = -padW + kernelCol * dilationW;
-                        for (outputCol = outputW; outputCol; outputCol--) {
-                            if (isAGeZeroAndALtB(inputCol, width)) {
-                                *(dataCol++) = im[inputRow * width + inputCol];
-                            } else {
-                                *(dataCol++) = 0;
-                            }
-                            inputCol += strideW;
-                        }
+
+                        dataCol[row * outputH * outputW + col] = val;
                     }
-                    inputRow += strideH;
                 }
             }
         }
@@ -191,8 +176,9 @@ void addBias(float* output, const float* biases, int batch, int n, int size)
 {
     for (auto b = 0; b < batch; ++b) {
         for (auto i = 0; i < n; ++i) {
-            auto offset = b * n + i;
-            cblas_saxpy(size, 1.0f, biases + i, 0, output + offset * size, 1);
+            for (auto j = 0; j < size; ++j) {
+                output[(b * n + i) * size + j] += biases[i];
+            }
         }
     }
 }

@@ -45,6 +45,12 @@ public:
 
     std::ostream& print(std::ostream& os) override;
 
+    void copyWeights(const V& weights);
+    void copyBiases(const V& biases);
+    void copyScales(const V& scales);
+    void copyRollingMean(const V& mean);
+    void copyRollingVariance(const V& var);
+
 private:
     void setup();
     void scaleGradients() override;
@@ -262,6 +268,41 @@ void ConnLayer<D>::clipGradients()
     constrain(weightUpdates_.size(), this->gradientClipValue_, weightUpdates_.data(), 1);
     constrain(biasUpdates_.size(), this->gradientClipValue_, biasUpdates_.data(), 1);
     constrain(scaleUpdates_.size(), this->gradientClipValue_, scaleUpdates_.data(), 1);
+}
+
+template<Device D>
+inline void ConnLayer<D>::copyWeights(const V& weights)
+{
+    PX_CHECK(weights.size() == weights_.size(), "Invalid weights size");
+    weights_.copy(weights);
+}
+
+template<Device D>
+inline void ConnLayer<D>::copyBiases(const V& biases)
+{
+    PX_CHECK(biases.size() == biases_.size(), "Invalid biases size");
+    biases_.copy(biases);
+}
+
+template<Device D>
+inline void ConnLayer<D>::copyScales(const V& scales)
+{
+    PX_CHECK(scales.size() == scales_.size(), "Invalid scales size");
+    scales_.copy(scales);
+}
+
+template<Device D>
+inline void ConnLayer<D>::copyRollingMean(const V& mean)
+{
+    PX_CHECK(mean.size() == rollingMean_.size(), "Invalid mean size");
+    rollingMean_.copy(mean);
+}
+
+template<Device D>
+inline void ConnLayer<D>::copyRollingVariance(const V& var)
+{
+    PX_CHECK(var.size() == rollingVar_.size(), "Invalid variance size");
+    rollingVar_.copy(var);
 }
 
 using CpuConn = ConnLayer<>;
