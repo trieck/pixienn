@@ -43,6 +43,14 @@ public:
     std::streamoff loadWeights(std::istream& is) override;
     virtual std::streamoff saveWeights(std::ostream& os) override;
 
+    void copyWeights(const V& weights);
+    void copyBiases(const V& biases);
+    void copyMean(const V& mean);
+    void copyVariance(const V& var);
+    void copyScales(const V& scales);
+    void copyRollingMean(const V& rollingMean);
+    void copyRollingVariance(const V& rollingVar);
+
     std::ostream& print(std::ostream& os) override;
 
 private:
@@ -314,6 +322,55 @@ void ConvLayer<D>::clipGradients()
     constrain(weightUpdates_.size(), this->gradientClipValue_, weightUpdates_.data(), 1);
     constrain(biasUpdates_.size(), this->gradientClipValue_, biasUpdates_.data(), 1);
     constrain(scaleUpdates_.size(), this->gradientClipValue_, scaleUpdates_.data(), 1);
+}
+
+template<Device D>
+inline void ConvLayer<D>::copyWeights(const V& weights)
+{
+    PX_CHECK(weights.size() == weights_.size(), "Invalid weights size");
+    weights_.copy(weights);
+}
+
+template<Device D>
+inline void ConvLayer<D>::copyBiases(const V& biases)
+{
+    PX_CHECK(biases.size() == biases_.size(), "Invalid biases size");
+    biases_.copy(biases);
+}
+
+template<Device D>
+inline void ConvLayer<D>::copyMean(const V& mean)
+{
+    PX_CHECK(mean.size() == mean_.size(), "Invalid mean size");
+    mean_.copy(mean);
+}
+
+template<Device D>
+inline void ConvLayer<D>::copyVariance(const V& var)
+{
+    PX_CHECK(var.size() == var_.size(), "Invalid variance size");
+    var_.copy(var);
+}
+
+template<Device D>
+inline void ConvLayer<D>::copyScales(const V& scales)
+{
+    PX_CHECK(scales.size() == scales_.size(), "Invalid scales size");
+    scales_.copy(scales);
+}
+
+template<Device D>
+inline void ConvLayer<D>::copyRollingMean(const V& mean)
+{
+    PX_CHECK(mean.size() == rollingMean_.size(), "Invalid mean size");
+    rollingMean_.copy(mean);
+}
+
+template<Device D>
+inline void ConvLayer<D>::copyRollingVariance(const V& var)
+{
+    PX_CHECK(var.size() == rollingVar_.size(), "Invalid variance size");
+    rollingVar_.copy(var);
 }
 
 using CpuConv = ConvLayer<>;

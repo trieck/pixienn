@@ -1,7 +1,7 @@
 configuration:
   model: ../models/resnet18.yml
-  #weights: ../weights/resnet18.weights
-  weights: /home/trieck/src/pixienn/cmake-build-release-cuda/bin/backup/resnet18_latest.weights
+  weights: ../weights/resnet18.weights
+  #weights: /home/trieck/src/pixienn/cmake-build-release-cuda/bin/backup/resnet18_latest.weights
   labels: ../data/imagenet.names
 
 training:

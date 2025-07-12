@@ -1,10 +1,15 @@
+import os
+import sys
+
 import cv2
 import h5py
 import numpy as np
 import torch
-import torch.nn.functional as F
+import torch.nn.functional as funct
 import yaml
 from torchvision import transforms
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def run_spec(h5_file_path):
@@ -50,15 +55,17 @@ def save_layer(h5_file: h5py.File, layer_name: str, tensors: dict, metadata: dic
     Parameters:
         h5_file    : h5py file
         layer_name : name of layer
-        tensors    : dict of {name: torch.Tensor}
+        tensors    : dict of {name: torch.Tensor or numpy.ndarray}
         metadata   : dict of layer config and operation info
     """
     grp = h5_file.create_group(layer_name)
 
     # Write tensors
     for name, tensor in tensors.items():
-        data = tensor.detach().cpu().numpy()
-        grp.create_dataset(name, data=data)
+        if isinstance(tensor, torch.Tensor):
+            tensor = tensor.detach().cpu().numpy()
+
+        grp.create_dataset(name, data=tensor)
 
     # Write metadata
     for key, value in metadata.items():
@@ -72,13 +79,19 @@ def load_spec(path):
     :return: dict
     """
     with open(path, 'r') as f:
-        return yaml.safe_load(f)
+        spec = yaml.safe_load(f)
+        spec['_spec_path'] = os.path.abspath(path)
+        spec['_spec_dir'] = os.path.dirname(spec['_spec_path'])
+        return spec
 
 
 def load_image_tensor(spec):
     image_filename = spec["image_filename"]
     image_channels = spec["image_channels"]
     image_size = spec["image_size"]
+
+    if not os.path.isabs(image_filename):
+        image_filename = os.path.abspath(os.path.join(spec["_spec_dir"], image_filename))
 
     img = cv2.imread(image_filename)
     if img.shape[2] == 3:  # RGB image
@@ -138,35 +151,35 @@ def apply_activation(x, act):
     :return: torch.Tensor
     """
     if act == "hardtanh":
-        return F.hardtanh(x)
+        return funct.hardtanh(x)
     if act == "relu":
-        return F.relu(x)
+        return funct.relu(x)
     if act == "linear":
         return x
     if act == "logistic":
         return torch.sigmoid(x)
     if act == "mish":
-        return x * torch.tanh(F.softplus(x))
+        return x * torch.tanh(funct.softplus(x))
     if act == "leaky":
-        return F.leaky_relu(x, negative_slope=0.1)
+        return funct.leaky_relu(x, negative_slope=0.1)
     if act == "loggy":
         return 2 * torch.sigmoid(x) - 1
     if act == "softplus":
-        return F.softplus(x)
+        return funct.softplus(x)
     if act == "swish":
         return x * torch.sigmoid(x)
     if act == "tanh":
         return torch.tanh(x)
     if act == "selu":
-        return F.selu(x)
+        return funct.selu(x)
     if act == "rrelu":
-        return F.rrelu(x)
+        return funct.rrelu(x)
     if act == "hardshrink":
-        return F.hardshrink(x)
+        return funct.hardshrink(x)
     if act == "hardsigmoid":
-        return F.hardsigmoid(x)
+        return funct.hardsigmoid(x)
     if act == "gelu":
-        return F.gelu(x, approximate='tanh')
+        return funct.gelu(x, approximate='tanh')
 
     raise ValueError(f"Unknown activation: \"{act}\"")
 
@@ -182,7 +195,7 @@ def display_tensors(tensor: torch.Tensor, title: str = ""):
 
     for channel in range(len):
         img = tensor[0, channel, :, :]
-        img = img.detach().numpy()
+        img = img.detach().cpu().numpy()
 
         img_min = img.min()
         img_max = img.max()
@@ -202,49 +215,65 @@ def display_tensors(tensor: torch.Tensor, title: str = ""):
 
 def compile_conv(layer_idx: int, layer: dict, input: torch.Tensor, h5_file: h5py.File):
     filters = layer["filters"]
-    kernel = [layer["kernel"], layer["kernel"]]
+    kernel = layer["kernel"]
     pad = layer["pad"] or 0
     stride = layer["stride"] or 1
     dilation = layer["dilation"] or 1
     activation = layer["activation"] or "linear"
+    batch_norm = layer.get("batch_normalize", False)
 
-    weights = torch.empty(filters, input.shape[1], *kernel, dtype=input.dtype).uniform_(-1.0, 1.0)
-    bias = torch.empty(filters).uniform_(-0.5, 0.5)
+    weights = torch.empty(filters, input.shape[1], kernel, kernel, dtype=input.dtype, device=input.device).uniform_(
+        0.0, 1.0)
 
-    conv = torch.nn.Conv2d(in_channels=input.shape[1], out_channels=filters, kernel_size=kernel, stride=stride,
-                           padding=pad, bias=True)
-    with torch.no_grad():
-        conv.weight.copy_(weights)
-        conv.bias.copy_(bias)
+    bias = torch.empty(filters, device=input.device).uniform_(0.0, 1.0)
 
-    input.requires_grad_(True)
+    output = funct.conv2d(input, weight=weights, bias=bias, stride=stride, padding=pad, dilation=dilation)
 
-    pre_activation = conv(input)
-    output = apply_activation(pre_activation, activation)
+    mean = None
+    var = None
+    scale = None
+
+    if batch_norm:
+        mean = torch.empty(filters, device=input.device).uniform_(0.0, 1.0)
+        var = torch.empty(filters, device=input.device).uniform_(0.5, 1.5)
+        scale = torch.empty(filters, device=input.device).uniform_(0.5, 1.5)  # gamma
+
+        output = funct.batch_norm(
+            output,
+            running_mean=mean,
+            running_var=var,
+            weight=scale,
+            bias=bias,
+            training=False,
+            eps=1e-5
+        )
+
+    output = apply_activation(output, activation)
 
     tensors = {
-        "bias": bias,
         "input": input,
         "output": output,
-        "pre_activation": pre_activation,
         "weights": weights,
+        "bias": bias
     }
+
+    if batch_norm:
+        tensors["mean"] = mean
+        tensors["variance"] = var
+        tensors["scale"] = scale
 
     metadata = {
         "activation": activation,
         "dilation": dilation,
-        "input_channels": input.shape[1],
-        "input_shape": list(input.shape),
         "kernel": kernel,
         "layer_type": "conv",
         "operation": "forward",
-        "output_channels": output.shape[1],
-        "output_shape": list(output.shape),
         "padding": pad,
-        "stride": stride
+        "stride": stride,
+        "batch_normalize": batch_norm
     }
 
-    layer_name = "Conv_{}".format(layer_idx + 1)
+    layer_name = "{:03d}_Conv".format(layer_idx + 1)
 
     save_layer(h5_file=h5_file, layer_name=layer_name, tensors=tensors, metadata=metadata)
 
@@ -267,15 +296,14 @@ def compile_maxpool(layer_idx: int, layer: dict, input: torch.Tensor, h5_file: h
     }
 
     metadata = {
-        "input_shape": list(input.shape),
-        "output_shape": list(output.shape),
+        "layer_type": "maxpool",
         "kernel": kernel,
         "stride": stride,
         "padding": pad,
         "dilation": dilation,
     }
 
-    layer_name = "MaxPool_{}".format(layer_idx + 1)
+    layer_name = "{:03d}_MaxPool".format(layer_idx + 1)
 
     save_layer(h5_file=h5_file, layer_name=layer_name, tensors=tensors, metadata=metadata)
 
@@ -285,37 +313,61 @@ def compile_maxpool(layer_idx: int, layer: dict, input: torch.Tensor, h5_file: h
 def compile_fc(layer_idx: int, layer: dict, input: torch.Tensor, h5_file: h5py.File):
     activation = layer["activation"]
     out_features = layer["output"]
+    batch_norm = layer.get("batch_normalize", False)
 
     input = input.view(input.size(0), -1)  # Flatten
     in_features = input.shape[1]
 
-    weights = torch.empty(out_features, in_features, dtype=input.dtype).uniform_(-1.0, 1.0)
-    bias = torch.empty(out_features).uniform_(-0.5, 0.5)
+    weights = torch.empty(out_features, in_features, dtype=input.dtype, device=input.device).uniform_(0.0, 1.0)
+    bias = torch.empty(out_features, device=input.device).uniform_(0.0, 1.0)
 
-    fc = torch.nn.Linear(in_features=input.shape[1], out_features=out_features)
+    fc = torch.nn.Linear(in_features=input.shape[1], out_features=out_features, device=input.device)
 
-    with torch.no_grad():
-        fc.weight.copy_(weights)
-        fc.bias.copy_(bias)
+    fc.weight.copy_(weights)
+    fc.bias.copy_(bias)
 
-    pre_activation = fc(input)
-    output = apply_activation(pre_activation, activation)
+    output = fc(input)
+
+    mean = None
+    var = None
+    scale = None
+
+    if batch_norm:
+        mean = torch.empty(out_features, device=input.device).uniform_(0.0, 1.0)
+        var = torch.empty(out_features, device=input.device).uniform_(0.5, 1.5)
+        scale = torch.empty(out_features, device=input.device).uniform_(0.5, 1.5)  # gamma
+
+        output = funct.batch_norm(
+            output,
+            running_mean=mean,
+            running_var=var,
+            weight=scale,
+            bias=bias,
+            training=False,
+            eps=1e-5
+        )
+
+    output = apply_activation(output, activation)
 
     tensors = {
         "input": input,
-        "pre_activation": pre_activation,
         "output": output,
         "weights": weights,
         "bias": bias
     }
 
+    if batch_norm:
+        tensors["mean"] = mean
+        tensors["variance"] = var
+        tensors["scale"] = scale
+
     metadata = {
+        "layer_type": "connected",
         "activation": activation,
-        "in_features": in_features,
-        "out_features": out_features
+        "batch_normalize": batch_norm
     }
 
-    layer_name = "Connected_{}".format(layer_idx + 1)
+    layer_name = "{:03d}_Connected".format(layer_idx + 1)
 
     save_layer(h5_file=h5_file, layer_name=layer_name, tensors=tensors, metadata=metadata)
 
@@ -341,20 +393,26 @@ def compile_spec(spec_file: str, output_file: str):
     :param spec_file: path to the YAML specification file
     :param output_file: path to the output HDF5 file
     """
-    h5_file = h5py.File(output_file, "w")
+    with h5py.File(output_file, "w") as h5_file:
+        spec = load_spec(spec_file)
 
-    spec = load_spec(spec_file)
+        torch.manual_seed(spec.get("seed", 42))
 
-    torch.manual_seed(spec.get("seed", 42))
+        layers = spec.get("layers", [])
 
-    layers = spec.get("layers", [])
-    input = load_image_tensor(spec)
+        with torch.no_grad():
+            input = load_image_tensor(spec)
 
-    for i in range(0, len(layers)):
-        input = compile_layer(i, layers[i], input, h5_file)
-
-    h5_file.close()
+            for i in range(0, len(layers)):
+                input = compile_layer(i, layers[i], input, h5_file)
 
 
 if __name__ == "__main__":
-    compile_spec("specs/test_1.yaml", "tests.h5")
+    if len(sys.argv) != 3:
+        print(f"Usage: {sys.argv[0]} <spec.yaml> <output.h5>")
+        sys.exit(1)
+
+    spec_path = os.path.abspath(sys.argv[1])
+    output_path = os.path.abspath(sys.argv[2])
+
+    compile_spec(spec_path, output_path)
