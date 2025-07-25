@@ -5,9 +5,9 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(BLA_VENDOR OpenBLAS)
 
-if(POLICY CMP0167)
+if (POLICY CMP0167)
     cmake_policy(SET CMP0167 OLD)
-endif()
+endif ()
 
 if (NOT DEFINED USE_CUDA OR USE_CUDA STREQUAL "")
     set(USE_CUDA 1)
@@ -122,6 +122,7 @@ list(APPEND SOURCES
         src/RandomLRPolicy.cpp
         src/RecordWriter.cpp
         src/SigmoidLRPolicy.cpp
+        src/SmoothCyclicDecayLRPolicy.cpp
         src/SmoothSteppedLRPolicy.cpp
         src/SteppedLRPolicy.cpp
         src/TiffIO.cpp
