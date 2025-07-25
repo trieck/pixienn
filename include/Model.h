@@ -48,6 +48,7 @@
 #include "RandomLRPolicy.h"
 #include "RecordWriter.h"
 #include "SigmoidLRPolicy.h"
+#include "SmoothCyclicDecayLRPolicy.h"
 #include "SmoothSteppedLRPolicy.h"
 #include "SteppedLRPolicy.h"
 #include "Timer.h"
@@ -1117,6 +1118,16 @@ void Model<D>::parsePolicy(const Node& model)
             auto updateInterval = randomNode["update_interval"].as<int>(1000);
 
             policy_ = std::make_unique<RandomLRPolicy>(learningRate, minLR, updateInterval);
+        } else if (sPolicy == "smooth_cyclic_decay") {
+            auto node = lrNode["smooth_cyclic_decay"];
+            auto gamma = node["gamma"].as<float>(0.01f);
+            auto peakHeight = node["peak_height"].as<float>(0.1f);
+            auto peakWidth = node["peak_width"].as<int>();
+            auto peakInterval = node["peak_interval"].as<int>();
+
+            policy_ = std::make_unique<SmoothCyclicDecayLRPolicy>(learningRate, gamma, peakHeight, peakWidth,
+                                                                  peakInterval);
+
         } else {
             PX_ERROR_THROW("Unknown policy \"%s\".", sPolicy.c_str());
         }

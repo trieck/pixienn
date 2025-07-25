@@ -1,5 +1,5 @@
 model:
-  batch: 1
+  batch: 8
   channels: 3
   height: 448
   width: 448
@@ -9,7 +9,7 @@ model:
   decay: 0.0005
 
   adam:
-    enabled: False
+    enabled: True
     beta1: 0.9
     beta2: 0.999
     epsilon: 1e-8
@@ -45,7 +45,7 @@ model:
       power: 2.0
 
     initial_learning_rate: 0.005
-    policy: sigmoid
+    policy: smooth_cyclic_decay
 
     sigmoid:
       target_learning_rate: 0.00001
@@ -58,6 +58,12 @@ model:
     stepped:
       steps: [ -1, 100, 20000, 30000 ]
       scales: [ 0.1, 10, 0.1, 0.1 ]
+
+    smooth_cyclic_decay:
+      gamma: 0.001 # decay rate
+      peak_height: 0.5 # peak is 50% above the initial floor
+      peak_width: 20 # number of steps for the peak
+      peak_interval: 50 # how often does the peak occur
 
   layers:
     - type: conv

@@ -36,6 +36,7 @@ list(APPEND TEST_SOURCES
         src/math.cpp
         src/model.cpp
         src/sigmoid.cpp
+        src/smoothcycle.cpp
         src/smoothsteps.cpp
         src/steppedlr.cpp
         src/tensor.cpp
