@@ -415,8 +415,8 @@ void YoloLayer<D>::processObjects(int b)
 
         for (auto n = 0; n < numAnchors_; ++n) {
             DarkBox pred;
-            pred.w() = anchors_[2 * n] / this->model().width();
-            pred.h() = anchors_[2 * n + 1] / this->model().height();
+            pred.w() = static_cast<float>(anchors_[2 * n]) / this->model().width();
+            pred.h() = static_cast<float>(anchors_[2 * n + 1]) / this->model().height();
 
             auto iou = pred.iou(truthShift);
             if (iou > bestIoU) {
@@ -682,4 +682,3 @@ using CudaYolo = YoloLayer<Device::CUDA>;
 #include "cuda/YoloLayer.h"
 
 #endif // USE_CUDA
-

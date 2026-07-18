@@ -86,6 +86,7 @@ if (USE_CUDA)
             src/CudaError.cpp
             src/CudaUtils.cu
             src/Gemm.cpp
+            src/MaxPoolKernels.cu
             src/ShortcutKernel.cu
             src/SoftmaxKernel.cu
             src/UpsampleKernels.cu

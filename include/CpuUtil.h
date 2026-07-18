@@ -32,7 +32,7 @@ void col2ImCpuExt(const float* dataCol, const int channels,
                   const int padH, const int padW,
                   const int strideH, const int strideW,
                   const int dilationH, const int dilationW,
-                  float* dataIm);
+                  float* dataIm, bool accumulate = false);
 
 void constrain(int n, float alpha, float* x, int incX);
 float constrain(float min, float max, float a);
@@ -60,4 +60,3 @@ void varianceDeltaCpu(const float* x, const float* delta, const float* mean, con
                       int filters, int spatial, float* varianceDelta);
 
 }   // px
-

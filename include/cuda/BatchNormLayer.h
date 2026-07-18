@@ -131,7 +131,10 @@ inline void BatchNormLayer<Device::CUDA>::backward(const V& input, V* grad)
     delta_.copy(xNorm_);
 
     if (grad != nullptr) {
-        grad->copy(delta_);
+        const auto& ctxt = this->cublasContext();
+        auto one = 1.0f;
+        const auto cublasStatus = cublasSaxpy(ctxt, delta_.size(), &one, delta_.data(), 1, grad->data(), 1);
+        PX_CHECK_CUBLAS(cublasStatus);
     }
 }
 
@@ -141,7 +144,7 @@ inline void BatchNormLayer<Device::CUDA>::update()
     const auto& net = this->model();
     auto learningRate = net.learningRate();
     auto momentum = net.momentum();
-    auto batch = this->batch();
+    auto batch = net.updateBatch();
 
     Layer<Device::CUDA>::update();
 

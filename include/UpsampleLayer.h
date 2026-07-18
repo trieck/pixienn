@@ -81,12 +81,14 @@ std::ostream& UpsampleLayer<D>::print(std::ostream& os)
 template<Device D>
 void UpsampleLayer<D>::forward(const V& input)
 {
+    Layer<D>::forward(input);
     upsample(input.data(), this->output_.data(), nullptr, true);
 }
 
 template<Device D>
 void UpsampleLayer<D>::backward(const V& input, V* grad)
 {
+    Layer<D>::backward(input, grad);
     if (grad != nullptr) {
         upsample(nullptr, this->delta_.data(), grad->data(), false);
     }

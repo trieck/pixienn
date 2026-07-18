@@ -42,6 +42,8 @@ public:
 
     std::streamoff loadWeights(std::istream& is) override;
     std::streamoff saveWeights(std::ostream& os) override;
+    std::streamoff loadOptimizer(std::istream& is) override;
+    std::streamoff saveOptimizer(std::ostream& os) override;
 
     std::ostream& print(std::ostream& os) override;
 
@@ -154,6 +156,18 @@ std::streamoff ConnLayer<D>::saveWeights(std::ostream& os)
 }
 
 template<Device D>
+std::streamoff ConnLayer<D>::loadOptimizer(std::istream& is)
+{
+    return 0;
+}
+
+template<Device D>
+std::streamoff ConnLayer<D>::saveOptimizer(std::ostream& os)
+{
+    return 0;
+}
+
+template<Device D>
 std::ostream& ConnLayer<D>::print(std::ostream& os)
 {
     Layer<D>::print(os, "connected", { this->height(), this->width(), this->channels() },
@@ -229,24 +243,25 @@ void ConnLayer<D>::update()
     auto learningRate = net.learningRate();
     auto momentum = net.momentum();
     auto decay = net.decay();
+    auto batch = net.updateBatch();
 
     Layer<D>::update();
 
     // update biases
-    cblas_saxpy(this->outputs(), learningRate / this->batch(), biasUpdates_.data(), 1, biases_.data(), 1);
+    cblas_saxpy(this->outputs(), learningRate / batch, biasUpdates_.data(), 1, biases_.data(), 1);
     cblas_sscal(this->outputs(), momentum, biasUpdates_.data(), 1);
 
     // update scales (if batch normalized)
     if (batchNorm_) {
-        cblas_saxpy(this->outputs(), learningRate / this->batch(), scaleUpdates_.data(), 1, scales_.data(), 1);
+        cblas_saxpy(this->outputs(), learningRate / batch, scaleUpdates_.data(), 1, scales_.data(), 1);
         cblas_sscal(this->outputs(), momentum, scaleUpdates_.data(), 1);
     }
 
     // update weights with weight decay
     auto size = this->inputs() * this->outputs();
 
-    cblas_saxpy(size, -decay * this->batch(), weights_.data(), 1, weightUpdates_.data(), 1);
-    cblas_saxpy(size, learningRate / this->batch(), weightUpdates_.data(), 1, weights_.data(), 1);
+    cblas_saxpy(size, -decay * batch, weights_.data(), 1, weightUpdates_.data(), 1);
+    cblas_saxpy(size, learningRate / batch, weightUpdates_.data(), 1, weights_.data(), 1);
     cblas_sscal(size, momentum, weightUpdates_.data(), 1);
 }
 

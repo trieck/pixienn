@@ -130,6 +130,44 @@ inline std::streamoff ConnLayer<Device::CUDA>::saveWeights(std::ostream& os)
 }
 
 template<>
+inline std::streamoff ConnLayer<Device::CUDA>::loadOptimizer(std::istream& is)
+{
+    const auto start = is.tellg();
+    auto read = [&is](V& device) {
+        PxCpuVector host(device.size());
+        is.read(reinterpret_cast<char*>(host.data()), host.size() * sizeof(float));
+        device.copy(host);
+    };
+    read(m_);
+    read(v_);
+    read(bias_m_);
+    read(bias_v_);
+    read(scale_m_);
+    read(scale_v_);
+    PX_CHECK(is.good(), "Could not read connected optimizer state");
+    return is.tellg() - start;
+}
+
+template<>
+inline std::streamoff ConnLayer<Device::CUDA>::saveOptimizer(std::ostream& os)
+{
+    const auto start = os.tellp();
+    auto write = [&os](const V& device) {
+        PxCpuVector host(device.size());
+        host.copyDevice(device.data(), device.size());
+        os.write(reinterpret_cast<const char*>(host.data()), host.size() * sizeof(float));
+    };
+    write(m_);
+    write(v_);
+    write(bias_m_);
+    write(bias_v_);
+    write(scale_m_);
+    write(scale_v_);
+    PX_CHECK(os.good(), "Could not write connected optimizer state");
+    return os.tellp() - start;
+}
+
+template<>
 inline void ConnLayer<Device::CUDA>::forward(const V& input)
 {
     Layer<Device::CUDA>::forward(input);
@@ -188,17 +226,17 @@ inline void ConnLayer<Device::CUDA>::backward(const V& input, V* grad)
     activation_->gradient(this->preActivation_, this->delta_);
 
     if (batchNorm_) {
-        float alpha = 1.0f, beta = 0.0f;
-        auto expAvgFactor = 0.01f;
+        float alpha = 1.0f, betaData = 0.0f, betaParam = 1.0f;
         auto epsilon = 0.00001f;
         const auto& ctxt = this->cudnnContext();
 
         auto status = cudnnBatchNormalizationBackward(ctxt, CUDNN_BATCHNORM_SPATIAL,
-                                                      &alpha, &beta, &alpha, &beta, *yDesc_, this->x_.data(),
+                                                      &alpha, &betaData, &alpha, &betaParam, *yDesc_, this->x_.data(),
                                                       *yDesc_, this->delta_.data(), *yDesc_, this->xNorm_.data(),
                                                       *sbmv_, scales_.data(), scaleUpdates_.data(),
                                                       biasUpdates_.data(), epsilon, mean_.data(), var_.data());
         PX_CHECK_CUDNN(status);
+        this->delta_.copy(this->xNorm_);
     } else {
         backwardBiasGpu(biasUpdates_.data(), this->delta_.data(), this->batch(), this->outputs(), 1);
     }
@@ -210,7 +248,7 @@ inline void ConnLayer<Device::CUDA>::backward(const V& input, V* grad)
     auto* b = input.data();
     auto* c = this->weightUpdates_.data();
 
-    float alpha = 1.0f, beta = 0.0f;
+    float alpha = 1.0f, beta = 1.0f;
 
     const auto& ctxt = this->cublasContext();
     cublasGemm(ctxt, true, false, m, n, k, alpha, a, m, b, n, beta, c, n);
@@ -234,7 +272,7 @@ inline void ConnLayer<Device::CUDA>::update()
     auto learningRate = net.learningRate();
     auto momentum = net.momentum();
     auto decay = net.decay();
-    auto batch = this->batch();
+    auto batch = net.updateBatch();
 
     Layer<Device::CUDA>::update();
 
@@ -244,14 +282,14 @@ inline void ConnLayer<Device::CUDA>::update()
         auto beta1 = net.adamBeta1();
         auto beta2 = net.adamBeta2();
         auto epsilon = net.adamEpsilon();
-        auto t = net.seen();
+        auto t = net.updateCount();
 
         Adam<Device::CUDA> adam(ctxt, batch, t, learningRate, beta1, beta2, epsilon, decay);
-        adam.update(weights_, weightUpdates_, m_, v_);
-        adam.update(biases_, biasUpdates_, bias_m_, bias_v_);
+        adam.update(weights_, weightUpdates_, m_, v_, true);
+        adam.update(biases_, biasUpdates_, bias_m_, bias_v_, false);
 
         if (scales_.size()) {
-            adam.update(scales_, scaleUpdates_, scale_m_, scale_v_);
+            adam.update(scales_, scaleUpdates_, scale_m_, scale_v_, false);
         }
 
         return;

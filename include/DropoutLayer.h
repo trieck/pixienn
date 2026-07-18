@@ -101,6 +101,7 @@ void DropoutLayer<D>::forward(const V& input)
             this->output_[i] *= this->scale_;
         }
     }
+
 }
 
 template<Device D>
@@ -109,6 +110,9 @@ void DropoutLayer<D>::backward(const V& input, V* grad)
     Layer<D>::backward(input, grad);
 
     if (!this->model().training()) {
+        if (grad != nullptr) {
+            cblas_saxpy(this->batch() * this->outputs(), 1.0f, this->delta_.data(), 1, grad->data(), 1);
+        }
         return;
     }
 
@@ -119,6 +123,10 @@ void DropoutLayer<D>::backward(const V& input, V* grad)
         } else {
             this->delta_[i] *= this->scale_;
         }
+    }
+
+    if (grad != nullptr) {
+        cblas_saxpy(this->batch() * this->outputs(), 1.0f, this->delta_.data(), 1, grad->data(), 1);
     }
 }
 

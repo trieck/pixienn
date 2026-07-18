@@ -136,12 +136,7 @@ float DarkBox::intersection(const DarkBox& other) const noexcept
 
 float DarkBox::unionArea(const DarkBox& other) const noexcept
 {
-    cv::Rect2f rc1(left(), top(), w(), h());
-    cv::Rect2f rc2(other.left(), other.top(), other.w(), other.h());
-
-    auto area = (rc1 | rc2).area();
-
-    return area;
+    return std::max(0.0f, w() * h() + other.w() * other.h() - intersection(other));
 }
 
 float DarkBox::iou(const DarkBox& other) const noexcept

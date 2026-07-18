@@ -138,9 +138,11 @@ void col2ImCpuExt(const float* dataCol, const int channels,
                   const int padH, const int padW,
                   const int strideH, const int strideW,
                   const int dilationH, const int dilationW,
-                  float* dataIm)
+                  float* dataIm, bool accumulate)
 {
-    memset(dataIm, 0, sizeof(float) * height * width * channels);
+    if (!accumulate) {
+        memset(dataIm, 0, sizeof(float) * height * width * channels);
+    }
 
     const auto outputH = (height + 2 * padH - (dilationH * (kernelH - 1) + 1)) / strideH + 1;
     const auto outputW = (width + 2 * padW - (dilationW * (kernelW - 1) + 1)) / strideW + 1;

@@ -34,6 +34,7 @@ list(APPEND TEST_SOURCES
         src/imagebatch.cpp
         src/main.cpp
         src/math.cpp
+        src/maxpool.cpp
         src/model.cpp
         src/sigmoid.cpp
         src/smoothcycle.cpp

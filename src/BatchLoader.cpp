@@ -30,10 +30,10 @@ namespace px {
 BatchLoader::BatchLoader(std::string imagesPath, std::string labelsPath, std::uint32_t batchSize,
                          std::uint32_t channels, std::uint32_t height, std::uint32_t width,
                          std::vector<std::string> labels, const ImageAugmenter::Ptr& augmenter,
-                         bool viewImage, std::uint32_t queueSize)
+                         bool viewImage, std::uint32_t queueSize, bool randomize)
         : imagesPath_(std::move(imagesPath)), labelsPath_(std::move(labelsPath)), batchSize_(batchSize),
           channels_(channels), height_(height), width_(width), stop_(false), labels_(std::move(labels)),
-          augmenter_(augmenter), viewImage_(viewImage), queueSize_(queueSize)
+          augmenter_(augmenter), viewImage_(viewImage), queueSize_(queueSize), randomize_(randomize)
 {
     loadPaths();
 
@@ -60,7 +60,8 @@ void BatchLoader::loadBatches()
 
             MiniBatch batch(batchSize_, channels_, height_, width_);
             for (auto i = 0; i < batchSize_; ++i) {
-                auto j = distribution(generator);
+                auto j = randomize_ ? static_cast<std::size_t>(distribution(generator))
+                                    : nextImage_++ % imageFiles_.size();
                 const auto& path = imageFiles_[j];
                 auto imgLabels = loadImgLabels(path);
 

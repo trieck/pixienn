@@ -37,3 +37,15 @@ TEST(BoxTests, BoxNms)
     EXPECT_EQ(result[0].box(), cv::Rect2f(100, 100, 50, 50));
     EXPECT_EQ(result[1].box(), cv::Rect2f(200, 200, 50, 50));
 }
+
+TEST(BoxTests, BoxNmsDoesNotSuppressAcrossBatchImages)
+{
+    Detections detects = {
+            Detection(cv::Rect2f(100, 100, 50, 50), 0, 1, 0.9f),
+            Detection(cv::Rect2f(100, 100, 50, 50), 1, 1, 0.8f)
+    };
+
+    const auto result = nms(detects, 0.5f);
+
+    EXPECT_EQ(result.size(), 2);
+}
