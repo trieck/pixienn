@@ -54,6 +54,7 @@ private:
     std::queue<MiniBatch> batches_;
     std::mutex mutex_;
     std::condition_variable cv_;
+    std::exception_ptr workerError_;
 
     std::string imagesPath_, labelsPath_;
     std::uint32_t batchSize_, channels_, height_, width_, queueSize_;

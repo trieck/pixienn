@@ -16,6 +16,14 @@ inline void BatchNormLayer<Device::CUDA>::setup()
 {
     this->dstTens_ = std::make_unique<CudnnTensorDesc>();
     this->normTens_ = std::make_unique<CudnnTensorDesc>();
+
+    auto status = cudnnSetTensor4dDescriptor(*dstTens_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
+                                             this->batch(), this->outChannels(), this->outHeight(), this->outWidth());
+    PX_CHECK_CUDNN(status);
+
+    status = cudnnSetTensor4dDescriptor(*normTens_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
+                                        1, this->outChannels(), 1, 1);
+    PX_CHECK_CUDNN(status);
 }
 
 template<>
@@ -46,6 +54,8 @@ inline void BatchNormLayer<Device::CUDA>::forward(const PxCudaVector& input)
     auto beta = 0.0f;
 
     if (training()) {
+        x_.copy(input);
+
         status = cudnnBatchNormalizationForwardTraining(
                 cudnnContext(),
                 CUDNN_BATCHNORM_SPATIAL,
@@ -91,16 +101,17 @@ inline void BatchNormLayer<Device::CUDA>::backward(const V& input, V* grad)
     Layer<Device::CUDA>::backward(input, grad);
 
     auto alpha = 1.0f;
-    auto beta = 0.0f;
+    auto betaData = 0.0f;
+    auto betaParam = 1.0f;
     auto epsilon = 0.00001f;
 
     auto status = cudnnBatchNormalizationBackward(
             cudnnContext(),
             CUDNN_BATCHNORM_SPATIAL,
             &alpha,
-            &beta,
+            &betaData,
             &alpha,
-            &beta,
+            &betaParam,
             *dstTens_,
             x_.data(),
             *dstTens_,
@@ -122,6 +133,51 @@ inline void BatchNormLayer<Device::CUDA>::backward(const V& input, V* grad)
     if (grad != nullptr) {
         grad->copy(delta_);
     }
+}
+
+template<>
+inline void BatchNormLayer<Device::CUDA>::update()
+{
+    const auto& net = this->model();
+    auto learningRate = net.learningRate();
+    auto momentum = net.momentum();
+    auto batch = this->batch();
+
+    Layer<Device::CUDA>::update();
+
+    const auto& ctxt = this->cublasContext();
+
+    auto alpha = learningRate / batch;
+    auto status = cublasSaxpy(ctxt, this->outChannels(), &alpha, biasUpdates_.data(), 1, biases_.data(), 1);
+    PX_CHECK_CUBLAS(status);
+
+    status = cublasSscal(ctxt, this->outChannels(), &momentum, biasUpdates_.data(), 1);
+    PX_CHECK_CUBLAS(status);
+
+    alpha = learningRate / batch;
+    status = cublasSaxpy(ctxt, this->outChannels(), &alpha, scaleUpdates_.data(), 1, scales_.data(), 1);
+    PX_CHECK_CUBLAS(status);
+
+    status = cublasSscal(ctxt, this->outChannels(), &momentum, scaleUpdates_.data(), 1);
+    PX_CHECK_CUBLAS(status);
+}
+
+template<>
+inline void BatchNormLayer<Device::CUDA>::scaleGradients()
+{
+    Layer<Device::CUDA>::scaleGradients();
+
+    this->scaleTensor(biasUpdates_);
+    this->scaleTensor(scaleUpdates_);
+}
+
+template<>
+inline void BatchNormLayer<Device::CUDA>::clipGradients()
+{
+    Layer<Device::CUDA>::clipGradients();
+
+    constrainGpu(biasUpdates_.size(), this->gradientClipValue_, biasUpdates_.data());
+    constrainGpu(scaleUpdates_.size(), this->gradientClipValue_, scaleUpdates_.data());
 }
 
 }   // px

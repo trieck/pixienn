@@ -587,7 +587,7 @@ float Model<D>::trainOnce(const V& input)
 
     auto error = cost();
 
-    if ((++seen_ / batch_) % subdivs_ == 0) {
+    if (++seen_ % subdivs_ == 0) {
         update();
     }
 
@@ -1063,6 +1063,7 @@ void Model<D>::parsePolicy(const Node& model)
             auto burnInBatches = burnInNode["batches"].as<int>(0);
             if (burnInBatches > 0) {
                 auto burnInPower = burnInNode["power"].as<float>(4.0f);
+                burnInBatches_ = burnInBatches;
                 burnInPolicy_ = std::make_unique<BurnInLRPolicy>(learningRate, burnInBatches, burnInPower);
             }
         }
@@ -1127,7 +1128,6 @@ void Model<D>::parsePolicy(const Node& model)
 
             policy_ = std::make_unique<SmoothCyclicDecayLRPolicy>(learningRate, gamma, peakHeight, peakWidth,
                                                                   peakInterval);
-
         } else {
             PX_ERROR_THROW("Unknown policy \"%s\".", sPolicy.c_str());
         }

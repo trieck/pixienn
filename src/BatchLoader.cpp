@@ -15,7 +15,7 @@
 ********************************************************************************/
 
 #include <boost/filesystem.hpp>
-#include <boost/format.hpp>
+#include <boost/algorithm/string/trim.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc/types_c.h>
 #include "BatchLoader.h"
@@ -72,17 +72,23 @@ void BatchLoader::loadBatches()
             lock.unlock();
             cv_.notify_all();
         }
-    } catch (const std::exception& e) {
-        std::cerr << boost::format{ "BatchLoader thread encountered an error: %s " } % e.what() << std::endl;
     } catch (...) {
-        std::cerr << "BatchLoader thread encountered an unknown error" << std::endl;
+        std::unique_lock<std::mutex> lock(mutex_);
+        workerError_ = std::current_exception();
+        stop_ = true;
+        lock.unlock();
+        cv_.notify_all();
     }
 }
 
 MiniBatch BatchLoader::next()
 {
     std::unique_lock<std::mutex> lock(mutex_);
-    cv_.wait(lock, [this] { return stop_ || !batches_.empty(); });
+    cv_.wait(lock, [this] { return stop_ || workerError_ || !batches_.empty(); });
+
+    if (workerError_) {
+        std::rethrow_exception(workerError_);
+    }
 
     PX_CHECK(!batches_.empty(), "No more batches to load");
 
@@ -116,10 +122,25 @@ void BatchLoader::loadPaths()
     PX_CHECK(ifs.is_open(), "Could not open file \"%s\"", imagesPath_.c_str());
 
     imageFiles_.clear();
+    const auto basePath = boost::filesystem::path(imagesPath_).parent_path();
 
     for (std::string line; std::getline(ifs, line);) {
-        imageFiles_.push_back(line);
+        boost::algorithm::trim(line);
+        if (line.empty()) {
+            continue;
+        }
+
+        boost::filesystem::path imagePath(line);
+        if (imagePath.is_relative()) {
+            imagePath = basePath / imagePath;
+        }
+
+        PX_CHECK(boost::filesystem::is_regular_file(imagePath),
+                 "Could not open image file \"%s\"", imagePath.c_str());
+        imageFiles_.push_back(boost::filesystem::canonical(imagePath).string());
     }
+
+    PX_CHECK(!imageFiles_.empty(), "Image list \"%s\" is empty", imagesPath_.c_str());
 }
 
 auto BatchLoader::loadImgLabels(const std::string& imagePath) -> ImageLabels
