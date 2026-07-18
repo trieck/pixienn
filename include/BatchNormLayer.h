@@ -20,6 +20,7 @@ public:
 
     void forward(const V& input) override;
     void backward(const V& input, V* grad) override;
+    void update() override;
 
     std::streamoff loadWeights(std::istream& is) override;
     std::streamoff saveWeights(std::ostream& os) override;
@@ -28,6 +29,8 @@ public:
 
 private:
     void setup();
+    void scaleGradients() override;
+    void clipGradients() override;
 
     V biases_, biasUpdates_, scales_, scaleUpdates_, mean_, meanDelta_, var_, varDelta_;
     V rollingMean_, rollingVar_, x_, xNorm_;
@@ -120,7 +123,7 @@ void BatchNormLayer<D>::forward(const V& input)
     Layer<D>::forward(input);
 
     batchNormForward(this->training(), this->batch(), this->outChannels(), this->outHeight(), this->outWidth(),
-                     this->output_, this->output_, mean_, var_, rollingMean_, rollingVar_, scales_, biases_,
+                     input, this->output_, mean_, var_, rollingMean_, rollingVar_, scales_, biases_,
                      x_, xNorm_);
 }
 
@@ -135,6 +138,41 @@ void BatchNormLayer<D>::backward(const V& input, V* grad)
     if (grad != nullptr) {
         cblas_scopy(this->batch() * this->outputs(), this->delta_.data(), 1, grad->data(), 1);
     }
+}
+
+template<Device D>
+void BatchNormLayer<D>::update()
+{
+    const auto& net = this->model();
+    auto learningRate = net.learningRate();
+    auto momentum = net.momentum();
+    auto batch = this->batch();
+
+    Layer<D>::update();
+
+    cblas_saxpy(this->outChannels(), learningRate / batch, biasUpdates_.data(), 1, biases_.data(), 1);
+    cblas_sscal(this->outChannels(), momentum, biasUpdates_.data(), 1);
+
+    cblas_saxpy(this->outChannels(), learningRate / batch, scaleUpdates_.data(), 1, scales_.data(), 1);
+    cblas_sscal(this->outChannels(), momentum, scaleUpdates_.data(), 1);
+}
+
+template<Device D>
+void BatchNormLayer<D>::scaleGradients()
+{
+    Layer<D>::scaleGradients();
+
+    this->scaleTensor(biasUpdates_);
+    this->scaleTensor(scaleUpdates_);
+}
+
+template<Device D>
+void BatchNormLayer<D>::clipGradients()
+{
+    Layer<D>::clipGradients();
+
+    constrain(biasUpdates_.size(), this->gradientClipValue_, biasUpdates_.data(), 1);
+    constrain(scaleUpdates_.size(), this->gradientClipValue_, scaleUpdates_.data(), 1);
 }
 
 using CpuBatchNorm = BatchNormLayer<>;

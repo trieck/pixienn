@@ -25,7 +25,7 @@ template<>
 class CVExtras<Device::CUDA>
 {
 protected:
-    using V = typename Layer<Device::CUDA>::V;
+    using V = Layer<Device::CUDA>::V;
 
     V fwdWorkspace_, bwdFilterWorkspace_, bwdDataWorkspace_;
     V m_, v_;
@@ -279,17 +279,20 @@ inline void ConvLayer<Device::CUDA>::backward(const V& input, V* grad)
     const auto& ctxt = this->cudnnContext();
 
     auto alpha = 1.0f;
-    auto beta = 0.0f;
+    auto betaData = 0.0f;
+    auto betaParam = 1.0f;
 
     if (batchNorm_) {
         auto epsilon = 0.00001f;
 
         auto status = cudnnBatchNormalizationBackward(ctxt, CUDNN_BATCHNORM_SPATIAL,
-                                                      &alpha, &beta, &alpha, &beta, *yDesc_, this->x_.data(),
+                                                      &alpha, &betaData, &alpha, &betaParam, *yDesc_, this->x_.data(),
                                                       *yDesc_, this->delta_.data(), *yDesc_, this->xNorm_.data(),
                                                       *sbmv_, scales_.data(), scaleUpdates_.data(),
                                                       biasUpdates_.data(), epsilon, mean_.data(), var_.data());
         PX_CHECK_CUDNN(status);
+
+        this->delta_.copy(this->xNorm_);
     } else {
         backwardBiasGpu(biasUpdates_.data(), this->delta_.data(), this->batch(), filters_,
                         this->outHeight() * this->outWidth());
@@ -299,7 +302,7 @@ inline void ConvLayer<Device::CUDA>::backward(const V& input, V* grad)
                                                  this->delta_.data(), *convDesc_, bwdFilterAlgo_,
                                                  bwdFilterWorkspace_.data(),
                                                  bwdFilterWorkspace_.size() * sizeof(float),
-                                                 &beta, *wDesc_, weightUpdates_.data());
+                                                 &betaParam, *wDesc_, weightUpdates_.data());
     PX_CHECK_CUDNN(status);
 
     if (grad) {
@@ -307,7 +310,7 @@ inline void ConvLayer<Device::CUDA>::backward(const V& input, V* grad)
                                               this->delta_.data(), *convDesc_,
                                               bwdDataAlgo_, bwdDataWorkspace_.data(),
                                               bwdDataWorkspace_.size() * sizeof(float),
-                                              &beta, *xDesc_, grad->data());
+                                              &betaData, *xDesc_, grad->data());
         PX_CHECK_CUDNN(status);
     }
 }
@@ -386,9 +389,9 @@ inline void ConvLayer<Device::CUDA>::clipGradients()
 {
     Layer<Device::CUDA>::clipGradients();
 
-    constrainGpu(weightUpdates_.size(), this->gradientThreshold_, this->weightUpdates_.data());
-    constrainGpu(biasUpdates_.size(), this->gradientThreshold_, this->biasUpdates_.data());
-    constrainGpu(scaleUpdates_.size(), this->gradientThreshold_, this->scaleUpdates_.data());
+    constrainGpu(weightUpdates_.size(), this->gradientClipValue_, this->weightUpdates_.data());
+    constrainGpu(biasUpdates_.size(), this->gradientClipValue_, this->biasUpdates_.data());
+    constrainGpu(scaleUpdates_.size(), this->gradientClipValue_, this->scaleUpdates_.data());
 }
 
 } // px
