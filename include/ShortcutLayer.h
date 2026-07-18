@@ -34,7 +34,8 @@ public:
     std::ostream& print(std::ostream& os) override;
 
 private:
-    void shorcut(int w1, int h1, int c1, const V& add, int w2, int h2, int c2, V& out);
+    void shortcut(int w1, int h1, int c1, const V& add, int w2, int h2, int c2, V& out,
+                  float outputScale, float addScale);
 
     Activations<D>::Ptr activation_;
     Layer<D>::Ptr from_;
@@ -85,8 +86,8 @@ void ShortcutLayer<D>::forward(const V& input)
 
     this->output_.copy(input);
 
-    shorcut(this->width(), this->height(), this->channels(), from_->output(),
-            this->outWidth(), this->outHeight(), this->outChannels(), this->output_);
+    shortcut(this->width(), this->height(), this->channels(), from_->output(),
+             this->outWidth(), this->outHeight(), this->outChannels(), this->output_, alpha_, beta_);
 
     activation_->apply(this->output_);
 }
@@ -98,8 +99,8 @@ void ShortcutLayer<D>::backward(const V& input, V* grad)
 
     activation_->gradient(this->output_, this->delta_);
 
-    shorcut(this->outWidth(), this->outHeight(), this->outChannels(), this->delta_,
-            this->width(), this->height(), this->channels(), from_->delta());
+    shortcut(this->outWidth(), this->outHeight(), this->outChannels(), this->delta_,
+             this->width(), this->height(), this->channels(), from_->delta(), 1.0f, beta_);
 
     if (grad != nullptr) {
         cblas_saxpy(this->batch() * this->outputs(), alpha_, this->delta_.data(), 1, grad->data(), 1);
@@ -107,7 +108,8 @@ void ShortcutLayer<D>::backward(const V& input, V* grad)
 }
 
 template<Device D>
-void ShortcutLayer<D>::shorcut(int w1, int h1, int c1, const V& add, int w2, int h2, int c2, V& out)
+void ShortcutLayer<D>::shortcut(int w1, int h1, int c1, const V& add, int w2, int h2, int c2, V& out,
+                                float outputScale, float addScale)
 {
     const auto* padd = add.data();
     auto* pout = out.data();
@@ -128,7 +130,7 @@ void ShortcutLayer<D>::shorcut(int w1, int h1, int c1, const V& add, int w2, int
                 for (auto i = 0; i < minw; ++i) {
                     auto outIndex = i * sample + w2 * (j * sample + h2 * (k + c2 * b));
                     auto addIndex = i * stride + w1 * (j * stride + h1 * (k + c1 * b));
-                    pout[outIndex] = alpha_ * pout[outIndex] + beta_ * padd[addIndex];
+                    pout[outIndex] = outputScale * pout[outIndex] + addScale * padd[addIndex];
                 }
             }
         }
@@ -145,4 +147,3 @@ using CudaShortcut = ShortcutLayer<Device::CUDA>;
 #include "cuda/ShortcutLayer.h"
 
 #endif // USE_CUDA
-

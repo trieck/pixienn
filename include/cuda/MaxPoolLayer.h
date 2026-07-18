@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "Cudnn.h"
+#include "MaxPoolKernels.cuh"
 
 namespace px {
 
@@ -24,51 +24,21 @@ template<>
 class MPExtras<Device::CUDA>
 {
 protected:
-    CudnnPoolingDesc::Ptr poolDesc_;
-    CudnnTensorDesc::Ptr xDesc_, yDesc_, dxDesc_, dyDesc_;
+    PxCudaVectorT<int> indexes_;
 };
 
 template<>
 inline void MaxPoolLayer<Device::CUDA>::setup()
 {
-    poolDesc_ = std::make_unique<CudnnPoolingDesc>();
-
-    auto status = cudnnSetPooling2dDescriptor(*poolDesc_, CUDNN_POOLING_MAX, CUDNN_NOT_PROPAGATE_NAN,
-                                              kernel_, kernel_, padding_ / 2, padding_ / 2, stride_, stride_);
-    PX_CHECK_CUDNN(status);
-
-    xDesc_ = std::make_unique<CudnnTensorDesc>();
-    status = cudnnSetTensor4dDescriptor(*xDesc_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
-                                        this->batch(), this->channels(), this->height(), this->width());
-    PX_CHECK_CUDNN(status);
-
-    yDesc_ = std::make_unique<CudnnTensorDesc>();
-    status = cudnnSetTensor4dDescriptor(*yDesc_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
-                                        this->batch(), this->outChannels(), this->outHeight(), this->outWidth());
-    PX_CHECK_CUDNN(status);
-
-    dxDesc_ = std::make_unique<CudnnTensorDesc>();
-    status = cudnnSetTensor4dDescriptor(*dxDesc_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
-                                        this->batch(), this->channels(), this->height(), this->width());
-    PX_CHECK_CUDNN(status);
-
-    dyDesc_ = std::make_unique<CudnnTensorDesc>();
-    status = cudnnSetTensor4dDescriptor(*dyDesc_, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
-                                        this->batch(), this->outChannels(), this->outHeight(), this->outWidth());
-    PX_CHECK_CUDNN(status);
+    indexes_ = PxCudaVectorT<int>(this->batch() * this->outputs(), -1);
 }
 
 template<>
 inline void MaxPoolLayer<Device::CUDA>::forward(const V& input)
 {
-    auto alpha = 1.0f;
-    auto beta = 0.0f;
-
     Layer<Device::CUDA>::forward(input);
-
-    auto status = cudnnPoolingForward(this->cudnnContext(), *poolDesc_, &alpha, *xDesc_, input.data(), &beta,
-                                      *yDesc_, this->output_.data());
-    PX_CHECK_CUDNN(status);
+    maxPoolForwardGpu(input.data(), this->output_.data(), indexes_.data(), this->batch(), this->channels(),
+                      this->height(), this->width(), this->outHeight(), this->outWidth(), kernel_, stride_, padding_);
 }
 
 template<>
@@ -80,13 +50,7 @@ inline void MaxPoolLayer<Device::CUDA>::backward(const V& input, V* grad)
         return;
     }
 
-    auto alpha = 1.0f;
-    auto beta = 0.0f;
-
-    auto status = cudnnPoolingBackward(this->cudnnContext(), *poolDesc_, &alpha, *yDesc_, this->output_.data(),
-                                       *dyDesc_, delta_.data(), *xDesc_, input.data(), &beta,
-                                       *dxDesc_, grad->data());
-    PX_CHECK_CUDNN(status);
+    maxPoolBackwardGpu(delta_.data(), indexes_.data(), grad->data(), this->batch() * this->outputs());
 }
 
 }   // px

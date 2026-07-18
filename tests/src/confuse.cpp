@@ -216,3 +216,12 @@ TEST_F(ConfusionMatrixTest, MicroAvgF1Score)
 
     EXPECT_NEAR(microAvgF1Score, expectedMicroAvgF1, 1e-2);
 }
+
+TEST_F(ConfusionMatrixTest, MicroAvgF1IncludesGhostsAndUndetectedObjects)
+{
+    matrix.update(0, 0);
+    matrix.update(-1, 0);
+    matrix.update(1, -1);
+
+    EXPECT_NEAR(matrix.microAvgF1(), 0.5f, 1e-6);
+}

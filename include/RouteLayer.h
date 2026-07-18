@@ -61,10 +61,10 @@ RouteLayer<D>::RouteLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D
             outWidth = layer->outWidth();
             outHeight = layer->outHeight();
             outChannels = layer->outChannels();
-        } else if (outWidth == layer->outWidth() && outHeight == layer->outHeight()) {
-            outChannels += layer->outChannels();
         } else {
-            outWidth = outHeight = outChannels;
+            PX_CHECK(outWidth == layer->outWidth() && outHeight == layer->outHeight(),
+                     "Route layers must have matching spatial dimensions");
+            outChannels += layer->outChannels();
         }
 
         layers_[i++] = layer;
@@ -146,5 +146,4 @@ using CudaRoute = RouteLayer<Device::CUDA>;
 #include "cuda/RouteLayer.h"
 
 #endif // USE_CUDA
-
 

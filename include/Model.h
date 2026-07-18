@@ -175,6 +175,8 @@ public:
     float decay() const noexcept;
 
     int batch() const noexcept;
+    int updateBatch() const noexcept;
+    std::size_t updateCount() const noexcept;
     int channels() const noexcept;
     int height() const noexcept;
     int width() const noexcept;
@@ -310,6 +312,7 @@ private:
     int revision_ = 0;
 
     size_t seen_ = 0;
+    std::size_t optimizerStep_ = 0;
     float threshold_ = 0.0f;    // Threshold for confidence
     float mAP_ = 0.0f;          // Mean Average Precision
     float avgRecall_ = 0.0f;    // Average Recall
@@ -379,7 +382,7 @@ void Model<D>::train()
 
     if (valEnabled_) {
         valLoader_ = std::make_unique<BatchLoader>(valImagePath_, valLabelPath_, batch_, channels_, height_, width_,
-                                                   labels_, augmenter_);
+                                                   labels_, nullptr, false, 10, false);
     }
 
     avgLoss_ = std::numeric_limits<float>::lowest();
@@ -858,6 +861,7 @@ void Model<D>::loadWeights()
         boost::filesystem::remove(weightsFile_);
     }
 
+    auto loadedWeightsFile = weightsFile_;
     std::ifstream ifs(weightsFile_, std::ios::in | std::ios::binary);
     if (inferring() && ifs.fail()) { // it is not an error for training weights to not exist.
         PX_ERROR_THROW("Could not open file \"%s\".", weightsFile_.c_str());
@@ -867,6 +871,7 @@ void Model<D>::loadWeights()
         std::printf("\nweights not found, trying latest weights \"%s\"...", latestWeightsFile.c_str());
         ifs.open(latestWeightsFile, std::ios::in | std::ios::binary);
         if (ifs.is_open()) {
+            loadedWeightsFile = latestWeightsFile;
             std::printf("found.\n");
         } else {
             std::printf("not found.\n");
@@ -898,6 +903,26 @@ void Model<D>::loadWeights()
                  pos, length);
 
         ifs.close();
+
+        if (training() && adamEnabled_) {
+            const auto optimizerFile = loadedWeightsFile + ".optimizer";
+            std::ifstream optimizer(optimizerFile, std::ios::in | std::ios::binary);
+            if (optimizer.is_open()) {
+                constexpr std::uint32_t magic = 0x50584f31;
+                std::uint32_t fileMagic = 0;
+                optimizer.read(reinterpret_cast<char*>(&fileMagic), sizeof(fileMagic));
+                PX_CHECK(fileMagic == magic, "Invalid optimizer state file \"%s\"", optimizerFile.c_str());
+                optimizer.read(reinterpret_cast<char*>(&optimizerStep_), sizeof(optimizerStep_));
+                for (const auto& layer: layers()) {
+                    layer->loadOptimizer(optimizer);
+                }
+                PX_CHECK(optimizer.good() || optimizer.eof(), "Could not read optimizer state \"%s\"",
+                         optimizerFile.c_str());
+            } else {
+                optimizerStep_ = 0;
+                std::printf("Adam optimizer state not found; moments will restart at step 1.\n");
+            }
+        }
     }
 }
 
@@ -1180,6 +1205,7 @@ void Model<D>::backward(const V& input)
 template<Device D>
 void Model<D>::update()
 {
+    ++optimizerStep_;
     updateLR();
 
     for (auto& layer: layers_) {
@@ -1274,6 +1300,18 @@ float Model<D>::decay() const noexcept
 }
 
 template<Device D>
+int Model<D>::updateBatch() const noexcept
+{
+    return batch_ * subdivs_;
+}
+
+template<Device D>
+std::size_t Model<D>::updateCount() const noexcept
+{
+    return optimizerStep_;
+}
+
+template<Device D>
 void Model<D>::saveWeights(bool final)
 {
     if (!boost::filesystem::exists(backupDir_)) {
@@ -1303,6 +1341,19 @@ void Model<D>::saveWeights(const std::string& fileName)
     }
 
     ofs.close();
+
+    if (adamEnabled_) {
+        const auto optimizerFile = fileName + ".optimizer";
+        std::ofstream optimizer(optimizerFile, std::ios::out | std::ios::trunc | std::ios::binary);
+        PX_CHECK(optimizer.good(), "Could not open file \"%s\". %s", optimizerFile.c_str(), std::strerror(errno));
+        constexpr std::uint32_t magic = 0x50584f31;
+        optimizer.write(reinterpret_cast<const char*>(&magic), sizeof(magic));
+        optimizer.write(reinterpret_cast<const char*>(&optimizerStep_), sizeof(optimizerStep_));
+        for (const auto& layer: layers()) {
+            layer->saveOptimizer(optimizer);
+        }
+        PX_CHECK(optimizer.good(), "Could not write optimizer state \"%s\"", optimizerFile.c_str());
+    }
 }
 
 template<Device D>
@@ -1342,9 +1393,11 @@ void Model<D>::validate()
 
     Validator <D> validator(valThresh_, classes());
 
-    for (auto i = 0; i < valBatches_; ++i) {
-        auto batch = valLoader_->next();
-        validator.validate(*this, std::move(batch));
+    const auto availableBatches = std::max<std::size_t>(1, (valLoader_->size() + batch_ - 1) / batch_);
+    const auto batches = std::min<std::size_t>(valBatches_, availableBatches);
+    for (std::size_t i = 0; i < batches; ++i) {
+        trainBatch_ = valLoader_->next();
+        validator.validate(*this, trainBatch_);
     }
 
     mAP_ = validator.mAP();

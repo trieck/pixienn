@@ -42,6 +42,8 @@ public:
 
     std::streamoff loadWeights(std::istream& is) override;
     virtual std::streamoff saveWeights(std::ostream& os) override;
+    std::streamoff loadOptimizer(std::istream& is) override;
+    std::streamoff saveOptimizer(std::ostream& os) override;
 
     void copyWeights(const V& weights);
     void copyBiases(const V& biases);
@@ -166,6 +168,18 @@ std::streamoff ConvLayer<D>::saveWeights(std::ostream& os)
 }
 
 template<Device D>
+std::streamoff ConvLayer<D>::loadOptimizer(std::istream& is)
+{
+    return 0;
+}
+
+template<Device D>
+std::streamoff ConvLayer<D>::saveOptimizer(std::ostream& os)
+{
+    return 0;
+}
+
+template<Device D>
 std::ostream& ConvLayer<D>::print(std::ostream& os)
 {
     Layer<D>::print(os, "conv", { this->height(), this->width(), this->channels() },
@@ -275,7 +289,8 @@ void ConvLayer<D>::backward(const V& input, V* grad)
                 cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, n, k, m, alpha, a, n, b, k, 0.0f, c, k);
 
                 col2ImCpuExt(c, this->channels() / groups_, this->height(), this->width(), kernel_, kernel_,
-                             padding_ * dilation_, padding_ * dilation_, stride_, stride_, dilation_, dilation_, imd);
+                             padding_ * dilation_, padding_ * dilation_, stride_, stride_, dilation_, dilation_, imd,
+                             true);
             }
         }
     }
@@ -288,18 +303,19 @@ void ConvLayer<D>::update()
     auto learningRate = net.learningRate();
     auto momentum = net.momentum();
     auto decay = net.decay();
+    auto batch = net.updateBatch();
 
     Layer<D>::update();
 
-    cblas_saxpy(weights_.size(), -decay * this->batch(), weights_.data(), 1, weightUpdates_.data(), 1);
-    cblas_saxpy(weights_.size(), learningRate / this->batch(), weightUpdates_.data(), 1, weights_.data(), 1);
+    cblas_saxpy(weights_.size(), -decay * batch, weights_.data(), 1, weightUpdates_.data(), 1);
+    cblas_saxpy(weights_.size(), learningRate / batch, weightUpdates_.data(), 1, weights_.data(), 1);
     cblas_sscal(weights_.size(), momentum, weightUpdates_.data(), 1);
 
-    cblas_saxpy(filters_, learningRate / this->batch(), biasUpdates_.data(), 1, biases_.data(), 1);
+    cblas_saxpy(filters_, learningRate / batch, biasUpdates_.data(), 1, biases_.data(), 1);
     cblas_sscal(filters_, momentum, biasUpdates_.data(), 1);
 
     if (scales_.size()) {
-        cblas_saxpy(filters_, learningRate / this->batch(), scaleUpdates_.data(), 1, scales_.data(), 1);
+        cblas_saxpy(filters_, learningRate / batch, scaleUpdates_.data(), 1, scales_.data(), 1);
         cblas_sscal(filters_, momentum, scaleUpdates_.data(), 1);
     }
 }

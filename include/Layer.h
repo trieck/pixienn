@@ -58,6 +58,8 @@ public:
 
     virtual std::streamoff loadWeights(std::istream& is);
     virtual std::streamoff saveWeights(std::ostream& os);
+    virtual std::streamoff loadOptimizer(std::istream& is);
+    virtual std::streamoff saveOptimizer(std::ostream& os);
     virtual bool hasCost() const noexcept;
     float cost() const noexcept;
 
@@ -206,6 +208,18 @@ std::streamoff Layer<D>::loadWeights(std::istream& is)
 
 template<Device D>
 std::streamoff Layer<D>::saveWeights(std::ostream& is)
+{
+    return 0;
+}
+
+template<Device D>
+std::streamoff Layer<D>::loadOptimizer(std::istream& is)
+{
+    return 0;
+}
+
+template<Device D>
+std::streamoff Layer<D>::saveOptimizer(std::ostream& os)
 {
     return 0;
 }
@@ -504,4 +518,3 @@ const CublasContext& Layer<D>::cublasContext() const noexcept
 #endif  // USE_CUDA
 
 }   // px
-

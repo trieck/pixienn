@@ -29,7 +29,7 @@ public:
     BatchLoader(std::string imagesPath, std::string labelsPath, std::uint32_t batchSize, std::uint32_t channels,
                 std::uint32_t height, std::uint32_t width,
                 std::vector<std::string> labels, const ImageAugmenter::Ptr& augmenter = nullptr,
-                bool viewImage = false, std::uint32_t queueSize = 10);
+                bool viewImage = false, std::uint32_t queueSize = 10, bool randomize = true);
     ~BatchLoader();
 
     using Ptr = std::unique_ptr<BatchLoader>;
@@ -58,7 +58,8 @@ private:
 
     std::string imagesPath_, labelsPath_;
     std::uint32_t batchSize_, channels_, height_, width_, queueSize_;
-    bool stop_, viewImage_;
+    bool stop_, viewImage_, randomize_;
+    std::size_t nextImage_ = 0;
 };
 
 } // px

@@ -35,7 +35,7 @@ public:
 
     using V = typename DeviceTraits<D>::VectorType;
 
-    void validate(Model<D>& model, MiniBatch&& batch);
+    void validate(Model<D>& model, const MiniBatch& batch);
     void reset() noexcept;
 
     float avgRecall() const noexcept;
@@ -54,6 +54,14 @@ private:
     ConfusionMatrix matrix_;
     std::unordered_set<int> classesSeen_;
 
+    struct RankedPrediction
+    {
+        float confidence;
+        bool truePositive;
+    };
+    std::vector<std::vector<RankedPrediction>> predictions_;
+    std::vector<std::size_t> groundTruthCounts_;
+
     float threshold_;
     float totalLoss_ = 0.0f;
     int seen_ = 0;
@@ -63,7 +71,8 @@ private:
 
 template<Device D>
 Validator<D>::Validator(float threshold, int numClasses)
-        : threshold_(threshold), matrix_(numClasses), totalLoss_(0.0f), seen_(0), correctPredictions_(0),
+        : threshold_(threshold), matrix_(numClasses), predictions_(numClasses), groundTruthCounts_(numClasses, 0),
+          totalLoss_(0.0f), seen_(0), correctPredictions_(0),
           totalPredictions_(0)
 {
 }
@@ -77,7 +86,36 @@ float Validator<D>::microAvgF1() const noexcept
 template<Device D>
 float Validator<D>::mAP() const noexcept
 {
-    return matrix_.mAP(classesSeen_);
+    float totalAP = 0.0f;
+    std::size_t classes = 0;
+
+    for (std::size_t cls = 0; cls < groundTruthCounts_.size(); ++cls) {
+        if (groundTruthCounts_[cls] == 0) {
+            continue;
+        }
+        ++classes;
+        auto ranked = predictions_[cls];
+        std::sort(ranked.begin(), ranked.end(), [](const auto& lhs, const auto& rhs) {
+            return lhs.confidence > rhs.confidence;
+        });
+
+        std::vector<float> precision(ranked.size()), recall(ranked.size());
+        float tp = 0.0f, fp = 0.0f;
+        for (std::size_t i = 0; i < ranked.size(); ++i) {
+            ranked[i].truePositive ? ++tp : ++fp;
+            precision[i] = tp / (tp + fp);
+            recall[i] = tp / groundTruthCounts_[cls];
+        }
+        for (std::size_t i = precision.size(); i > 1; --i) {
+            precision[i - 2] = std::max(precision[i - 2], precision[i - 1]);
+        }
+        float previousRecall = 0.0f;
+        for (std::size_t i = 0; i < ranked.size(); ++i) {
+            totalAP += (recall[i] - previousRecall) * precision[i];
+            previousRecall = recall[i];
+        }
+    }
+    return classes == 0 ? 0.0f : totalAP / classes;
 }
 
 template<Device D>
@@ -111,6 +149,10 @@ void Validator<D>::reset() noexcept
 {
     matrix_.reset();
     classesSeen_.clear();
+    for (auto& predictions: predictions_) {
+        predictions.clear();
+    }
+    std::fill(groundTruthCounts_.begin(), groundTruthCounts_.end(), 0);
     totalLoss_ = 0.0f;
     seen_ = 0;
     correctPredictions_ = 0;
@@ -118,7 +160,7 @@ void Validator<D>::reset() noexcept
 }
 
 template<Device D>
-void Validator<D>::validate(Model<D>& model, MiniBatch&& batch)
+void Validator<D>::validate(Model<D>& model, const MiniBatch& batch)
 {
     model.setMode(Mode::VALIDATING);
 
@@ -180,8 +222,41 @@ void Validator<D>::processDetects(const Detections& detects, const GroundTruths&
 {
     auto results = nms(detects, 0.2f);
 
+    std::sort(results.begin(), results.end(), [](const auto& lhs, const auto& rhs) {
+        return lhs.prob() > rhs.prob();
+    });
+
     for (std::size_t b = 0; b < gts.size(); ++b) {
         auto gtv = gts[b];   // copy the ground truth vector
+
+        for (const auto& gt: gtv) {
+            classesSeen_.emplace(gt.classId);
+            ++groundTruthCounts_.at(gt.classId);
+        }
+
+        std::vector<bool> apMatched(gtv.size(), false);
+        for (const auto& detect: results) {
+            if (detect.batchId() != b) {
+                continue;
+            }
+            auto bestIndex = gtv.size();
+            auto bestIoU = threshold_;
+            for (std::size_t i = 0; i < gtv.size(); ++i) {
+                if (apMatched[i] || gtv[i].classId != detect.classIndex()) {
+                    continue;
+                }
+                const auto overlap = iou(detect, gtv[i]);
+                if (overlap >= bestIoU) {
+                    bestIoU = overlap;
+                    bestIndex = i;
+                }
+            }
+            const auto truePositive = bestIndex < gtv.size();
+            if (truePositive) {
+                apMatched[bestIndex] = true;
+            }
+            predictions_.at(detect.classIndex()).push_back({ detect.prob(), truePositive });
+        }
 
         for (const auto& detect: results) {
             if (detect.batchId() != b) {
@@ -220,4 +295,3 @@ void Validator<D>::processDetects(const Detections& detects, const GroundTruths&
 #include "cuda/Validator.h"
 
 #endif
-

@@ -94,7 +94,7 @@ inline void SoftmaxLayer<Device::CUDA>::backward(const V& input, V* grad)
     }
 
     auto alpha = 1.0f;
-    auto beta = 0.0f;
+    auto beta = 1.0f;
 
     const auto& ctxt = this->cudnnContext();
 

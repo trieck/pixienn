@@ -136,7 +136,7 @@ void BatchNormLayer<D>::backward(const V& input, V* grad)
                       mean_, var_, meanDelta_, varDelta_, scales_, scaleUpdates_, biasUpdates_, x_, xNorm_);
 
     if (grad != nullptr) {
-        cblas_scopy(this->batch() * this->outputs(), this->delta_.data(), 1, grad->data(), 1);
+        cblas_saxpy(this->batch() * this->outputs(), 1.0f, this->delta_.data(), 1, grad->data(), 1);
     }
 }
 
@@ -146,7 +146,7 @@ void BatchNormLayer<D>::update()
     const auto& net = this->model();
     auto learningRate = net.learningRate();
     auto momentum = net.momentum();
-    auto batch = this->batch();
+    auto batch = net.updateBatch();
 
     Layer<D>::update();
 

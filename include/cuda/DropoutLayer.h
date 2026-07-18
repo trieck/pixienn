@@ -27,7 +27,7 @@ protected:
     CudnnDropoutDesc::Ptr dropoutDesc_;
     CudnnTensorDesc::Ptr inputDesc_, outputDesc_;
 
-    V states_, reserves_;
+    V states_, reserves_, backwardOutput_;
 
     size_t stateSize_ = 0;
     size_t reserveSize_ = 0;
@@ -64,6 +64,7 @@ inline void DropoutLayer<Device::CUDA>::setup()
     PX_CHECK_CUDNN(status);
 
     reserves_ = V(reserveSize_);
+    backwardOutput_ = V(this->batch() * this->outputs(), 0.0f);
 }
 
 template<>
@@ -93,7 +94,15 @@ inline void DropoutLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
     Layer<Device::CUDA>::backward(input, grad);
 
+    if (grad == nullptr) {
+        return;
+    }
+
     if (!this->model().training()) {
+        const auto& ctxt = this->cublasContext();
+        auto one = 1.0f;
+        const auto status = cublasSaxpy(ctxt, this->delta_.size(), &one, this->delta_.data(), 1, grad->data(), 1);
+        PX_CHECK_CUBLAS(status);
         return;
     }
 
@@ -103,10 +112,16 @@ inline void DropoutLayer<Device::CUDA>::backward(const V& input, V* grad)
             ctxt,
             *dropoutDesc_,
             *outputDesc_, this->delta_.data(),
-            *inputDesc_, grad->data(),
+            *inputDesc_, backwardOutput_.data(),
             reserves_.data(), reserveSize_);
 
     PX_CHECK_CUDNN(status);
+
+    auto one = 1.0f;
+    const auto cublasStatus = cublasSaxpy(this->cublasContext(), backwardOutput_.size(), &one,
+                                          backwardOutput_.data(), 1,
+                                          grad->data(), 1);
+    PX_CHECK_CUBLAS(cublasStatus);
 }
 
 }   // px

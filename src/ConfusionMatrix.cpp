@@ -196,13 +196,9 @@ float ConfusionMatrix::microAvgF1() const
     auto falseNegatives = 0.0f;
 
     for (auto i = 0; i < numClasses_; ++i) {
-        truePositives += matrix_[i][i];
-        for (int j = 0; j < numClasses_; ++j) {
-            if (j != i) {
-                falsePositives += matrix_[j][i];
-                falseNegatives += matrix_[i][j];
-            }
-        }
+        truePositives += TP(i);
+        falsePositives += FP(i);
+        falseNegatives += FN(i);
     }
 
     if (truePositives + falsePositives == 0) {

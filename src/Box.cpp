@@ -26,7 +26,7 @@ static float boxIntersection(const cv::Rect2f& a, const cv::Rect2f& b)
 
 static float boxUnion(const cv::Rect2f& a, const cv::Rect2f& b)
 {
-    return float((a | b).area());
+    return std::max(0.0f, a.area() + b.area() - (a & b).area());
 }
 
 static float boxIoU(const cv::Rect2f& a, const cv::Rect2f& b)
@@ -53,7 +53,8 @@ Detections nms(const Detections& detects, float threshold)
                 continue;
             }
 
-            if (detects[i].classIndex() != detects[j].classIndex()) {
+            if (detects[i].batchId() != detects[j].batchId()
+                || detects[i].classIndex() != detects[j].classIndex()) {
                 continue;
             }
 

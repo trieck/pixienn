@@ -89,7 +89,7 @@ TEST(DarkBoxTest, UnionArea)
 
     auto area = box1.unionArea(box2);
 
-    EXPECT_FLOAT_EQ(area, 20.0f);
+    EXPECT_FLOAT_EQ(area, 18.0f);
 }
 
 TEST(DarkBoxTest, IntersectionOverUnion)
@@ -102,5 +102,5 @@ TEST(DarkBoxTest, IntersectionOverUnion)
     auto expected = box1.intersection(box2) / box1.unionArea(box2);
 
     EXPECT_FLOAT_EQ(iou, expected);
-    EXPECT_FLOAT_EQ(iou, 0.3f);
+    EXPECT_FLOAT_EQ(iou, 1.0f / 3.0f);
 }

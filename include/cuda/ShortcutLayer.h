@@ -43,7 +43,7 @@ inline void ShortcutLayer<Device::CUDA>::backward(const V& input, V* grad)
     const auto& ctxt = this->cublasContext();
 
     shortcutGpu(this->batch(), this->outWidth(), this->outHeight(), this->outChannels(), this->delta_.data(),
-                this->width(), this->height(), this->channels(), alpha_, beta_, from_->delta().data());
+                this->width(), this->height(), this->channels(), 1.0f, beta_, from_->delta().data());
 
     if (grad != nullptr) {
         auto status = cublasSaxpy(ctxt, this->outputs() * this->batch(), &alpha_, this->delta_.data(), 1,

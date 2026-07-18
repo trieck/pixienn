@@ -226,6 +226,44 @@ inline std::streamoff ConvLayer<Device::CUDA>::saveWeights(std::ostream& os)
 }
 
 template<>
+inline std::streamoff ConvLayer<Device::CUDA>::loadOptimizer(std::istream& is)
+{
+    const auto start = is.tellg();
+    auto read = [&is](V& device) {
+        PxCpuVector host(device.size());
+        is.read(reinterpret_cast<char*>(host.data()), host.size() * sizeof(float));
+        device.copy(host);
+    };
+    read(m_);
+    read(v_);
+    read(bias_m_);
+    read(bias_v_);
+    read(scale_m_);
+    read(scale_v_);
+    PX_CHECK(is.good(), "Could not read convolution optimizer state");
+    return is.tellg() - start;
+}
+
+template<>
+inline std::streamoff ConvLayer<Device::CUDA>::saveOptimizer(std::ostream& os)
+{
+    const auto start = os.tellp();
+    auto write = [&os](const V& device) {
+        PxCpuVector host(device.size());
+        host.copyDevice(device.data(), device.size());
+        os.write(reinterpret_cast<const char*>(host.data()), host.size() * sizeof(float));
+    };
+    write(m_);
+    write(v_);
+    write(bias_m_);
+    write(bias_v_);
+    write(scale_m_);
+    write(scale_v_);
+    PX_CHECK(os.good(), "Could not write convolution optimizer state");
+    return os.tellp() - start;
+}
+
+template<>
 inline void ConvLayer<Device::CUDA>::forward(const V& input)
 {
     Layer<Device::CUDA>::forward(input);
@@ -280,6 +318,7 @@ inline void ConvLayer<Device::CUDA>::backward(const V& input, V* grad)
 
     auto alpha = 1.0f;
     auto betaData = 0.0f;
+    auto betaAccum = 1.0f;
     auto betaParam = 1.0f;
 
     if (batchNorm_) {
@@ -310,7 +349,7 @@ inline void ConvLayer<Device::CUDA>::backward(const V& input, V* grad)
                                               this->delta_.data(), *convDesc_,
                                               bwdDataAlgo_, bwdDataWorkspace_.data(),
                                               bwdDataWorkspace_.size() * sizeof(float),
-                                              &betaData, *xDesc_, grad->data());
+                                              &betaAccum, *xDesc_, grad->data());
         PX_CHECK_CUDNN(status);
     }
 }
@@ -322,7 +361,7 @@ inline void ConvLayer<Device::CUDA>::update()
     auto learningRate = net.learningRate();
     auto momentum = net.momentum();
     auto decay = net.decay();
-    auto batch = this->batch();
+    auto batch = net.updateBatch();
 
     Layer<Device::CUDA>::update();
 
@@ -332,15 +371,15 @@ inline void ConvLayer<Device::CUDA>::update()
         auto beta1 = net.adamBeta1();
         auto beta2 = net.adamBeta2();
         auto epsilon = net.adamEpsilon();
-        auto t = net.seen();
+        auto t = net.updateCount();
 
         Adam<Device::CUDA> adam(ctxt, batch, t, learningRate, beta1, beta2, epsilon, decay);
 
-        adam.update(weights_, weightUpdates_, m_, v_);
-        adam.update(biases_, biasUpdates_, bias_m_, bias_v_);
+        adam.update(weights_, weightUpdates_, m_, v_, true);
+        adam.update(biases_, biasUpdates_, bias_m_, bias_v_, false);
 
         if (scales_.size()) {
-            adam.update(scales_, scaleUpdates_, scale_m_, scale_v_);
+            adam.update(scales_, scaleUpdates_, scale_m_, scale_v_, false);
         }
 
         return;
@@ -365,7 +404,7 @@ inline void ConvLayer<Device::CUDA>::update()
     PX_CHECK_CUBLAS(status);
 
     if (scales_.size()) {
-        alpha = learningRate / this->batch();
+        alpha = learningRate / batch;
         status = cublasSaxpy(ctxt, filters_, &alpha, scaleUpdates_.data(), 1, scales_.data(), 1);
         PX_CHECK_CUBLAS(status);
 

@@ -54,6 +54,9 @@ MaxPoolLayer<D>::MaxPoolLayer(Model<D>& model, const YAML::Node& layerDef) : Lay
     kernel_ = this->template property<int>("kernel", 1);
     stride_ = this->template property<int>("stride", 1);
     padding_ = this->template property<int>("padding", std::max<int>(0, kernel_ - 1));
+    PX_CHECK(kernel_ > 0, "MaxPool kernel must be positive");
+    PX_CHECK(stride_ > 0, "MaxPool stride must be positive");
+    PX_CHECK(padding_ >= 0, "MaxPool padding cannot be negative");
 
     this->setOutChannels(this->channels());
     this->setOutHeight((this->height() + padding_ - kernel_) / stride_ + 1);
@@ -116,8 +119,10 @@ void MaxPoolLayer<D>::forward(const V& input)
                             auto index = curW + iw * (curH + ih * (k + c * b));
                             auto valid = (curH >= 0 && curH < ih && curW >= 0 && curW < iw);
                             auto val = (valid != 0) ? pin[index] : min;
-                            maxIndex = (val > max) ? index : maxIndex;
-                            max = (val > max) ? val : max;
+                            if (valid && (maxIndex < 0 || val > max)) {
+                                maxIndex = index;
+                                max = val;
+                            }
                         }
                     }
 
@@ -146,7 +151,9 @@ void MaxPoolLayer<D>::backward(const V& input, V* grad)
 
     for (auto i = 0; i < size; ++i) {
         auto index = pindexes[i];
-        pgrad[index] += pDelta[i];
+        if (index >= 0) {
+            pgrad[index] += pDelta[i];
+        }
     }
 }
 
