@@ -71,7 +71,7 @@ private:
     void forwardCpu(const PxCpuVector& input);
     void resetStats();
     void processDetects(int b, int i);
-    DarkBox predBox(const float* poutput) const;
+    DarkBox predBox(const float* poutput, int gridIndex) const;
     GroundTruthResult groundTruth(const GroundTruthContext& ctxt);
     void setup();
     void writeStats();
@@ -174,7 +174,14 @@ void DetectLayer<D>::addDetects(Detections& detections, int batch, int width, in
         auto col = i % this->side_;
         for (auto n = 0; n < this->num_; ++n) {
             auto pindex = locations * nclasses + i * this->num_ + n;
-            auto scale = sigmoid(predictions[pindex]);
+            // YOLOv1 trains objectness and class probabilities as linear
+            // squared-error outputs. Applying sigmoid only during inference
+            // would turn a correctly learned background value of zero into
+            // 0.5 and create a false-positive probability floor of 0.25.
+            auto scale = predictions[pindex];
+            if (!std::isfinite(scale) || scale <= 0.0f) {
+                continue;
+            }
             auto bindex = locations * (nclasses + this->num_) + (i * this->num_ + n) * this->coords_;
             auto x = (predictions[bindex + 0] + col) / this->side_ * width;
             auto y = (predictions[bindex + 1] + row) / this->side_ * height;
@@ -185,7 +192,7 @@ void DetectLayer<D>::addDetects(Detections& detections, int batch, int width, in
             auto maxProb = std::numeric_limits<float>::lowest();
             for (auto j = 0; j < nclasses; ++j) {
                 auto index = i * nclasses + j;
-                auto prob = scale * sigmoid(predictions[index]);
+                auto prob = scale * predictions[index];
                 if (prob > maxProb) {
                     maxClass = j;
                     maxProb = prob;
@@ -360,12 +367,15 @@ void DetectLayer<D>::writeAnyObj()
 }
 
 template<Device D>
-DarkBox DetectLayer<D>::predBox(const float* poutput) const
+DarkBox DetectLayer<D>::predBox(const float* poutput, int gridIndex) const
 {
     DarkBox box{};
 
-    box.x() = *poutput++ / this->side_;
-    box.y() = *poutput++ / this->side_;
+    const auto row = gridIndex / this->side_;
+    const auto col = gridIndex % this->side_;
+
+    box.x() = (*poutput++ + col) / this->side_;
+    box.y() = (*poutput++ + row) / this->side_;
     box.w() = *poutput++;
     box.h() = *poutput++;
 
@@ -415,7 +425,7 @@ void DetectLayer<D>::processDetects(int b, int i)
         avgAnyObj_ += poutput[pobject];
 
         auto boxIndex = index + locations * (nclasses + this->num_) + (i * this->num_ + j) * this->coords_;
-        ctxt.pred = predBox(poutput + boxIndex);
+        ctxt.pred = predBox(poutput + boxIndex, i);
         auto result = groundTruth(ctxt);
         if (result.bestIoU > ctxt.bestIoU) {
             ctxt.bestIoU = result.bestIoU;
@@ -440,8 +450,6 @@ void DetectLayer<D>::processDetects(int b, int i)
     }
 
     DarkBox truthBox(gt->box);
-    truthBox.x() /= side_;
-    truthBox.y() /= side_;
 
     auto row = i / side_;
     auto col = i % side_;
@@ -454,7 +462,7 @@ void DetectLayer<D>::processDetects(int b, int i)
     auto pobject = index + locations * nclasses + i * num_ + bestJ;
     auto boxIndex = index + locations * (nclasses + num_) + (i * num_ + bestJ) * coords_;
 
-    auto pred = predBox(poutput + boxIndex);
+    auto pred = predBox(poutput + boxIndex, i);
     auto iou = pred.iou(truthBox);
 
     avgObj_ += poutput[pobject];
@@ -464,8 +472,10 @@ void DetectLayer<D>::processDetects(int b, int i)
         pdelta[pobject] = objectScale_ * (iou - poutput[pobject]);
     }
 
-    pdelta[boxIndex + 0] = coordScale_ * (gt->box.x() - poutput[boxIndex + 0]);
-    pdelta[boxIndex + 1] = coordScale_ * (gt->box.y() - poutput[boxIndex + 1]);
+    const auto truthX = gt->box.x() * side_ - col;
+    const auto truthY = gt->box.y() * side_ - row;
+    pdelta[boxIndex + 0] = coordScale_ * (truthX - poutput[boxIndex + 0]);
+    pdelta[boxIndex + 1] = coordScale_ * (truthY - poutput[boxIndex + 1]);
     pdelta[boxIndex + 2] = coordScale_ * (gt->box.w() - poutput[boxIndex + 2]);
     pdelta[boxIndex + 3] = coordScale_ * (gt->box.h() - poutput[boxIndex + 3]);
 
@@ -497,8 +507,6 @@ GroundTruthResult DetectLayer<D>::groundTruth(const GroundTruthContext& ctxt)
         }
 
         DarkBox truthBox(gt.box);
-        truthBox.x() /= side_;
-        truthBox.y() /= side_;
 
         auto iou = ctxt.pred.iou(truthBox);
         if (iou > result.bestIoU) {
@@ -536,4 +544,3 @@ using CudaDetect = DetectLayer<Device::CUDA>;
 #include "cuda/DetectLayer.h"
 
 #endif
-

@@ -31,7 +31,7 @@ template<Device D>
 class Validator
 {
 public:
-    Validator(float threshold, int numClasses);
+    Validator(float confidenceThreshold, float iouThreshold, float nmsThreshold, int numClasses);
 
     using V = typename DeviceTraits<D>::VectorType;
 
@@ -62,7 +62,7 @@ private:
     std::vector<std::vector<RankedPrediction>> predictions_;
     std::vector<std::size_t> groundTruthCounts_;
 
-    float threshold_;
+    float confidenceThreshold_, iouThreshold_, nmsThreshold_;
     float totalLoss_ = 0.0f;
     int seen_ = 0;
     int correctPredictions_ = 0;
@@ -70,8 +70,9 @@ private:
 };
 
 template<Device D>
-Validator<D>::Validator(float threshold, int numClasses)
-        : threshold_(threshold), matrix_(numClasses), predictions_(numClasses), groundTruthCounts_(numClasses, 0),
+Validator<D>::Validator(float confidenceThreshold, float iouThreshold, float nmsThreshold, int numClasses)
+        : confidenceThreshold_(confidenceThreshold), iouThreshold_(iouThreshold), nmsThreshold_(nmsThreshold),
+          matrix_(numClasses), predictions_(numClasses), groundTruthCounts_(numClasses, 0),
           totalLoss_(0.0f), seen_(0), correctPredictions_(0),
           totalPredictions_(0)
 {
@@ -164,7 +165,7 @@ void Validator<D>::validate(Model<D>& model, const MiniBatch& batch)
 {
     model.setMode(Mode::VALIDATING);
 
-    model.setThreshold(threshold_);
+    model.setThreshold(confidenceThreshold_);
 
     const PxCpuVector& input = batch.imageData();
 
@@ -210,7 +211,7 @@ GroundTruthVec::size_type Validator<D>::findGroundTruth(const Detection& detecti
         }
     }
 
-    if (bestIoU < threshold_) {   // no match
+    if (bestIoU < iouThreshold_) {   // no match
         return gts.size();
     }
 
@@ -220,7 +221,7 @@ GroundTruthVec::size_type Validator<D>::findGroundTruth(const Detection& detecti
 template<Device D>
 void Validator<D>::processDetects(const Detections& detects, const GroundTruths& gts)
 {
-    auto results = nms(detects, 0.2f);
+    auto results = nms(detects, nmsThreshold_);
 
     std::sort(results.begin(), results.end(), [](const auto& lhs, const auto& rhs) {
         return lhs.prob() > rhs.prob();
@@ -240,7 +241,7 @@ void Validator<D>::processDetects(const Detections& detects, const GroundTruths&
                 continue;
             }
             auto bestIndex = gtv.size();
-            auto bestIoU = threshold_;
+            auto bestIoU = iouThreshold_;
             for (std::size_t i = 0; i < gtv.size(); ++i) {
                 if (apMatched[i] || gtv[i].classId != detect.classIndex()) {
                     continue;

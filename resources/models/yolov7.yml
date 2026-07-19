@@ -17,12 +17,17 @@ model:
     epsilon: 1e-8
 
   augmentation:
-    enabled: False
+    enabled: True
     flip: True
     jitter: 0.2
     saturation: 1.5
     exposure: 1.5
     hue: 0.1
+
+  early_stopping:
+    enabled: True
+    patience: 10
+    threshold: 0.0001
 
   gradient_rescale:
     enabled: True
@@ -33,21 +38,23 @@ model:
     value: 100.0
 
   validation:
-    enabled: False
-    interval: 10000
-    batches: 100
-    threshold: 0.2
+    enabled: True
+    interval: 27361
+    batches: 334
+    confidence_threshold: 0.05
+    iou_threshold: 0.5
+    nms_threshold: 0.4
 
   save_weights_interval: 10000
   write_metrics_interval: 1000
 
   learning_rate:
     burn_in:
-      batches: 0
+      batches: 1000
       power: 4.0
 
     initial_learning_rate: 0.001
-    policy: sigmoid
+    policy: stepped
 
     stepped:
       steps: [ 1600000, 1800000 ]
@@ -901,7 +908,9 @@ model:
       stride: 1
       pad: True
       filters: 255
-      activation: logistic
+      # YoloLayer applies logistic only to x/y, objectness, and classes.
+      # Width and height must remain raw logits for exponential decoding.
+      activation: linear
 
     - type: yolo
       mask: [ 0, 1, 2 ]
@@ -927,7 +936,7 @@ model:
       stride: 1
       pad: True
       filters: 255
-      activation: logistic
+      activation: linear
 
     - type: yolo
       mask: [ 3, 4, 5 ]
@@ -952,7 +961,7 @@ model:
       stride: 1
       pad: True
       filters: 255
-      activation: logistic
+      activation: linear
 
     - type: yolo
       mask: [ 6, 7, 8 ]

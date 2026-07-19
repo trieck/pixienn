@@ -20,6 +20,7 @@
 #include <boost/format.hpp>
 #include <boost/program_options.hpp>
 #include <boost/program_options/variables_map.hpp>
+#include <chrono>
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <opencv2/highgui.hpp>
@@ -228,6 +229,7 @@ private:
     using ImageLabels = std::pair<PxCpuVector, GroundTruthVec>;
     std::string weightsFileName(bool final) const;
     std::string weightsLatestFileName() const;
+    std::string weightsBestFileName() const;
 
     void validate();
     LRPolicy* currentPolicy() const noexcept;
@@ -292,7 +294,9 @@ private:
     bool valEnabled_ = false;
     int valInterval_ = 0;
     int valBatches_ = 0;
-    float valThresh_ = 0.0f;
+    float valConfidenceThresh_ = 0.0f;
+    float valIouThresh_ = 0.5f;
+    float valNmsThresh_ = 0.4f;
 
     bool adamEnabled_ = false;
     float adamBeta1_ = 0.0f;
@@ -423,6 +427,7 @@ void Model<D>::train()
                 if (avgValLoss_ < bestValLoss - esThreshold_) {
                     bestValLoss = avgValLoss_;
                     valsWithoutImprovement = 0;
+                    saveWeights(weightsBestFileName());
                 } else {
                     valsWithoutImprovement++;
                 }
@@ -908,10 +913,18 @@ void Model<D>::loadWeights()
             const auto optimizerFile = loadedWeightsFile + ".optimizer";
             std::ifstream optimizer(optimizerFile, std::ios::in | std::ios::binary);
             if (optimizer.is_open()) {
-                constexpr std::uint32_t magic = 0x50584f31;
+                constexpr std::uint32_t magicV1 = 0x50584f31;
+                constexpr std::uint32_t magicV2 = 0x50584f32;
                 std::uint32_t fileMagic = 0;
                 optimizer.read(reinterpret_cast<char*>(&fileMagic), sizeof(fileMagic));
-                PX_CHECK(fileMagic == magic, "Invalid optimizer state file \"%s\"", optimizerFile.c_str());
+                PX_CHECK(fileMagic == magicV1 || fileMagic == magicV2,
+                         "Invalid optimizer state file \"%s\"", optimizerFile.c_str());
+                if (fileMagic == magicV2) {
+                    std::uint64_t checkpointSeen = 0;
+                    optimizer.read(reinterpret_cast<char*>(&checkpointSeen), sizeof(checkpointSeen));
+                    PX_CHECK(checkpointSeen == seen_,
+                             "Optimizer state does not match weights \"%s\"", loadedWeightsFile.c_str());
+                }
                 optimizer.read(reinterpret_cast<char*>(&optimizerStep_), sizeof(optimizerStep_));
                 for (const auto& layer: layers()) {
                     layer->loadOptimizer(optimizer);
@@ -1008,7 +1021,13 @@ void Model<D>::parseModel(const Node& modelDoc)
         decay_ = model["decay"].as<float>(0.0001f);
         momentum_ = model["momentum"].as<float>(0.9f);
 
-        eventFile_ = model["event_file"].as<std::string>("events.out.tfevents");
+        if (model["event_file"]) {
+            eventFile_ = model["event_file"].as<std::string>();
+        } else {
+            const auto stamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count();
+            eventFile_ = (boost::format("events.out.tfevents.%d") % stamp).str();
+        }
         writer_ = RecordWriter::create(eventFile_, true);
 
         auto val = model["validation"];
@@ -1016,7 +1035,11 @@ void Model<D>::parseModel(const Node& modelDoc)
             valEnabled_ = val["enabled"].as<bool>(true);
             valInterval_ = val["interval"].as<int>(1000);
             valBatches_ = val["batches"].as<int>(100);
-            valThresh_ = val["threshold"].as<float>(0.2f);
+            // "threshold" remains a compatibility alias for confidence only.
+            valConfidenceThresh_ = val["confidence_threshold"].as<float>(
+                    val["threshold"].as<float>(0.2f));
+            valIouThresh_ = val["iou_threshold"].as<float>(0.5f);
+            valNmsThresh_ = val["nms_threshold"].as<float>(0.4f);
         }
 
         saveWeightsInterval_ = model["save_weights_interval"].as<int>(1000);
@@ -1218,7 +1241,7 @@ void Model<D>::updateLR()
 {
     auto* policy = currentPolicy();
 
-    policy->update(seen_);
+    policy->update(static_cast<int>(optimizerStep_));
 }
 
 template<Device D>
@@ -1346,8 +1369,10 @@ void Model<D>::saveWeights(const std::string& fileName)
         const auto optimizerFile = fileName + ".optimizer";
         std::ofstream optimizer(optimizerFile, std::ios::out | std::ios::trunc | std::ios::binary);
         PX_CHECK(optimizer.good(), "Could not open file \"%s\". %s", optimizerFile.c_str(), std::strerror(errno));
-        constexpr std::uint32_t magic = 0x50584f31;
+        constexpr std::uint32_t magic = 0x50584f32;
         optimizer.write(reinterpret_cast<const char*>(&magic), sizeof(magic));
+        const auto checkpointSeen = static_cast<std::uint64_t>(seen_);
+        optimizer.write(reinterpret_cast<const char*>(&checkpointSeen), sizeof(checkpointSeen));
         optimizer.write(reinterpret_cast<const char*>(&optimizerStep_), sizeof(optimizerStep_));
         for (const auto& layer: layers()) {
             layer->saveOptimizer(optimizer);
@@ -1387,11 +1412,20 @@ std::string Model<D>::weightsLatestFileName() const
 }
 
 template<Device D>
+std::string Model<D>::weightsBestFileName() const
+{
+    auto fileName = (boost::format("%s_best.weights") % baseName(weightsFile_)).str();
+    boost::filesystem::path path(backupDir_);
+    path /= fileName;
+    return path.string();
+}
+
+template<Device D>
 void Model<D>::validate()
 {
     std::cout << "Pausing training to validate..." << std::flush;
 
-    Validator <D> validator(valThresh_, classes());
+    Validator <D> validator(valConfidenceThresh_, valIouThresh_, valNmsThresh_, classes());
 
     const auto availableBatches = std::max<std::size_t>(1, (valLoader_->size() + batch_ - 1) / batch_);
     const auto batches = std::min<std::size_t>(valBatches_, availableBatches);
@@ -1428,7 +1462,7 @@ LRPolicy* Model<D>::currentPolicy() const noexcept
 template<Device D>
 bool Model<D>::isBurningIn() const noexcept
 {
-    return seen_ < burnInBatches_;
+    return optimizerStep_ < burnInBatches_;
 }
 
 template<Device D>

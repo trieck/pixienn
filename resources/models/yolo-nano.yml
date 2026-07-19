@@ -4,7 +4,7 @@ model:
   height: 320
   width: 320
 
-  max_batches: 200000
+  max_batches: 30000
   momentum: 0.9
   decay: 0.0005
 
@@ -22,6 +22,11 @@ model:
     saturation: 0.75
     exposure: 0.75
 
+  early_stopping:
+    enabled: True
+    patience: 12
+    threshold: 0.0001
+
   gradient_rescale:
     enabled: True
     threshold: 100.0
@@ -31,21 +36,27 @@ model:
     value: 100.0
 
   validation:
-    enabled: False
-    interval: 1000
-    batches: 100
-    threshold: 0.5
+    enabled: True
+    interval: 313
+    batches: 63
+    confidence_threshold: 0.05
+    iou_threshold: 0.5
+    nms_threshold: 0.4
 
-  save_weights_interval: 1000
+  save_weights_interval: 1250
   write_metrics_interval: 50
 
   learning_rate:
     burn_in:
-      batches: 200
-      power: 2.0
+      batches: 1000
+      power: 4.0
 
-    initial_learning_rate: 0.004
-    policy: sigmoid
+    initial_learning_rate: 0.001
+    policy: cosine_annealing
+
+    cosine_annealing:
+      min_learning_rate: 0.00001
+      batches_per_cycle: 30001
 
     sigmoid:
       target_learning_rate: 0.00001
@@ -116,7 +127,7 @@ model:
       activation: mish
       batch_normalize: True
 
-    # Residual refinement block (depthwise skip)
+    # Residual refinement block at stride 8
     - type: conv
       filters: 64
       kernel: 3
@@ -125,7 +136,11 @@ model:
       activation: mish
       batch_normalize: True
 
-    # Final refinement conv
+    - type: shortcut
+      from: -2
+      activation: linear
+
+    # Feature map retained for the small-object head (40x40)
     - type: conv
       filters: 64
       kernel: 3
@@ -133,7 +148,101 @@ model:
       activation: mish
       batch_normalize: True
 
-    # Detection head
+    # Downsample to a 20x20 feature map for medium/large objects
+    - type: conv
+      filters: 64
+      kernel: 3
+      stride: 2
+      pad: True
+      groups: 64
+      activation: mish
+      batch_normalize: True
+
+    - type: conv
+      filters: 128
+      kernel: 1
+      stride: 1
+      pad: False
+      activation: mish
+      batch_normalize: True
+
+    - type: conv
+      filters: 128
+      kernel: 3
+      stride: 1
+      pad: True
+      groups: 128
+      activation: mish
+      batch_normalize: True
+
+    - type: shortcut
+      from: -2
+      activation: linear
+
+    - type: conv
+      filters: 128
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: mish
+      batch_normalize: True
+
+    # Medium/large-object detection head
+    - type: conv
+      filters: 75
+      kernel: 1
+      stride: 1
+      pad: False
+      activation: linear
+
+    - type: yolo
+      mask: [ 3, 4, 5 ]
+      anchors: [ 10,14, 23,27, 37,58, 81,82, 135,169, 344,319 ]
+      num: 6
+      ignore_thresh: 0.7
+      truth_thresh: 1.0
+      coord_scale: 1.0
+      object_scale: 2.0
+      noobject_scale: 0.1
+      class_scale: 1.0
+      log_interval: 50
+
+    # Fuse coarse semantic features with the retained stride-8 feature map
+    - type: route
+      layers: [ -4 ]
+
+    - type: conv
+      filters: 64
+      kernel: 1
+      stride: 1
+      pad: False
+      activation: mish
+      batch_normalize: True
+
+    - type: upsample
+      stride: 2
+
+    - type: route
+      layers: [ -1, 8 ]
+
+    - type: conv
+      filters: 128
+      kernel: 3
+      stride: 1
+      pad: True
+      groups: 128
+      activation: mish
+      batch_normalize: True
+
+    - type: conv
+      filters: 128
+      kernel: 1
+      stride: 1
+      pad: False
+      activation: mish
+      batch_normalize: True
+
+    # Small-object detection head
     - type: conv
       filters: 75
       kernel: 1

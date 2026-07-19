@@ -1,11 +1,11 @@
 configuration:
   model: ../models/yolo-nano.yml
-  weights: /home/trieck/src/pixienn/cmake-build-debug-cuda/backup/yolo-nano_latest.weights
+  weights: ../weights/yolo-nano.weights
   labels: ../data/voc.names
 
 training:
-  train-images: ../data/voc/train-200.txt
+  train-images: ../data/voc/train.txt
   train-labels: ../data/voc/labels
 
-  val-images: ../data/voc/val-5.txt
+  val-images: ../data/voc/val.txt
   val-labels: ../data/voc/labels
