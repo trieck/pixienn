@@ -1,5 +1,5 @@
 model:
-  batch: 8
+  batch: 32
   subdivisions: 1
   channels: 3
   height: 320
@@ -24,8 +24,10 @@ model:
 
   validation:
     enabled: True
-    interval: 1250
-    batches: 250
+    # 10,000 training and 2,000 validation images at batch 32: validate and
+    # checkpoint approximately once per complete training epoch.
+    interval: 313
+    batches: 63
     confidence_threshold: 0.05
     ap_confidence_threshold: 0.001
     iou_threshold: 0.5
@@ -43,7 +45,7 @@ model:
   gradient_clipping:
     enabled: False
 
-  save_weights_interval: 1250
+  save_weights_interval: 313
   write_metrics_interval: 50
 
   learning_rate:
@@ -76,10 +78,12 @@ model:
       activation: mish
       batch_normalize: True
 
+    # Encode through stride 32 so every prediction sees enough context to
+    # estimate complete objects, then decode back to a stride-4 heatmap.
     - type: conv
-      filters: 96
+      filters: 128
       kernel: 3
-      stride: 1
+      stride: 2
       pad: True
       activation: mish
       batch_normalize: True
@@ -91,6 +95,74 @@ model:
       pad: True
       activation: mish
       batch_normalize: True
+
+    - type: conv
+      filters: 256
+      kernel: 3
+      stride: 2
+      pad: True
+      activation: mish
+      batch_normalize: True
+
+    - type: conv
+      filters: 256
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: mish
+      batch_normalize: True
+
+    - type: conv
+      filters: 384
+      kernel: 3
+      stride: 2
+      pad: True
+      activation: mish
+      batch_normalize: True
+
+    - type: conv
+      filters: 384
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: mish
+      batch_normalize: True
+
+    - type: conv
+      filters: 256
+      kernel: 1
+      stride: 1
+      pad: False
+      activation: mish
+      batch_normalize: True
+
+    - type: upsample
+      stride: 2
+
+    - type: route
+      layers: [ -1, 5 ]
+
+    - type: conv
+      filters: 256
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: mish
+      batch_normalize: True
+
+    - type: conv
+      filters: 128
+      kernel: 1
+      stride: 1
+      pad: False
+      activation: mish
+      batch_normalize: True
+
+    - type: upsample
+      stride: 2
+
+    - type: route
+      layers: [ -1, 3 ]
 
     - type: conv
       filters: 128
@@ -105,6 +177,28 @@ model:
       kernel: 1
       stride: 1
       pad: False
+      activation: mish
+      batch_normalize: True
+
+    - type: upsample
+      stride: 2
+
+    - type: route
+      layers: [ -1, 1 ]
+
+    - type: conv
+      filters: 128
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: mish
+      batch_normalize: True
+
+    - type: conv
+      filters: 64
+      kernel: 3
+      stride: 1
+      pad: True
       activation: mish
       batch_normalize: True
 
