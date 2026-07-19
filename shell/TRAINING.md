@@ -1,8 +1,8 @@
 # PixieNN training scripts
 
 The scripts in this directory run CUDA training from isolated directories under
-`runs/`. Each run keeps its TensorBoard events, log, weights, optimizer state,
-training-control state, and checkpoint backup directory together.
+`runs/`. Each active run keeps its TensorBoard events, log, weights, optimizer
+state, training-control state, and checkpoint backup directory together.
 
 ## Train one model
 
@@ -18,8 +18,11 @@ Start a clean YOLOv7 run:
 ./shell/train-model.sh yolov7 --fresh --verify-data
 ```
 
-`--fresh` does not delete an earlier run. It moves it under `runs/archive/`
-before creating the new run directory.
+`--fresh` stops TensorBoard on port 6006, deletes this model's active and
+archived TensorBoard event files, and then moves the remaining earlier run under
+`runs/archive/` before creating the new run directory. Checkpoints and ordinary
+training logs remain archived. Override the monitored port with
+`PIXIENN_TENSORBOARD_PORT`.
 
 Resume the latest checkpoint:
 
@@ -67,13 +70,16 @@ GPU memory and make timing and out-of-memory failures difficult to interpret.
 
 ## Monitoring
 
-For a single model:
+`train-model.sh` starts TensorBoard automatically for the selected run and
+prints a clickable URL such as:
 
-```bash
-tensorboard --logdir=runs/yolov7 --port=6006
+```text
+TensorBoard: http://localhost:6006/
 ```
 
-For all isolated runs:
+TensorBoard remains available after training exits. A later `--fresh` run stops
+the instance on that port before cleaning event data and starting a replacement.
+To monitor every stored run manually instead:
 
 ```bash
 tensorboard --logdir=runs --port=6006

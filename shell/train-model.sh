@@ -25,7 +25,8 @@ Usage: train-model.sh MODEL (--fresh | --resume) [options]
        train-model.sh --list
 
 Modes:
-  --fresh                  Archive any existing run, then start with clear weights.
+  --fresh                  Stop TensorBoard, purge this model's event data, archive
+                           the remaining run files, then start with clear weights.
   --resume                 Resume the latest checkpoint in the model's run directory.
 
 Options:
@@ -38,6 +39,7 @@ Options:
 Environment:
   PIXIENN_TRAIN_BIN         Override the CUDA pixienn-train executable.
   PIXIENN_RUNS_DIR          Override the run root (default: REPOSITORY/runs).
+  PIXIENN_TENSORBOARD_PORT  TensorBoard port checked by --fresh (default: 6006).
 EOF
 }
 
@@ -138,6 +140,121 @@ yaml_model_path()
     fi
 }
 
+stop_tensorboard_on_port()
+{
+    local port=$1
+    local pid command
+    local -a tensorboard_pids=()
+
+    command -v lsof >/dev/null 2>&1 || {
+        echo "Warning: lsof is unavailable; cannot inspect TensorBoard port $port." >&2
+        return 0
+    }
+
+    while IFS= read -r pid; do
+        [[ "$pid" =~ ^[0-9]+$ && -r "/proc/$pid/cmdline" ]] || continue
+        command=$(tr '\0' ' ' < "/proc/$pid/cmdline")
+        if [[ "${command,,}" == *tensorboard* ]]; then
+            tensorboard_pids+=("$pid")
+        else
+            echo "Port $port is occupied by a non-TensorBoard process (PID $pid); leaving it running." >&2
+        fi
+    done < <(lsof -nP -t -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | sort -u)
+
+    ((${#tensorboard_pids[@]})) || return 0
+
+    echo "Stopping TensorBoard on port $port (PID(s): ${tensorboard_pids[*]})"
+    kill -TERM "${tensorboard_pids[@]}" 2>/dev/null || true
+
+    for _ in {1..50}; do
+        local alive=false
+        for pid in "${tensorboard_pids[@]}"; do
+            if kill -0 "$pid" 2>/dev/null && [[ "$(awk '{print $3}' "/proc/$pid/stat" 2>/dev/null)" != Z ]]; then
+                alive=true
+            fi
+        done
+        if ! $alive; then
+            return 0
+        fi
+        sleep 0.1
+    done
+
+    echo "TensorBoard did not stop cleanly; forcing termination." >&2
+    kill -KILL "${tensorboard_pids[@]}" 2>/dev/null || true
+}
+
+purge_tensorboard_data()
+{
+    local active_run=$1
+    local archive_root=$2
+    local model_name=$3
+    local directory event_file
+    local removed=0
+    local -a directories=()
+
+    [[ -d "$active_run" ]] && directories+=("$active_run")
+    if [[ -d "$archive_root" ]]; then
+        while IFS= read -r -d '' directory; do
+            directories+=("$directory")
+        done < <(find "$archive_root" -mindepth 1 -maxdepth 1 -type d -name "${model_name}-*" -print0)
+    fi
+
+    for directory in "${directories[@]}"; do
+        while IFS= read -r -d '' event_file; do
+            rm -f -- "$event_file"
+            ((removed += 1))
+        done < <(find "$directory" -type f -name 'events.out.tfevents.*' -print0)
+    done
+
+    echo "Removed $removed TensorBoard event file(s) for $model_name."
+}
+
+start_tensorboard()
+{
+    local log_dir=$1
+    local port=$2
+    local pid command listener
+
+    command -v tensorboard >/dev/null 2>&1 || {
+        echo "TensorBoard is not installed or not available on PATH." >&2
+        return 1
+    }
+
+    while IFS= read -r pid; do
+        [[ "$pid" =~ ^[0-9]+$ && -r "/proc/$pid/cmdline" ]] || continue
+        command=$(tr '\0' ' ' < "/proc/$pid/cmdline")
+        if [[ "${command,,}" == *tensorboard* ]]; then
+            echo "TensorBoard is already running: http://localhost:$port/"
+            return 0
+        fi
+        echo "Cannot start TensorBoard: port $port is occupied by PID $pid ($command)." >&2
+        return 1
+    done < <(lsof -nP -t -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | sort -u)
+
+    tensorboard --logdir="$log_dir" --port="$port" --bind_all \
+        >"$log_dir/tensorboard.log" 2>&1 &
+    pid=$!
+    printf '%s\n' "$pid" > "$log_dir/tensorboard.pid"
+
+    for _ in {1..50}; do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            echo "TensorBoard failed to start. See $log_dir/tensorboard.log" >&2
+            return 1
+        fi
+        listener=$(lsof -nP -t -iTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)
+        if grep -qx "$pid" <<<"$listener"; then
+            echo "TensorBoard: http://localhost:$port/"
+            echo "TensorBoard log: $log_dir/tensorboard.log"
+            return 0
+        fi
+        sleep 0.1
+    done
+
+    echo "TensorBoard did not begin listening on port $port. See $log_dir/tensorboard.log" >&2
+    kill -TERM "$pid" 2>/dev/null || true
+    return 1
+}
+
 model=""
 mode=""
 verify_data=false
@@ -211,6 +328,7 @@ verify_cuda_binary "$train_bin"
 config=$(config_for_model "$model")
 model_file=$(yaml_model_path "$config")
 runs_root=$(realpath -m -- "${PIXIENN_RUNS_DIR:-$repo_root/runs}")
+tensorboard_port=${PIXIENN_TENSORBOARD_PORT:-6006}
 run_dir="$runs_root/$model"
 weights="$run_dir/$model.weights"
 latest="$run_dir/backup/${model}_latest.weights"
@@ -219,6 +337,10 @@ latest="$run_dir/backup/${model}_latest.weights"
 [[ -f "$model_file" ]] || { echo "Model file not found: $model_file" >&2; exit 1; }
 [[ "$run_dir" == "$runs_root/"* ]] || { echo "Unsafe run path: $run_dir" >&2; exit 1; }
 [[ ! -L "$run_dir" ]] || { echo "Run directory may not be a symbolic link: $run_dir" >&2; exit 1; }
+[[ "$tensorboard_port" =~ ^[0-9]+$ && tensorboard_port -ge 1 && tensorboard_port -le 65535 ]] || {
+    echo "Invalid PIXIENN_TENSORBOARD_PORT: $tensorboard_port" >&2
+    exit 1
+}
 
 check_args=(--quick "$config")
 $verify_data && check_args=("$config")
@@ -258,7 +380,8 @@ if $dry_run; then
         fi
         printf '  resume from: %s\n' "$dry_resume_source"
     elif [[ -d "$run_dir" ]]; then
-        printf '  cleanup:     archive existing run before starting\n'
+        printf '  cleanup:     stop TensorBoard on port %s, purge model events, archive remaining files\n' \
+            "$tensorboard_port"
     fi
     printf '  command:     '
     printf '%q ' "$train_bin" "${trainer_options[@]}" "$config" "$weights"
@@ -293,6 +416,8 @@ cleanup_lock()
 trap cleanup_lock EXIT
 
 if [[ "$mode" == fresh ]]; then
+    stop_tensorboard_on_port "$tensorboard_port"
+    purge_tensorboard_data "$run_dir" "$runs_root/archive" "$model"
     if [[ -d "$run_dir" ]]; then
         archive_root="$runs_root/archive"
         archive_dir="$archive_root/${model}-${timestamp}"
@@ -346,8 +471,9 @@ configuration=$config
 weights=$weights
 EOF
 
+start_tensorboard "$run_dir" "$tensorboard_port"
+
 echo "Starting training. Output is also written to $run_dir/training.log"
-echo "TensorBoard: tensorboard --logdir=$(printf '%q' "$run_dir") --port=6006"
 echo
 
 cd -- "$run_dir"
