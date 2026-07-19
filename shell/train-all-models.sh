@@ -55,6 +55,7 @@ done
 [[ -n "$mode" ]] || { usage >&2; exit 2; }
 
 models=(
+    centernet-tiny-voc
     resnet18
     tiny-yolo-voc
     yolo-nano

@@ -2,6 +2,7 @@
 
 #include "AvgPoolLayer.h"
 #include "BatchNormLayer.h"
+#include "CenterNetLayer.h"
 #include "ConnLayer.h"
 #include "ConvLayer.h"
 #include "DetectLayer.h"
@@ -41,6 +42,7 @@ LayerFactories<D>::LayerFactories()
 {
     registerFactory<AvgPoolLayer<D>>("avgpool");
     registerFactory<BatchNormLayer<D>>("batchnorm");
+    registerFactory<CenterNetLayer<D>>("centernet");
     registerFactory<ConnLayer<D>>("connected");
     registerFactory<ConvLayer<D>>("conv");
     registerFactory<DetectLayer<D>>("detection");

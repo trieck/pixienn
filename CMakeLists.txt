@@ -104,6 +104,7 @@ list(APPEND SOURCES
         src/Box.cpp
         src/BurnInLRPolicy.cpp
         src/CRC32.cpp
+        src/CenterNetTargetBuilder.cpp
         src/ColorMaps.cpp
         src/ConfusionMatrix.cpp
         src/ConstantLRPolicy.cpp
