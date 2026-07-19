@@ -110,6 +110,27 @@ Then run PixieNN from the repository root:
 
 This writes `predictions.jpg` and `predictions.geojson` to the current directory.
 
+### Inspect predictions in QGIS
+
+GeoJSON is an intentional visualization format in PixieNN, not just a generic
+JSON export. It lets the detection boxes be loaded as a vector layer over the
+original, non-georeferenced image in [QGIS](https://qgis.org/). Each prediction
+is a polygon whose attributes include the class, confidence, and batch ID, so
+boxes can be inspected, filtered, styled, and compared without flattening them
+into the rendered JPEG.
+
+1. Add the inference image to QGIS as a raster layer.
+2. Add `predictions.geojson` as a vector layer.
+3. Keep both layers in their local, non-georeferenced image coordinate space.
+4. Style or filter the vector layer using its `class` and `confidence`
+   attributes.
+
+Image coordinates normally begin at the upper-left and increase downward.
+PixieNN writes negative GeoJSON Y coordinates so the polygons align with the
+way QGIS displays an unreferenced raster in its Cartesian canvas. The export is
+therefore intended for local image inspection; its coordinates are pixel-space
+geometry, not longitude and latitude.
+
 ## Training without the guesswork
 
 The training wrappers standardize the parts of long-running GPU jobs that are easy to get wrong: executable selection, CUDA linkage, input manifests, stale output, logs, metadata, checkpoints, locking, and resume behavior.

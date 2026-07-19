@@ -384,12 +384,16 @@ void Layer<D>::forward(const V& input)
 template<Device D>
 void Layer<D>::backward(const V& input, V* grad)
 {
+    // Only the incoming activation gradient exists at this point. Calling the
+    // virtual hooks here also rescales/clips parameter-update buffers in layers
+    // such as convolution, repeatedly modifying gradients accumulated by prior
+    // subdivisions before the current subdivision has contributed.
     if (this->gradientRescaling_) {
-        this->scaleGradients();
+        this->scaleTensor(delta_);
     }
 
     if (this->gradientClipping_) {
-        this->clipGradients();
+        constrain(delta_.size(), gradientClipValue_, delta_.data(), 1);
     }
 }
 
