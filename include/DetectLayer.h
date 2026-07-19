@@ -233,6 +233,9 @@ void DetectLayer<D>::forwardCpu(const PxCpuVector& input)
     } else {
         this->poutput_->copy(input);
     }
+    // Only cells containing objects receive class and coordinate gradients.
+    // Clear all other entries so sparse targets cannot reuse stale deltas.
+    this->pdelta_->fill(0.0f);
 
     if (this->inferring()) {
         return;

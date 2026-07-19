@@ -274,6 +274,9 @@ void RegionLayer<D>::forwardCpu(const PxCpuVector& input)
     PX_CHECK(pdelta_ != nullptr, "Delta vector is null.");
 
     poutput_->copy(input);
+    // Region supervision is sparse for coordinates and classes; reset the
+    // complete gradient tensor before writing this batch's assignments.
+    pdelta_->fill(0.0f);
 
     auto size = coords_ + 1 + this->classes();
     auto* poutput = poutput_->data();
