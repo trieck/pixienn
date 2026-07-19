@@ -184,15 +184,21 @@ runs/
     ├── backup/                    # rolling checkpoints
     ├── run-metadata.txt           # command, host, GPU, revision, and start time
     ├── training.log               # captured console output
+    ├── tensorboard.log            # TensorBoard server output
+    ├── tensorboard.pid            # automatically started server PID
     ├── events.out.tfevents.*
     └── *.weights                  # primary/final weights
 ```
 
-Monitor every active run with TensorBoard:
+The wrapper starts TensorBoard automatically and prints a clickable URL:
 
-```bash
-tensorboard --logdir=runs
+```text
+TensorBoard: http://localhost:6006/
 ```
+
+With `--fresh`, it stops an existing TensorBoard instance on that port and
+removes this model's previous event files before starting the clean run. Set
+`PIXIENN_TENSORBOARD_PORT` to use a different port.
 
 PixieNN currently reports training/validation loss, IoU, recall, micro-averaged F1, and mAP at IoU 0.50. Do not confuse the latter with COCO's stricter mAP averaged from IoU 0.50 through 0.95.
 

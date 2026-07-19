@@ -8,6 +8,8 @@ temp_root=$(mktemp -d -t pixienn-training-scripts.XXXXXX)
 
 cleanup()
 {
+    [[ -n "${started_tensorboard_pid:-}" ]] && kill -TERM "$started_tensorboard_pid" 2>/dev/null || true
+    [[ -n "${fake_tensorboard_pid:-}" ]] && kill -TERM "$fake_tensorboard_pid" 2>/dev/null || true
     rm -rf -- "$temp_root"
 }
 trap cleanup EXIT
@@ -46,18 +48,61 @@ touch -- "$run_dir/backup/${model}_latest.weights.training"
 echo "fake training completed"
 EOF
 
-chmod +x "$fake_bin/nvidia-smi" "$fake_bin/pixienn-train"
+cat > "$fake_bin/lsof" <<'EOF'
+#!/usr/bin/env bash
+if [[ -n "${FAKE_TENSORBOARD_PID:-}" && -r "/proc/$FAKE_TENSORBOARD_PID/stat" &&
+      "$(awk '{print $3}' "/proc/$FAKE_TENSORBOARD_PID/stat")" != Z ]]; then
+    printf '%s\n' "$FAKE_TENSORBOARD_PID"
+fi
+if [[ -n "${FAKE_STARTED_TENSORBOARD_PID_FILE:-}" && -s "$FAKE_STARTED_TENSORBOARD_PID_FILE" ]]; then
+    cat "$FAKE_STARTED_TENSORBOARD_PID_FILE"
+fi
+EOF
+
+cat > "$fake_bin/tensorboard" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$$" > "$FAKE_STARTED_TENSORBOARD_PID_FILE"
+trap 'exit 0' TERM
+while true; do
+    sleep 1
+done
+EOF
+chmod +x "$fake_bin/nvidia-smi" "$fake_bin/pixienn-train" "$fake_bin/lsof" "$fake_bin/tensorboard"
 
 export PATH="$fake_bin:$PATH"
 export PIXIENN_TRAIN_BIN="$fake_bin/pixienn-train"
 export PIXIENN_RUNS_DIR="$runs"
+export FAKE_STARTED_TENSORBOARD_PID_FILE="$temp_root/started-tensorboard.pid"
 
 "$repo_root/shell/train-model.sh" yolo-nano --fresh --dry-run >/dev/null
 [[ ! -e "$runs/yolo-nano" ]] || fail "dry-run created a run directory"
 
 mkdir -p -- "$runs/yolo-nano"
 echo old > "$runs/yolo-nano/old-run-marker"
-"$repo_root/shell/train-model.sh" yolo-nano --fresh >/dev/null
+touch -- "$runs/yolo-nano/events.out.tfevents.active"
+mkdir -p -- "$runs/archive/yolo-nano-older"
+touch -- "$runs/archive/yolo-nano-older/events.out.tfevents.archived"
+
+FAKE_STARTED_TENSORBOARD_PID_FILE="$temp_root/old-tensorboard.pid" "$fake_bin/tensorboard" &
+fake_tensorboard_pid=$!
+export FAKE_TENSORBOARD_PID=$fake_tensorboard_pid
+"$repo_root/shell/train-model.sh" yolo-nano --fresh >"$temp_root/fresh.log"
+wait "$fake_tensorboard_pid" 2>/dev/null || true
+
+if kill -0 "$fake_tensorboard_pid" 2>/dev/null; then
+    fail "fresh run did not stop TensorBoard on the configured port"
+fi
+if find "$runs" -type f -name 'events.out.tfevents.*' -print -quit | grep -q .; then
+    fail "fresh run retained TensorBoard event data"
+fi
+unset FAKE_TENSORBOARD_PID
+
+started_tensorboard_pid=$(cat "$FAKE_STARTED_TENSORBOARD_PID_FILE")
+if ! kill -0 "$started_tensorboard_pid" 2>/dev/null; then
+    fail "training wrapper did not start TensorBoard"
+fi
+grep -q 'TensorBoard: http://localhost:6006/' "$temp_root/fresh.log" || \
+    fail "training wrapper did not print the TensorBoard URL"
 
 [[ -f "$runs/yolo-nano/run-metadata.txt" ]] || fail "fresh run did not write metadata"
 [[ -f "$runs/yolo-nano/training.log" ]] || fail "fresh run did not write a log"
@@ -84,3 +129,6 @@ rm -f -- "$runs/.locks/yolo-nano/pid"
 rmdir -- "$runs/.locks/yolo-nano"
 
 echo "Training script integration tests passed."
+
+kill -TERM "$started_tensorboard_pid" 2>/dev/null || true
+wait "$started_tensorboard_pid" 2>/dev/null || true
