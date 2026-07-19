@@ -167,6 +167,8 @@ public:
     bool inferring() const noexcept;
     bool training() const noexcept;
     bool validating() const noexcept;
+    Mode mode() const noexcept;
+    float threshold() const noexcept;
 
     void setMode(Mode mode) noexcept;
     void setThreshold(float threshold) noexcept;
@@ -1352,6 +1354,18 @@ template<Device D>
 bool Model<D>::validating() const noexcept
 {
     return mode_ == Mode::VALIDATING;
+}
+
+template<Device D>
+Mode Model<D>::mode() const noexcept
+{
+    return mode_;
+}
+
+template<Device D>
+float Model<D>::threshold() const noexcept
+{
+    return threshold_;
 }
 
 template<Device D>

@@ -423,10 +423,13 @@ void YoloLayer<D>::processObjects(int b)
 {
     auto* poutput = poutput_->data();
     auto* pdelta = pdelta_->data();
+    std::vector<bool> occupied(numMasks_ * this->width() * this->height(), false);
 
     for (const auto& gt: this->groundTruth(b)) {
         auto bestIoU = std::numeric_limits<float>::lowest();
         auto bestN = 0;
+        std::vector<std::pair<float, int>> candidates;
+        candidates.reserve(numAnchors_);
 
         auto i = static_cast<int>(gt.box.x() * this->width());
         auto j = static_cast<int>(gt.box.y() * this->height());
@@ -443,6 +446,7 @@ void YoloLayer<D>::processObjects(int b)
             pred.h() = static_cast<float>(anchors_[2 * n + 1]) / this->model().height();
 
             auto iou = pred.iou(truthShift);
+            candidates.emplace_back(iou, n);
             if (iou > bestIoU) {
                 bestIoU = iou;
                 bestN = n;
@@ -452,6 +456,36 @@ void YoloLayer<D>::processObjects(int b)
         auto maskN = maskIndex(bestN);
         if (maskN >= 0) {
             auto location = maskN * this->width() * this->height() + j * this->width() + i;
+
+            // Two truths can select the same anchor in the same grid cell. Do
+            // not silently overwrite the first target: fall back to the best
+            // still-free anchor owned by this detection head.
+            if (occupied[location]) {
+                std::sort(candidates.begin(), candidates.end(), [](const auto& lhs, const auto& rhs) {
+                    return lhs.first > rhs.first;
+                });
+                maskN = -1;
+                for (const auto& [iou, anchor]: candidates) {
+                    (void) iou;
+                    const auto candidateMask = maskIndex(anchor);
+                    if (candidateMask < 0) {
+                        continue;
+                    }
+                    const auto candidateLocation = candidateMask * this->width() * this->height()
+                                                   + j * this->width() + i;
+                    if (!occupied[candidateLocation]) {
+                        bestN = anchor;
+                        maskN = candidateMask;
+                        location = candidateLocation;
+                        break;
+                    }
+                }
+            }
+
+            if (maskN < 0) {
+                continue;
+            }
+            occupied[location] = true;
             auto boxIndex = entryIndex(b, location, 0);
             auto iou = deltaYoloBox(gt, bestN, boxIndex, i, j);
 
@@ -611,21 +645,12 @@ const
                 box = yoloBox(predictions, mask_[n], boxIndex, col, row).rect();
             }
 
-            int maxClass = 0;
-            float maxProb = std::numeric_limits<float>::lowest();
-
             for (auto j = 0; j < nclasses; ++j) {
                 int clsIndex = entryIndex(batch, n * area + i, 5 + j);
                 auto prob = objectness * predictions[clsIndex];
-                if (prob > maxProb) {
-                    maxClass = j;
-                    maxProb = prob;
+                if (prob >= threshold) {
+                    detections.emplace_back(box, batch, j, prob);
                 }
-            }
-
-            if (maxProb >= threshold) {
-                Detection det(box, batch, maxClass, maxProb);
-                detections.emplace_back(std::move(det));
             }
         }
     }

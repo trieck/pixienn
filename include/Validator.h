@@ -166,24 +166,34 @@ void Validator<D>::reset() noexcept
 template<Device D>
 void Validator<D>::validate(Model<D>& model, const MiniBatch& batch)
 {
+    const auto previousMode = model.mode();
+    const auto previousThreshold = model.threshold();
+
     model.setMode(Mode::VALIDATING);
 
     // AP needs the low-confidence tail to build a useful precision/recall
     // curve. F1 and accuracy still use confidenceThreshold_ below.
     model.setThreshold(std::min(confidenceThreshold_, apConfidenceThreshold_));
 
-    const PxCpuVector& input = batch.imageData();
+    try {
+        const PxCpuVector& input = batch.imageData();
 
-    forward(model, input);
+        forward(model, input);
 
-    totalLoss_ += model.cost();
-    seen_++;
+        totalLoss_ += model.cost();
+        seen_++;
 
-    processDetects(model.detections(), batch.groundTruth());
+        processDetects(model.detections(), batch.groundTruth());
 
-    std::cout << "." << std::flush;
+        std::cout << "." << std::flush;
+    } catch (...) {
+        model.setThreshold(previousThreshold);
+        model.setMode(previousMode);
+        throw;
+    }
 
-    model.setMode(Mode::TRAINING);
+    model.setThreshold(previousThreshold);
+    model.setMode(previousMode);
 }
 
 template<Device D>
