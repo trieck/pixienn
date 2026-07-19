@@ -31,7 +31,8 @@ template<Device D>
 class Validator
 {
 public:
-    Validator(float confidenceThreshold, float iouThreshold, float nmsThreshold, int numClasses);
+    Validator(float confidenceThreshold, float apConfidenceThreshold, float iouThreshold, float nmsThreshold,
+              int numClasses);
 
     using V = typename DeviceTraits<D>::VectorType;
 
@@ -62,7 +63,7 @@ private:
     std::vector<std::vector<RankedPrediction>> predictions_;
     std::vector<std::size_t> groundTruthCounts_;
 
-    float confidenceThreshold_, iouThreshold_, nmsThreshold_;
+    float confidenceThreshold_, apConfidenceThreshold_, iouThreshold_, nmsThreshold_;
     float totalLoss_ = 0.0f;
     int seen_ = 0;
     int correctPredictions_ = 0;
@@ -70,8 +71,10 @@ private:
 };
 
 template<Device D>
-Validator<D>::Validator(float confidenceThreshold, float iouThreshold, float nmsThreshold, int numClasses)
-        : confidenceThreshold_(confidenceThreshold), iouThreshold_(iouThreshold), nmsThreshold_(nmsThreshold),
+Validator<D>::Validator(float confidenceThreshold, float apConfidenceThreshold, float iouThreshold,
+                        float nmsThreshold, int numClasses)
+        : confidenceThreshold_(confidenceThreshold), apConfidenceThreshold_(apConfidenceThreshold),
+          iouThreshold_(iouThreshold), nmsThreshold_(nmsThreshold),
           matrix_(numClasses), predictions_(numClasses), groundTruthCounts_(numClasses, 0),
           totalLoss_(0.0f), seen_(0), correctPredictions_(0),
           totalPredictions_(0)
@@ -165,7 +168,9 @@ void Validator<D>::validate(Model<D>& model, const MiniBatch& batch)
 {
     model.setMode(Mode::VALIDATING);
 
-    model.setThreshold(confidenceThreshold_);
+    // AP needs the low-confidence tail to build a useful precision/recall
+    // curve. F1 and accuracy still use confidenceThreshold_ below.
+    model.setThreshold(std::min(confidenceThreshold_, apConfidenceThreshold_));
 
     const PxCpuVector& input = batch.imageData();
 
@@ -237,7 +242,7 @@ void Validator<D>::processDetects(const Detections& detects, const GroundTruths&
 
         std::vector<bool> apMatched(gtv.size(), false);
         for (const auto& detect: results) {
-            if (detect.batchId() != b) {
+            if (detect.batchId() != b || detect.prob() < apConfidenceThreshold_) {
                 continue;
             }
             auto bestIndex = gtv.size();
@@ -260,7 +265,7 @@ void Validator<D>::processDetects(const Detections& detects, const GroundTruths&
         }
 
         for (const auto& detect: results) {
-            if (detect.batchId() != b) {
+            if (detect.batchId() != b || detect.prob() < confidenceThreshold_) {
                 continue;
             }
 

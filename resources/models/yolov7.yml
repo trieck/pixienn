@@ -42,6 +42,7 @@ model:
     interval: 10261
     batches: 125
     confidence_threshold: 0.05
+    ap_confidence_threshold: 0.001
     iou_threshold: 0.5
     nms_threshold: 0.4
 
@@ -914,7 +915,8 @@ model:
 
     - type: yolo
       mask: [ 0, 1, 2 ]
-      anchors: [ 12, 16, 19, 36, 40, 28, 36, 75, 76, 55, 72, 146, 142, 110, 192, 243, 459, 401 ]
+      # Official YOLOv7 anchors scaled from its 640 training size to 416.
+      anchors: [ 8, 10, 12, 23, 26, 18, 23, 49, 49, 36, 47, 95, 92, 72, 125, 158, 298, 261 ]
       num: 9
       jitter: 0.1
       ignore_thresh: 0.7
@@ -940,7 +942,7 @@ model:
 
     - type: yolo
       mask: [ 3, 4, 5 ]
-      anchors: [ 12, 16, 19, 36, 40, 28, 36, 75, 76, 55, 72, 146, 142, 110, 192, 243, 459, 401 ]
+      anchors: [ 8, 10, 12, 23, 26, 18, 23, 49, 49, 36, 47, 95, 92, 72, 125, 158, 298, 261 ]
       num: 9
       ignore_thresh: 0.7
       truth_thresh: 1
@@ -965,7 +967,7 @@ model:
 
     - type: yolo
       mask: [ 6, 7, 8 ]
-      anchors: [ 12, 16, 19, 36, 40, 28, 36, 75, 76, 55, 72, 146, 142, 110, 192, 243, 459, 401 ]
+      anchors: [ 8, 10, 12, 23, 26, 18, 23, 49, 49, 36, 47, 95, 92, 72, 125, 158, 298, 261 ]
       num: 9
       ignore_thresh: 0.7
       truth_thresh: 1

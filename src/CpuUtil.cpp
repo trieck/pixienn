@@ -197,13 +197,20 @@ void backwardBias(float* biasUpdates, const float* delta, int batch, int n, int 
 void backwardScaleCpu(const float* xNorm, const float* delta, int batch, int n, int size, float* scaleUpdates)
 {
     for (auto i = 0; i < n; ++i) {
-        scaleUpdates[i] += cblas_sdot(size * batch, delta + size * i, 1, xNorm + size * i, 1);
+        for (auto b = 0; b < batch; ++b) {
+            const auto offset = size * (i + b * n);
+            scaleUpdates[i] += cblas_sdot(size, delta + offset, 1, xNorm + offset, 1);
+        }
     }
 }
 
 float sumArray(const float* a, int n)
 {
-    return cblas_sasum(n, a, 1);
+    auto sum = 0.0f;
+    for (auto i = 0; i < n; ++i) {
+        sum += a[i];
+    }
+    return sum;
 }
 
 float magArray(const float* a, int n)
@@ -282,7 +289,7 @@ void meanDeltaCpu(const float* delta, const float* variance, int batch, int filt
     for (auto i = 0; i < filters; ++i) {
         meanDelta[i] = 0;
         for (int j = 0; j < batch; ++j) {
-            meanDelta[i] += cblas_sasum(spatial, &delta[j * filters * spatial + i * spatial], 1);
+            meanDelta[i] += sumArray(&delta[j * filters * spatial + i * spatial], spatial);
         }
         meanDelta[i] *= (-1. / std::sqrt(variance[i] + .00001f));
     }

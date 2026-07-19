@@ -56,8 +56,12 @@ __global__ void backwardBiasKernel(float* biasUpdates, const float* delta, int b
 {
     __shared__ float part[CUDA_BLOCK_SIZE];
 
-    auto filter = blockIdx.x;
+    auto filter = blockIdx.x + blockIdx.y * gridDim.x;
     auto p = threadIdx.x;
+
+    if (filter >= n) {
+        return;
+    }
 
     auto sum = 0.0f;
 
@@ -93,7 +97,12 @@ void backwardBiasGpu(float* biasUpdates, const float* delta, int batch, int n, i
     if (size == 1) {
         backwardBiasConnKernel<<<cudaGridsize(n), CUDA_BLOCK_SIZE>>>(biasUpdates, delta, batch, n);
     } else {
-        backwardBiasKernel<<<cudaGridsize(n), CUDA_BLOCK_SIZE>>>(biasUpdates, delta, batch, n, size);
+        // The reduction kernel assigns one complete block to each output
+        // filter. cudaGridsize(n) instead assigns one thread per filter,
+        // which launches only a single block for common detector heads
+        // (for example, n == 255) and silently updates bias 0 alone.
+        const auto grid = cudaGridsize(static_cast<std::uint32_t>(n) * CUDA_BLOCK_SIZE);
+        backwardBiasKernel<<<grid, CUDA_BLOCK_SIZE>>>(biasUpdates, delta, batch, n, size);
     }
 
     cudaDeviceSynchronize();

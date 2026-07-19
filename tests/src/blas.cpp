@@ -20,6 +20,10 @@
 #include "CpuUtil.h"
 #include "PxTensor.h"
 
+#ifdef USE_CUDA
+#include "BiasKernels.cuh"
+#endif
+
 using namespace px;
 using namespace testing;
 
@@ -37,10 +41,10 @@ TEST(BlasTests, MagArray)
 TEST(BlasTests, SumArray)
 {
     constexpr float array[] = {
-            1, 2, 4, 8, 16, 31, 62, 124, 248
+            1, 2, 4, 8, 16, -31, 62, 124, 248
     };
 
-    constexpr float expected = 496.0;
+    constexpr float expected = 434.0;
 
     auto result = sumArray(array, sizeof(array) / sizeof(float));
 
@@ -49,17 +53,45 @@ TEST(BlasTests, SumArray)
 
 TEST(BlasTests, BackwardBias)
 {
-    constexpr auto batch = 1;
+    constexpr auto batch = 2;
     constexpr auto n = 2;
-    constexpr auto size = 3;
+    constexpr auto size = 2;
 
-    PxCpuTensor<1> biasUpdates({ n }, 1.0f);
-    PxCpuTensor<3> delta({ batch, n, size }, 0.5f);
+    PxCpuTensor<1> biasUpdates({ n }, { 0.5f, 1.0f });
+    PxCpuTensor<3> delta({ batch, n, size }, {
+            1.0f, -3.0f,
+            -2.0f, -4.0f,
+            5.0f, -1.0f,
+            2.0f, -1.0f
+    });
 
     backwardBias(biasUpdates.data(), delta.data(), batch, n, size);
 
-    EXPECT_THAT(biasUpdates.asVector(), ElementsAre(2.5, 2.5));
+    EXPECT_THAT(biasUpdates.asVector(), ElementsAre(2.5f, -4.0f));
 }
+
+#ifdef USE_CUDA
+
+TEST(BlasTests, BackwardBiasGpuUpdatesEveryFilter)
+{
+    constexpr auto batch = 2;
+    constexpr auto n = 3;
+    constexpr auto size = 4;
+
+    PxCudaVector biasUpdates({ 0.25f, -0.25f, 1.0f });
+    PxCudaVector delta({ 1.0f, 1.0f, 1.0f, 1.0f,
+                         -2.0f, -2.0f, -2.0f, -2.0f,
+                         0.5f, 0.5f, 0.5f, 0.5f,
+                         1.0f, 1.0f, 1.0f, 1.0f,
+                         -2.0f, -2.0f, -2.0f, -2.0f,
+                         0.5f, 0.5f, 0.5f, 0.5f });
+
+    backwardBiasGpu(biasUpdates.data(), delta.data(), batch, n, size);
+
+    EXPECT_THAT(biasUpdates.asVector(), ElementsAre(8.25f, -16.25f, 5.0f));
+}
+
+#endif
 
 TEST(BlasTests, AddBias)
 {
@@ -93,15 +125,22 @@ TEST(BlasTests, BackwardScaleCpu)
 {
     constexpr auto batch = 2;
     constexpr auto n = 3;
-    constexpr auto size = 4;
+    constexpr auto size = 2;
 
-    PxCpuTensor<3> xNorm({ batch, n, size }, 1.0f);
-    PxCpuTensor<3> delta({ batch, n, size }, 2.0f);
+    PxCpuTensor<3> xNorm({ batch, n, size }, {
+            1.0f, 2.0f,
+            3.0f, 4.0f,
+            5.0f, 6.0f,
+            7.0f, 8.0f,
+            9.0f, 10.0f,
+            11.0f, 12.0f
+    });
+    PxCpuTensor<3> delta({ batch, n, size }, 1.0f);
     PxCpuTensor<1> scaleUpdates({ n }, 0.0f);
 
     backwardScaleCpu(xNorm.data(), delta.data(), batch, n, size, scaleUpdates.data());
 
-    EXPECT_THAT(scaleUpdates.asVector(), Each(FloatEq(16.0f)));
+    EXPECT_THAT(scaleUpdates.asVector(), ElementsAre(18.0f, 26.0f, 34.0f));
 }
 
 TEST(BlasTests, MeanCpu)
@@ -163,6 +202,27 @@ TEST(BlasTests, MeanDeltaCpu)
     meanDeltaCpu(delta.data(), variance.data(), batch, filters, spatial, output.data());
 
     EXPECT_THAT(output.asVector(), Pointwise(FloatNear(1e-4), expected.asVector()));
+}
+
+TEST(BlasTests, MeanDeltaCpuPreservesGradientSigns)
+{
+    constexpr int batch = 2;
+    constexpr int filters = 2;
+    constexpr int spatial = 2;
+
+    PxCpuTensor<3> delta({ batch, filters, spatial }, {
+            1.0f, -3.0f,
+            -2.0f, -4.0f,
+            5.0f, -1.0f,
+            2.0f, -1.0f
+    });
+    PxCpuTensor<1> variance({ filters }, { 4.0f, 9.0f });
+    PxCpuTensor<1> expected({ filters }, { -0.99999875f, 1.6666657f });
+    PxCpuTensor<1> output({ filters });
+
+    meanDeltaCpu(delta.data(), variance.data(), batch, filters, spatial, output.data());
+
+    EXPECT_THAT(output.asVector(), Pointwise(FloatNear(1e-5), expected.asVector()));
 }
 
 TEST(BlasTests, VarianceDeltaCpu)

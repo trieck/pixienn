@@ -45,23 +45,40 @@ Detections nms(const Detections& detects, float threshold)
 {
     Detections output(detects);
 
-    std::vector<bool> discard(detects.size(), false);
+    std::stable_sort(output.begin(), output.end(), [](const auto& lhs, const auto& rhs) {
+        return lhs.prob() > rhs.prob();
+    });
 
-    for (auto i = 0; i < detects.size(); ++i) {
-        for (auto j = 0; j < detects.size(); ++j) {
-            if (i == j || discard[j]) {
+    std::vector<bool> discard(output.size(), false);
+
+    // Validation deliberately keeps low-confidence predictions so AP can be
+    // calculated over a useful precision/recall curve. Group candidates before
+    // the quadratic overlap pass; detections from different images or classes
+    // can never suppress one another.
+    std::unordered_map<std::uint64_t, std::vector<std::size_t>> groups;
+    groups.reserve(output.size());
+    for (std::size_t i = 0; i < output.size(); ++i) {
+        const auto batch = static_cast<std::uint32_t>(output[i].batchId());
+        const auto cls = static_cast<std::uint32_t>(output[i].classIndex());
+        const auto key = (static_cast<std::uint64_t>(batch) << 32U) | cls;
+        groups[key].push_back(i);
+    }
+
+    for (const auto& [key, indices]: groups) {
+        (void) key;
+        for (std::size_t candidate = 0; candidate < indices.size(); ++candidate) {
+            const auto i = indices[candidate];
+            if (discard[i]) {
                 continue;
             }
 
-            if (detects[i].batchId() != detects[j].batchId()
-                || detects[i].classIndex() != detects[j].classIndex()) {
-                continue;
-            }
+            for (std::size_t other = candidate + 1; other < indices.size(); ++other) {
+                const auto j = indices[other];
+                if (discard[j]) {
+                    continue;
+                }
 
-            if (boxIoU(detects[i].box(), detects[j].box()) > threshold) {
-                if (detects[i].prob() < detects[j].prob()) {
-                    discard[i] = true;
-                } else {
+                if (boxIoU(output[i].box(), output[j].box()) > threshold) {
                     discard[j] = true;
                 }
             }

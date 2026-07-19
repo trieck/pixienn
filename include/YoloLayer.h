@@ -185,7 +185,19 @@ void YoloLayer<D>::forwardCpu(const PxCpuVector& input)
         return;
     }
 
-    resetStats();
+    const auto training = this->training();
+    const auto savedAvgIoU = avgIoU_;
+    const auto savedRecall = recall_;
+    const auto savedRecall75 = recall75_;
+    const auto savedAvgCat = avgCat_;
+    const auto savedAvgObj = avgObj_;
+    const auto savedAvgAnyObj = avgAnyObj_;
+    const auto savedCount = count_;
+    const auto savedClassCount = classCount_;
+
+    if (!training) {
+        resetStats();
+    }
 
     for (auto b = 0; b < this->batch(); ++b) {
         for (auto j = 0; j < this->height(); ++j) {
@@ -196,10 +208,22 @@ void YoloLayer<D>::forwardCpu(const PxCpuVector& input)
         processObjects(b);
     }
 
-    this->cost_ = std::pow(magArray(pdelta_->data(), pdelta_->size()), 2);
+    this->cost_ = std::pow(magArray(pdelta_->data(), pdelta_->size()), 2) / std::max(1, this->batch());
 
-    if (this->training() && count_ > 0 && this->model().seen() % logInterval_ == 0) {
+    if (training && count_ > 0 && this->model().seen() % logInterval_ == 0) {
         writeStats();
+        resetStats();
+    } else if (!training) {
+        // Validation needs the loss deltas above, but its teacher-forced head
+        // statistics must not erase or contaminate the current training window.
+        avgIoU_ = savedAvgIoU;
+        recall_ = savedRecall;
+        recall75_ = savedRecall75;
+        avgCat_ = savedAvgCat;
+        avgObj_ = savedAvgObj;
+        avgAnyObj_ = savedAvgAnyObj;
+        count_ = savedCount;
+        classCount_ = savedClassCount;
     }
 }
 

@@ -222,6 +222,8 @@ private:
     void parsePolicy(const Node& model);
     void parseTrainConfig();
     void loadWeights();
+    void loadTrainingState(const std::string& weightsFile);
+    void saveTrainingState(const std::string& weightsFile) const;
     void setup();
     float trainBatch();
     float trainOnce(const V& input);
@@ -262,6 +264,9 @@ private:
     RecordWriter::Ptr writer_;
 
     float avgLoss_ = 0.0f;
+    float bestValLoss_ = std::numeric_limits<float>::max();
+    float bestmAP_ = std::numeric_limits<float>::lowest();
+    int valsWithoutImprovement_ = 0;
 
     std::size_t burnInBatches_ = 0;
 
@@ -295,6 +300,7 @@ private:
     int valInterval_ = 0;
     int valBatches_ = 0;
     float valConfidenceThresh_ = 0.0f;
+    float valApConfidenceThresh_ = 0.0f;
     float valIouThresh_ = 0.5f;
     float valNmsThresh_ = 0.4f;
 
@@ -390,8 +396,6 @@ void Model<D>::train()
     }
 
     avgLoss_ = std::numeric_limits<float>::lowest();
-    auto bestValLoss = std::numeric_limits<float>::max();
-    auto valsWithoutImprovement = 0;
     constexpr auto windowSize = 10;
     constexpr auto alpha = 2.0f / (windowSize + 1);
 
@@ -423,19 +427,29 @@ void Model<D>::train()
         if (valEnabled_ && valInterval_ && seen_ % valInterval_ == 0) {
             validate();
 
-            if (esEnabled_) {   // check for early stopping
-                if (avgValLoss_ < bestValLoss - esThreshold_) {
-                    bestValLoss = avgValLoss_;
-                    valsWithoutImprovement = 0;
-                    saveWeights(weightsBestFileName());
-                } else {
-                    valsWithoutImprovement++;
-                }
+            const auto improvedmAP = mAP_ > bestmAP_;
+            if (improvedmAP) {
+                bestmAP_ = mAP_;
+            }
 
-                if (valsWithoutImprovement >= esPatience_) {
-                    std::printf("Early stopping due to lack of improvement in validation loss.\n");
-                    break;
+            if (esEnabled_) {   // check for early stopping
+                if (avgValLoss_ < bestValLoss_ - esThreshold_) {
+                    bestValLoss_ = avgValLoss_;
+                    valsWithoutImprovement_ = 0;
+                } else {
+                    valsWithoutImprovement_++;
                 }
+            }
+
+            // A detector's best checkpoint is the one with the strongest
+            // detection metric, not necessarily its smallest surrogate loss.
+            if (improvedmAP) {
+                saveWeights(weightsBestFileName());
+            }
+
+            if (esEnabled_ && valsWithoutImprovement_ >= esPatience_) {
+                std::printf("Early stopping due to lack of improvement in validation loss.\n");
+                break;
             }
         }
 
@@ -458,11 +472,6 @@ void Model<D>::writeMetrics()
 {
     writeAvgLoss();
     writeLR();
-    writemAP();
-    writeAvgRecall();
-    writeMicroAvgF1();
-    writeAvgValLoss();
-    writeAccuracy();
 }
 
 template<Device D>
@@ -507,7 +516,9 @@ void Model<D>::writemAP()
 
     auto* summary = event.mutable_summary();
     auto* value = summary->add_value();
-    value->set_tag("mAP");
+    // Validator currently evaluates one IoU threshold (0.5), so this is AP50,
+    // not COCO mAP averaged over IoU 0.5:0.95.
+    value->set_tag("mAP50");
     value->set_simple_value(mAP_);
 
     writer_->write(event);
@@ -936,7 +947,64 @@ void Model<D>::loadWeights()
                 std::printf("Adam optimizer state not found; moments will restart at step 1.\n");
             }
         }
+
+        if (training()) {
+            loadTrainingState(loadedWeightsFile);
+        }
     }
+}
+
+template<Device D>
+void Model<D>::loadTrainingState(const std::string& weightsFile)
+{
+    const auto stateFile = weightsFile + ".training";
+    std::ifstream state(stateFile, std::ios::in | std::ios::binary);
+    if (!state.is_open()) {
+        std::printf("Training-control state not found; best metrics and early-stopping patience will restart.\n");
+        return;
+    }
+
+    constexpr std::uint32_t expectedMagic = 0x50585431; // PXT1
+    std::uint32_t magic = 0;
+    std::uint64_t checkpointSeen = 0;
+    float bestValLoss = 0.0f;
+    float bestmAP = 0.0f;
+    std::int32_t valsWithoutImprovement = 0;
+
+    state.read(reinterpret_cast<char*>(&magic), sizeof(magic));
+    state.read(reinterpret_cast<char*>(&checkpointSeen), sizeof(checkpointSeen));
+    state.read(reinterpret_cast<char*>(&bestValLoss), sizeof(bestValLoss));
+    state.read(reinterpret_cast<char*>(&bestmAP), sizeof(bestmAP));
+    state.read(reinterpret_cast<char*>(&valsWithoutImprovement), sizeof(valsWithoutImprovement));
+
+    PX_CHECK(state.good(), "Could not read training-control state \"%s\"", stateFile.c_str());
+    PX_CHECK(magic == expectedMagic, "Invalid training-control state file \"%s\"", stateFile.c_str());
+    PX_CHECK(checkpointSeen == seen_, "Training-control state does not match weights \"%s\"", weightsFile.c_str());
+    PX_CHECK(valsWithoutImprovement >= 0,
+             "Invalid early-stopping state in \"%s\"", stateFile.c_str());
+
+    bestValLoss_ = bestValLoss;
+    bestmAP_ = bestmAP;
+    valsWithoutImprovement_ = valsWithoutImprovement;
+}
+
+template<Device D>
+void Model<D>::saveTrainingState(const std::string& weightsFile) const
+{
+    const auto stateFile = weightsFile + ".training";
+    std::ofstream state(stateFile, std::ios::out | std::ios::trunc | std::ios::binary);
+    PX_CHECK(state.good(), "Could not open file \"%s\". %s", stateFile.c_str(), std::strerror(errno));
+
+    constexpr std::uint32_t magic = 0x50585431; // PXT1
+    const auto checkpointSeen = static_cast<std::uint64_t>(seen_);
+    const auto valsWithoutImprovement = static_cast<std::int32_t>(valsWithoutImprovement_);
+    state.write(reinterpret_cast<const char*>(&magic), sizeof(magic));
+    state.write(reinterpret_cast<const char*>(&checkpointSeen), sizeof(checkpointSeen));
+    state.write(reinterpret_cast<const char*>(&bestValLoss_), sizeof(bestValLoss_));
+    state.write(reinterpret_cast<const char*>(&bestmAP_), sizeof(bestmAP_));
+    state.write(reinterpret_cast<const char*>(&valsWithoutImprovement), sizeof(valsWithoutImprovement));
+
+    PX_CHECK(state.good(), "Could not write training-control state \"%s\"", stateFile.c_str());
 }
 
 }   // px
@@ -1038,6 +1106,7 @@ void Model<D>::parseModel(const Node& modelDoc)
             // "threshold" remains a compatibility alias for confidence only.
             valConfidenceThresh_ = val["confidence_threshold"].as<float>(
                     val["threshold"].as<float>(0.2f));
+            valApConfidenceThresh_ = val["ap_confidence_threshold"].as<float>(valConfidenceThresh_);
             valIouThresh_ = val["iou_threshold"].as<float>(0.5f);
             valNmsThresh_ = val["nms_threshold"].as<float>(0.4f);
         }
@@ -1351,6 +1420,11 @@ void Model<D>::saveWeights(bool final)
 template<Device D>
 void Model<D>::saveWeights(const std::string& fileName)
 {
+    const auto parent = boost::filesystem::path(fileName).parent_path();
+    if (!parent.empty() && !boost::filesystem::exists(parent)) {
+        boost::filesystem::create_directories(parent);
+    }
+
     std::ofstream ofs(fileName, std::ios::out | std::ios::trunc | std::ios::binary);
     PX_CHECK(ofs.good(), "Could not open file \"%s\". %s", fileName.c_str(), std::strerror(errno));
 
@@ -1379,6 +1453,8 @@ void Model<D>::saveWeights(const std::string& fileName)
         }
         PX_CHECK(optimizer.good(), "Could not write optimizer state \"%s\"", optimizerFile.c_str());
     }
+
+    saveTrainingState(fileName);
 }
 
 template<Device D>
@@ -1425,7 +1501,7 @@ void Model<D>::validate()
 {
     std::cout << "Pausing training to validate..." << std::flush;
 
-    Validator <D> validator(valConfidenceThresh_, valIouThresh_, valNmsThresh_, classes());
+    Validator <D> validator(valConfidenceThresh_, valApConfidenceThresh_, valIouThresh_, valNmsThresh_, classes());
 
     const auto availableBatches = std::max<std::size_t>(1, (valLoader_->size() + batch_ - 1) / batch_);
     const auto batches = std::min<std::size_t>(valBatches_, availableBatches);
@@ -1440,8 +1516,17 @@ void Model<D>::validate()
     avgValLoss_ = validator.avgLoss();
     valAccuracy_ = validator.accuracy();
 
-    std::printf("\nEpoch: %zu, mAP: %f, Avg. Recall: %f, Micro-Avg. F1: %f, Avg. Val. Loss: %f, Accuracy: %f\n",
-                seen_ / valLoader_->size(), mAP_, avgRecall_, microAvgF1_, avgValLoss_, valAccuracy_);
+    // Validation values change only here. Write them at their real step
+    // instead of repeating stale values on the training-metric interval.
+    writemAP();
+    writeAvgRecall();
+    writeMicroAvgF1();
+    writeAvgValLoss();
+    writeAccuracy();
+
+    const auto validationImagesSeen = seen_ * batch_;
+    std::printf("\nEpoch: %zu, mAP50: %f, Avg. Recall: %f, Micro-Avg. F1: %f, Avg. Val. Loss: %f, Accuracy: %f\n",
+                validationImagesSeen / trainLoader_->size(), mAP_, avgRecall_, microAvgF1_, avgValLoss_, valAccuracy_);
 
     std::cout << "Resuming training..." << std::endl << std::flush;
 }

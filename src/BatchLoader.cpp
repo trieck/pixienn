@@ -44,7 +44,13 @@ void BatchLoader::loadBatches()
 {
     std::random_device rd;
     std::default_random_engine generator(rd());
-    std::uniform_int_distribution<int> distribution(0, imageFiles_.size() - 1);
+    std::vector<std::size_t> imageOrder(imageFiles_.size());
+    for (std::size_t i = 0; i < imageOrder.size(); ++i) {
+        imageOrder[i] = i;
+    }
+    if (randomize_) {
+        std::shuffle(imageOrder.begin(), imageOrder.end(), generator);
+    }
 
     try {
         while (true) {
@@ -60,8 +66,13 @@ void BatchLoader::loadBatches()
 
             MiniBatch batch(batchSize_, channels_, height_, width_);
             for (auto i = 0; i < batchSize_; ++i) {
-                auto j = randomize_ ? static_cast<std::size_t>(distribution(generator))
-                                    : nextImage_++ % imageFiles_.size();
+                if (nextImage_ == imageOrder.size()) {
+                    nextImage_ = 0;
+                    if (randomize_) {
+                        std::shuffle(imageOrder.begin(), imageOrder.end(), generator);
+                    }
+                }
+                const auto j = imageOrder[nextImage_++];
                 const auto& path = imageFiles_[j];
                 auto imgLabels = loadImgLabels(path);
 
