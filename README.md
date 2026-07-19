@@ -77,6 +77,10 @@ experiment. The current CUDA implementation performs the CenterNet head math on
 the host while the convolutional backbone remains CUDA-accelerated; it favors a
 clear, testable reference implementation over peak head throughput.
 
+Read **[CenterNet: Objects as Glowing Points](docs/CENTERNET.md)** for a visual,
+beginner-friendly tour of heatmaps, center offsets, box reconstruction, and how
+the anchor-free approach differs from YOLO.
+
 ## Quick start
 
 ### 1. Build the CUDA engine
