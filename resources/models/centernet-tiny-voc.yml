@@ -50,10 +50,13 @@ model:
     burn_in:
       batches: 1000
       power: 4.0
-    initial_learning_rate: 0.001
+    # The initial 0.001 peak caused training and validation loss to diverge
+    # shortly after burn-in. CenterNet's dense focal-loss head is substantially
+    # more sensitive to the Adam step size than the YOLO presets.
+    initial_learning_rate: 0.0002
     policy: cosine_annealing
     cosine_annealing:
-      min_learning_rate: 0.00001
+      min_learning_rate: 0.000002
       batches_per_cycle: 100001
 
   layers:
