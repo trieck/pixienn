@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="320" viewBox="0 0 1200 320" role="img" aria-labelledby="title description">
+  <title id="title">PixieNN</title>
+  <desc id="description">Modern C++ and CUDA object detection</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#080b18"/>
+      <stop offset="0.55" stop-color="#111b35"/>
+      <stop offset="1" stop-color="#241340"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#42e8e0"/>
+      <stop offset="1" stop-color="#b467ff"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#8da2d8" stroke-opacity="0.08"/>
+    </pattern>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="320" rx="24" fill="url(#background)"/>
+  <rect width="1200" height="320" rx="24" fill="url(#grid)"/>
+  <path d="M0 278 C270 230 410 332 700 270 S1010 210 1200 245 V320 H0Z" fill="#7b55db" opacity="0.09"/>
+
+  <g transform="translate(76 64)">
+    <rect x="0" y="3" width="9" height="9" rx="2" fill="#42e8e0"/>
+    <rect x="14" y="3" width="9" height="9" rx="2" fill="#42e8e0" opacity="0.65"/>
+    <rect x="28" y="3" width="9" height="9" rx="2" fill="#b467ff"/>
+    <text x="0" y="96" fill="#f7f9ff" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="82" font-weight="800" letter-spacing="8">PIXIENN</text>
+    <rect x="2" y="116" width="500" height="4" rx="2" fill="url(#accent)"/>
+    <text x="0" y="158" fill="#c8d3f4" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="22" letter-spacing="1">OBJECT DETECTION, MADE INSPECTABLE.</text>
+
+    <g transform="translate(0 186)" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="700">
+      <rect width="78" height="30" rx="15" fill="#42e8e0" opacity="0.14" stroke="#42e8e0" stroke-opacity="0.6"/>
+      <text x="39" y="20" fill="#75fff7" text-anchor="middle">C++20</text>
+      <rect x="90" width="82" height="30" rx="15" fill="#86d73f" opacity="0.13" stroke="#86d73f" stroke-opacity="0.65"/>
+      <text x="131" y="20" fill="#a9ef6d" text-anchor="middle">CUDA</text>
+      <rect x="184" width="82" height="30" rx="15" fill="#b467ff" opacity="0.14" stroke="#b467ff" stroke-opacity="0.65"/>
+      <text x="225" y="20" fill="#d4a8ff" text-anchor="middle">YOLO</text>
+    </g>
+  </g>
+
+  <g transform="translate(735 43)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M32 64 L125 24 L224 72 L325 31 L405 89 M32 64 L119 147 L224 72 L311 162 L405 89 M119 147 L205 233 L311 162 M224 72 L205 233" stroke="#8ba2d9" stroke-opacity="0.28" stroke-width="2"/>
+    <g fill="#101830" stroke="#42e8e0" stroke-width="3" filter="url(#glow)">
+      <circle cx="32" cy="64" r="7"/><circle cx="125" cy="24" r="7"/><circle cx="119" cy="147" r="7"/>
+      <circle cx="224" cy="72" r="8"/><circle cx="205" cy="233" r="7"/><circle cx="325" cy="31" r="7"/>
+      <circle cx="311" cy="162" r="8"/><circle cx="405" cy="89" r="8"/>
+    </g>
+    <rect x="172" y="45" width="119" height="103" rx="5" stroke="#b467ff" stroke-width="3"/>
+    <path d="M172 45 h70 v22 h-70z" fill="#b467ff" stroke="none" opacity="0.92"/>
+    <text x="181" y="61" fill="#fff" stroke="none" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="700">DETECTED</text>
+    <path d="M353 75 h74 v20 h-74z" fill="#42e8e0" stroke="none" opacity="0.92"/>
+    <text x="361" y="89" fill="#071619" stroke="none" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="800">0.97</text>
+  </g>
+</svg>

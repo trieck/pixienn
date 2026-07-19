@@ -3,6 +3,7 @@
 /cmake-build-release/
 /build
 /resources/weights/
+/runs/
 
 *.geojson
 *.qml

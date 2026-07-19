@@ -1,93 +1,236 @@
-# PIXIENN
+<p align="center">
+  <img src="resources/examples/pixienn-banner.svg" alt="PixieNN — object detection, made inspectable" width="100%">
+</p>
 
-## A modern C++ re-implementation of Darknet.
+<p align="center">
+  <a href="#quick-start"><img alt="C++ 20" src="https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&amp;logoColor=white"></a>
+  <a href="#requirements"><img alt="CUDA accelerated" src="https://img.shields.io/badge/CUDA-accelerated-76B900?logo=nvidia&amp;logoColor=white"></a>
+  <a href="#models"><img alt="YOLO models" src="https://img.shields.io/badge/models-YOLO-7B55DB"></a>
+  <a href="#training-without-the-guesswork"><img alt="TensorBoard metrics" src="https://img.shields.io/badge/metrics-TensorBoard-FF6F00?logo=tensorflow&amp;logoColor=white"></a>
+  <img alt="Apache 2.0" src="https://img.shields.io/badge/license-Apache%202.0-4B79A1">
+</p>
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
+<p align="center">
+  <strong>A compact C++20 neural-network engine for CUDA-accelerated object detection.</strong><br>
+  Train, validate, inspect, and run YOLO-style models without hiding the machinery behind a framework.
+</p>
 
-![Inference Result 1](resources/examples/predictions.jpg)
+<p align="center">
+  <a href="#why-pixienn">Why PixieNN?</a> ·
+  <a href="#see-it-work">Demo</a> ·
+  <a href="#models">Models</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#training-without-the-guesswork">Training</a> ·
+  <a href="#how-it-fits-together">Architecture</a>
+</p>
 
-## Overview
+## Why PixieNN?
 
-This project aims to provide a modern C++ implementation of the Darknet neural network framework, focusing
-on efficient training and inference with CUDA support.
+PixieNN is a modern rethinking of the ideas behind Darknet: small enough to understand, direct enough to debug, and capable of running the complete object-detection workflow in native code.
 
-## Features
+| | |
+|---|---|
+| **Native performance** | C++20, CUDA, cuDNN, and OpenBLAS execution paths—without a Python runtime in the training or inference loop. |
+| **The whole workflow** | Training, validation, checkpointing, TensorBoard events, image inference, non-max suppression, and GeoJSON predictions. |
+| **Readable experiments** | Human-editable YAML describes model graphs, optimizer settings, augmentation, datasets, and learning-rate schedules. |
+| **Reproducible runs** | GPU/data preflight checks, isolated run directories, metadata, logs, safe restart behavior, and explicit checkpoint resume. |
 
-- **CUDA Support:** Utilize the power of NVIDIA GPUs for accelerated neural network training and inference.
-- **Model Compatibility:** Successfully tested with YOLOv1-tiny, YOLOv3-tiny, and YOLOv3 models and ResNet18.
-- **Performance:** Significantly reduced inference time on CPU compared to the original Darknet implementation.
-- **Modern C++ Features:** Leveraging modern C++ standards for improved maintainability.
+PixieNN is under active development. Its goal is not to impersonate a mature Python ecosystem; it is to offer a focused, inspectable native engine where model behavior can be traced all the way down to the kernels.
 
-## Getting Started
+## See it work
 
-### Prerequisites
+<p align="center">
+  <img src="resources/examples/predictions.jpg" alt="YOLOv3-tiny inference detecting a bicycle, dog, and truck" width="900">
+  <br>
+  <sub>YOLOv3-tiny inference: bounding boxes are rendered to JPEG while the same detections are exported as GeoJSON.</sub>
+</p>
 
-- Boost (>= 1.74)
-- CUDA Toolkit (for GPU support)
-- CUDNN8 (for GPU support)
-- Cairo (>= 1.16.0) (optional)
-- GLib
-- LibTIFF
-- OpenBLAS library
-- OpenCV (>= 4.5.4)
-- Pango (optional)
-- nlohmann_json (>= 3.10.5)
-- yaml-cpp
-- Protobuf (>= 3.12.4)
+## Models
 
-### Installation
+The repository includes model graphs and runnable presets spanning small experiments through larger detectors.
+
+| Family | Included preset | Intended use |
+|---|---|---|
+| YOLOv1 | `yolov1-tiny` | Compact VOC training and architecture experiments |
+| Tiny YOLO | `tiny-yolo-voc` | Small VOC smoke tests |
+| YOLO Nano | `yolo-nano` | Minimal detector experiments on VOC |
+| YOLOv3 Tiny | `yolov3-tiny`, `yolov3-tiny-voc` | Fast COCO smoke tests or full VOC training |
+| YOLOv3 | `yolov3` | Larger COCO model graph |
+| YOLOv7-style | `yolov7` | Larger COCO training preset |
+| ResNet-18 | model definition included | Classification and layer coverage |
+
+> [!NOTE]
+> Model definitions describe PixieNN graphs and training presets. They should not be read as claims of published reference-paper accuracy. Reproducible benchmark checkpoints and PR curves are a project milestone, not a fabricated checkbox.
+
+## Quick start
+
+### 1. Build the CUDA engine
 
 ```bash
-# Clone the repository
-git clone https://github.com/trieck/pixienn
-
-# Build the project
+git clone https://github.com/trieck/pixienn.git
 cd pixienn
-mkdir build
-cd build
-cmake ..
-make
+
+cmake -S . -B build \
+  -DUSE_CUDA=ON \
+  -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
 ```
 
-### Running inference
+The main executables are written to `build/bin/`:
 
-In the `bin` directory, you will find the `pixienn` executable. You can use it to run inference on a single image.
-The following example shows how to run inference on a single image using the YOLOv3-tiny model:
+- `pixienn` — image inference
+- `pixienn-train` — model training and validation
+- `pixienn-test` — the native test suite
 
-1.) Download the trained darknet weights file [](https://pjreddie.com/media/files/yolov3-tiny.weights) and place it in
-the `resources/weights` directory below the project root.
+Run the tests with:
 
 ```bash
-./pixienn ../../resources/cfg/yolov3-tiny-cfg.yml ../../resources/images/dog.jpg
+./build/bin/pixienn-test --gtest_brief=1
 ```
 
-If all went well, this will produce an image named `predictions.jpg` and a JSON file named `predictions.geojson` in the
-current directory. The image will have bounding boxes drawn around the detected objects. The JSON file will contain
-the bounding box coordinates and class labels for each detected object.
-You should be able to see bounding boxes for a dog and a bicycle and truck in the image.
+### 2. Run an inference example
 
-### Training a model
-
-We will train a YOLOv3-tiny model on the COCO dataset. The easiest thing to do is to follow the instructions on the
-darknet
-site for downloading the COCO dataset and creating annotations for the training and validation sets.
-
-You must configure the directory paths for the training and validation images and annotations in
-the `cfg/yolov3-tiny-cfg.yml`.
-
-You may wish to edit parameters in the model file under `resources/models/yolov3-tiny.yml`.
-
-Once you have configured the paths, you can train your model as follows:
+Download the original YOLOv3-tiny Darknet weights:
 
 ```bash
-./pixienn-train ../../resources/cfg/yolov3-tiny-cfg.yml yolov3-tiny.weights
+mkdir -p resources/weights
+curl -L https://pjreddie.com/media/files/yolov3-tiny.weights \
+  -o resources/weights/yolov3-tiny.weights
 ```
-#### Monitoring model training
 
-PixieNN uses the [Tensorboard](https://www.tensorflow.org/tensorboard) tool for monitoring model training. You can
-start Tensorboard as follows:
+Then run PixieNN from the repository root:
 
 ```bash
-tensorboard --logdir=.
+./build/bin/pixienn \
+  --confidence=0.20 \
+  --nms=0.40 \
+  resources/cfg/yolov3-tiny-cfg.yml \
+  resources/images/dog.jpg
 ```
 
+This writes `predictions.jpg` and `predictions.geojson` to the current directory.
+
+## Training without the guesswork
+
+The training wrappers standardize the parts of long-running GPU jobs that are easy to get wrong: executable selection, CUDA linkage, input manifests, stale output, logs, metadata, checkpoints, locking, and resume behavior.
+
+List every available preset:
+
+```bash
+./shell/train-model.sh --list
+```
+
+Start a clean run after verifying every training and validation sample:
+
+```bash
+./shell/train-model.sh yolov7 --fresh --verify-data
+```
+
+Resume the latest complete checkpoint:
+
+```bash
+./shell/train-model.sh yolov7 --resume
+```
+
+Run all configured models sequentially:
+
+```bash
+./shell/train-all-models.sh --fresh --verify-data
+```
+
+The wrappers deliberately reject CPU-only binaries. A run is organized for both humans and tooling:
+
+```text
+runs/
+├── archive/                       # complete older runs preserved by --fresh
+│   └── yolov7-<timestamp>/
+└── yolov7/
+    ├── backup/                    # rolling checkpoints
+    ├── run-metadata.txt           # command, host, GPU, revision, and start time
+    ├── training.log               # captured console output
+    ├── events.out.tfevents.*
+    └── *.weights                  # primary/final weights
+```
+
+Monitor every active run with TensorBoard:
+
+```bash
+tensorboard --logdir=runs
+```
+
+PixieNN currently reports training/validation loss, IoU, recall, micro-averaged F1, and mAP at IoU 0.50. Do not confuse the latter with COCO's stricter mAP averaged from IoU 0.50 through 0.95.
+
+For preset overrides, data-manifest rules, dry runs, locking, and cleanup semantics, read the **[training guide](shell/TRAINING.md)**.
+
+## How it fits together
+
+```mermaid
+flowchart LR
+    A[Dataset manifests] --> C[Experiment config]
+    B[Model graph + hyperparameters] --> C
+    C --> D[pixienn-train]
+    D --> E[Checkpoints]
+    D --> F[TensorBoard events]
+    E --> G[pixienn inference]
+    G --> H[Annotated JPEG]
+    G --> I[GeoJSON detections]
+```
+
+- `resources/cfg/` binds a model to weights, labels, and train/validation manifests.
+- `resources/models/` defines the layer graph and training hyperparameters.
+- `include/` contains the engine, CUDA layers, optimizers, metrics, and data pipeline.
+- `src/` provides the CLI entry points and concrete implementation units.
+- `shell/` contains reproducible training and dataset utilities.
+- `tests/` exercises layers, training behavior, metrics, serialization, and scripts.
+
+## Requirements
+
+| Core | GPU acceleration | Image and configuration |
+|---|---|---|
+| CMake 3.15+ | NVIDIA CUDA Toolkit | OpenCV 4.5.4+ |
+| C++20 compiler | cuDNN 8+ | LibTIFF |
+| Boost 1.74+ | Compatible NVIDIA driver | yaml-cpp |
+| OpenBLAS |  | nlohmann/json 3.10.5+ |
+| Protobuf 3.12.4+ |  | GLib and HarfBuzz |
+
+Cairo and Pango are optional visualization dependencies. CUDA is optional at build time, but it is required by the guarded training wrappers documented above.
+
+## Configuration at a glance
+
+A run is split into two YAML files so datasets and model internals remain independently reusable:
+
+```yaml
+# resources/cfg/<experiment>-cfg.yml
+configuration:
+  model: ../models/<model>.yml
+  weights: ../weights/<checkpoint>.weights
+  labels: ../data/<dataset>/labels.txt
+
+training:
+  train-images: ../data/<dataset>/train.txt
+  train-labels: ../data/<dataset>/labels/train
+  val-images: ../data/<dataset>/val.txt
+  val-labels: ../data/<dataset>/labels/val
+```
+
+The model YAML controls layers, batch sizing, augmentation, validation cadence, optimizer parameters, learning-rate policy, checkpointing, and early stopping. Start with an included preset; then change one variable at a time and preserve the generated run metadata.
+
+## Project direction
+
+The next meaningful milestones are evidence, not feature-count theater:
+
+- publish reproducible checkpoints and precision–recall curves;
+- add standards-compliant COCO mAP50–95 evaluation;
+- document GPU throughput and memory benchmarks;
+- expand end-to-end training regression coverage;
+- continue simplifying the path from YAML to kernel execution.
+
+## Contributing
+
+Bug reports, focused pull requests, reproducible training observations, and new tests are welcome. When reporting training behavior, include the model/config YAML, GPU model, command line, relevant `run-metadata.txt`, and a short TensorBoard export whenever possible.
+
+PixieNN was inspired by Darknet's directness and its enduring contribution to real-time object detection. Source files are distributed under the Apache License 2.0.
+
+<p align="center">
+  <strong>If an understandable native training engine is useful to you, give PixieNN a ⭐ and help test it on new hardware and datasets.</strong>
+</p>
