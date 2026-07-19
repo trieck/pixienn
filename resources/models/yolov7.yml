@@ -1,11 +1,11 @@
 model:
-  batch: 3
+  batch: 8
   subdivisions: 1
   width: 416
   height: 416
   channels: 3
 
-  max_batches: 2000200
+  max_batches: 750075
 
   momentum: 0.9
   decay: 0.0005
@@ -39,8 +39,8 @@ model:
 
   validation:
     enabled: True
-    interval: 27361
-    batches: 334
+    interval: 10261
+    batches: 125
     confidence_threshold: 0.05
     iou_threshold: 0.5
     nms_threshold: 0.4
@@ -57,7 +57,7 @@ model:
     policy: stepped
 
     stepped:
-      steps: [ 1600000, 1800000 ]
+      steps: [ 600000, 675000 ]
       scales: [ .1, .1 ]
 
   layers:
