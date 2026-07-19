@@ -4,7 +4,7 @@ model:
   height: 448
   width: 448
 
-  max_batches: 500000
+  max_batches: 200000
   momentum: 0.9
   decay: 0.0005
 
@@ -22,6 +22,11 @@ model:
     saturation: 0.75
     exposure: 0.75
 
+  early_stopping:
+    enabled: True
+    patience: 10
+    threshold: 0.0001
+
   gradient_rescale:
     enabled: True
     threshold: 100.0
@@ -31,21 +36,28 @@ model:
     value: 10.0
 
   validation:
-    enabled: False
-    interval: 1000
-    batches: 100
-    threshold: 0.5
+    enabled: True
+    interval: 1250
+    batches: 250
+    confidence_threshold: 0.05
+    iou_threshold: 0.5
+    nms_threshold: 0.4
 
-  save_weights_interval: 1000
+  save_weights_interval: 1250
   write_metrics_interval: 50
 
   learning_rate:
     burn_in:
-      batches: 200
-      power: 2.0
+      batches: 1000
+      power: 4.0
 
-    initial_learning_rate: 0.005
-    policy: sigmoid
+    # Fine-tune the completed 60k run without restarting the cosine cycle.
+    initial_learning_rate: 0.00001
+    policy: constant
+
+    cosine_annealing:
+      min_learning_rate: 0.00001
+      batches_per_cycle: 60001
 
     sigmoid:
       target_learning_rate: 0.00001
@@ -169,9 +181,9 @@ model:
     - type: detection
       log_interval: 50
       class_scale: 1
-      coord_scale: 1
+      coord_scale: 5
       coords: 4
-      noobject_scale: 1
+      noobject_scale: 0.5
       num: 2
       object_scale: 1
       rescore: True
