@@ -6,9 +6,6 @@ list(APPEND PIXIENN_LIBS
         ${OpenBLAS_LIB}
         boost_filesystem
         boost_program_options
-        CUDA::cudart
-        CUDA::cublas
-        ${CUDNN_LIBRARY}
         ${GLIB_LIBRARIES}
         ${GLIB_GOBJECT_LIBRARIES}
         ${HARFBUZZ_LIBRARY}
@@ -16,6 +13,14 @@ list(APPEND PIXIENN_LIBS
         pixienn_proto
         protobuf::libprotobuf
 )
+
+if (USE_CUDA)
+    list(APPEND PIXIENN_LIBS
+            CUDA::cudart
+            CUDA::cublas
+            ${CUDNN_LIBRARY}
+    )
+endif ()
 
 if (Cairo_FOUND)
     list(APPEND PIXIENN_LIBS

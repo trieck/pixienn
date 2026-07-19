@@ -6,6 +6,8 @@ script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 repo_root=$(cd -- "$script_dir/.." && pwd -P)
 
 models=(
+    centernet-smoke-voc
+    centernet-tiny-voc
     resnet18
     tiny-yolo-voc
     yolo-nano
@@ -43,6 +45,8 @@ list_models()
 {
     cat <<'EOF'
 MODEL               DATASET/PURPOSE         CONFIG
+centernet-smoke-voc VOC pipeline smoke test resources/cfg/centernet-smoke-voc-cfg.yml
+centernet-tiny-voc  VOC anchor-free detector resources/cfg/centernet-tiny-voc-cfg.yml
 resnet18            ImageNet paths required resources/cfg/resnet18-cfg.yml
 tiny-yolo-voc       VOC smoke preset        resources/cfg/tiny-yolo-voc-cfg.yml
 yolo-nano           VOC full manifests      resources/cfg/yolo-nano-cfg.yml

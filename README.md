@@ -51,6 +51,7 @@ The repository includes model graphs and runnable presets spanning small experim
 
 | Family | Included preset | Intended use |
 |---|---|---|
+| CenterNet | `centernet-smoke-voc`, `centernet-tiny-voc` | Anchor-free VOC pipeline checks and training |
 | YOLOv1 | `yolov1-tiny` | Compact VOC training and architecture experiments |
 | Tiny YOLO | `tiny-yolo-voc` | Small VOC smoke tests |
 | YOLO Nano | `yolo-nano` | Minimal detector experiments on VOC |
@@ -61,6 +62,20 @@ The repository includes model graphs and runnable presets spanning small experim
 
 > [!NOTE]
 > Model definitions describe PixieNN graphs and training presets. They should not be read as claims of published reference-paper accuracy. Reproducible benchmark checkpoints and PR curves are a project milestone, not a fabricated checkbox.
+
+### Anchor-free CenterNet experiments
+
+The CenterNet head provides a deliberately different detector for comparison
+with the YOLO families. It treats objects as center points and predicts a
+per-class center heatmap, normalized box width and height, and a fractional
+center offset. This removes anchor configuration from the experiment and makes
+the learned heatmaps directly inspectable.
+
+Use `centernet-smoke-voc` to verify the complete target, loss, checkpoint, and
+decode pipeline on a small network. Use `centernet-tiny-voc` for a real VOC
+experiment. The current CUDA implementation performs the CenterNet head math on
+the host while the convolutional backbone remains CUDA-accelerated; it favors a
+clear, testable reference implementation over peak head throughput.
 
 ## Quick start
 
