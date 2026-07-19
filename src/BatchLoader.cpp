@@ -33,62 +33,83 @@ BatchLoader::BatchLoader(std::string imagesPath, std::string labelsPath, std::ui
                          bool viewImage, std::uint32_t queueSize, bool randomize)
         : imagesPath_(std::move(imagesPath)), labelsPath_(std::move(labelsPath)), batchSize_(batchSize),
           channels_(channels), height_(height), width_(width), stop_(false), labels_(std::move(labels)),
-          augmenter_(augmenter), viewImage_(viewImage), queueSize_(queueSize), randomize_(randomize)
+          augmenter_(augmenter), viewImage_(viewImage), queueSize_(queueSize), randomize_(randomize),
+          generator_(std::random_device{}())
 {
+    PX_CHECK(queueSize_ > 0, "Batch loader queue size must be positive.");
     loadPaths();
 
-    worker_ = std::thread(&BatchLoader::loadBatches, this);
+    imageOrder_.resize(imageFiles_.size());
+    std::iota(imageOrder_.begin(), imageOrder_.end(), 0);
+    if (randomize_) {
+        std::shuffle(imageOrder_.begin(), imageOrder_.end(), generator_);
+    }
+
+    const auto hardwareThreads = std::max(1u, std::thread::hardware_concurrency());
+    const auto workerCount = std::max(1u, std::min({ 4u, hardwareThreads, queueSize_ }));
+    workers_.reserve(workerCount);
+    for (auto i = 0u; i < workerCount; ++i) {
+        workers_.emplace_back(&BatchLoader::loadBatches, this);
+    }
 }
 
 void BatchLoader::loadBatches()
 {
-    std::random_device rd;
-    std::default_random_engine generator(rd());
-    std::vector<std::size_t> imageOrder(imageFiles_.size());
-    for (std::size_t i = 0; i < imageOrder.size(); ++i) {
-        imageOrder[i] = i;
-    }
-    if (randomize_) {
-        std::shuffle(imageOrder.begin(), imageOrder.end(), generator);
-    }
-
+    auto reservedBatch = false;
     try {
         while (true) {
-            std::unique_lock<std::mutex> lock(mutex_);
-            cv_.wait(lock, [this] { return stop_ || batches_.size() < queueSize_; });
-            if (stop_) {
-                break;
+            std::vector<std::string> paths(batchSize_);
+            {
+                std::unique_lock<std::mutex> lock(mutex_);
+                cv_.wait(lock, [this] {
+                    return stop_ || workerError_ || batches_.size() + batchesInFlight_ < queueSize_;
+                });
+                if (stop_ || workerError_) {
+                    break;
+                }
+
+                ++batchesInFlight_;
+                reservedBatch = true;
+                for (auto& path: paths) {
+                    if (nextImage_ == imageOrder_.size()) {
+                        nextImage_ = 0;
+                        if (randomize_) {
+                            std::shuffle(imageOrder_.begin(), imageOrder_.end(), generator_);
+                        }
+                    }
+                    path = imageFiles_[imageOrder_[nextImage_++]];
+                }
             }
 
-            if (batches_.size() >= queueSize_) {
-                continue;
-            }
-
+            // Image decoding, augmentation, and packing are intentionally done
+            // without the queue mutex. Consumers can pop prefetched batches and
+            // other workers can prepare subsequent batches concurrently.
             MiniBatch batch(batchSize_, channels_, height_, width_);
             for (auto i = 0; i < batchSize_; ++i) {
-                if (nextImage_ == imageOrder.size()) {
-                    nextImage_ = 0;
-                    if (randomize_) {
-                        std::shuffle(imageOrder.begin(), imageOrder.end(), generator);
-                    }
-                }
-                const auto j = imageOrder[nextImage_++];
-                const auto& path = imageFiles_[j];
-                auto imgLabels = loadImgLabels(path);
+                auto imgLabels = loadImgLabels(paths[i]);
 
                 batch.setImageData(i, imgLabels.first);  // the image data must be copied
                 batch.setGroundTruth(i, std::move(imgLabels.second));
             }
 
-            batches_.push(std::move(batch));
-            lock.unlock();
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                --batchesInFlight_;
+                reservedBatch = false;
+                if (stop_) {
+                    break;
+                }
+                batches_.push(std::move(batch));
+            }
             cv_.notify_all();
         }
     } catch (...) {
-        std::unique_lock<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (reservedBatch) {
+            --batchesInFlight_;
+        }
         workerError_ = std::current_exception();
         stop_ = true;
-        lock.unlock();
         cv_.notify_all();
     }
 }
@@ -115,12 +136,17 @@ MiniBatch BatchLoader::next()
 
 void BatchLoader::stop()
 {
-    std::unique_lock<std::mutex> lock(mutex_);
-    stop_ = true;
-    lock.unlock();
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        stop_ = true;
+    }
 
     cv_.notify_all();
-    worker_.join();
+    for (auto& worker: workers_) {
+        if (worker.joinable()) {
+            worker.join();
+        }
+    }
 }
 
 BatchLoader::~BatchLoader()

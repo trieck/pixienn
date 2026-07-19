@@ -31,8 +31,10 @@ T randomUniform(T min = 0, T max = 1)
         std::swap(min, max);
     }
 
-    std::random_device rd;
-    std::mt19937 gen(rd());
+    // Seeding a new engine from std::random_device for every augmentation draw
+    // is both expensive and unnecessary. A generator per worker thread avoids
+    // contention while preserving independent randomized augmentation streams.
+    thread_local std::mt19937 gen(std::random_device{}());
 
     if constexpr (std::is_integral<T>::value) {
         std::uniform_int_distribution<T> distribution(min, max);
