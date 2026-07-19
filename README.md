@@ -1,13 +1,13 @@
 <p align="center">
-  <img src="resources/examples/pixienn-banner.svg" alt="PixieNN — object detection, made inspectable" width="100%">
+  <img src="resources/examples/pixienn-banner.png" alt="PixieNN — object detection, made inspectable" width="100%">
 </p>
 
 <p align="center">
-  <a href="#quick-start"><img alt="C++ 20" src="https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&amp;logoColor=white"></a>
-  <a href="#requirements"><img alt="CUDA accelerated" src="https://img.shields.io/badge/CUDA-accelerated-76B900?logo=nvidia&amp;logoColor=white"></a>
-  <a href="#models"><img alt="YOLO models" src="https://img.shields.io/badge/models-YOLO-7B55DB"></a>
-  <a href="#training-without-the-guesswork"><img alt="TensorBoard metrics" src="https://img.shields.io/badge/metrics-TensorBoard-FF6F00?logo=tensorflow&amp;logoColor=white"></a>
-  <img alt="Apache 2.0" src="https://img.shields.io/badge/license-Apache%202.0-4B79A1">
+  <strong>C++20</strong> &nbsp;•&nbsp;
+  <strong>CUDA + cuDNN</strong> &nbsp;•&nbsp;
+  <strong>YOLO models</strong> &nbsp;•&nbsp;
+  <strong>TensorBoard metrics</strong> &nbsp;•&nbsp;
+  <strong>Apache 2.0</strong>
 </p>
 
 <p align="center">
