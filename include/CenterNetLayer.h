@@ -86,6 +86,11 @@ template<Device D>
 void CenterNetLayer<D>::forwardCpu(const PxCpuVector& input)
 {
     poutput_->copy(input);
+    // Regression targets are sparse: only object-center cells receive size and
+    // offset gradients below. Clear the entire buffer on every forward pass so
+    // cells that belonged to an object in the previous batch cannot leak stale
+    // gradients into the current batch.
+    pdelta_->fill(0.0f);
 
     const auto area = this->width() * this->height();
     const auto heatmapSize = this->classes() * area;

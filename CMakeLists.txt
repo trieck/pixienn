@@ -83,6 +83,7 @@ if (USE_CUDA)
             src/Activation.cu
             src/Adam.cu
             src/BiasKernels.cu
+            src/CenterNetKernels.cu
             src/CudaError.cpp
             src/CudaUtils.cu
             src/Gemm.cpp
