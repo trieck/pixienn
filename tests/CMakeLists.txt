@@ -44,6 +44,7 @@ list(APPEND TEST_SOURCES
         src/tensor.cpp
         src/tiff.cpp
         src/vector.cpp
+        src/yolo_cuda.cpp
 )
 
 add_executable(pixienn-test ${TEST_SOURCES})

@@ -161,6 +161,9 @@ void YoloLayer<D>::forwardCpu(const PxCpuVector& input)
     PX_CHECK(pdelta_ != nullptr, "Delta vector is null.");
 
     this->poutput_->copy(input);
+    // Class and box supervision is sparse. Never allow assignments from a
+    // previous batch to survive at locations untouched by the current batch.
+    this->pdelta_->fill(0.0f);
 
     auto area = std::max(1, this->height() * this->width());
     auto nclasses = this->classes();

@@ -91,6 +91,7 @@ if (USE_CUDA)
             src/ShortcutKernel.cu
             src/SoftmaxKernel.cu
             src/UpsampleKernels.cu
+            src/YoloKernels.cu
     )
     message(STATUS "CUDA FOUND AND ENABLED")
 else ()
@@ -106,6 +107,7 @@ list(APPEND SOURCES
         src/BurnInLRPolicy.cpp
         src/CRC32.cpp
         src/CenterNetTargetBuilder.cpp
+        src/YoloTargetBuilder.cpp
         src/ColorMaps.cpp
         src/ConfusionMatrix.cpp
         src/ConstantLRPolicy.cpp
