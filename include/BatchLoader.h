@@ -48,9 +48,10 @@ private:
     void viewImageGT(const std::string& imgPath, const GroundTruthVec& gt) const;
 
     ImageAugmenter::Ptr augmenter_;
-    std::thread worker_;
+    std::vector<std::thread> workers_;
 
     std::vector<std::string> imageFiles_, labels_;
+    std::vector<std::size_t> imageOrder_;
     std::queue<MiniBatch> batches_;
     std::mutex mutex_;
     std::condition_variable cv_;
@@ -60,6 +61,8 @@ private:
     std::uint32_t batchSize_, channels_, height_, width_, queueSize_;
     bool stop_, viewImage_, randomize_;
     std::size_t nextImage_ = 0;
+    std::size_t batchesInFlight_ = 0;
+    std::mt19937 generator_;
 };
 
 } // px
