@@ -208,6 +208,27 @@ PixieNN currently reports training/validation loss, IoU, recall, micro-averaged 
 
 For preset overrides, data-manifest rules, dry runs, locking, and cleanup semantics, read the **[training guide](shell/TRAINING.md)**.
 
+### Monitor a run in the React dashboard
+
+The repository includes a local React dashboard for `training.log` and
+`run-metadata.txt`. Start it from the repository root:
+
+```bash
+cd monitor
+npm install
+npm run dev
+```
+
+Open [http://localhost:4173](http://localhost:4173). The dashboard refreshes
+every 2.5 seconds and shows the current run status, batch, loss, learning rate,
+latest checkpoint, metadata, loss trace, and raw training log. Use the run
+selector to inspect another directory under `runs/`.
+
+The monitor reads local files through its local-only API; it does not upload
+logs or expose arbitrary filesystem paths. TensorBoard remains available at
+the separate URL printed by the training wrapper, normally
+`http://localhost:6006/`.
+
 ## How it fits together
 
 ```mermaid
