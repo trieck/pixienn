@@ -45,6 +45,8 @@ int main(int argc, char* argv[])
             ("help", "Print program usage")
             ("no-gpu", po::bool_switch()->default_value(false), "Use CPU for processing")
             ("clear-weights", po::bool_switch()->default_value(false), "Clear target weights")
+            ("reset-training-state", po::bool_switch()->default_value(false),
+             "Reset seen count, optimizer moments, and training-control state")
             ("view-image", po::bool_switch()->default_value(false), "View training image for debugging");
 
     po::options_description hidden;

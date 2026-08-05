@@ -873,6 +873,7 @@ template<Device D>
 void Model<D>::loadWeights()
 {
     auto clearWeights = hasOption("clear-weights");
+    auto resetTrainingState = hasOption("reset-training-state");
     auto latestWeightsFile = weightsLatestFileName();
 
     if (training() && clearWeights) {
@@ -922,7 +923,12 @@ void Model<D>::loadWeights()
 
         ifs.close();
 
-        if (training() && adamEnabled_) {
+        if (training() && resetTrainingState) {
+            seen_ = 0;
+            optimizerStep_ = 0;
+        }
+
+        if (training() && adamEnabled_ && !resetTrainingState) {
             const auto optimizerFile = loadedWeightsFile + ".optimizer";
             std::ifstream optimizer(optimizerFile, std::ios::in | std::ios::binary);
             if (optimizer.is_open()) {
@@ -950,7 +956,7 @@ void Model<D>::loadWeights()
             }
         }
 
-        if (training()) {
+        if (training() && !resetTrainingState) {
             loadTrainingState(loadedWeightsFile);
         }
     }

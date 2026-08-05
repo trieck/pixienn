@@ -174,6 +174,35 @@ __global__ void squaredNormKernel(const float* delta, float* cost, std::size_t s
     if (threadIdx.x == 0) atomicAdd(cost, sums[0]);
 }
 
+__global__ void lossComponentsKernel(const float* delta, float* stats, int slots,
+                                     int classes, int area)
+{
+    const auto slot = (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x + threadIdx.x;
+    if (slot >= slots) return;
+
+    const auto maskSlot = slot / area;
+    const auto cell = slot % area;
+    const auto stride = area;
+    const auto index = maskSlot * (classes + 5) * stride + cell;
+
+    auto boxLoss = 0.0f;
+    for (auto component = 0; component < 4; ++component) {
+        const auto value = delta[index + component * stride];
+        boxLoss += value * value;
+    }
+    atomicAdd(stats + 8, boxLoss);
+
+    const auto object = delta[index + 4 * stride];
+    atomicAdd(stats + (object >= 0.0f ? 9 : 10), object * object);
+
+    auto classLoss = 0.0f;
+    for (auto c = 0; c < classes; ++c) {
+        const auto value = delta[index + (5 + c) * stride];
+        classLoss += value * value;
+    }
+    atomicAdd(stats + 11, classLoss);
+}
+
 } // namespace
 
 void yoloActivateGpu(const float* input, float* output, int batch, int masks, int classes, int area)
@@ -206,6 +235,10 @@ void yoloLossGpu(const float* output, float* delta, const float* truths,
     PX_CUDA_CHECK_LAST();
     const auto outputs = static_cast<std::size_t>(batch) * maskCount * (classes + 5) * width * height;
     squaredNormKernel<<<cudaGridsize(outputs), CUDA_BLOCK_SIZE>>>(delta, cost, outputs);
+    PX_CUDA_CHECK_LAST();
+    const auto slotsForComponents = batch * maskCount * width * height;
+    lossComponentsKernel<<<cudaGridsize(slotsForComponents), CUDA_BLOCK_SIZE>>>(
+            delta, stats, slotsForComponents, classes, width * height);
     PX_CUDA_CHECK_LAST();
 }
 

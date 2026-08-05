@@ -213,12 +213,44 @@ start_tensorboard()
 {
     local log_dir=$1
     local port=$2
-    local pid command listener
+    local pid command listener candidate shebang shebang_body interpreter shebang_arg python3_bin
+    local -a tensorboard_command=()
 
-    command -v tensorboard >/dev/null 2>&1 || {
-        echo "TensorBoard is not installed or not available on PATH." >&2
-        return 1
-    }
+    # A user-local tensorboard launcher can point at a different Python
+    # installation than the active environment.  Resolve that mismatch before
+    # starting the server; otherwise the wrapper reports a false startup
+    # failure with "No module named 'tensorboard'".
+    candidate=$(command -v tensorboard 2>/dev/null || true)
+    if [[ -n "$candidate" && -x "$candidate" ]]; then
+        shebang=$(head -n 1 -- "$candidate" 2>/dev/null || true)
+        if [[ "$shebang" == '#!'* ]]; then
+            shebang_body=${shebang#\#!}
+            read -r interpreter shebang_arg <<<"$shebang_body"
+            if [[ "$interpreter" == "/usr/bin/env" ]]; then
+                interpreter=$(command -v "$shebang_arg" 2>/dev/null || true)
+            fi
+            if [[ "$interpreter" == *python* ]]; then
+                if "$interpreter" -c 'import tensorboard' >/dev/null 2>&1; then
+                    tensorboard_command=("$candidate")
+                fi
+            else
+                # Keep test doubles and non-Python launchers intact.
+                tensorboard_command=("$candidate")
+            fi
+        else
+            tensorboard_command=("$candidate")
+        fi
+    fi
+
+    if ((${#tensorboard_command[@]} == 0)); then
+        python3_bin=$(command -v python3 2>/dev/null || true)
+        if [[ -n "$python3_bin" ]] && "$python3_bin" -c 'import tensorboard' >/dev/null 2>&1; then
+            tensorboard_command=("$python3_bin" -m tensorboard.main)
+        else
+            echo "TensorBoard is not installed or not available to the active Python environment." >&2
+            return 1
+        fi
+    fi
 
     while IFS= read -r pid; do
         [[ "$pid" =~ ^[0-9]+$ && -r "/proc/$pid/cmdline" ]] || continue
@@ -231,7 +263,7 @@ start_tensorboard()
         return 1
     done < <(lsof -nP -t -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | sort -u)
 
-    tensorboard --logdir="$log_dir" --port="$port" --bind_all \
+    "${tensorboard_command[@]}" --logdir="$log_dir" --port="$port" --bind_all \
         >"$log_dir/tensorboard.log" 2>&1 &
     pid=$!
     printf '%s\n' "$pid" > "$log_dir/tensorboard.pid"
