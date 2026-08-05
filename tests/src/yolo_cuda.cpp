@@ -157,7 +157,7 @@ TEST(YoloCudaTest, MatchesReferenceAssignedTargetLossAndGradients)
     PxCudaVectorT<int> assignedClassesGpu(assignedClasses.data(), assignedClasses.data() + assignedClasses.size());
     PxCudaVectorT<int> assignedAnchorsGpu(assignedAnchors.data(), assignedAnchors.data() + assignedAnchors.size());
     PxCudaVectorT<int> masksGpu(masks.data(), masks.data() + masks.size());
-    PxCudaVector stats(8, 0.0f);
+    PxCudaVector stats(YOLO_STATS_SIZE, 0.0f);
     PxCudaVector cost(1, 0.0f);
 
     yoloLossGpu(output.data(), delta.data(), truthGpu.data(), truthCountsGpu.data(), 1,
@@ -219,7 +219,7 @@ TEST(YoloCudaTest, LeavesSparseEntriesZeroForBackground)
     PxCudaVectorT<int> assignedClassesGpu(assignedClasses.data(), assignedClasses.data() + assignedClasses.size());
     PxCudaVectorT<int> assignedAnchorsGpu(assignedAnchors.data(), assignedAnchors.data() + assignedAnchors.size());
     PxCudaVectorT<int> masksGpu(masks.data(), masks.data() + masks.size());
-    PxCudaVector stats(8, 0.0f), cost(1, 0.0f);
+    PxCudaVector stats(YOLO_STATS_SIZE, 0.0f), cost(1, 0.0f);
     yoloLossGpu(output.data(), delta.data(), truthGpu.data(), truthCountsGpu.data(), 1,
                 assignedClassesGpu.data(), assignedAnchorsGpu.data(), assignedBoxGpu.data(),
                 masksGpu.data(), anchorsGpu.data(), stats.data(), cost.data(), 1, 1, 1,
@@ -259,7 +259,7 @@ TEST(YoloCudaTest, TruthThresholdOverridesNoObjectPenalty)
     PxCudaVectorT<int> assignedClassesGpu(assignedClasses.data(), assignedClasses.data() + assignedClasses.size());
     PxCudaVectorT<int> assignedAnchorsGpu(assignedAnchors.data(), assignedAnchors.data() + assignedAnchors.size());
     PxCudaVectorT<int> masksGpu(masks.data(), masks.data() + masks.size());
-    PxCudaVector stats(8, 0.0f), cost(1, 0.0f);
+    PxCudaVector stats(YOLO_STATS_SIZE, 0.0f), cost(1, 0.0f);
 
     yoloLossGpu(output.data(), delta.data(), truthGpu.data(), truthCountsGpu.data(), 1,
                 assignedClassesGpu.data(), assignedAnchorsGpu.data(), assignedBoxGpu.data(),

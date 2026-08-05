@@ -22,6 +22,14 @@ function safeRun(name = 'yolov3') {
   return { name: clean, dir };
 }
 
+function availableRuns() {
+  if (!fs.existsSync(runs)) return [];
+  return fs.readdirSync(runs, { withFileTypes: true })
+    .filter(entry => entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== '.locks')
+    .map(entry => entry.name)
+    .sort();
+}
+
 function read(name) {
   try { return fs.readFileSync(name, 'utf8'); } catch { return ''; }
 }
@@ -66,6 +74,11 @@ function snapshot(runName) {
 
 const vite = await createViteServer({ root: path.dirname(fileURLToPath(import.meta.url)), server: { middlewareMode: true }, appType: 'spa' });
 createServer((req, res) => {
+  if (req.url === '/api/runs') {
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify(availableRuns()));
+    return;
+  }
   if (req.url.startsWith('/api/run')) {
     try { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(snapshot(new URL(req.url, 'http://localhost').searchParams.get('name') || 'yolov3'))); }
     catch (e) { res.statusCode = 400; res.end(JSON.stringify({ error: e.message })); }

@@ -2,6 +2,8 @@
 
 namespace px {
 
+constexpr int YOLO_STATS_SIZE = 12;
+
 void yoloActivateGpu(const float* input, float* output, int batch, int masks,
                      int classes, int area);
 

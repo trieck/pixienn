@@ -58,7 +58,7 @@ inline void YoloLayer<Device::CUDA>::setup()
     std::transform(anchors_.begin(), anchors_.end(), anchorValues.begin(),
                    [](int value) { return static_cast<float>(value); });
     anchorsGpu_ = PxCudaVector(anchorValues.data(), anchorValues.data() + anchorValues.size());
-    statsGpu_ = PxCudaVector(8);
+    statsGpu_ = PxCudaVector(YOLO_STATS_SIZE);
     costGpu_ = PxCudaVector(1);
     hostTruthCounts_ = PxCpuVectorT<int>(this->batch(), 0);
     truthCountsGpu_ = PxCudaVectorT<int>(this->batch());
@@ -78,6 +78,7 @@ inline void YoloLayer<Device::CUDA>::forward(const V& input)
     if (this->inferring()) return;
 
     const auto slots = this->batch() * numMasks_ * area;
+    std::size_t positiveTargets = 0;
     hostAssignedClasses_.fill(-1);
     hostAssignedAnchors_.fill(-1);
     hostAssignedBoxes_.fill(0.0f);
@@ -107,6 +108,7 @@ inline void YoloLayer<Device::CUDA>::forward(const V& input)
             hostTruths_[truthBase + 4] = static_cast<float>(gt.classId);
         }
         const auto targets = targetBuilder_->build(truths);
+        positiveTargets += targets.assigned;
         std::copy(targets.classes.begin(), targets.classes.end(),
                   hostAssignedClasses_.begin() + b * numMasks_ * area);
         std::copy(targets.anchors.begin(), targets.anchors.end(),
@@ -123,12 +125,13 @@ inline void YoloLayer<Device::CUDA>::forward(const V& input)
     this->delta_.fill(0.0f);
     statsGpu_.fill(0.0f);
     costGpu_.fill(0.0f);
+    effectiveNoObjectScale_ = noObjectScaleFor(positiveTargets, static_cast<std::size_t>(slots));
     yoloLossGpu(this->output_.data(), this->delta_.data(), truthsGpu_.data(), truthCountsGpu_.data(),
                 truthCapacity_, assignedClasses_.data(), assignedAnchors_.data(), assignedBoxes_.data(),
                 masksGpu_.data(), anchorsGpu_.data(), statsGpu_.data(), costGpu_.data(),
                 this->batch(), numMasks_, numAnchors_, this->classes(), this->width(), this->height(),
                 this->model().width(), this->model().height(), ignoreThresh_, truthThresh_, coordScale_,
-                objectScale_, noObjectScale_, classScale_);
+                objectScale_, effectiveNoObjectScale_, classScale_);
     const auto cost = costGpu_.asVector();
     this->cost_ = cost[0] / std::max(1, this->batch());
 
@@ -137,6 +140,10 @@ inline void YoloLayer<Device::CUDA>::forward(const V& input)
         avgIoU_ += stats[0]; recall_ += stats[1]; recall75_ += stats[2];
         avgCat_ += stats[3]; avgObj_ += stats[4]; avgAnyObj_ += stats[5];
         count_ += static_cast<int>(stats[6]); classCount_ += static_cast<int>(stats[7]);
+        boxCost_ = stats[8];
+        objectCost_ = stats[9];
+        noObjectCost_ = stats[10];
+        classCost_ = stats[11];
         if (count_ > 0 && this->model().seen() % logInterval_ == 0) {
             writeStats();
             resetStats();

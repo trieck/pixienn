@@ -87,11 +87,16 @@ private:
     void writeRecall50();
     void writeRecall75();
     void writeCost();
+    void writeComponentCost(const char* tag, float value);
+    void updateLossComponents();
+    float noObjectScaleFor(std::size_t positiveTargets, std::size_t slots) const noexcept;
 
     std::vector<int> mask_, anchors_;
     int numAnchors_, numMasks_;
     float ignoreThresh_, truthThresh_;
     float coordScale_, objectScale_, noObjectScale_, classScale_;
+    bool normalizeNoObject_ = false;
+    float effectiveNoObjectScale_ = 1.0f;
 
     LogisticActivation<Device::CPU> logistic_;
     PxCpuVector* poutput_, * pdelta_;
@@ -102,6 +107,10 @@ private:
     float avgCat_ = 0.0f;
     float avgObj_ = 0.0f;
     float avgAnyObj_ = 0.0f;
+    float boxCost_ = 0.0f;
+    float objectCost_ = 0.0f;
+    float noObjectCost_ = 0.0f;
+    float classCost_ = 0.0f;
     int count_ = 0;
     int classCount_ = 0;
     int logInterval_ = 0;
@@ -120,6 +129,8 @@ YoloLayer<D>::YoloLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D>(
     objectScale_ = this->template property<float>("object_scale", 1.0f);
     noObjectScale_ = this->template property<float>("noobject_scale", 1.0f);
     classScale_ = this->template property<float>("class_scale", 1.0f);
+    normalizeNoObject_ = this->template property<bool>("normalize_noobject", false);
+    effectiveNoObjectScale_ = noObjectScale_;
     logInterval_ = this->template property<int>("log_interval", 1000);
 
     auto nclasses = this->classes();
@@ -137,6 +148,18 @@ YoloLayer<D>::YoloLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D>(
     this->delta_ = V(this->batch() * this->outputs(), 0.0f);
 
     setup();
+}
+
+template<Device D>
+float YoloLayer<D>::noObjectScaleFor(std::size_t positiveTargets, std::size_t slots) const noexcept
+{
+    if (!normalizeNoObject_) {
+        return noObjectScale_;
+    }
+
+    const auto positives = std::max<std::size_t>(1, positiveTargets);
+    const auto negatives = std::max<std::size_t>(1, slots > positiveTargets ? slots - positiveTargets : 1);
+    return noObjectScale_ * static_cast<float>(positives) / static_cast<float>(negatives);
 }
 
 template<Device D>
@@ -202,6 +225,15 @@ void YoloLayer<D>::forwardCpu(const PxCpuVector& input)
         resetStats();
     }
 
+    std::size_t positiveTargets = 0;
+    if (normalizeNoObject_) {
+        for (auto b = 0; b < this->batch(); ++b) {
+            positiveTargets += this->groundTruth(b).size();
+        }
+    }
+    effectiveNoObjectScale_ = noObjectScaleFor(
+            positiveTargets, static_cast<std::size_t>(this->batch()) * numMasks_ * area);
+
     for (auto b = 0; b < this->batch(); ++b) {
         for (auto j = 0; j < this->height(); ++j) {
             for (auto i = 0; i < this->width(); ++i) {
@@ -212,6 +244,7 @@ void YoloLayer<D>::forwardCpu(const PxCpuVector& input)
     }
 
     this->cost_ = std::pow(magArray(pdelta_->data(), pdelta_->size()), 2) / std::max(1, this->batch());
+    updateLossComponents();
 
     if (training && count_ > 0 && this->model().seen() % logInterval_ == 0) {
         writeStats();
@@ -239,6 +272,10 @@ void YoloLayer<D>::writeStats()
     writeRecall50();
     writeRecall75();
     writeCost();
+    writeComponentCost((boost::format{ "yolo-%d-box-loss" } % this->index()).str().c_str(), boxCost_);
+    writeComponentCost((boost::format{ "yolo-%d-object-loss" } % this->index()).str().c_str(), objectCost_);
+    writeComponentCost((boost::format{ "yolo-%d-no-object-loss" } % this->index()).str().c_str(), noObjectCost_);
+    writeComponentCost((boost::format{ "yolo-%d-class-loss" } % this->index()).str().c_str(), classCost_);
 }
 
 template<Device D>
@@ -358,6 +395,20 @@ void YoloLayer<D>::writeCost()
     value->set_tag(tag.str());
     value->set_simple_value(cost);
 
+    this->recordWriter().write(event);
+}
+
+template<Device D>
+void YoloLayer<D>::writeComponentCost(const char* tag, float value)
+{
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(this->model().seen());
+    auto* summary = event.mutable_summary();
+    auto* metric = summary->add_value();
+    metric->set_tag(tag);
+    metric->set_simple_value(value);
     this->recordWriter().write(event);
 }
 
@@ -536,7 +587,7 @@ void YoloLayer<D>::processRegion(int b, int i, int j)
         avgAnyObj_ += poutput[objIndex];
 
         if (gt == nullptr || result.bestIoU < ignoreThresh_) {
-            pdelta[objIndex] = noObjectScale_ * (0 - poutput[objIndex]);
+            pdelta[objIndex] = effectiveNoObjectScale_ * (0 - poutput[objIndex]);
         }
         // A truth-threshold match must override the no-object penalty.  The
         // thresholds are commonly configured with truth_thresh < ignore_thresh;
@@ -563,6 +614,45 @@ void YoloLayer<D>::resetStats()
     avgAnyObj_ = 0.0f;
     count_ = 0;
     classCount_ = 0;
+}
+
+template<Device D>
+void YoloLayer<D>::updateLossComponents()
+{
+    boxCost_ = 0.0f;
+    objectCost_ = 0.0f;
+    noObjectCost_ = 0.0f;
+    classCost_ = 0.0f;
+
+    const auto area = this->width() * this->height();
+    const auto stride = std::max(1, area);
+    const auto* delta = pdelta_->data();
+    for (auto b = 0; b < this->batch(); ++b) {
+        for (auto n = 0; n < numMasks_; ++n) {
+            for (auto cell = 0; cell < area; ++cell) {
+                const auto location = n * area + cell;
+                const auto boxIndex = entryIndex(b, location, 0);
+                for (auto component = 0; component < 4; ++component) {
+                    const auto value = delta[boxIndex + component * stride];
+                    boxCost_ += value * value;
+                }
+
+                const auto objectIndex = entryIndex(b, location, 4);
+                const auto objectValue = delta[objectIndex];
+                if (objectValue >= 0.0f) {
+                    objectCost_ += objectValue * objectValue;
+                } else {
+                    noObjectCost_ += objectValue * objectValue;
+                }
+
+                const auto classIndex = entryIndex(b, location, 5);
+                for (auto c = 0; c < this->classes(); ++c) {
+                    const auto value = delta[classIndex + c * stride];
+                    classCost_ += value * value;
+                }
+            }
+        }
+    }
 }
 
 template<Device D>
