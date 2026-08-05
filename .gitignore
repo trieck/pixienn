@@ -16,6 +16,8 @@ events.out.tfevents.*
 /resources/images/*.jpg
 /python/__pycache__/
 /ruby/.idea/
+/monitor/node_modules/
+/monitor/dist/
 
 *.geojson
 *.qml
