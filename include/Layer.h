@@ -389,11 +389,11 @@ void Layer<D>::backward(const V& input, V* grad)
     // such as convolution, repeatedly modifying gradients accumulated by prior
     // subdivisions before the current subdivision has contributed.
     if (this->gradientRescaling_) {
-        this->scaleTensor(delta_);
+        this->scaleGradients();
     }
 
     if (this->gradientClipping_) {
-        constrain(delta_.size(), gradientClipValue_, delta_.data(), 1);
+        this->clipGradients();
     }
 }
 
