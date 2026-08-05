@@ -537,7 +537,12 @@ void YoloLayer<D>::processRegion(int b, int i, int j)
 
         if (gt == nullptr || result.bestIoU < ignoreThresh_) {
             pdelta[objIndex] = noObjectScale_ * (0 - poutput[objIndex]);
-        } else if (result.bestIoU > truthThresh_) {
+        }
+        // A truth-threshold match must override the no-object penalty.  The
+        // thresholds are commonly configured with truth_thresh < ignore_thresh;
+        // using else-if here incorrectly labels that entire IoU interval as
+        // background.
+        if (gt != nullptr && result.bestIoU > truthThresh_) {
             pdelta[objIndex] = objectScale_ * (1 - poutput[objIndex]);
 
             auto clsIndex = entryIndex(b, entry, 4 + 1);

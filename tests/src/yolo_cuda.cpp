@@ -233,4 +233,42 @@ TEST(YoloCudaTest, LeavesSparseEntriesZeroForBackground)
     EXPECT_FLOAT_EQ(actual[5], 0.0f);
 }
 
+TEST(YoloCudaTest, TruthThresholdOverridesNoObjectPenalty)
+{
+    constexpr int classes = 1;
+    constexpr int attributes = classes + 5;
+    PxCpuVector raw{ 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+    PxCudaVector input(raw.data(), raw.data() + raw.size());
+    PxCudaVector output(attributes, 0.0f);
+    PxCudaVector delta(attributes, 0.0f);
+    yoloActivateGpu(input.data(), output.data(), 1, 1, classes, 1);
+
+    // The decoded prediction is a 10x10 box at the image center.  This truth
+    // produces an IoU between truth_thresh (0.5) and ignore_thresh (0.7).
+    PxCpuVector truth{ 0.5f, 0.5f, 0.8f, 0.8f, 0.0f };
+    PxCpuVector assignedBox(4, 0.0f);
+    PxCpuVector anchors{ 10.0f, 10.0f };
+    PxCpuVectorT<int> truthCounts{ 1 };
+    PxCpuVectorT<int> assignedClasses{ -1 };
+    PxCpuVectorT<int> assignedAnchors{ -1 };
+    PxCpuVectorT<int> masks{ 0 };
+    PxCudaVector truthGpu(truth.data(), truth.data() + truth.size());
+    PxCudaVector assignedBoxGpu(assignedBox.data(), assignedBox.data() + assignedBox.size());
+    PxCudaVector anchorsGpu(anchors.data(), anchors.data() + anchors.size());
+    PxCudaVectorT<int> truthCountsGpu(truthCounts.data(), truthCounts.data() + truthCounts.size());
+    PxCudaVectorT<int> assignedClassesGpu(assignedClasses.data(), assignedClasses.data() + assignedClasses.size());
+    PxCudaVectorT<int> assignedAnchorsGpu(assignedAnchors.data(), assignedAnchors.data() + assignedAnchors.size());
+    PxCudaVectorT<int> masksGpu(masks.data(), masks.data() + masks.size());
+    PxCudaVector stats(8, 0.0f), cost(1, 0.0f);
+
+    yoloLossGpu(output.data(), delta.data(), truthGpu.data(), truthCountsGpu.data(), 1,
+                assignedClassesGpu.data(), assignedAnchorsGpu.data(), assignedBoxGpu.data(),
+                masksGpu.data(), anchorsGpu.data(), stats.data(), cost.data(), 1, 1, 1,
+                classes, 1, 1, 10, 10, 0.7f, 0.5f, 1.0f, 2.0f, 0.25f, 1.0f);
+
+    // Positive objectness is 2*(1 - sigmoid(0)), not the no-object value
+    // -0.25*sigmoid(0).
+    EXPECT_FLOAT_EQ(delta.asVector()[4], 1.0f);
+}
+
 #endif

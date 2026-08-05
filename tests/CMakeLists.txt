@@ -44,6 +44,7 @@ list(APPEND TEST_SOURCES
         src/tensor.cpp
         src/tiff.cpp
         src/vector.cpp
+        src/yolo_cpu.cpp
         src/yolo_cuda.cpp
 )
 
