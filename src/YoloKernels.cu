@@ -102,7 +102,11 @@ __global__ void regionLossKernel(const float* output, float* delta, const float*
     atomicAdd(stats + 5, objectness);
     if (bestTruth < 0 || bestIou < ignoreThreshold) {
         delta[objectIndex] = -noObjectScale * objectness;
-    } else if (bestIou > truthThreshold) {
+    }
+    // A truth-threshold match must override the no-object penalty.  With the
+    // usual truth_thresh < ignore_thresh configuration, else-if would mark
+    // every prediction in that useful IoU interval as background.
+    if (bestTruth >= 0 && bestIou > truthThreshold) {
         delta[objectIndex] = objectScale * (1.0f - objectness);
         const auto classId = static_cast<int>(truths[bestTruth + 4]);
         const auto classIndex = entryIndex(batch, maskSlot, cell, 5, maskCount, classes, area);
