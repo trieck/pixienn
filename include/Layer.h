@@ -118,6 +118,7 @@ protected:
 
     virtual void scaleGradients();
     virtual void clipGradients();
+    virtual void clipDelta();
 
     void scaleTensor(V& tensor);
 
@@ -389,11 +390,11 @@ void Layer<D>::backward(const V& input, V* grad)
     // such as convolution, repeatedly modifying gradients accumulated by prior
     // subdivisions before the current subdivision has contributed.
     if (this->gradientRescaling_) {
-        this->scaleGradients();
+        this->scaleTensor(delta_);
     }
 
     if (this->gradientClipping_) {
-        this->clipGradients();
+        this->clipDelta();
     }
 }
 
@@ -487,6 +488,12 @@ void Layer<D>::scaleTensor(V& tensor)
 
 template<Device D>
 void Layer<D>::clipGradients()
+{
+    constrain(delta_.size(), gradientClipValue_, delta_.data(), 1);
+}
+
+template<Device D>
+void Layer<D>::clipDelta()
 {
     constrain(delta_.size(), gradientClipValue_, delta_.data(), 1);
 }
