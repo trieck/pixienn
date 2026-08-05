@@ -6,7 +6,9 @@ model:
   height: 416
   channels: 3
 
-  max_batches: 10000
+  # Full COCO schedule: approximately 24 passes over the 82,081-image manifest
+  # with the configured batch size of four.
+  max_batches: 500000
   save_weights_interval: 100
   write_metrics_interval: 50
 
@@ -20,7 +22,7 @@ model:
     epsilon: 1e-8
 
   augmentation:
-    enabled: False
+    enabled: True
     flip: True
     jitter: 0.2
     saturation: 1.2
@@ -36,8 +38,8 @@ model:
     value: 10.0
 
   validation:
-    enabled: False
-    interval: 10000
+    enabled: True
+    interval: 5000
     batches: 100
     threshold: 0.2
 
