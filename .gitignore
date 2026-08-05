@@ -4,6 +4,17 @@
 /build
 /resources/weights/
 /runs/
+/resources/data/coco/
+/resources/data/imagenet/
+/resources/data/voc/images/
+/resources/data/voc/labels/
+/resources/data/voc/train-*.txt
+/resources/data/voc/train.txt
+/resources/data/voc/val-*.txt
+/resources/data/voc/val.txt
+/resources/images/*.jpg
+/python/__pycache__/
+/ruby/.idea/
 
 *.geojson
 *.qml
