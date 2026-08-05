@@ -50,4 +50,10 @@ inline void Layer<Device::CUDA>::clipGradients()
     constrainGpu(delta_.size(), gradientClipValue_, delta_.data());
 }
 
+template<>
+inline void Layer<Device::CUDA>::clipDelta()
+{
+    constrainGpu(delta_.size(), gradientClipValue_, delta_.data());
+}
+
 }   // px

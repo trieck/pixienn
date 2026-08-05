@@ -4,6 +4,7 @@
 /build
 /resources/weights/
 /runs/
+events.out.tfevents.*
 /resources/data/coco/
 /resources/data/imagenet/
 /resources/data/voc/images/
