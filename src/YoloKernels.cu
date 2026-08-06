@@ -175,15 +175,18 @@ __global__ void squaredNormKernel(const float* delta, float* cost, std::size_t s
 }
 
 __global__ void lossComponentsKernel(const float* delta, float* stats, int slots,
-                                     int classes, int area)
+                                     int masks, int classes, int area)
 {
     const auto slot = (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x + threadIdx.x;
     if (slot >= slots) return;
 
-    const auto maskSlot = slot / area;
-    const auto cell = slot % area;
+    const auto batch = slot / (masks * area);
+    const auto withinBatch = slot % (masks * area);
+    const auto maskSlot = withinBatch / area;
+    const auto cell = withinBatch % area;
     const auto stride = area;
-    const auto index = maskSlot * (classes + 5) * stride + cell;
+    const auto index = batch * masks * (classes + 5) * stride
+                       + maskSlot * (classes + 5) * stride + cell;
 
     auto boxLoss = 0.0f;
     for (auto component = 0; component < 4; ++component) {
@@ -238,7 +241,7 @@ void yoloLossGpu(const float* output, float* delta, const float* truths,
     PX_CUDA_CHECK_LAST();
     const auto slotsForComponents = batch * maskCount * width * height;
     lossComponentsKernel<<<cudaGridsize(slotsForComponents), CUDA_BLOCK_SIZE>>>(
-            delta, stats, slotsForComponents, classes, width * height);
+            delta, stats, slotsForComponents, maskCount, classes, width * height);
     PX_CUDA_CHECK_LAST();
 }
 

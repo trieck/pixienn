@@ -17,13 +17,13 @@ model:
     # YOLOv3's sparse positive targets are a poor match for the previous
     # Adam/0.01 setup: the dense background gradients drove every objectness
     # head toward the all-background solution.
-    enabled: False
+    enabled: True
     beta1: 0.9
     beta2: 0.999
     epsilon: 1e-8
 
   augmentation:
-    enabled: True
+    enabled: False
     flip: True
     jitter: 0.2
     saturation: 1.2
@@ -647,7 +647,6 @@ model:
       coord_scale: 1.0
       object_scale: 2.0
       noobject_scale: 0.1
-      normalize_noobject: True
       class_scale: 1.0
       random: True
       log_interval: 50
@@ -735,7 +734,6 @@ model:
       coord_scale: 1.0
       object_scale: 2.0
       noobject_scale: 0.1
-      normalize_noobject: True
       class_scale: 1.0
       random: True
       log_interval: 50
@@ -823,7 +821,6 @@ model:
       coord_scale: 1.0
       object_scale: 2.0
       noobject_scale: 0.1
-      normalize_noobject: True
       class_scale: 1.0
       random: True
       log_interval: 50
