@@ -89,14 +89,11 @@ private:
     void writeCost();
     void writeComponentCost(const char* tag, float value);
     void updateLossComponents();
-    float noObjectScaleFor(std::size_t positiveTargets, std::size_t slots) const noexcept;
 
     std::vector<int> mask_, anchors_;
     int numAnchors_, numMasks_;
     float ignoreThresh_, truthThresh_;
     float coordScale_, objectScale_, noObjectScale_, classScale_;
-    bool normalizeNoObject_ = false;
-    float effectiveNoObjectScale_ = 1.0f;
 
     LogisticActivation<Device::CPU> logistic_;
     PxCpuVector* poutput_, * pdelta_;
@@ -129,8 +126,6 @@ YoloLayer<D>::YoloLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D>(
     objectScale_ = this->template property<float>("object_scale", 1.0f);
     noObjectScale_ = this->template property<float>("noobject_scale", 1.0f);
     classScale_ = this->template property<float>("class_scale", 1.0f);
-    normalizeNoObject_ = this->template property<bool>("normalize_noobject", false);
-    effectiveNoObjectScale_ = noObjectScale_;
     logInterval_ = this->template property<int>("log_interval", 1000);
 
     auto nclasses = this->classes();
@@ -148,18 +143,6 @@ YoloLayer<D>::YoloLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D>(
     this->delta_ = V(this->batch() * this->outputs(), 0.0f);
 
     setup();
-}
-
-template<Device D>
-float YoloLayer<D>::noObjectScaleFor(std::size_t positiveTargets, std::size_t slots) const noexcept
-{
-    if (!normalizeNoObject_) {
-        return noObjectScale_;
-    }
-
-    const auto positives = std::max<std::size_t>(1, positiveTargets);
-    const auto negatives = std::max<std::size_t>(1, slots > positiveTargets ? slots - positiveTargets : 1);
-    return noObjectScale_ * static_cast<float>(positives) / static_cast<float>(negatives);
 }
 
 template<Device D>
@@ -224,15 +207,6 @@ void YoloLayer<D>::forwardCpu(const PxCpuVector& input)
     if (!training) {
         resetStats();
     }
-
-    std::size_t positiveTargets = 0;
-    if (normalizeNoObject_) {
-        for (auto b = 0; b < this->batch(); ++b) {
-            positiveTargets += this->groundTruth(b).size();
-        }
-    }
-    effectiveNoObjectScale_ = noObjectScaleFor(
-            positiveTargets, static_cast<std::size_t>(this->batch()) * numMasks_ * area);
 
     for (auto b = 0; b < this->batch(); ++b) {
         for (auto j = 0; j < this->height(); ++j) {
@@ -587,7 +561,7 @@ void YoloLayer<D>::processRegion(int b, int i, int j)
         avgAnyObj_ += poutput[objIndex];
 
         if (gt == nullptr || result.bestIoU < ignoreThresh_) {
-            pdelta[objIndex] = effectiveNoObjectScale_ * (0 - poutput[objIndex]);
+            pdelta[objIndex] = noObjectScale_ * (0 - poutput[objIndex]);
         }
         // A truth-threshold match must override the no-object penalty.  The
         // thresholds are commonly configured with truth_thresh < ignore_thresh;

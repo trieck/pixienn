@@ -43,6 +43,13 @@ static float boxIoU(const cv::Rect2f& a, const cv::Rect2f& b)
 
 Detections nms(const Detections& detects, float threshold)
 {
+    // NMS is quadratic within each image/class group.  During early training
+    // an uncalibrated detector can emit nearly every grid cell above the
+    // validation threshold, making an otherwise small validation batch take
+    // indefinitely.  The detections are sorted by confidence below, so this
+    // cap retains the most useful candidates while bounding validation work.
+    constexpr std::size_t maxCandidatesPerGroup = 256;
+
     Detections output(detects);
 
     std::stable_sort(output.begin(), output.end(), [](const auto& lhs, const auto& rhs) {
@@ -62,6 +69,13 @@ Detections nms(const Detections& detects, float threshold)
         const auto cls = static_cast<std::uint32_t>(output[i].classIndex());
         const auto key = (static_cast<std::uint64_t>(batch) << 32U) | cls;
         groups[key].push_back(i);
+    }
+
+    for (auto& [key, indices]: groups) {
+        (void) key;
+        if (indices.size() > maxCandidatesPerGroup) {
+            indices.resize(maxCandidatesPerGroup);
+        }
     }
 
     for (const auto& [key, indices]: groups) {

@@ -8,7 +8,10 @@ const fmt = (n, d = 2) => n == null ? '—' : Number(n).toLocaleString(undefined
 function App() {
   const [runs, setRuns] = useState([]), [run, setRun] = useState('yolov3'), [data, setData] = useState(null);
   const [tab, setTab] = useState('overview'), [scale, setScale] = useState('linear'), [windowSize, setWindowSize] = useState('all');
-  const loadRuns = () => fetch('/api/runs').then(r => r.json()).then(names => { setRuns(names); if (names.length && !names.includes(run)) setRun(names[0]); });
+  const loadRuns = () => fetch('/api/runs').then(r => r.json()).then(names => {
+    setRuns(names);
+    setRun(current => names.length && !names.includes(current) ? names[0] : current);
+  });
   const load = () => fetch(`/api/run?name=${encodeURIComponent(run)}`).then(r => r.json()).then(setData);
   useEffect(() => { loadRuns(); const id = setInterval(loadRuns, 5000); return () => clearInterval(id); }, []);
   useEffect(() => { load(); const id = setInterval(load, 2500); return () => clearInterval(id); }, [run]);
