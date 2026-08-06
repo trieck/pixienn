@@ -1,5 +1,8 @@
 #include <gtest/gtest.h>
 
+#include <cstdlib>
+#include <fstream>
+
 #ifdef USE_CUDA
 
 #include "PxTensor.h"
@@ -131,6 +134,70 @@ model:
         EXPECT_NEAR(gpuDelta[i], cpuDelta[i], 2e-5f) << "delta index " << i;
     }
     EXPECT_NEAR(gpu.cost(), cpu.cost(), 2e-4f);
+}
+
+TEST(YoloCudaTest, MatchesCpuOnActualCocoBatch)
+{
+    const auto* root = std::getenv("PIXIENN_COCO_ROOT");
+    if (root == nullptr || *root == '\0') {
+        GTEST_SKIP() << "Set PIXIENN_COCO_ROOT to run the real COCO parity test";
+    }
+
+    std::vector<std::string> labels;
+    std::ifstream labelsFile(std::string(root) + "/coco.names");
+    ASSERT_TRUE(labelsFile.good());
+    for (std::string label; std::getline(labelsFile, label);) {
+        labels.emplace_back(std::move(label));
+    }
+    ASSERT_EQ(labels.size(), 80u);
+
+    BatchLoader loader(std::string(root) + "/coco/train-80000.txt",
+                       std::string(root) + "/coco/labels/train2014",
+                       4, 3, 416, 416, labels, nullptr, false, 1, false);
+    auto batch = loader.next();
+
+    const auto definition = LoadFile(std::string(root).substr(0, std::string(root).find_last_of('/'))
+                                    + "/models/yolov3.yml");
+    CpuModel cpu;
+    CudaModel gpu;
+    cpu.setLabels(labels);
+    gpu.setLabels(labels);
+    cpu.setMode(Mode::VALIDATING);
+    gpu.setMode(Mode::VALIDATING);
+    cpu.parseModel(definition);
+    gpu.parseModel(definition);
+    cpu.setTrainBatch(MiniBatch(batch));
+    gpu.setTrainBatch(std::move(batch));
+
+    for (const auto layerIndex: { 82, 94, 106 }) {
+        const auto& cpuLayer = cpu.layerAt(layerIndex);
+        const auto& gpuLayer = gpu.layerAt(layerIndex);
+        PxCpuVector input(cpuLayer->batch() * cpuLayer->inputs());
+        for (auto i = 0u; i < input.size(); ++i) {
+            input[i] = static_cast<float>((static_cast<int>(i % 37) - 18)) * 0.01f;
+        }
+        PxCudaVector cudaInput(input.data(), input.data() + input.size());
+
+        cpuLayer->forward(input);
+        gpuLayer->forward(cudaInput);
+
+        const auto cpuOutput = cpuLayer->output().asVector();
+        const auto gpuOutput = gpuLayer->output().asVector();
+        const auto cpuDelta = cpuLayer->delta().asVector();
+        const auto gpuDelta = gpuLayer->delta().asVector();
+        ASSERT_EQ(gpuOutput.size(), cpuOutput.size()) << "output layer " << layerIndex;
+        ASSERT_EQ(gpuDelta.size(), cpuDelta.size()) << "delta layer " << layerIndex;
+
+        auto maxOutputDiff = 0.0f;
+        auto maxDeltaDiff = 0.0f;
+        for (auto i = 0u; i < cpuOutput.size(); ++i) {
+            maxOutputDiff = std::max(maxOutputDiff, std::abs(cpuOutput[i] - gpuOutput[i]));
+            maxDeltaDiff = std::max(maxDeltaDiff, std::abs(cpuDelta[i] - gpuDelta[i]));
+        }
+        EXPECT_LT(maxOutputDiff, 2e-5f) << "output layer " << layerIndex;
+        EXPECT_LT(maxDeltaDiff, 2e-4f) << "delta layer " << layerIndex;
+        EXPECT_NEAR(cpuLayer->cost(), gpuLayer->cost(), 2e-3f) << "cost layer " << layerIndex;
+    }
 }
 
 TEST(YoloCudaTest, MatchesReferenceAssignedTargetLossAndGradients)
