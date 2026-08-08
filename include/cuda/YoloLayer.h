@@ -171,9 +171,9 @@ template<>
 inline void YoloLayer<Device::CUDA>::addDetects(Detections& detects, int width, int height, float threshold)
 {
     auto vout = output_.asVector();
+    auto* pout = vout.data();
 
     for (auto b = 0; b < this->batch(); ++b) {
-        auto* pout = vout.data() + b * this->outputs();
         addDetects(detects, b, width, height, threshold, pout);
     }
 }
@@ -182,9 +182,9 @@ template<>
 inline void YoloLayer<Device::CUDA>::addDetects(Detections& detects, float threshold)
 {
     auto vout = output_.asVector();
+    auto* pout = vout.data();
 
     for (auto b = 0; b < this->batch(); ++b) {
-        auto* pout = vout.data() + b * this->outputs();
         addDetects(detects, b, threshold, pout);
     }
 }

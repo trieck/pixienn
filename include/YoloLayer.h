@@ -734,7 +734,7 @@ DarkBox YoloLayer<D>::yoloBox(const float* p, int mask, int index, int i, int j)
 template<Device D>
 void YoloLayer<D>::addDetects(Detections& detections, int batch, float threshold, const float* predictions) const
 {
-    addDetects(detections, 0, 0, batch, threshold, predictions);
+    addDetects(detections, batch, 0, 0, threshold, predictions);
 }
 
 template<Device D>
@@ -781,8 +781,12 @@ const
 template<Device D>
 void YoloLayer<D>::addDetects(Detections& detections, int width, int height, float threshold)
 {
+    auto* predictions = this->output_.data();
     for (auto b = 0; b < this->batch(); ++b) {
-        auto predictions = this->output_.data() + b * this->outputs();
+        // addDetects() uses entryIndex(), which applies the batch offset.
+        // Pass the start of the complete tensor rather than an already
+        // batch-offset pointer, otherwise batches after zero are addressed
+        // twice and their detections are associated with corrupted data.
         addDetects(detections, b, width, height, threshold, predictions);
     }
 }
@@ -790,8 +794,8 @@ void YoloLayer<D>::addDetects(Detections& detections, int width, int height, flo
 template<Device D>
 void YoloLayer<D>::addDetects(Detections& detections, float threshold)
 {
+    auto* predictions = this->output_.data();
     for (auto b = 0; b < this->batch(); ++b) {
-        auto predictions = this->output_.data() + b * this->outputs();
         addDetects(detections, b, threshold, predictions);
     }
 }

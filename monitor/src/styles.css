@@ -45,8 +45,8 @@
 #root .tb-card{display:flex;flex-direction:column}
 #root .tb-card svg{flex:1;width:100%;height:auto;min-height:320px;margin-top:16px;background:repeating-linear-gradient(0deg,transparent 0,transparent 76px,#d4d9e0 77px),repeating-linear-gradient(90deg,transparent 0,transparent 68px,#e2e5e9 69px);border-left:1px solid #8f9aa8;border-bottom:1px solid #8f9aa8}
 #root .tb-toggle{font-size:15px;color:#303743;font-weight:600;line-height:1.35}
-#root .tb-card svg polyline{stroke:#5367f4;stroke-width:3;filter:drop-shadow(0 1px 1px #5367f455)}
-#root .tb-card svg polyline{stroke:#5367f4!important}
+#root .tb-card svg polyline{stroke-width:3;filter:drop-shadow(0 1px 1px #5367f455)}
+#root .tb-card svg .tb-tube-body{stroke-width:8;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 5px 3px #29345155)}
 #root .tb-card.tb-off svg polyline{opacity:0}
 #root .tb-backlog{margin-top:16px;padding:12px 16px;border:1px solid #d8dee7;border-radius:8px;background:#f3f5f8;color:#687386}
 #root .tb-backlog .tb-card{min-height:230px}
@@ -75,7 +75,7 @@
 #root .loss-y-labels{position:relative;flex:0 0 52px;height:260px;color:#9299a5;font-size:10px;font-variant-numeric:tabular-nums;text-align:right;line-height:1}
 #root .tb-card svg{display:block;flex:1;width:100%;height:auto;min-width:0;min-height:320px;margin-top:0;overflow:visible;transform:perspective(900px) rotateX(1.8deg);transform-origin:center bottom;filter:drop-shadow(0 7px 5px #29345120)}
 #root .tb-card svg line{stroke:#d8dfeb;stroke-width:1}
-#root .tb-card svg polyline{fill:none;stroke:#5367f4;stroke-width:2.5;vector-effect:non-scaling-stroke;filter:drop-shadow(0 2px 1px #25305b70) drop-shadow(1px 1px 0 #aeb9ff)}
+#root .tb-card svg polyline{fill:none;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
 #root .tb-card svg .tb-single-point{fill:#5367f4;stroke:#ffffff;stroke-width:1.5;filter:drop-shadow(0 2px 1px #25305b70)}
 #root .tb-values{display:flex;justify-content:space-between;margin-top:9px;color:#687386;font-size:12px}
 #root .tb-values b{color:#303743;font-size:15px}
