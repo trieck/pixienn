@@ -62,6 +62,8 @@ using json = nlohmann::json;
 
 namespace px {
 
+template<Device D> class Validator;
+
 ///////////////////////////////////////////////////////////////////////////////
 class BaseModel
 {
@@ -78,6 +80,7 @@ public:
 
     virtual Detections predict(const std::string& imageFile) = 0;
     virtual void train() = 0;
+    virtual void evaluate() = 0;
 
     virtual void overlay(const std::string& imageFile, const Detections& detects) const = 0;
     virtual std::string asJson(const Detections& detects) const noexcept = 0;
@@ -122,6 +125,17 @@ enum class Mode
     INFERRING, VALIDATING, TRAINING
 };
 
+namespace detail
+{
+
+inline bool optimizerScheduleDue(std::size_t previousStep, std::size_t currentStep, int interval) noexcept
+{
+    return interval > 0 && currentStep != previousStep && currentStep > 0 &&
+           currentStep % static_cast<std::size_t>(interval) == 0;
+}
+
+}   // namespace detail
+
 ///////////////////////////////////////////////////////////////////////////////
 template<Device D = Device::CPU>
 class Model : public BaseModel, public DeviceExtras<D>
@@ -148,6 +162,7 @@ public:
     Detections detections(const cv::Size& imageSize) const;
 
     void train() override;
+    void evaluate() override;
 
     void overlay(const std::string& imageFile, const Detections& detects) const override;
     std::string asJson(const Detections& detects) const noexcept override;
@@ -236,6 +251,7 @@ private:
     std::string weightsBestFileName() const;
 
     void validate();
+    void evaluateValidation();
     LRPolicy* currentPolicy() const noexcept;
     bool isBurningIn() const noexcept;
     void writeMetrics();
@@ -366,7 +382,12 @@ void Model<D>::loadModel()
 
     if (inferring()) {
         auto weights = config["weights"].as<std::string>();
-        weightsFile_ = canonical(weights, cfgPath.parent_path()).string();
+        if (options_.count("weights") != 0) {
+            const path overridePath(option<std::string>("weights"));
+            weightsFile_ = canonical(overridePath).string();
+        } else {
+            weightsFile_ = canonical(weights, cfgPath.parent_path()).string();
+        }
     } else {
         weightsFile_ = option<std::string>("weights-file");
     }
@@ -405,8 +426,12 @@ void Model<D>::train()
     std::printf("LR: %f%s, Momentum: %f, Decay: %f\n", learningRate(), isBurningIn() ? " (burn-in)" : "", momentum_,
                 decay_);
 
-    while (seen_ < maxBatches_) {
+    // max_batches, burn-in, validation, checkpoints, and LR policy are
+    // optimizer-update counts. `seen_` counts micro-batches when subdivisions
+    // are used, so it must not drive the training schedule.
+    while (optimizerStep_ < static_cast<std::size_t>(maxBatches_)) {
         Timer batchTimer;
+        const auto optimizerStepBefore = optimizerStep_;
         auto loss = trainBatch();
 
         if (std::isinf(loss) || std::isnan(loss)) {
@@ -422,11 +447,11 @@ void Model<D>::train()
         auto epoch = imagesSeen / trainLoader_->size();
 
         std::printf("Epoch: %zu, Seen: %zu, Loss: %f, Avg. Loss: %f, LR: %.12f%s, %s, %zu images\n",
-                    epoch, seen_, loss, avgLoss_, learningRate(),
+                    epoch, optimizerStep_, loss, avgLoss_, learningRate(),
                     isBurningIn() ? " (burn-in)" : "",
                     batchTimer.str().c_str(), imagesSeen);
 
-        if (valEnabled_ && valInterval_ && seen_ % valInterval_ == 0) {
+        if (valEnabled_ && detail::optimizerScheduleDue(optimizerStepBefore, optimizerStep_, valInterval_)) {
             validate();
 
             const auto improvedmAP = mAP_ > bestmAP_;
@@ -455,11 +480,11 @@ void Model<D>::train()
             }
         }
 
-        if (saveWeightsInterval_ && seen_ % saveWeightsInterval_ == 0) {
+        if (detail::optimizerScheduleDue(optimizerStepBefore, optimizerStep_, saveWeightsInterval_)) {
             saveWeights();
         }
 
-        if (writeMetricsInterval_ && seen_ % writeMetricsInterval_ == 0) {
+        if (detail::optimizerScheduleDue(optimizerStepBefore, optimizerStep_, writeMetricsInterval_)) {
             writeMetrics();
         }
     }
@@ -467,6 +492,13 @@ void Model<D>::train()
     saveWeights(true);
 
     std::printf("trained in %s.\n", timer.str().c_str());
+}
+
+template<Device D>
+void Model<D>::evaluate()
+{
+    parseTrainConfig();
+    evaluateValidation();
 }
 
 template<Device D>
@@ -482,7 +514,7 @@ void Model<D>::writeAvgLoss()
     Event event;
     event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()).count());
-    event.set_step(seen_);
+    event.set_step(optimizerStep_);
 
     auto* summary = event.mutable_summary();
     auto* value = summary->add_value();
@@ -498,7 +530,7 @@ void Model<D>::writeLR()
     Event event;
     event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()).count());
-    event.set_step(seen_);
+    event.set_step(optimizerStep_);
 
     auto* summary = event.mutable_summary();
     auto* value = summary->add_value();
@@ -514,7 +546,7 @@ void Model<D>::writemAP()
     Event event;
     event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()).count());
-    event.set_step(seen_);
+    event.set_step(optimizerStep_);
 
     auto* summary = event.mutable_summary();
     auto* value = summary->add_value();
@@ -532,7 +564,7 @@ void Model<D>::writeAvgRecall()
     Event event;
     event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()).count());
-    event.set_step(seen_);
+    event.set_step(optimizerStep_);
 
     auto* summary = event.mutable_summary();
     auto* value = summary->add_value();
@@ -548,7 +580,7 @@ void Model<D>::writeMicroAvgF1()
     Event event;
     event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()).count());
-    event.set_step(seen_);
+    event.set_step(optimizerStep_);
 
     auto* summary = event.mutable_summary();
     auto* value = summary->add_value();
@@ -564,7 +596,7 @@ void Model<D>::writeAvgValLoss()
     Event event;
     event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()).count());
-    event.set_step(seen_);
+    event.set_step(optimizerStep_);
 
     auto* summary = event.mutable_summary();
     auto* value = summary->add_value();
@@ -580,7 +612,7 @@ void Model<D>::writeAccuracy()
     Event event;
     event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()).count());
-    event.set_step(seen_);
+    event.set_step(optimizerStep_);
 
     auto* summary = event.mutable_summary();
     auto* value = summary->add_value();
@@ -957,6 +989,31 @@ void Model<D>::loadWeights()
         }
 
         if (training() && !resetTrainingState) {
+            // Non-Adam training does not have an optimizer sidecar, but the
+            // checkpoint header still contains the number of images seen.
+            // Reconstruct the optimizer step so resumed event points and
+            // checkpoint schedules continue instead of restarting at zero.
+            if (!adamEnabled_) {
+                optimizerStep_ = updateBatch() > 0 ? seen_ / static_cast<std::size_t>(updateBatch()) : 0;
+                const auto prefix = baseName(weightsFile_) + "_";
+                const auto suffix = std::string{".weights"};
+                const auto backupPath = path(backupDir_);
+                if (exists(backupPath) && is_directory(backupPath)) {
+                    for (const auto& entry: directory_iterator(backupPath)) {
+                        const auto name = entry.path().filename().string();
+                        if (name.size() <= prefix.size() + suffix.size()
+                            || name.compare(0, prefix.size(), prefix) != 0
+                            || name.compare(name.size() - suffix.size(), suffix.size(), suffix) != 0) {
+                            continue;
+                        }
+                        const auto number = name.substr(prefix.size(), name.size() - prefix.size() - suffix.size());
+                        if (!std::all_of(number.begin(), number.end(), [](unsigned char c) { return std::isdigit(c); })) {
+                            continue;
+                        }
+                        optimizerStep_ = std::max(optimizerStep_, static_cast<std::size_t>(std::stoull(number)));
+                    }
+                }
+            }
             loadTrainingState(loadedWeightsFile);
         }
     }
@@ -1100,9 +1157,7 @@ void Model<D>::parseModel(const Node& modelDoc)
         if (model["event_file"]) {
             eventFile_ = model["event_file"].as<std::string>();
         } else {
-            const auto stamp = std::chrono::duration_cast<std::chrono::milliseconds>(
-                    std::chrono::system_clock::now().time_since_epoch()).count();
-            eventFile_ = (boost::format("events.out.tfevents.%d") % stamp).str();
+            eventFile_ = "events.tfevents";
         }
         writer_ = RecordWriter::create(eventFile_, true);
 
@@ -1130,8 +1185,10 @@ void Model<D>::parseModel(const Node& modelDoc)
     timeSteps_ = model["time_steps"].as<int>(1);
     width_ = model["width"].as<int>();
 
-    batch_ /= subdivs_;
-    batch_ *= timeSteps_;
+    if (training() || validating()) {
+        batch_ /= subdivs_;
+        batch_ *= timeSteps_;
+    }
 
     auto inputs = batch_ * height_ * width_ * channels_;
 
@@ -1486,7 +1543,7 @@ std::string Model<D>::weightsFileName(bool final) const
 
     auto base = baseName(weightsFile_);
 
-    auto fileName = (boost::format("%s_%u.weights") % base % seen_).str();
+    auto fileName = (boost::format("%s_%u.weights") % base % optimizerStep_).str();
     boost::filesystem::path path(backupDir_);
     path /= fileName;
     fileName = path.string();
@@ -1549,6 +1606,39 @@ void Model<D>::validate()
                 validationImagesSeen / trainLoader_->size(), mAP_, avgRecall_, microAvgF1_, avgValLoss_, valAccuracy_);
 
     std::cout << "Resuming training..." << std::endl << std::flush;
+}
+
+template<Device D>
+void Model<D>::evaluateValidation()
+{
+    PX_CHECK(!valImagePath_.empty() && !valLabelPath_.empty(),
+             "Validation image and label paths are required for evaluation.");
+
+    valLoader_ = std::make_unique<BatchLoader>(valImagePath_, valLabelPath_, batch_, channels_, height_, width_,
+                                               labels_, nullptr, false, 10, false);
+    Validator<D> validator(valConfidenceThresh_, valApConfidenceThresh_, valIouThresh_, valNmsThresh_, classes());
+
+    const auto availableBatches = std::max<std::size_t>(1, (valLoader_->size() + batch_ - 1) / batch_);
+    auto batches = valBatches_;
+    if (hasOption("all-validation") && option<bool>("all-validation")) {
+        batches = availableBatches;
+    } else {
+        batches = std::min<std::size_t>(static_cast<std::size_t>(std::max(0, batches)), availableBatches);
+    }
+
+    PX_CHECK(batches > 0, "Evaluation requires at least one validation batch.");
+    std::cout << "Evaluating " << batches << " validation batches..." << std::flush;
+    for (std::size_t i = 0; i < batches; ++i) {
+        trainBatch_ = valLoader_->next();
+        validator.validate(*this, trainBatch_);
+    }
+
+    std::cout << "\nEvaluation results\n"
+              << "  mAP50:          " << validator.mAP() << '\n'
+              << "  average recall: " << validator.avgRecall() << '\n'
+              << "  MicroAvgF1:     " << validator.microAvgF1() << '\n'
+              << "  validation loss: " << validator.avgLoss() << '\n'
+              << "  accuracy:       " << validator.accuracy() << '\n';
 }
 
 template<Device D>

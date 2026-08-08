@@ -49,7 +49,8 @@ private:
     void forward(Model<D>& model, const PxCpuVector& input);
 
     void processDetects(const Detections& detects, const GroundTruths& gts);
-    GroundTruthVec::size_type findGroundTruth(const Detection& detection, const GroundTruthVec& gtv);
+    GroundTruthVec::size_type findGroundTruth(const Detection& detection, const GroundTruthVec& gtv,
+                                              int classIndex = -1);
     float iou(const Detection& detection, const GroundTruth& truth);
 
     ConfusionMatrix matrix_;
@@ -213,12 +214,16 @@ float Validator<D>::iou(const Detection& detection, const GroundTruth& truth)
 }
 
 template<Device D>
-GroundTruthVec::size_type Validator<D>::findGroundTruth(const Detection& detection, const GroundTruthVec& gts)
+GroundTruthVec::size_type Validator<D>::findGroundTruth(const Detection& detection, const GroundTruthVec& gts,
+                                                        int classIndex)
 {
     auto bestIt = std::end(gts);
     auto bestIoU = -std::numeric_limits<float>::max();
 
     for (auto it = std::cbegin(gts); it != std::cend(gts); it++) {
+        if (classIndex >= 0 && it->classId != classIndex) {
+            continue;
+        }
         auto IoU = iou(detection, *it);
         if (IoU > bestIoU) {
             bestIoU = IoU;
@@ -237,6 +242,10 @@ template<Device D>
 void Validator<D>::processDetects(const Detections& detects, const GroundTruths& gts)
 {
     auto results = nms(detects, nmsThreshold_);
+    auto apResults = detects;
+    std::stable_sort(apResults.begin(), apResults.end(), [](const auto& lhs, const auto& rhs) {
+        return lhs.prob() > rhs.prob();
+    });
 
     std::sort(results.begin(), results.end(), [](const auto& lhs, const auto& rhs) {
         return lhs.prob() > rhs.prob();
@@ -251,7 +260,7 @@ void Validator<D>::processDetects(const Detections& detects, const GroundTruths&
         }
 
         std::vector<bool> apMatched(gtv.size(), false);
-        for (const auto& detect: results) {
+        for (const auto& detect: apResults) {
             if (detect.batchId() != b || detect.prob() < apConfidenceThreshold_) {
                 continue;
             }
@@ -280,7 +289,7 @@ void Validator<D>::processDetects(const Detections& detects, const GroundTruths&
             }
 
             classesSeen_.emplace(detect.classIndex());
-            auto index = findGroundTruth(detect, gtv);
+            auto index = findGroundTruth(detect, gtv, detect.classIndex());
             if (index < gtv.size()) {
                 auto trueClass = gtv[index].classId;
                 classesSeen_.emplace(trueClass);

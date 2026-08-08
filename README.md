@@ -6,7 +6,7 @@
   <strong>C++20</strong> &nbsp;•&nbsp;
   <strong>CUDA + cuDNN</strong> &nbsp;•&nbsp;
   <strong>YOLO models</strong> &nbsp;•&nbsp;
-  <strong>TensorBoard metrics</strong> &nbsp;•&nbsp;
+  <strong>TensorFlow event metrics</strong> &nbsp;•&nbsp;
   <strong>Apache 2.0</strong>
 </p>
 
@@ -31,7 +31,7 @@ PixieNN is a modern rethinking of the ideas behind Darknet: small enough to unde
 | | |
 |---|---|
 | **Native performance** | C++20, CUDA, cuDNN, and OpenBLAS execution paths—without a Python runtime in the training or inference loop. |
-| **The whole workflow** | Training, validation, checkpointing, TensorBoard events, image inference, non-max suppression, and GeoJSON predictions. |
+| **The whole workflow** | Training, validation, checkpointing, TensorFlow `.tfevents` data, image inference, non-max suppression, and GeoJSON predictions. |
 | **Readable experiments** | Human-editable YAML describes model graphs, optimizer settings, augmentation, datasets, and learning-rate schedules. |
 | **Reproducible runs** | GPU/data preflight checks, isolated run directories, metadata, logs, safe restart behavior, and explicit checkpoint resume. |
 
@@ -210,8 +210,9 @@ For preset overrides, data-manifest rules, dry runs, locking, and cleanup semant
 
 ### Monitor a run in the React dashboard
 
-The repository includes a local React dashboard for `training.log` and
-`run-metadata.txt`. Start it from the repository root:
+The repository includes a local React dashboard for TensorFlow `.tfevents`
+protocol-buffer data,
+run metadata, and checkpoints. Start it from the repository root:
 
 ```bash
 cd monitor
@@ -220,13 +221,17 @@ npm run dev
 ```
 
 Open [http://localhost:4173](http://localhost:4173). The dashboard refreshes
-every 2.5 seconds and shows the current run status, batch, loss, learning rate,
-latest checkpoint, metadata, loss trace, and raw training log. Use the run
-selector to inspect another directory under `runs/`.
+every 2.5 seconds and shows the current run status, optimizer step, loss,
+learning rate, latest checkpoint, metadata, full-run loss trace, and
+auto-scaled scalar cards sourced from the event files. The charts span the
+entire run automatically; the renderer keeps its display resolution bounded as
+the event file grows. The average-loss chart also supports exact recent-step
+windows of 10,000, 2,000, or 500 optimizer steps. Use the run selector to inspect
+another directory under `runs/`.
 
-The monitor reads local files through its local-only API; it does not upload
-logs or expose arbitrary filesystem paths. TensorBoard remains available at
-the separate URL printed by the training wrapper, normally
+The monitor reads local event/metadata files through its local-only API; it
+does not upload logs or expose arbitrary filesystem paths. TensorBoard remains
+available at the separate URL printed by the training wrapper, normally
 `http://localhost:6006/`.
 
 ## How it fits together
@@ -237,7 +242,7 @@ flowchart LR
     B[Model graph + hyperparameters] --> C
     C --> D[pixienn-train]
     D --> E[Checkpoints]
-    D --> F[TensorBoard events]
+    D --> F[TensorFlow .tfevents data]
     E --> G[pixienn inference]
     G --> H[Annotated JPEG]
     G --> I[GeoJSON detections]
@@ -294,7 +299,7 @@ The next meaningful milestones are evidence, not feature-count theater:
 
 ## Contributing
 
-Bug reports, focused pull requests, reproducible training observations, and new tests are welcome. When reporting training behavior, include the model/config YAML, GPU model, command line, relevant `run-metadata.txt`, and a short TensorBoard export whenever possible.
+Bug reports, focused pull requests, reproducible training observations, and new tests are welcome. When reporting training behavior, include the model/config YAML, GPU model, command line, relevant `run-metadata.txt`, and a short event-file export whenever possible.
 
 PixieNN was inspired by Darknet's directness and its enduring contribution to real-time object detection. Source files are distributed under the Apache License 2.0.
 

@@ -12,7 +12,7 @@
 
 using namespace px;
 
-TEST(YoloTargetBuilderTest, ResolvesSameCellCollisionOntoFreeMaskedAnchor)
+TEST(YoloTargetBuilderTest, MatchesDarknetSameCellCollisionOverwrite)
 {
     const YoloTargetBuilder builder({ 10, 10, 20, 20 }, { 0, 1 }, 4, 4, 100, 100);
     const auto targets = builder.build({
@@ -21,10 +21,10 @@ TEST(YoloTargetBuilderTest, ResolvesSameCellCollisionOntoFreeMaskedAnchor)
     });
     const auto cell = 1 * 4 + 1;
     EXPECT_EQ(targets.assigned, 2);
-    EXPECT_EQ(targets.classes[cell], 0);
+    EXPECT_EQ(targets.classes[cell], 1);
     EXPECT_EQ(targets.anchors[cell], 0);
-    EXPECT_EQ(targets.classes[16 + cell], 1);
-    EXPECT_EQ(targets.anchors[16 + cell], 1);
+    EXPECT_EQ(targets.classes[16 + cell], -1);
+    EXPECT_EQ(targets.anchors[16 + cell], -1);
 }
 
 TEST(YoloTargetBuilderTest, LeavesTruthForAnotherHeadUnassigned)
@@ -230,7 +230,7 @@ TEST(YoloCudaTest, MatchesReferenceAssignedTargetLossAndGradients)
     yoloLossGpu(output.data(), delta.data(), truthGpu.data(), truthCountsGpu.data(), 1,
                 assignedClassesGpu.data(), assignedAnchorsGpu.data(), assignedBoxGpu.data(),
                 masksGpu.data(), anchorsGpu.data(), stats.data(), cost.data(), 1, 1, 1,
-                classes, 1, 1, 32, 32, 0.5f, 1.0f, 1.0f, 2.0f, 0.25f, 3.0f);
+                classes, 1, 1, 32, 32, 0.5f, 1.0f, 1.0f, 2.0f, 0.25f, 1.0f, 3.0f, 1.0f);
 
     const auto actualOutput = output.asVector();
     const auto actualDelta = delta.asVector();
@@ -290,7 +290,7 @@ TEST(YoloCudaTest, LeavesSparseEntriesZeroForBackground)
     yoloLossGpu(output.data(), delta.data(), truthGpu.data(), truthCountsGpu.data(), 1,
                 assignedClassesGpu.data(), assignedAnchorsGpu.data(), assignedBoxGpu.data(),
                 masksGpu.data(), anchorsGpu.data(), stats.data(), cost.data(), 1, 1, 1,
-                classes, 1, 1, 32, 32, 0.5f, 1.0f, 1.0f, 1.0f, 0.25f, 1.0f);
+                classes, 1, 1, 32, 32, 0.5f, 1.0f, 1.0f, 1.0f, 0.25f, 1.0f, 1.0f, 1.0f);
     const auto actual = delta.asVector();
     EXPECT_FLOAT_EQ(actual[0], 0.0f);
     EXPECT_FLOAT_EQ(actual[1], 0.0f);
@@ -331,11 +331,46 @@ TEST(YoloCudaTest, TruthThresholdOverridesNoObjectPenalty)
     yoloLossGpu(output.data(), delta.data(), truthGpu.data(), truthCountsGpu.data(), 1,
                 assignedClassesGpu.data(), assignedAnchorsGpu.data(), assignedBoxGpu.data(),
                 masksGpu.data(), anchorsGpu.data(), stats.data(), cost.data(), 1, 1, 1,
-                classes, 1, 1, 10, 10, 0.7f, 0.5f, 1.0f, 2.0f, 0.25f, 1.0f);
+                classes, 1, 1, 10, 10, 0.7f, 0.5f, 1.0f, 2.0f, 0.25f, 1.0f, 1.0f, 1.0f);
 
-    // Positive objectness is 2*(1 - sigmoid(0)), not the no-object value
-    // -0.25*sigmoid(0).
+    // The explicit positive objectness scale must override the background
+    // penalty when the truth threshold is met.
     EXPECT_FLOAT_EQ(delta.asVector()[4], 1.0f);
+}
+
+TEST(YoloCudaTest, BalancesNegativeClassGradients)
+{
+    constexpr int classes = 3;
+    constexpr int attributes = classes + 5;
+    PxCpuVector raw(attributes, 0.0f);
+    PxCudaVector input(raw.data(), raw.data() + raw.size());
+    PxCudaVector output(attributes, 0.0f);
+    PxCudaVector delta(attributes, 0.0f);
+    yoloActivateGpu(input.data(), output.data(), 1, 1, classes, 1);
+
+    PxCpuVector truth{ 0.5f, 0.5f, 0.3125f, 0.3125f, 1.0f };
+    PxCpuVector assignedBox{ 0.5f, 0.5f, 0.3125f, 0.3125f };
+    PxCpuVector anchors{ 10.0f, 10.0f };
+    PxCpuVectorT<int> truthCounts{ 1 }, assignedClasses{ 1 }, assignedAnchors{ 0 }, masks{ 0 };
+    PxCudaVector truthGpu(truth.data(), truth.data() + truth.size());
+    PxCudaVector assignedBoxGpu(assignedBox.data(), assignedBox.data() + assignedBox.size());
+    PxCudaVector anchorsGpu(anchors.data(), anchors.data() + anchors.size());
+    PxCudaVectorT<int> truthCountsGpu(truthCounts.data(), truthCounts.data() + truthCounts.size());
+    PxCudaVectorT<int> assignedClassesGpu(assignedClasses.data(), assignedClasses.data() + assignedClasses.size());
+    PxCudaVectorT<int> assignedAnchorsGpu(assignedAnchors.data(), assignedAnchors.data() + assignedAnchors.size());
+    PxCudaVectorT<int> masksGpu(masks.data(), masks.data() + masks.size());
+    PxCudaVector stats(YOLO_STATS_SIZE, 0.0f), cost(1, 0.0f);
+
+    yoloLossGpu(output.data(), delta.data(), truthGpu.data(), truthCountsGpu.data(), 1,
+                assignedClassesGpu.data(), assignedAnchorsGpu.data(), assignedBoxGpu.data(),
+                masksGpu.data(), anchorsGpu.data(), stats.data(), cost.data(), 1, 1, 1,
+                classes, 1, 1, 32, 32, 0.5f, 1.0f, 1.0f, 1.0f, 0.25f, 1.0f, 1.0f,
+                0.5f);
+
+    const auto actual = delta.asVector();
+    EXPECT_FLOAT_EQ(actual[5], -0.25f);
+    EXPECT_FLOAT_EQ(actual[6], 0.5f);
+    EXPECT_FLOAT_EQ(actual[7], -0.25f);
 }
 
 #endif

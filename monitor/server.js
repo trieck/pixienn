@@ -3,6 +3,7 @@ import path from 'node:path';
 import { webcrypto } from 'node:crypto';
 import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
+import { spawn } from 'node:child_process';
 
 // Vite expects the Web Crypto API. Some Node versions expose a partial
 // `globalThis.crypto` object, so nullish assignment alone is not sufficient.
@@ -11,9 +12,20 @@ if (typeof globalThis.crypto?.getRandomValues !== 'function') {
 }
 const { createServer: createViteServer } = await import('vite');
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const monitorDir = path.dirname(fileURLToPath(import.meta.url));
+const root = path.resolve(monitorDir, '..');
 const runs = path.join(root, 'runs');
 const port = Number(process.env.PORT || 4173);
+
+const checkpointCaches = new Map();
+const eventReaders = new Map();
+const snapshotRequests = new Map();
+const LOSS_WINDOWS = new Set([500, 2000, 10000]);
+
+function lossWindow(value) {
+  const parsed = Number(value);
+  return LOSS_WINDOWS.has(parsed) ? parsed : null;
+}
 
 function safeRun(name = 'yolov3') {
   const clean = name.replace(/[^a-zA-Z0-9_-]/g, '');
@@ -43,18 +55,224 @@ function localDate(value) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-function snapshot(runName) {
+function latestEventFile(dir) {
+  try {
+    return fs.readdirSync(dir, { withFileTypes: true })
+      .filter(entry => entry.isFile() && entry.name === 'events.tfevents')
+      .map(entry => {
+        const file = path.join(dir, entry.name);
+        return { file, mtime: fs.statSync(file).mtimeMs };
+      })
+      .sort((a, b) => b.mtime - a.mtime)[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+class EventFileReader {
+  constructor(event) {
+    this.event = event;
+    this.child = spawn('python3', [path.join(monitorDir, 'event_file_reader.py'), event], {
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    this.child.stdout.setEncoding('utf8');
+    this.child.stderr.setEncoding('utf8');
+    this.buffer = '';
+    this.waiters = [];
+    this.active = null;
+    this.failure = null;
+    this.last = null;
+    this.stderr = '';
+
+    this.child.stdout.on('data', data => this.receive(data));
+    this.child.stderr.on('data', data => {
+      this.stderr = `${this.stderr}${data}`.slice(-2000);
+    });
+    this.child.on('error', error => this.fail(error));
+    this.child.on('close', (code, signal) => {
+      if (!this.failure && !this.closed) {
+        this.fail(new Error(`Event-file reader exited (${code ?? 'null'}${signal ? `, ${signal}` : ''})`));
+      }
+    });
+  }
+
+  request() {
+    if (this.failure) return Promise.reject(this.failure);
+    return new Promise((resolve, reject) => {
+      this.waiters.push({ resolve, reject });
+      this.pump();
+    });
+  }
+
+  pump() {
+    if (this.failure || this.active || !this.waiters.length) return;
+    const waiters = this.waiters;
+    this.waiters = [];
+    const timeout = setTimeout(() => this.fail(new Error('Event-file reader timed out')), 15000);
+    this.active = { waiters, timeout };
+    try {
+      this.child.stdin.write('\n');
+    } catch (error) {
+      this.fail(error);
+    }
+  }
+
+  receive(data) {
+    this.buffer += data;
+    let newline;
+    while ((newline = this.buffer.indexOf('\n')) >= 0) {
+      const line = this.buffer.slice(0, newline);
+      this.buffer = this.buffer.slice(newline + 1);
+      if (!this.active) continue;
+      let result;
+      try {
+        result = JSON.parse(line);
+      } catch (error) {
+        this.fail(new Error(`Invalid event-file reader response: ${error.message}`));
+        return;
+      }
+      if (result.error) {
+        this.fail(new Error(result.error));
+        return;
+      }
+      const active = this.active;
+      clearTimeout(active.timeout);
+      this.active = null;
+      this.last = result;
+      // Requests that arrived while the reader was working can share this
+      // response; sending another full reload for each poll is unnecessary.
+      const waiters = active.waiters.concat(this.waiters);
+      this.waiters = [];
+      waiters.forEach(waiter => waiter.resolve(result));
+      return;
+    }
+  }
+
+  fail(error) {
+    if (this.failure) return;
+    this.failure = error;
+    if (this.active) {
+      clearTimeout(this.active.timeout);
+      this.active.waiters.forEach(waiter => waiter.reject(error));
+      this.active = null;
+    }
+    this.waiters.splice(0).forEach(waiter => waiter.reject(error));
+    this.child.kill();
+  }
+
+  close() {
+    this.closed = true;
+    this.child.kill();
+  }
+}
+
+function readerFor(dir, event) {
+  const previous = eventReaders.get(dir);
+  if (previous && previous.event !== event) {
+    previous.reader.close();
+    eventReaders.delete(dir);
+  }
+  let current = eventReaders.get(dir);
+  if (!current || current.reader.failure) {
+    current?.reader.close();
+    current = { event, reader: new EventFileReader(event) };
+    eventReaders.set(dir, current);
+  }
+  return current.reader;
+}
+
+async function eventFileSnapshot(dir) {
+  const event = latestEventFile(dir);
+  if (!event) return { tags: [], series: {}, latest: {}, windows: {} };
+  const reader = readerFor(dir, event.file);
+  try {
+    const result = await reader.request();
+    const series = result.series || {};
+    const latest = Object.fromEntries(Object.entries(series).map(([tag, values]) => [tag, values.at(-1) || null]));
+    return { tags: Object.keys(series), series, latest, windows: result.windows || {}, eventUpdatedAt: event.mtime };
+  } catch (error) {
+    const result = reader.last?.series || {};
+    const latest = Object.fromEntries(Object.entries(result).map(([tag, values]) => [tag, values.at(-1) || null]));
+    return { tags: Object.keys(result), series: result, latest, windows: reader.last?.windows || {}, eventUpdatedAt: event.mtime, error: error.message };
+  }
+}
+
+function metricPoints(series) {
+  const losses = series['avg-loss'] || [];
+  const rates = series['learning-rate'] || [];
+  let rateIndex = -1;
+  let currentRate = null;
+
+  return losses.map(loss => {
+    while (rateIndex + 1 < rates.length && rates[rateIndex + 1].step <= loss.step) {
+      rateIndex++;
+      currentRate = rates[rateIndex].value;
+    }
+    return { step: loss.step, loss: loss.value, avg: loss.value, lr: currentRate };
+  });
+}
+
+function latestStep(series) {
+  return Math.max(...Object.values(series).flatMap(values => values.map(point => point.step).filter(Number.isFinite)), -Infinity);
+}
+
+function stepWindow(values, cutoff, carryPrevious = false) {
+  const selected = values.filter(point => point.step >= cutoff);
+  if (!carryPrevious || !selected.length) return selected;
+  let previous = null;
+  for (const point of values) {
+    if (point.step >= cutoff) break;
+    previous = point;
+  }
+  return previous ? [previous, ...selected] : selected;
+}
+
+function checkpoints(dir) {
+  const backup = path.join(dir, 'backup');
+  let stat;
+  try { stat = fs.statSync(backup); } catch { return []; }
+  const cached = checkpointCaches.get(backup);
+  if (cached && cached.mtimeMs === stat.mtimeMs) return cached.files;
+
+  let files = [];
+  try {
+    files = fs.readdirSync(backup)
+      .filter(file => file.endsWith('.weights'))
+      .map(file => {
+        const full = path.join(backup, file);
+        return { name: file, mtime: fs.statSync(full).mtimeMs };
+      })
+      .sort((a, b) => b.mtime - a.mtime)
+      .slice(0, 4);
+  } catch {
+    files = [];
+  }
+  checkpointCaches.set(backup, { mtimeMs: stat.mtimeMs, files });
+  return files;
+}
+
+async function snapshot(runName, selectedLossWindow = null) {
   const { name, dir } = safeRun(runName);
-  const log = read(path.join(dir, 'training.log'));
   const metadata = Object.fromEntries(read(path.join(dir, 'run-metadata.txt')).split('\n').filter(Boolean).map(line => {
     const i = line.indexOf('='); return [line.slice(0, i), line.slice(i + 1)];
   }));
   if (metadata.started_utc) metadata.started_utc = localDate(metadata.started_utc);
-  const lines = log.trim().split('\n').filter(Boolean);
-  const re = /Epoch:\s*(\d+), Seen:\s*(\d+), Loss:\s*([\d.e+-]+), Avg\. Loss:\s*([\d.e+-]+), LR:\s*([\d.e+-]+)/;
-  // Keep the complete scalar history. The client compresses it into a fixed
-  // number of buckets so the chart shows the trajectory across the whole run.
-  const points = lines.flatMap(line => { const m = line.match(re); return m ? [{ step: +m[2], loss: +m[3], avg: +m[4], lr: +m[5] }] : []; });
+  const eventFile = await eventFileSnapshot(dir);
+  const metricSeries = selectedLossWindow
+    ? (() => {
+      const lossSource = eventFile.windows['avg-loss'] || eventFile.series['avg-loss'] || [];
+      const rateSource = eventFile.windows['learning-rate'] || eventFile.series['learning-rate'] || [];
+      const endStep = latestStep({ 'avg-loss': lossSource, 'learning-rate': rateSource });
+      if (!Number.isFinite(endStep)) return eventFile.series;
+      const cutoff = endStep - selectedLossWindow;
+      return {
+        ...eventFile.series,
+        'avg-loss': stepWindow(lossSource, cutoff),
+        'learning-rate': stepWindow(rateSource, cutoff, true)
+      };
+    })()
+    : eventFile.series;
+  const points = metricPoints(metricSeries);
   const latest = points.at(-1) || null;
   const recent = points.slice(-60);
   const prior = points.slice(-120, -60);
@@ -63,26 +281,55 @@ function snapshot(runName) {
   const priorAverage = mean(prior);
   const change = trendAverage != null && priorAverage != null ? trendAverage - priorAverage : null;
   const direction = change == null ? 'waiting' : change < -0.5 ? 'improving' : change > 0.5 ? 'worsening' : 'flat';
-  const files = fs.existsSync(path.join(dir, 'backup')) ? fs.readdirSync(path.join(dir, 'backup')).filter(f => f.endsWith('.weights')).map(f => ({ name: f, mtime: fs.statSync(path.join(dir, 'backup', f)).mtimeMs })).sort((a,b) => b.mtime-a.mtime).slice(0, 4) : [];
-  // A metric in an old log is not evidence that training is still running.
-  // Treat the run as live only while its log has been updated recently.
-  const logFresh = fs.existsSync(path.join(dir, 'training.log'))
-    && Date.now() - fs.statSync(path.join(dir, 'training.log')).mtimeMs < 120000;
-  const active = Boolean(latest && logFresh && !/trained in|early stopping/i.test(lines.at(-1) || ''));
-  return { name, metadata, latest, points, trend: { average: trendAverage, priorAverage, change, direction }, log: lines.slice(-120), checkpoints: files, active, updatedAt: Date.now() };
+  // Event-file freshness is the source of truth for run liveness. This avoids
+  // coupling the monitor to the unbounded console log.
+  const active = Boolean(eventFile.eventUpdatedAt && Date.now() - eventFile.eventUpdatedAt < 120000);
+  const { windows, ...publicEventFile } = eventFile;
+  return { name, metadata, latest, points, trend: { average: trendAverage, priorAverage, change, direction }, eventFile: publicEventFile, checkpoints: checkpoints(dir), active, updatedAt: Date.now() };
+}
+
+function sharedSnapshot(runName, selectedLossWindow = null) {
+  const key = `${runName}:${selectedLossWindow || 'all'}`;
+  const existing = snapshotRequests.get(key);
+  if (existing) return existing;
+  const request = snapshot(runName, selectedLossWindow).finally(() => {
+    if (snapshotRequests.get(key) === request) snapshotRequests.delete(key);
+  });
+  snapshotRequests.set(key, request);
+  return request;
 }
 
 const vite = await createViteServer({ root: path.dirname(fileURLToPath(import.meta.url)), server: { middlewareMode: true }, appType: 'spa' });
-createServer((req, res) => {
-  if (req.url === '/api/runs') {
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify(availableRuns()));
-    return;
+createServer(async (req, res) => {
+  try {
+    if (req.url === '/api/runs') {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'no-store');
+      res.end(JSON.stringify(availableRuns()));
+      return;
+    }
+    if (req.url.startsWith('/api/run')) {
+      const query = new URL(req.url, 'http://localhost').searchParams;
+      const runName = query.get('name') || 'yolov3';
+      const selectedLossWindow = lossWindow(query.get('window'));
+      const data = await sharedSnapshot(runName, selectedLossWindow);
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'no-store');
+      res.end(JSON.stringify(data));
+      return;
+    }
+    vite.middlewares(req, res, () => { res.statusCode = 404; res.end('Not found'); });
+  } catch (error) {
+    if (!res.headersSent) {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: error.message }));
+    } else {
+      res.destroy(error);
+    }
   }
-  if (req.url.startsWith('/api/run')) {
-    try { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(snapshot(new URL(req.url, 'http://localhost').searchParams.get('name') || 'yolov3'))); }
-    catch (e) { res.statusCode = 400; res.end(JSON.stringify({ error: e.message })); }
-    return;
-  }
-  vite.middlewares(req, res, () => { res.statusCode = 404; res.end('Not found'); });
 }).listen(port, () => console.log(`PixieNN monitor: http://localhost:${port}`));
+
+process.once('exit', () => {
+  for (const { reader } of eventReaders.values()) reader.close();
+});

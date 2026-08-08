@@ -1,11 +1,11 @@
 model:
-  batch: 8
+  batch: 1
   subdivisions: 1
   width: 416
   height: 416
   channels: 3
 
-  max_batches: 750075
+  max_batches: 2000
 
   momentum: 0.9
   decay: 0.0005
@@ -39,15 +39,15 @@ model:
 
   validation:
     enabled: True
-    interval: 10261
-    batches: 125
+    interval: 200
+    batches: 10
     confidence_threshold: 0.05
     ap_confidence_threshold: 0.001
     iou_threshold: 0.5
     nms_threshold: 0.4
 
-  save_weights_interval: 10000
-  write_metrics_interval: 1000
+  save_weights_interval: 100
+  write_metrics_interval: 50
 
   learning_rate:
     burn_in:
@@ -914,6 +914,7 @@ model:
       activation: linear
 
     - type: yolo
+      log_interval: 50
       mask: [ 0, 1, 2 ]
       # Official YOLOv7 anchors scaled from its 640 training size to 416.
       anchors: [ 8, 10, 12, 23, 26, 18, 23, 49, 49, 36, 47, 95, 92, 72, 125, 158, 298, 261 ]
@@ -921,6 +922,12 @@ model:
       jitter: 0.1
       ignore_thresh: 0.7
       truth_thresh: 1
+      coord_scale: 1.0
+      object_scale: 1.0
+      noobject_scale: 1.0
+      normalize_noobject: True
+      class_scale: 1.0
+      normalize_class: True
 
     - type: route
       layers: [ 115 ]
@@ -941,11 +948,18 @@ model:
       activation: linear
 
     - type: yolo
+      log_interval: 50
       mask: [ 3, 4, 5 ]
       anchors: [ 8, 10, 12, 23, 26, 18, 23, 49, 49, 36, 47, 95, 92, 72, 125, 158, 298, 261 ]
       num: 9
       ignore_thresh: 0.7
       truth_thresh: 1
+      coord_scale: 1.0
+      object_scale: 1.0
+      noobject_scale: 1.0
+      normalize_noobject: True
+      class_scale: 1.0
+      normalize_class: True
 
     - type: route
       layers: [ 130 ]
@@ -966,8 +980,15 @@ model:
       activation: linear
 
     - type: yolo
+      log_interval: 50
       mask: [ 6, 7, 8 ]
       anchors: [ 8, 10, 12, 23, 26, 18, 23, 49, 49, 36, 47, 95, 92, 72, 125, 158, 298, 261 ]
       num: 9
       ignore_thresh: 0.7
       truth_thresh: 1
+      coord_scale: 1.0
+      object_scale: 1.0
+      noobject_scale: 1.0
+      normalize_noobject: True
+      class_scale: 1.0
+      normalize_class: True

@@ -28,8 +28,6 @@ YoloAssignmentTargets YoloTargetBuilder::build(const GroundTruthVec& truths) con
     };
     const auto anchorCount = static_cast<int>(anchors_.size() / 2);
     for (const auto& gt: truths) {
-        std::vector<std::pair<float, int>> candidates;
-        candidates.reserve(anchorCount);
         auto bestIoU = std::numeric_limits<float>::lowest();
         auto bestAnchor = 0;
         const DarkBox shiftedTruth(0.0f, 0.0f, gt.box.w(), gt.box.h());
@@ -38,7 +36,6 @@ YoloAssignmentTargets YoloTargetBuilder::build(const GroundTruthVec& truths) con
                                     static_cast<float>(anchors_[2 * anchor]) / networkWidth_,
                                     static_cast<float>(anchors_[2 * anchor + 1]) / networkHeight_);
             const auto iou = candidate.iou(shiftedTruth);
-            candidates.emplace_back(iou, anchor);
             if (iou > bestIoU) {
                 bestIoU = iou;
                 bestAnchor = anchor;
@@ -48,25 +45,11 @@ YoloAssignmentTargets YoloTargetBuilder::build(const GroundTruthVec& truths) con
         if (maskSlot < 0) continue;
         const auto x = std::clamp(static_cast<int>(gt.box.x() * width_), 0, width_ - 1);
         const auto y = std::clamp(static_cast<int>(gt.box.y() * height_), 0, height_ - 1);
-        auto slot = maskSlot * area + y * width_ + x;
-        if (targets.classes[slot] >= 0) {
-            std::sort(candidates.begin(), candidates.end(), [](const auto& lhs, const auto& rhs) {
-                return lhs.first > rhs.first;
-            });
-            maskSlot = -1;
-            for (const auto& candidate: candidates) {
-                const auto candidateMask = maskIndex(candidate.second);
-                if (candidateMask < 0) continue;
-                const auto candidateSlot = candidateMask * area + y * width_ + x;
-                if (targets.classes[candidateSlot] < 0) {
-                    bestAnchor = candidate.second;
-                    maskSlot = candidateMask;
-                    slot = candidateSlot;
-                    break;
-                }
-            }
-        }
-        if (maskSlot < 0) continue;
+        // Darknet writes the best-anchor target directly. If another truth
+        // occupies the same cell and anchor, the later truth overwrites it.
+        // Do not move collisions to a different anchor: that changes the
+        // positive-gradient assignment relative to Darknet.
+        const auto slot = maskSlot * area + y * width_ + x;
         targets.classes[slot] = gt.classId;
         targets.anchors[slot] = bestAnchor;
         targets.boxes[slot * 4] = gt.box.x();

@@ -25,8 +25,8 @@ Usage: train-model.sh MODEL (--fresh | --resume) [options]
        train-model.sh --list
 
 Modes:
-  --fresh                  Stop TensorBoard, purge this model's event data, archive
-                           the remaining run files, then start with clear weights.
+  --fresh                  Purge this model's TF event data, archive the remaining
+                           run files, then start with clear weights.
   --resume                 Resume the latest checkpoint in the model's run directory.
 
 Options:
@@ -39,7 +39,6 @@ Options:
 Environment:
   PIXIENN_TRAIN_BIN         Override the CUDA pixienn-train executable.
   PIXIENN_RUNS_DIR          Override the run root (default: REPOSITORY/runs).
-  PIXIENN_TENSORBOARD_PORT  TensorBoard port checked by --fresh (default: 6006).
 EOF
 }
 
@@ -183,7 +182,7 @@ stop_tensorboard_on_port()
     kill -KILL "${tensorboard_pids[@]}" 2>/dev/null || true
 }
 
-purge_tensorboard_data()
+purge_event_data()
 {
     local active_run=$1
     local archive_root=$2
@@ -206,7 +205,46 @@ purge_tensorboard_data()
         done < <(find "$directory" -type f -name 'events.out.tfevents.*' -print0)
     done
 
-    echo "Removed $removed TensorBoard event file(s) for $model_name."
+    echo "Removed $removed TF event file(s) for $model_name."
+}
+
+start_monitor()
+{
+    local log_dir=$1
+    local port=${PIXIENN_MONITOR_PORT:-4173}
+    local pid command
+
+    while IFS= read -r pid; do
+        [[ "$pid" =~ ^[0-9]+$ && -r "/proc/$pid/cmdline" ]] || continue
+        command=$(tr '\0' ' ' < "/proc/$pid/cmdline")
+        if [[ "${command,,}" == *"monitor/server.js"* || "${command,,}" == *"node server.js"* ]]; then
+            echo "Monitor: http://localhost:$port/"
+            return 0
+        fi
+        echo "Cannot start monitor: port $port is occupied by PID $pid ($command)." >&2
+        return 1
+    done < <(lsof -nP -t -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | sort -u)
+
+    nohup bash -c 'cd "$1/monitor" && PORT="$2" npm run dev' \
+        bash "$repo_root" "$port" </dev/null >"$log_dir/monitor.log" 2>&1 &
+    pid=$!
+    printf '%s\n' "$pid" > "$log_dir/monitor.pid"
+
+    for _ in {1..50}; do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            echo "Monitor failed to start. See $log_dir/monitor.log" >&2
+            return 1
+        fi
+        if lsof -nP -t -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | grep -q .; then
+            echo "Monitor: http://localhost:$port/"
+            return 0
+        fi
+        sleep 0.1
+    done
+
+    echo "Monitor did not begin listening on port $port. See $log_dir/monitor.log" >&2
+    kill -TERM "$pid" 2>/dev/null || true
+    return 1
 }
 
 start_tensorboard()
@@ -448,8 +486,7 @@ cleanup_lock()
 trap cleanup_lock EXIT
 
 if [[ "$mode" == fresh ]]; then
-    stop_tensorboard_on_port "$tensorboard_port"
-    purge_tensorboard_data "$run_dir" "$runs_root/archive" "$model"
+    purge_event_data "$run_dir" "$runs_root/archive" "$model"
     if [[ -d "$run_dir" ]]; then
         archive_root="$runs_root/archive"
         archive_dir="$archive_root/${model}-${timestamp}"
@@ -503,7 +540,7 @@ configuration=$config
 weights=$weights
 EOF
 
-start_tensorboard "$run_dir" "$tensorboard_port"
+start_monitor "$run_dir"
 
 echo "Starting training. Output is also written to $run_dir/training.log"
 echo

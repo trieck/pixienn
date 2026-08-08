@@ -78,6 +78,7 @@ inline void YoloLayer<Device::CUDA>::forward(const V& input)
     if (this->inferring()) return;
 
     const auto slots = this->batch() * numMasks_ * area;
+    effectiveNoObjectScale_ = noObjectScaleFor(positiveTargetCount(), static_cast<std::size_t>(slots));
     hostAssignedClasses_.fill(-1);
     hostAssignedAnchors_.fill(-1);
     hostAssignedBoxes_.fill(0.0f);
@@ -128,7 +129,7 @@ inline void YoloLayer<Device::CUDA>::forward(const V& input)
                 masksGpu_.data(), anchorsGpu_.data(), statsGpu_.data(), costGpu_.data(),
                 this->batch(), numMasks_, numAnchors_, this->classes(), this->width(), this->height(),
                 this->model().width(), this->model().height(), ignoreThresh_, truthThresh_, coordScale_,
-                objectScale_, noObjectScale_, classScale_);
+                objectScale_, effectiveNoObjectScale_, objectNormalizer_, classScale_, classNegativeScale());
     const auto cost = costGpu_.asVector();
     this->cost_ = cost[0] / std::max(1, this->batch());
 

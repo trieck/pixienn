@@ -278,6 +278,14 @@ static void runLayer(const Group& layerGroup)
     }
 }
 
+TEST(ModelScheduleTest, RunsOnlyAfterAnOptimizerUpdate)
+{
+    EXPECT_FALSE(px::detail::optimizerScheduleDue(5000, 5000, 5000));
+    EXPECT_TRUE(px::detail::optimizerScheduleDue(4999, 5000, 5000));
+    EXPECT_FALSE(px::detail::optimizerScheduleDue(5000, 5001, 5000));
+    EXPECT_FALSE(px::detail::optimizerScheduleDue(0, 0, 5000));
+}
+
 GTEST_TEST(ModelSuite, RunModel)
 {
     H5File file(TESTS_H5_PATH, H5F_ACC_RDONLY);

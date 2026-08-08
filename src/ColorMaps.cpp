@@ -146,19 +146,19 @@ static constexpr uint32_t darknet[] = {
 };
 
 static constexpr uint32_t fluorescent[] = {
-        0xff355e,  // Radical Red
-        0xfd5b78,  // Wild Watermelon
-        0xff6037,  // Outrageous Orange
-        0xff9966,  // Atomic Tangerine
-        0xff9933,  // Neon Carrot
-        0xffcc33,  // Sunglow
-        0xffff66,  // Laser Lemon
-        0xccff00,  // Electric Lime
-        0x66ff66,  // Screamin' Green
-        0xaaf0d1,  // Magic Mint
-        0x50bfe6,  // Blizzard Blue
-        0xff6eff,  // Ultra Pink
-        0xee34d2,  // Shocking Pink
+        0xff1744,  // Neon Red
+        0xff00a8,  // Hot Magenta
+        0xff00ff,  // Electric Fuchsia
+        0x7a00ff,  // UV Violet
+        0x0055ff,  // Laser Blue
+        0x00cfff,  // Electric Cyan
+        0x00ffcc,  // Neon Aqua
+        0x00ff55,  // Laser Green
+        0x7dff00,  // Volt Lime
+        0xd9ff00,  // Highlighter Yellow
+        0xffff00,  // Fluorescent Yellow
+        0xff9d00,  // Neon Orange
+        0xff3d00,  // Plasma Orange
 };
 
 static constexpr uint32_t vivid[] = {
@@ -844,7 +844,7 @@ uint32_t ColorMaps::color(uint32_t index) const
 
     auto color = table[index % sz];
 
-    auto gamma = 1.2f; // gamma correction
+    auto gamma = it_->it->first == "fluorescent" ? 0.82f : 1.2f; // preserve neon intensity
     auto r = static_cast<float>((color >> 16) & 0xFF) / 255.0f;
     auto g = static_cast<float>((color >> 8) & 0xFF) / 255.0f;
     auto b = static_cast<float>(color & 0xFF) / 255.0f;
