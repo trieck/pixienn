@@ -25,3 +25,4 @@ events.out.tfevents.*
 /docs/html/
 /docs/latex/
 /python/.idea/
+/build-python*

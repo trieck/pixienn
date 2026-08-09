@@ -5,6 +5,27 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(BLA_VENDOR OpenBLAS)
 
+option(PIXIENN_BUILD_PYTHON_BINDINGS
+        "Build the optional Python interface"
+        OFF)
+
+if (PIXIENN_BUILD_PYTHON_BINDINGS)
+    include(FetchContent)
+
+    # Keep the binding dependency explicit and reproducible. FetchContent uses
+    # CMake's normal download/cache machinery, so no developer-local Python or
+    # pybind11 installation path is required.
+    set(PYBIND11_FINDPYTHON ON CACHE BOOL
+            "Use modern CMake Python discovery for pybind11" FORCE)
+    FetchContent_Declare(
+            pybind11
+            GIT_REPOSITORY https://github.com/pybind/pybind11.git
+            GIT_TAG v2.13.6
+            GIT_SHALLOW TRUE
+    )
+    FetchContent_MakeAvailable(pybind11)
+endif ()
+
 if (POLICY CMP0167)
     cmake_policy(SET CMP0167 OLD)
 endif ()
@@ -178,3 +199,40 @@ include(Pixienn)
 include(PixiennTrain)
 
 add_subdirectory(tests)
+
+if (PIXIENN_BUILD_PYTHON_BINDINGS)
+  set_target_properties(pixienn PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)
+  pybind11_add_module(pixienn_native MODULE src/python/pixienn_module.cpp)
+  set_target_properties(pixienn_native PROPERTIES
+          OUTPUT_NAME _native
+          LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/python/pixienn")
+  target_link_libraries(pixienn_native PRIVATE ${PIXIENN_LIBS})
+  target_include_directories(pixienn_native PRIVATE ${INCLUDE_DIRS})
+  if (USE_CUDA)
+    target_compile_definitions(pixienn_native PRIVATE USE_CUDA)
+    target_include_directories(pixienn_native PRIVATE ${CUDNN_INCLUDE_DIR} ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+  endif ()
+  add_custom_command(TARGET pixienn_native POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy_directory
+                  ${CMAKE_CURRENT_SOURCE_DIR}/python/pixienn
+                  ${CMAKE_BINARY_DIR}/python/pixienn)
+  add_custom_target(pixienn-python-test
+          COMMAND ${CMAKE_COMMAND} -E copy_directory
+                  ${CMAKE_CURRENT_SOURCE_DIR}/python/pixienn
+                  ${CMAKE_BINARY_DIR}/python/pixienn
+          COMMAND ${CMAKE_COMMAND} -E env
+                  "PYTHONPATH=${CMAKE_BINARY_DIR}/python"
+                  ${Python3_EXECUTABLE} -m unittest discover
+                  -s ${CMAKE_CURRENT_SOURCE_DIR}/python/tests
+                  -p test_*.py
+          DEPENDS pixienn_native
+          WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  install(TARGETS pixienn_native
+          LIBRARY DESTINATION pixienn)
+  install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/python/pixienn/
+          DESTINATION pixienn
+          FILES_MATCHING
+          PATTERN "*.py"
+          PATTERN "__pycache__" EXCLUDE)
+endif ()

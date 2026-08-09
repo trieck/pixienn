@@ -164,6 +164,11 @@ public:
     void train() override;
     void evaluate() override;
 
+    // Explicit checkpoint operations for language bindings and embedders.
+    void loadWeightsFile(const std::string& fileName);
+    void saveWeightsFile(const std::string& fileName);
+    void saveTrainingStateFile(const std::string& fileName) const;
+
     void overlay(const std::string& imageFile, const Detections& detects) const override;
     std::string asJson(const Detections& detects) const noexcept override;
 
@@ -342,6 +347,7 @@ private:
     size_t seen_ = 0;
     std::size_t optimizerStep_ = 0;
     float threshold_ = 0.0f;    // Threshold for confidence
+    bool verbose_ = true;       // Native CLI logging; Python bindings set false.
     float mAP_ = 0.0f;          // Mean Average Precision
     float avgRecall_ = 0.0f;    // Average Recall
     float microAvgF1_ = 0.0f;   // Micro Average F1
@@ -748,7 +754,8 @@ Detections Model<D>::predict(const std::string& imageFile)
 {
     auto image = imreadVector(imageFile.c_str(), width_, height_, channels_);
 
-    std::printf("\nRunning model...");
+    const auto verbose = verbose_;
+    if (verbose) std::printf("\nRunning model...");
 
     Timer timer;
 
@@ -756,7 +763,7 @@ Detections Model<D>::predict(const std::string& imageFile)
 
     auto detects = detections(image.originalSize);
 
-    std::printf("predicted in %s.\n", timer.str().c_str());
+    if (verbose) std::printf("predicted in %s.\n", timer.str().c_str());
 
     return detects;
 }
@@ -797,8 +804,8 @@ void Model<D>::overlay(const std::string& imageFile, const Detections& detects) 
     auto img = imread(imageFile.c_str(), channels_);
     cv::cvtColor(img, img, cv::COLOR_BGR2BGRA);
 
-    ColorMaps colors(option<std::string>("color-map"));
-    auto thickness = std::max(1, option<int>("line-thickness"));
+    ColorMaps colors(options_.count("color-map") ? option<std::string>("color-map") : "fluorescent");
+    auto thickness = std::max(1, options_.count("line-thickness") ? option<int>("line-thickness") : 2);
 
     for (const auto& detect: detects) {
         auto index = detect.classIndex();
@@ -811,7 +818,9 @@ void Model<D>::overlay(const std::string& imageFile, const Detections& detects) 
         imrect(img, box, bgColor, thickness);
 
         auto text = boost::format("%1%: %2$.2f%%") % label % (detect.prob() * 100);
-        std::cout << text << std::endl;
+        if (verbose_) {
+            std::cout << text << std::endl;
+        }
 
         if (!hasOption("no-labels")) {
             imtabbedText(img, text.str().c_str(), box.tl(), textColor, bgColor, thickness);
@@ -1054,6 +1063,28 @@ void Model<D>::loadTrainingState(const std::string& weightsFile)
 }
 
 template<Device D>
+void Model<D>::loadWeightsFile(const std::string& fileName)
+{
+    PX_CHECK(!fileName.empty(), "Weight file name must not be empty.");
+    weightsFile_ = fileName;
+    loadWeights();
+}
+
+template<Device D>
+void Model<D>::saveWeightsFile(const std::string& fileName)
+{
+    PX_CHECK(!fileName.empty(), "Weight file name must not be empty.");
+    saveWeights(fileName);
+}
+
+template<Device D>
+void Model<D>::saveTrainingStateFile(const std::string& fileName) const
+{
+    PX_CHECK(!fileName.empty(), "Training state file name must not be empty.");
+    saveTrainingState(fileName);
+}
+
+template<Device D>
 void Model<D>::saveTrainingState(const std::string& weightsFile) const
 {
     const auto stateFile = weightsFile + ".training";
@@ -1184,6 +1215,7 @@ void Model<D>::parseModel(const Node& modelDoc)
     subdivs_ = model["subdivisions"].as<int>(1);
     timeSteps_ = model["time_steps"].as<int>(1);
     width_ = model["width"].as<int>();
+    verbose_ = model["verbose"].as<bool>(true);
 
     if (training() || validating()) {
         batch_ /= subdivs_;
@@ -1199,13 +1231,16 @@ void Model<D>::parseModel(const Node& modelDoc)
 
     PX_CHECK(layers.IsSequence(), "Model layers must be a sequence.");
 
-    std::cout << std::setfill('_');
-    std::cout << std::setw(21) << std::left << "Layer"
-              << std::setw(10) << "Filters"
-              << std::setw(20) << "Size"
-              << std::setw(20) << "Input"
-              << std::setw(20) << "Output"
-              << std::endl;
+    const auto verbose = verbose_;
+    if (verbose) {
+        std::cout << std::setfill('_');
+        std::cout << std::setw(21) << std::left << "Layer"
+                  << std::setw(10) << "Filters"
+                  << std::setw(20) << "Size"
+                  << std::setw(20) << "Input"
+                  << std::setw(20) << "Output"
+                  << std::endl;
+    }
 
     int channels(channels_), height(height_), width(width_);
 
@@ -1226,7 +1261,7 @@ void Model<D>::parseModel(const Node& modelDoc)
         width = layer->outWidth();
         inputs = layer->outputs();
 
-        layer->print(std::cout);
+        if (verbose) layer->print(std::cout);
 
         layers_.emplace_back(std::move(layer));
     }
@@ -1392,7 +1427,7 @@ bool Model<D>::hasOption(const std::string& option) const
         return false;
     }
 
-    return options_[option].as<bool>();
+    return options_.at(option).as<bool>();
 }
 
 template<Device D>

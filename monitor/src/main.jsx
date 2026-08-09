@@ -294,7 +294,12 @@ function HealthMetric({ label, point, values = [], invert = false }) {
   const recent = values.slice(-12).map(item => Number(item.value)).filter(Number.isFinite);
   const average = recent.length ? recent.reduce((sum, value) => sum + value, 0) / recent.length : null;
   const improving = average == null || point == null ? null : invert ? point.value < average : point.value > average;
-  return <div className="health-metric"><span>{label}</span><b title={average == null ? undefined : `Recent moving average: ${metricFmt(average)}`} className={improving == null ? '' : improving ? 'metric-improving' : 'metric-declining'}>{point ? metricFmt(point.value) : '—'}</b><small className="moving-average">moving average {average == null ? '—' : metricFmt(average)}</small></div>;
+  const previous = values.length > 1 ? Number(values.at(-2)?.value) : null;
+  const changedFromPrevious = point != null && Number.isFinite(previous) && point.value !== previous;
+  const improvedFromPrevious = changedFromPrevious && (invert ? point.value < previous : point.value > previous);
+  const previousClass = !changedFromPrevious ? '' : improvedFromPrevious ? 'up' : 'down';
+  const previousArrow = !changedFromPrevious ? '→' : improvedFromPrevious ? '↑' : '↓';
+  return <div className="health-metric"><span>{label}</span><b title={average == null ? undefined : `Recent moving average: ${metricFmt(average)}`} className={improving == null ? '' : improving ? 'metric-improving' : 'metric-declining'}>{point ? metricFmt(point.value) : '—'}</b><small className="moving-average">moving average {average == null ? '—' : metricFmt(average)}</small><small className={previousClass}>{previous == null ? 'previous —' : `vs previous ${previousArrow} ${metricFmt(Math.abs(point.value - previous))}`}</small></div>;
 }
 function Meta({ label, value }) { return <div className="meta-row"><span>{label}</span><b>{value || '—'}</b></div>; }
 
