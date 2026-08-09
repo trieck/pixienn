@@ -24,4 +24,4 @@ Issues = "https://github.com/trieck/pixienn/issues"
 [tool.scikit-build]
 wheel.packages = ["python/pixienn"]
 build.verbose = true
-cmake.args = ["-DPIXIENN_BUILD_PYTHON_BINDINGS=ON", "-DUSE_CUDA=OFF", "-DPIXIENN_BUILD_TESTS=OFF"]
+cmake.args = ["-DPIXIENN_BUILD_PYTHON_BINDINGS=ON", "-DPIXIENN_BUILD_TESTS=OFF"]
