@@ -6,7 +6,17 @@ build-backend = "setuptools.build_meta"
 name = "pixienn"
 version = "0.1.0"
 description = "Python interface to PixieNN"
+readme = "README.md"
+license = "Apache-2.0"
+authors = [{name = "PixieNN contributors"}]
+keywords = ["deep learning", "computer vision", "YOLO", "Darknet", "CUDA"]
+classifiers = ["Programming Language :: Python :: 3", "Programming Language :: Python :: 3 :: Only"]
 requires-python = ">=3.10"
+
+[project.urls]
+Homepage = "https://github.com/trieck/pixienn"
+Repository = "https://github.com/trieck/pixienn"
+Issues = "https://github.com/trieck/pixienn/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]
