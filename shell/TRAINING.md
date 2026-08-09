@@ -92,7 +92,7 @@ The scripts use the checked-in configurations exactly as written:
 | Model | Current manifest scope |
 |---|---|
 | `resnet18` | ImageNet smoke manifests; local `/opt/imagenet` label paths must be configured |
-| `tiny-yolo-voc` | VOC smoke preset (`train-200`, `val-1`) |
+| `yolov2` | YOLOv2-style VOC smoke preset (`train-200`, `val-1`) |
 | `yolo-nano` | Full configured VOC manifests |
 | `yolov1-tiny` | Full configured VOC manifests |
 | `yolov3-tiny-voc` | Full configured VOC manifests (`train-10000`, `val-2000`) |

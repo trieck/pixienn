@@ -69,6 +69,7 @@ int main(int argc, char* argv[])
             ("nms", po::value<float>()->default_value(0.3f), "IoU threshold for Non-Maximum-Suppression")
             ("no-gpu", po::bool_switch()->default_value(false), "Use CPU for processing")
             ("no-labels", po::bool_switch()->default_value(false), "Don't draw labels on image")
+            ("weights", po::value<std::string>(), "Override inference weights file")
             ("tiff32", po::bool_switch()->default_value(false), "Save image in 32-bit floating-point TIFF format");
 
     try {

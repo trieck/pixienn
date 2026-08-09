@@ -1,7 +1,6 @@
 configuration:
-  model: ../models/tiny-yolo-voc.yml
-  #weights: ../weights/tiny-yolo-voc_final.weights
-  weights: ../weights/tiny-yolo-voc.weights
+  model: ../models/yolov2.yml
+  weights: ../weights/yolov2-voc_final.weights
   labels: ../data/voc.names
 
 training:

@@ -1,7 +1,8 @@
 model:
 
-  batch: 4
-  subdivisions: 1
+  # Effective batch 64, with 8 images resident on the GPU at a time.
+  batch: 64
+  subdivisions: 8
   width: 416
   height: 416
   channels: 3
@@ -23,7 +24,7 @@ model:
     epsilon: 1e-8
 
   augmentation:
-    enabled: False
+    enabled: True
     flip: True
     jitter: 0.2
     saturation: 1.2
@@ -40,24 +41,26 @@ model:
 
   validation:
     enabled: True
-    interval: 5000
-    batches: 100
-    threshold: 0.2
+    interval: 500
+    batches: 125
+    threshold: 0.7
+    ap_confidence_threshold: 0.001
 
   learning_rate:
-    initial_learning_rate: 0.001
-    policy: stepped
+    initial_learning_rate: 0.0001
+    # Warm up during burn-in, then make one long smooth decay over the run.
+    policy: cosine_annealing
 
     sigmoid:
-      target_learning_rate: 0.00001
-      factor: 5.0
+      target_learning_rate: 0.000001
+      factor: 8.0
 
     cosine_annealing:
       min_learning_rate: 1e-5
-      batches_per_cycle: 10000
+      batches_per_cycle: 100000
 
     burn_in:
-      batches: 1000
+      batches: 0
       power: 4.0
 
     inverse:
@@ -645,9 +648,17 @@ model:
       ignore_thresh: 0.7
       truth_thresh: 1.0
       coord_scale: 1.0
-      object_scale: 2.0
-      noobject_scale: 0.1
+      # Background locations are dense; normalize their total gradient to
+      # the sparse positive-target count during scratch training.
+      object_scale: 1.0
+      noobject_scale: 1.0
+      obj_normalizer: 1.0
+      normalize_noobject: True
       class_scale: 1.0
+      # Each object has one positive class and 79 negative classes. Balance
+      # the negative class terms during scratch training so class confidence
+      # does not collapse before the shared features become useful.
+      normalize_class: True
       random: True
       log_interval: 50
 
@@ -732,9 +743,14 @@ model:
       ignore_thresh: 0.7
       truth_thresh: 1.0
       coord_scale: 1.0
-      object_scale: 2.0
-      noobject_scale: 0.1
+      # Background locations are dense; normalize their total gradient to
+      # the sparse positive-target count during scratch training.
+      object_scale: 1.0
+      noobject_scale: 1.0
+      obj_normalizer: 1.0
+      normalize_noobject: True
       class_scale: 1.0
+      normalize_class: True
       random: True
       log_interval: 50
 
@@ -819,8 +835,13 @@ model:
       ignore_thresh: 0.7
       truth_thresh: 1.0
       coord_scale: 1.0
-      object_scale: 2.0
-      noobject_scale: 0.1
+      # Background locations are dense; normalize their total gradient to
+      # the sparse positive-target count during scratch training.
+      object_scale: 1.0
+      noobject_scale: 1.0
+      obj_normalizer: 1.0
+      normalize_noobject: True
       class_scale: 1.0
+      normalize_class: True
       random: True
       log_interval: 50

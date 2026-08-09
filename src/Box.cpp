@@ -17,6 +17,9 @@
 #include "Box.h"
 #include "Timer.h"
 
+#include <boost/geometry.hpp>
+#include <boost/geometry/index/rtree.hpp>
+
 namespace px {
 
 static float boxIntersection(const cv::Rect2f& a, const cv::Rect2f& b)
@@ -41,15 +44,17 @@ static float boxIoU(const cv::Rect2f& a, const cv::Rect2f& b)
     return result;
 }
 
+static cv::Rect2f normalizedRect(const cv::Rect2f& box)
+{
+    const auto x1 = std::min(box.x, box.x + box.width);
+    const auto y1 = std::min(box.y, box.y + box.height);
+    const auto x2 = std::max(box.x, box.x + box.width);
+    const auto y2 = std::max(box.y, box.y + box.height);
+    return {x1, y1, std::max(0.0f, x2 - x1), std::max(0.0f, y2 - y1)};
+}
+
 Detections nms(const Detections& detects, float threshold)
 {
-    // NMS is quadratic within each image/class group.  During early training
-    // an uncalibrated detector can emit nearly every grid cell above the
-    // validation threshold, making an otherwise small validation batch take
-    // indefinitely.  The detections are sorted by confidence below, so this
-    // cap retains the most useful candidates while bounding validation work.
-    constexpr std::size_t maxCandidatesPerGroup = 256;
-
     Detections output(detects);
 
     std::stable_sort(output.begin(), output.end(), [](const auto& lhs, const auto& rhs) {
@@ -60,7 +65,7 @@ Detections nms(const Detections& detects, float threshold)
 
     // Validation deliberately keeps low-confidence predictions so AP can be
     // calculated over a useful precision/recall curve. Group candidates before
-    // the quadratic overlap pass; detections from different images or classes
+    // the overlap pass; detections from different images or classes
     // can never suppress one another.
     std::unordered_map<std::uint64_t, std::vector<std::size_t>> groups;
     groups.reserve(output.size());
@@ -71,30 +76,38 @@ Detections nms(const Detections& detects, float threshold)
         groups[key].push_back(i);
     }
 
-    for (auto& [key, indices]: groups) {
-        (void) key;
-        if (indices.size() > maxCandidatesPerGroup) {
-            indices.resize(maxCandidatesPerGroup);
-        }
-    }
-
+    namespace bgi = boost::geometry::index;
+    using Point = boost::geometry::model::point<float, 2, boost::geometry::cs::cartesian>;
+    using RTreeBox = boost::geometry::model::box<Point>;
+    using RTreeValue = std::pair<RTreeBox, std::size_t>;
+    constexpr std::size_t maxCandidatesPerGroup = 1024;
     for (const auto& [key, indices]: groups) {
         (void) key;
-        for (std::size_t candidate = 0; candidate < indices.size(); ++candidate) {
-            const auto i = indices[candidate];
+        bgi::rtree<RTreeValue, bgi::quadratic<16>> index;
+        const auto count = std::min(indices.size(), maxCandidatesPerGroup);
+        for (std::size_t position = 0; position < count; ++position) {
+            const auto i = indices[position];
             if (discard[i]) {
                 continue;
             }
 
-            for (std::size_t other = candidate + 1; other < indices.size(); ++other) {
-                const auto j = indices[other];
-                if (discard[j]) {
-                    continue;
+            const auto box = normalizedRect(output[i].box());
+            const auto query = RTreeBox(Point{box.x, box.y}, Point{box.x + box.width, box.y + box.height});
+            std::vector<RTreeValue> candidates;
+            index.query(bgi::intersects(query), std::back_inserter(candidates));
+            bool suppressed = false;
+            for (const auto& [_, j]: candidates) {
+                if (boxIoU(box, normalizedRect(output[j].box())) > threshold) {
+                    suppressed = true;
+                    break;
                 }
-
-                if (boxIoU(output[i].box(), output[j].box()) > threshold) {
-                    discard[j] = true;
-                }
+            }
+            if (suppressed) {
+                discard[i] = true;
+            } else {
+                // Only retained boxes enter the index. A suppressed box must
+                // never suppress a later, lower-confidence box.
+                index.insert({query, i});
             }
         }
     }

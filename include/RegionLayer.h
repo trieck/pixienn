@@ -335,8 +335,9 @@ void RegionLayer<D>::backward(const V& input, V* grad)
 template<Device D>
 void RegionLayer<D>::addDetects(Detections& detects, float threshold)
 {
+    auto* pred = this->output_.data();
     for (auto b = 0; b < this->batch(); ++b) {
-        auto* pred = this->output_.data() + b * this->outputs();
+        // The helper computes the batch offset from its batch argument.
         addDetects(detects, b, threshold, pred);
     }
 }
@@ -344,8 +345,8 @@ void RegionLayer<D>::addDetects(Detections& detects, float threshold)
 template<Device D>
 void RegionLayer<D>::addDetects(Detections& detects, int width, int height, float threshold)
 {
+    auto* pred = this->output_.data();
     for (auto b = 0; b < this->batch(); ++b) {
-        auto* pred = this->output_.data() + b * this->outputs();
         addDetects(detects, b, width, height, threshold, pred);
     }
 }

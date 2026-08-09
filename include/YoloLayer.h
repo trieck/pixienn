@@ -77,7 +77,7 @@ private:
     void resetStats();
     void processRegion(int b, int i, int j);
     void processObjects(int b);
-    int maskIndex(int n);
+    int maskIndex(int n) const;
     float deltaYoloBox(const GroundTruth& truth, int mask, int index, int i, int j);
     void deltaYoloClass(int index, int classId);
     void writeStats();
@@ -89,11 +89,18 @@ private:
     void writeCost();
     void writeComponentCost(const char* tag, float value);
     void updateLossComponents();
+    std::size_t positiveTargetCount() const noexcept;
+    float noObjectScaleFor(std::size_t positiveTargets, std::size_t slots) const noexcept;
+    float positiveObjectnessScale() const noexcept;
+    float classNegativeScale() const noexcept;
 
     std::vector<int> mask_, anchors_;
     int numAnchors_, numMasks_;
     float ignoreThresh_, truthThresh_;
-    float coordScale_, objectScale_, noObjectScale_, classScale_;
+    float coordScale_, objectScale_, noObjectScale_, objectNormalizer_, classScale_;
+    bool normalizeNoObject_ = false;
+    bool normalizeClass_ = false;
+    float effectiveNoObjectScale_ = 1.0f;
 
     LogisticActivation<Device::CPU> logistic_;
     PxCpuVector* poutput_, * pdelta_;
@@ -125,6 +132,10 @@ YoloLayer<D>::YoloLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D>(
     coordScale_ = this->template property<float>("coord_scale", 1.0f);
     objectScale_ = this->template property<float>("object_scale", 1.0f);
     noObjectScale_ = this->template property<float>("noobject_scale", 1.0f);
+    objectNormalizer_ = this->template property<float>("obj_normalizer", 1.0f);
+    normalizeNoObject_ = this->template property<bool>("normalize_noobject", false);
+    effectiveNoObjectScale_ = noObjectScale_;
+    normalizeClass_ = this->template property<bool>("normalize_class", false);
     classScale_ = this->template property<float>("class_scale", 1.0f);
     logInterval_ = this->template property<int>("log_interval", 1000);
 
@@ -143,6 +154,73 @@ YoloLayer<D>::YoloLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D>(
     this->delta_ = V(this->batch() * this->outputs(), 0.0f);
 
     setup();
+}
+
+template<Device D>
+float YoloLayer<D>::positiveObjectnessScale() const noexcept
+{
+    // Keep the legacy object_scale knob useful while retaining Darknet's
+    // obj_normalizer as an optional overall multiplier.
+    return objectScale_ * objectNormalizer_;
+}
+
+template<Device D>
+float YoloLayer<D>::classNegativeScale() const noexcept
+{
+    if (!normalizeClass_ || this->classes() <= 1) {
+        return 1.0f;
+    }
+
+    // Each assigned object has one positive class and classes - 1 negative
+    // classes. Equalizing their total weight prevents the negative class
+    // terms from driving all sigmoid outputs toward zero during scratch
+    // training.
+    return 1.0f / static_cast<float>(this->classes() - 1);
+}
+
+template<Device D>
+std::size_t YoloLayer<D>::positiveTargetCount() const noexcept
+{
+    auto count = std::size_t{0};
+    for (auto b = 0; b < this->batch(); ++b) {
+        for (const auto& gt: this->groundTruth(b)) {
+            auto bestIoU = std::numeric_limits<float>::lowest();
+            auto bestAnchor = 0;
+
+            DarkBox truthShift(gt.box);
+            truthShift.x() = 0;
+            truthShift.y() = 0;
+
+            for (auto anchor = 0; anchor < numAnchors_; ++anchor) {
+                DarkBox candidate;
+                candidate.w() = static_cast<float>(anchors_[2 * anchor]) / this->model().width();
+                candidate.h() = static_cast<float>(anchors_[2 * anchor + 1]) / this->model().height();
+
+                const auto iou = candidate.iou(truthShift);
+                if (iou > bestIoU) {
+                    bestIoU = iou;
+                    bestAnchor = anchor;
+                }
+            }
+
+            if (maskIndex(bestAnchor) >= 0) {
+                ++count;
+            }
+        }
+    }
+    return count;
+}
+
+template<Device D>
+float YoloLayer<D>::noObjectScaleFor(std::size_t positiveTargets, std::size_t slots) const noexcept
+{
+    if (!normalizeNoObject_) {
+        return noObjectScale_;
+    }
+
+    const auto positives = std::max<std::size_t>(1, positiveTargets);
+    const auto negatives = std::max<std::size_t>(1, slots > positives ? slots - positives : 1);
+    return noObjectScale_ * static_cast<float>(positives) / static_cast<float>(negatives);
 }
 
 template<Device D>
@@ -208,6 +286,9 @@ void YoloLayer<D>::forwardCpu(const PxCpuVector& input)
         resetStats();
     }
 
+    const auto slots = static_cast<std::size_t>(this->batch()) * numMasks_ * area;
+    effectiveNoObjectScale_ = noObjectScaleFor(positiveTargetCount(), slots);
+
     for (auto b = 0; b < this->batch(); ++b) {
         for (auto j = 0; j < this->height(); ++j) {
             for (auto i = 0; i < this->width(); ++i) {
@@ -220,7 +301,7 @@ void YoloLayer<D>::forwardCpu(const PxCpuVector& input)
     this->cost_ = std::pow(magArray(pdelta_->data(), pdelta_->size()), 2) / std::max(1, this->batch());
     updateLossComponents();
 
-    if (training && count_ > 0 && this->model().seen() % logInterval_ == 0) {
+    if (training && count_ > 0 && this->model().updateCount() % logInterval_ == 0) {
         writeStats();
         resetStats();
     } else if (!training) {
@@ -260,7 +341,7 @@ void YoloLayer<D>::writeAvgIoU()
     Event event;
     event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()).count());
-    event.set_step(this->model().seen());
+    event.set_step(this->model().updateCount());
 
     auto tag = boost::format{ "yolo-%d-avg-iou" } % this->index();
 
@@ -280,7 +361,7 @@ void YoloLayer<D>::writeAvgClass()
     Event event;
     event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()).count());
-    event.set_step(this->model().seen());
+    event.set_step(this->model().updateCount());
 
     auto tag = boost::format{ "yolo-%d-avg-class" } % this->index();
 
@@ -300,7 +381,7 @@ void YoloLayer<D>::writeObjectness()
     Event event;
     event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()).count());
-    event.set_step(this->model().seen());
+    event.set_step(this->model().updateCount());
 
     auto tag = boost::format{ "yolo-%d-objectness" } % this->index();
 
@@ -320,7 +401,7 @@ void YoloLayer<D>::writeRecall50()
     Event event;
     event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()).count());
-    event.set_step(this->model().seen());
+    event.set_step(this->model().updateCount());
 
     auto tag = boost::format{ "yolo-%d-recall50" } % this->index();
 
@@ -340,7 +421,7 @@ void YoloLayer<D>::writeRecall75()
     Event event;
     event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()).count());
-    event.set_step(this->model().seen());
+    event.set_step(this->model().updateCount());
 
     auto tag = boost::format{ "yolo-%d-recall75" } % this->index();
 
@@ -360,7 +441,7 @@ void YoloLayer<D>::writeCost()
     Event event;
     event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()).count());
-    event.set_step(this->model().seen());
+    event.set_step(this->model().updateCount());
 
     auto tag = boost::format{ "yolo-%d-cost" } % this->index();
 
@@ -378,7 +459,7 @@ void YoloLayer<D>::writeComponentCost(const char* tag, float value)
     Event event;
     event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()).count());
-    event.set_step(this->model().seen());
+    event.set_step(this->model().updateCount());
     auto* summary = event.mutable_summary();
     auto* metric = summary->add_value();
     metric->set_tag(tag);
@@ -396,7 +477,8 @@ void YoloLayer<D>::deltaYoloClass(int index, int classId)
 
     for (auto i = 0; i < this->classes(); ++i) {
         auto netTruth = (i == classId) ? 1.0f : 0.0f;
-        pdelta[index + i * stride] = classScale_ * (netTruth - poutput[index + i * stride]);
+        const auto scale = netTruth == 1.0f ? classScale_ : classScale_ * classNegativeScale();
+        pdelta[index + i * stride] = scale * (netTruth - poutput[index + i * stride]);
 
         if (netTruth) {
             avgCat_ += std::min(1.0f, poutput[index + i * stride]);
@@ -435,7 +517,7 @@ float YoloLayer<D>::deltaYoloBox(const GroundTruth& truth, int mask, int index, 
 }
 
 template<Device D>
-int YoloLayer<D>::maskIndex(int n)
+int YoloLayer<D>::maskIndex(int n) const
 {
     auto it = std::find(mask_.begin(), mask_.end(), n);
 
@@ -451,13 +533,9 @@ void YoloLayer<D>::processObjects(int b)
 {
     auto* poutput = poutput_->data();
     auto* pdelta = pdelta_->data();
-    std::vector<bool> occupied(numMasks_ * this->width() * this->height(), false);
-
     for (const auto& gt: this->groundTruth(b)) {
         auto bestIoU = std::numeric_limits<float>::lowest();
         auto bestN = 0;
-        std::vector<std::pair<float, int>> candidates;
-        candidates.reserve(numAnchors_);
 
         auto i = static_cast<int>(gt.box.x() * this->width());
         auto j = static_cast<int>(gt.box.y() * this->height());
@@ -474,7 +552,6 @@ void YoloLayer<D>::processObjects(int b)
             pred.h() = static_cast<float>(anchors_[2 * n + 1]) / this->model().height();
 
             auto iou = pred.iou(truthShift);
-            candidates.emplace_back(iou, n);
             if (iou > bestIoU) {
                 bestIoU = iou;
                 bestN = n;
@@ -485,41 +562,14 @@ void YoloLayer<D>::processObjects(int b)
         if (maskN >= 0) {
             auto location = maskN * this->width() * this->height() + j * this->width() + i;
 
-            // Two truths can select the same anchor in the same grid cell. Do
-            // not silently overwrite the first target: fall back to the best
-            // still-free anchor owned by this detection head.
-            if (occupied[location]) {
-                std::sort(candidates.begin(), candidates.end(), [](const auto& lhs, const auto& rhs) {
-                    return lhs.first > rhs.first;
-                });
-                maskN = -1;
-                for (const auto& [iou, anchor]: candidates) {
-                    (void) iou;
-                    const auto candidateMask = maskIndex(anchor);
-                    if (candidateMask < 0) {
-                        continue;
-                    }
-                    const auto candidateLocation = candidateMask * this->width() * this->height()
-                                                   + j * this->width() + i;
-                    if (!occupied[candidateLocation]) {
-                        bestN = anchor;
-                        maskN = candidateMask;
-                        location = candidateLocation;
-                        break;
-                    }
-                }
-            }
-
-            if (maskN < 0) {
-                continue;
-            }
-            occupied[location] = true;
+            // Darknet writes the best-anchor target directly; a later truth
+            // at the same cell/anchor overwrites the earlier target.
             auto boxIndex = entryIndex(b, location, 0);
             auto iou = deltaYoloBox(gt, bestN, boxIndex, i, j);
 
             auto objIndex = entryIndex(b, location, 4);
             avgObj_ += poutput[objIndex];
-            pdelta[objIndex] = objectScale_ * (1 - poutput[objIndex]);
+            pdelta[objIndex] = positiveObjectnessScale() * (1 - poutput[objIndex]);
 
             auto clsIndex = entryIndex(b, location, 4 + 1);
             deltaYoloClass(clsIndex, gt.classId);
@@ -561,14 +611,14 @@ void YoloLayer<D>::processRegion(int b, int i, int j)
         avgAnyObj_ += poutput[objIndex];
 
         if (gt == nullptr || result.bestIoU < ignoreThresh_) {
-            pdelta[objIndex] = noObjectScale_ * (0 - poutput[objIndex]);
+            pdelta[objIndex] = objectNormalizer_ * effectiveNoObjectScale_ * (0 - poutput[objIndex]);
         }
         // A truth-threshold match must override the no-object penalty.  The
         // thresholds are commonly configured with truth_thresh < ignore_thresh;
         // using else-if here incorrectly labels that entire IoU interval as
         // background.
         if (gt != nullptr && result.bestIoU > truthThresh_) {
-            pdelta[objIndex] = objectScale_ * (1 - poutput[objIndex]);
+            pdelta[objIndex] = positiveObjectnessScale() * (1 - poutput[objIndex]);
 
             auto clsIndex = entryIndex(b, entry, 4 + 1);
             deltaYoloClass(clsIndex, gt->classId);
@@ -684,7 +734,7 @@ DarkBox YoloLayer<D>::yoloBox(const float* p, int mask, int index, int i, int j)
 template<Device D>
 void YoloLayer<D>::addDetects(Detections& detections, int batch, float threshold, const float* predictions) const
 {
-    addDetects(detections, 0, 0, batch, threshold, predictions);
+    addDetects(detections, batch, 0, 0, threshold, predictions);
 }
 
 template<Device D>
@@ -731,8 +781,12 @@ const
 template<Device D>
 void YoloLayer<D>::addDetects(Detections& detections, int width, int height, float threshold)
 {
+    auto* predictions = this->output_.data();
     for (auto b = 0; b < this->batch(); ++b) {
-        auto predictions = this->output_.data() + b * this->outputs();
+        // addDetects() uses entryIndex(), which applies the batch offset.
+        // Pass the start of the complete tensor rather than an already
+        // batch-offset pointer, otherwise batches after zero are addressed
+        // twice and their detections are associated with corrupted data.
         addDetects(detections, b, width, height, threshold, predictions);
     }
 }
@@ -740,8 +794,8 @@ void YoloLayer<D>::addDetects(Detections& detections, int width, int height, flo
 template<Device D>
 void YoloLayer<D>::addDetects(Detections& detections, float threshold)
 {
+    auto* predictions = this->output_.data();
     for (auto b = 0; b < this->batch(); ++b) {
-        auto predictions = this->output_.data() + b * this->outputs();
         addDetects(detections, b, threshold, predictions);
     }
 }

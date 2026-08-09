@@ -14,6 +14,7 @@ void yoloLossGpu(const float* output, float* delta, const float* truths,
                  int batch, int maskCount, int anchorCount, int classes, int width,
                  int height, int networkWidth, int networkHeight, float ignoreThreshold,
                  float truthThreshold, float coordScale, float objectScale,
-                 float noObjectScale, float classScale);
+                 float noObjectScale, float objectNormalizer, float classScale,
+                 float classNegativeScale);
 
 } // namespace px

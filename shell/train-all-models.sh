@@ -57,7 +57,7 @@ done
 models=(
     centernet-tiny-voc
     resnet18
-    tiny-yolo-voc
+    yolov2
     yolo-nano
     yolov1-tiny
     yolov3-tiny-voc

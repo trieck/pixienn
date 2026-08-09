@@ -146,19 +146,35 @@ static constexpr uint32_t darknet[] = {
 };
 
 static constexpr uint32_t fluorescent[] = {
-        0xff355e,  // Radical Red
-        0xfd5b78,  // Wild Watermelon
-        0xff6037,  // Outrageous Orange
-        0xff9966,  // Atomic Tangerine
-        0xff9933,  // Neon Carrot
-        0xffcc33,  // Sunglow
-        0xffff66,  // Laser Lemon
-        0xccff00,  // Electric Lime
-        0x66ff66,  // Screamin' Green
-        0xaaf0d1,  // Magic Mint
-        0x50bfe6,  // Blizzard Blue
-        0xff6eff,  // Ultra Pink
-        0xee34d2,  // Shocking Pink
+        0xff1744,  // Neon Red
+        0xff00a8,  // Hot Magenta
+        0xff00ff,  // Electric Fuchsia
+        0x7a00ff,  // UV Violet
+        0x0055ff,  // Laser Blue
+        0x00cfff,  // Electric Cyan
+        0x00ffcc,  // Neon Aqua
+        0x00ff55,  // Laser Green
+        0x7dff00,  // Volt Lime
+        0xd9ff00,  // Highlighter Yellow
+        0xffff00,  // Fluorescent Yellow
+        0xff9d00,  // Neon Orange
+        0xff3d00,  // Plasma Orange
+};
+
+// High-contrast neon palette with a cool aurora progression and a hot
+// yellow/magenta finish. It remains readable on both dark and light imagery.
+static constexpr uint32_t neon_aurora[] = {
+        0x17104f,  // Deep Indigo
+        0x2636c9,  // Electric Cobalt
+        0x087ff5,  // Laser Blue
+        0x00d9ff,  // Neon Cyan
+        0x00ffc8,  // Aurora Aqua
+        0x52ff35,  // Signal Green
+        0xd8ff00,  // Volt Yellow
+        0xffb300,  // Hot Amber
+        0xff3d8d,  // Neon Pink
+        0xff00c8,  // Electric Magenta
+        0x9b2cff,  // UV Purple
 };
 
 static constexpr uint32_t vivid[] = {
@@ -793,6 +809,7 @@ static const ColorMap colorMap = {
         { "fluorescent",   { fluorescent,   TABLE_SIZE(fluorescent) } },
         { "frogs32",       { frogs32,       TABLE_SIZE(frogs32), } },
         { "interesting32", { interesting32, TABLE_SIZE(interesting32) } },
+        { "neon_aurora",   { neon_aurora,   TABLE_SIZE(neon_aurora) } },
         { "off_the_path",  { off_the_path,  TABLE_SIZE(off_the_path) } },
         { "plasma",        { plasma,        TABLE_SIZE(plasma) } },
         { "reds",          { reds,          TABLE_SIZE(reds) } },
@@ -844,7 +861,7 @@ uint32_t ColorMaps::color(uint32_t index) const
 
     auto color = table[index % sz];
 
-    auto gamma = 1.2f; // gamma correction
+    auto gamma = it_->it->first == "fluorescent" ? 0.82f : 1.2f; // preserve neon intensity
     auto r = static_cast<float>((color >> 16) & 0xFF) / 255.0f;
     auto g = static_cast<float>((color >> 8) & 0xFF) / 255.0f;
     auto b = static_cast<float>(color & 0xFF) / 255.0f;
