@@ -1,0 +1,27 @@
+[build-system]
+requires = ["scikit-build-core>=0.10", "pybind11>=2.13"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "pixienn"
+version = "0.1.1"
+description = "Python interface to the PixieNN Darknet-compatible computer vision engine"
+readme = "python/README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.10"
+authors = [{name = "PixieNN contributors"}]
+keywords = ["deep learning", "computer vision", "YOLO", "Darknet", "CUDA"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+]
+
+[project.urls]
+Homepage = "https://github.com/trieck/pixienn"
+Repository = "https://github.com/trieck/pixienn"
+Issues = "https://github.com/trieck/pixienn/issues"
+
+[tool.scikit-build]
+wheel.packages = ["python/pixienn"]
+build.verbose = true
+cmake.args = ["-DPIXIENN_BUILD_PYTHON_BINDINGS=ON", "-DUSE_CUDA=OFF", "-DPIXIENN_BUILD_TESTS=OFF"]

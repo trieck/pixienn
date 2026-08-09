@@ -198,7 +198,10 @@ include(PixiennLibs)
 include(Pixienn)
 include(PixiennTrain)
 
-add_subdirectory(tests)
+option(PIXIENN_BUILD_TESTS "Build the native C++ test suite" ON)
+if (PIXIENN_BUILD_TESTS)
+  add_subdirectory(tests)
+endif ()
 
 if (PIXIENN_BUILD_PYTHON_BINDINGS)
   set_target_properties(pixienn PROPERTIES POSITION_INDEPENDENT_CODE ON)

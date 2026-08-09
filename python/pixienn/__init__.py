@@ -1,6 +1,6 @@
 """Public Python interface for PixieNN."""
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 from .tensor import Tensor
 from .model import Model
