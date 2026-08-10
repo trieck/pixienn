@@ -158,14 +158,21 @@ TEST(YoloCudaTest, MatchesCpuOnActualCocoBatch)
 
     const auto definition = LoadFile(std::string(root).substr(0, std::string(root).find_last_of('/'))
                                     + "/models/yolov3.yml");
+    // Keep this parity test's model batch aligned with the four-image batch
+    // constructed below.  The production model currently uses batch 64 with
+    // subdivisions, while this test intentionally compares one concrete
+    // batch through all three YOLO heads.
+    auto parityDefinition = definition;
+    parityDefinition["model"]["batch"] = 4;
+    parityDefinition["model"]["subdivisions"] = 1;
     CpuModel cpu;
     CudaModel gpu;
     cpu.setLabels(labels);
     gpu.setLabels(labels);
     cpu.setMode(Mode::VALIDATING);
     gpu.setMode(Mode::VALIDATING);
-    cpu.parseModel(definition);
-    gpu.parseModel(definition);
+    cpu.parseModel(parityDefinition);
+    gpu.parseModel(parityDefinition);
     cpu.setTrainBatch(MiniBatch(batch));
     gpu.setTrainBatch(std::move(batch));
 
@@ -336,6 +343,41 @@ TEST(YoloCudaTest, TruthThresholdOverridesNoObjectPenalty)
     // The explicit positive objectness scale must override the background
     // penalty when the truth threshold is met.
     EXPECT_FLOAT_EQ(delta.asVector()[4], 1.0f);
+}
+
+TEST(YoloCudaTest, IgnoreThresholdDependsOnlyOnBoxIoU)
+{
+    constexpr int classes = 1;
+    constexpr int attributes = classes + 5;
+    // The decoded box is centered and 1x1.  The class sigmoid is below 0.25,
+    // but the box overlaps the truth above ignore_thresh.  Darknet ignores
+    // this objectness gradient based on IoU alone; class confidence must not
+    // decide whether the prediction is treated as an overlapping candidate.
+    PxCpuVector raw{ 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, -2.0f };
+    PxCudaVector input(raw.data(), raw.data() + raw.size());
+    PxCudaVector output(attributes, 0.0f);
+    PxCudaVector delta(attributes, 0.0f);
+    yoloActivateGpu(input.data(), output.data(), 1, 1, classes, 1);
+
+    PxCpuVector truth{ 0.5f, 0.5f, 0.8f, 0.8f, 0.0f };
+    PxCpuVector assignedBox(4, 0.0f), anchors{ 10.0f, 10.0f };
+    PxCpuVectorT<int> truthCounts{ 1 }, assignedClasses{ -1 }, assignedAnchors{ -1 }, masks{ 0 };
+    PxCudaVector truthGpu(truth.data(), truth.data() + truth.size());
+    PxCudaVector assignedBoxGpu(assignedBox.data(), assignedBox.data() + assignedBox.size());
+    PxCudaVector anchorsGpu(anchors.data(), anchors.data() + anchors.size());
+    PxCudaVectorT<int> truthCountsGpu(truthCounts.data(), truthCounts.data() + truthCounts.size());
+    PxCudaVectorT<int> assignedClassesGpu(assignedClasses.data(), assignedClasses.data() + assignedClasses.size());
+    PxCudaVectorT<int> assignedAnchorsGpu(assignedAnchors.data(), assignedAnchors.data() + assignedAnchors.size());
+    PxCudaVectorT<int> masksGpu(masks.data(), masks.data() + masks.size());
+    PxCudaVector stats(YOLO_STATS_SIZE, 0.0f), cost(1, 0.0f);
+
+    yoloLossGpu(output.data(), delta.data(), truthGpu.data(), truthCountsGpu.data(), 1,
+                assignedClassesGpu.data(), assignedAnchorsGpu.data(), assignedBoxGpu.data(),
+                masksGpu.data(), anchorsGpu.data(), stats.data(), cost.data(), 1, 1, 1,
+                classes, 1, 1, 10, 10, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
+
+    EXPECT_LT(output.asVector()[5], 0.25f);
+    EXPECT_FLOAT_EQ(delta.asVector()[4], 0.0f);
 }
 
 TEST(YoloCudaTest, BalancesNegativeClassGradients)

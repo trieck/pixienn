@@ -416,8 +416,9 @@ void Model<D>::train()
 
     auto viewImage = hasOption("view-image");
 
+    const auto deterministicData = std::getenv("PIXIENN_DETERMINISTIC_DATA") != nullptr;
     trainLoader_ = std::make_unique<BatchLoader>(trainImagePath_, trainLabelPath_, batch_, channels_, height_, width_,
-                                                 labels_, augmenter_, viewImage);
+                                                 labels_, augmenter_, viewImage, 10, !deterministicData);
 
     if (valEnabled_) {
         valLoader_ = std::make_unique<BatchLoader>(valImagePath_, valLabelPath_, batch_, channels_, height_, width_,

@@ -85,6 +85,39 @@ void randomGpu(float* ptr, std::size_t n, float a, float b)
                       random_generator(a, b));
 }
 
+struct normal_random_generator
+{
+    __host__ __device__ explicit normal_random_generator(float mean = 0.f, float stddev = 1.f);
+    __host__ __device__ float operator()(std::size_t n) const;
+
+    float mean_, stddev_;
+};
+
+__host__ __device__ normal_random_generator::normal_random_generator(float mean, float stddev)
+        : mean_(mean), stddev_(stddev)
+{
+}
+
+__host__ __device__ float normal_random_generator::operator()(std::size_t n) const
+{
+    thrust::default_random_engine rng;
+    thrust::normal_distribution<float> dist(mean_, stddev_);
+    rng.discard(n);
+
+    return dist(rng);
+}
+
+void randomNormalGpu(float* ptr, std::size_t n, float mean, float stddev)
+{
+    thrust::device_ptr<float> devPtr = thrust::device_pointer_cast(ptr);
+
+    thrust::counting_iterator<unsigned int> index_sequence_begin(0);
+    thrust::transform(index_sequence_begin,
+                      index_sequence_begin + n,
+                      devPtr,
+                      normal_random_generator(mean, stddev));
+}
+
 struct ConstrainOp
 {
     float alpha;

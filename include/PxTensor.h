@@ -1048,6 +1048,20 @@ void random(T& out, typename T::value_type lo = 0, typename T::value_type hi = 1
 #endif // USE_CUDA
 }
 
+template<typename T>
+void randomNormal(T& out, typename T::value_type mean = 0, typename T::value_type stddev = 1)
+{
+#ifdef USE_CUDA
+    if constexpr (typename T::device_type() == Device::CUDA) {
+        randomNormalGpu(out.data(), out.size(), mean, stddev);
+    } else {
+        randomNormalCpu(out.data(), out.size(), mean, stddev);
+    }
+#else
+    randomNormalCpu(out.data(), out.size(), mean, stddev);
+#endif // USE_CUDA
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<typename T>
 T random(const typename T::shape_type& shape, typename T::value_type lo = 0, typename T::value_type hi = 1)
@@ -1059,6 +1073,17 @@ T random(const typename T::shape_type& shape, typename T::value_type lo = 0, typ
     return out;
 }
 
+template<typename T>
+T randomNormal(const typename T::shape_type& shape, typename T::value_type mean = 0,
+               typename T::value_type stddev = 1)
+{
+    T out(shape);
+
+    randomNormal(out, mean, stddev);
+
+    return out;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<typename T>
 T random(std::size_t n, typename T::value_type lo = 0, typename T::value_type hi = 1)
@@ -1066,6 +1091,16 @@ T random(std::size_t n, typename T::value_type lo = 0, typename T::value_type hi
     T out(n);
 
     random(out, lo, hi);
+
+    return out;
+}
+
+template<typename T>
+T randomNormal(std::size_t n, typename T::value_type mean = 0, typename T::value_type stddev = 1)
+{
+    T out(n);
+
+    randomNormal(out, mean, stddev);
 
     return out;
 }

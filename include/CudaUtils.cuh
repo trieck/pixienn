@@ -30,5 +30,6 @@ void fillGpu(float* ptr, std::size_t n, float value);
 void fillGpu(int* ptr, std::size_t n, int value);
 void mulGpu(int n, float* x, float* y);
 void randomGpu(float* ptr, std::size_t n, float a = 0.f, float b = 1.f);
+void randomNormalGpu(float* ptr, std::size_t n, float mean = 0.f, float stddev = 1.f);
 
 }   // px

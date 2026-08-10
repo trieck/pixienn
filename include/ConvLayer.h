@@ -107,9 +107,11 @@ ConvLayer<D>::ConvLayer(Model<D>& model, YAML::Node layerDef) : Layer<D>(model, 
     biases_ = V(filters_, 0.0f);
     biasUpdates_ = V(filters_, 0.0f);
 
-    auto scale = std::sqrt(1.0f / (kernel_ * kernel_ * this->channels() / groups_));
+    auto fanIn = kernel_ * kernel_ * this->channels() / groups_;
+    auto stddev = std::sqrt(2.0f / fanIn);
 
-    weights_ = random<V>({ (size_t) filters_ * this->channels() / groups_ * kernel_ * kernel_ }, -scale, scale);
+    weights_ = randomNormal<V>((size_t) filters_ * this->channels() / groups_ * kernel_ * kernel_,
+                               0.0f, stddev);
     weightUpdates_ = V(filters_ * this->channels() / groups_ * kernel_ * kernel_, 0.0f);
 
     this->output_ = V(this->batch() * this->outputs(), 0.0f);

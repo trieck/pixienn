@@ -231,6 +231,19 @@ void randomCpu(float* ptr, std::size_t n, float a, float b)
     std::generate(ptr, ptr + n, gen);
 }
 
+void randomNormalCpu(float* ptr, std::size_t n, float mean, float stddev)
+{
+    std::random_device device;
+    std::mt19937 engine{ device() };
+    std::normal_distribution<float> dist{ mean, stddev };
+
+    auto gen = [&dist, &engine]() {
+        return dist(engine);
+    };
+
+    std::generate(ptr, ptr + n, gen);
+}
+
 void meanCpu(const float* x, int batch, int filters, int spatial, float* mean)
 {
     auto scale = 1.0f / (batch * spatial);

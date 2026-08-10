@@ -93,15 +93,9 @@ __global__ void regionLossKernel(const float* output, float* delta, const float*
     for (auto t = 0; t < truthCounts[batch]; ++t) {
         const auto truthIndex = (batch * maxTruth + t) * 5;
         const auto iou = boxIou(prediction, truths + truthIndex);
-        const auto classIndex = entryIndex(batch, maskSlot, cell, 5, maskCount, classes, area);
-        auto classMatches = false;
-        for (auto c = 0; c < classes; ++c) {
-            if (output[classIndex + c * area] > 0.25f) {
-                classMatches = true;
-                break;
-            }
-        }
-        if (!classMatches) continue;
+        // Darknet's ignore rule is based on the best box IoU only.  Do not
+        // gate this search on class confidence: early in training, a box can
+        // overlap a truth while its class sigmoid is still below 0.25.
         if (iou > bestIou) {
             bestIou = iou;
             bestTruth = truthIndex;

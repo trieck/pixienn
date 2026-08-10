@@ -54,6 +54,7 @@ void normalizeCpu(float* x, const float* mean, const float* variance, int batch,
 void normalizeDeltaCpu(const float* x, const float* mean, const float* variance, const float* meanDelta,
                        const float* varianceDelta, int batch, int filters, int spatial, float* delta);
 void randomCpu(float* ptr, std::size_t n, float a = 0.f, float b = 1.f);
+void randomNormalCpu(float* ptr, std::size_t n, float mean = 0.f, float stddev = 1.f);
 void scaleBias(float* output, const float* scales, int batch, int n, int size);
 void varianceCpu(const float* x, float* mean, int batch, int filters, int spatial, float* variance);
 void varianceDeltaCpu(const float* x, const float* delta, const float* mean, const float* variance, int batch,
