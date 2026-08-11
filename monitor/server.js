@@ -21,6 +21,7 @@ const checkpointCaches = new Map();
 const eventReaders = new Map();
 const snapshotRequests = new Map();
 const LOSS_WINDOWS = new Set([500, 2000, 10000]);
+const eventReaderTimeoutMs = Number(process.env.PIXIENN_EVENT_READER_TIMEOUT_MS || 300000);
 
 function lossWindow(value) {
   const parsed = Number(value);
@@ -37,7 +38,7 @@ function safeRun(name = 'yolov3') {
 function availableRuns() {
   if (!fs.existsSync(runs)) return [];
   return fs.readdirSync(runs, { withFileTypes: true })
-    .filter(entry => entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== '.locks')
+    .filter(entry => entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== '.locks' && entry.name !== 'archive')
     .map(entry => entry.name)
     .sort();
 }
@@ -84,7 +85,8 @@ function latestEventFile(dir) {
 class EventFileReader {
   constructor(event) {
     this.event = event;
-    this.child = spawn('python3', [path.join(monitorDir, 'event_file_reader.py'), event], {
+    const python = process.env.PIXIENN_PYTHON || 'python3';
+    this.child = spawn(python, [path.join(monitorDir, 'event_file_reader.py'), event], {
       stdio: ['pipe', 'pipe', 'pipe']
     });
     this.child.stdout.setEncoding('utf8');
@@ -103,7 +105,8 @@ class EventFileReader {
     this.child.on('error', error => this.fail(error));
     this.child.on('close', (code, signal) => {
       if (!this.failure && !this.closed) {
-        this.fail(new Error(`Event-file reader exited (${code ?? 'null'}${signal ? `, ${signal}` : ''})`));
+        const detail = this.stderr.trim();
+        this.fail(new Error(`Event-file reader exited (${code ?? 'null'}${signal ? `, ${signal}` : ''})${detail ? `: ${detail}` : ''}`));
       }
     });
   }
@@ -123,7 +126,7 @@ class EventFileReader {
     // Full-run scalar reconstruction is intentionally bounded, but a long
     // event file can still take several seconds on the first read. Do not
     // turn a slow refresh into an empty monitor snapshot.
-    const timeout = setTimeout(() => this.fail(new Error('Event-file reader timed out')), 60000);
+    const timeout = setTimeout(() => this.fail(new Error('Event-file reader timed out')), eventReaderTimeoutMs);
     this.active = { waiters, timeout };
     try {
       this.child.stdin.write('\n');
