@@ -925,9 +925,7 @@ model:
       coord_scale: 1.0
       object_scale: 1.0
       noobject_scale: 1.0
-      normalize_noobject: True
       class_scale: 1.0
-      normalize_class: True
 
     - type: route
       layers: [ 115 ]
@@ -957,9 +955,7 @@ model:
       coord_scale: 1.0
       object_scale: 1.0
       noobject_scale: 1.0
-      normalize_noobject: True
       class_scale: 1.0
-      normalize_class: True
 
     - type: route
       layers: [ 130 ]
@@ -989,6 +985,4 @@ model:
       coord_scale: 1.0
       object_scale: 1.0
       noobject_scale: 1.0
-      normalize_noobject: True
       class_scale: 1.0
-      normalize_class: True

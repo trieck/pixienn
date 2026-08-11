@@ -237,7 +237,7 @@ TEST(YoloCudaTest, MatchesReferenceAssignedTargetLossAndGradients)
     yoloLossGpu(output.data(), delta.data(), truthGpu.data(), truthCountsGpu.data(), 1,
                 assignedClassesGpu.data(), assignedAnchorsGpu.data(), assignedBoxGpu.data(),
                 masksGpu.data(), anchorsGpu.data(), stats.data(), cost.data(), 1, 1, 1,
-                classes, 1, 1, 32, 32, 0.5f, 1.0f, 1.0f, 2.0f, 0.25f, 1.0f, 3.0f, 1.0f);
+                classes, 1, 1, 32, 32, 0.5f, 1.0f, 1.0f, 2.0f, 0.25f, 3.0f);
 
     const auto actualOutput = output.asVector();
     const auto actualDelta = delta.asVector();
@@ -297,7 +297,7 @@ TEST(YoloCudaTest, LeavesSparseEntriesZeroForBackground)
     yoloLossGpu(output.data(), delta.data(), truthGpu.data(), truthCountsGpu.data(), 1,
                 assignedClassesGpu.data(), assignedAnchorsGpu.data(), assignedBoxGpu.data(),
                 masksGpu.data(), anchorsGpu.data(), stats.data(), cost.data(), 1, 1, 1,
-                classes, 1, 1, 32, 32, 0.5f, 1.0f, 1.0f, 1.0f, 0.25f, 1.0f, 1.0f, 1.0f);
+                classes, 1, 1, 32, 32, 0.5f, 1.0f, 1.0f, 1.0f, 0.25f, 1.0f);
     const auto actual = delta.asVector();
     EXPECT_FLOAT_EQ(actual[0], 0.0f);
     EXPECT_FLOAT_EQ(actual[1], 0.0f);
@@ -338,7 +338,7 @@ TEST(YoloCudaTest, TruthThresholdOverridesNoObjectPenalty)
     yoloLossGpu(output.data(), delta.data(), truthGpu.data(), truthCountsGpu.data(), 1,
                 assignedClassesGpu.data(), assignedAnchorsGpu.data(), assignedBoxGpu.data(),
                 masksGpu.data(), anchorsGpu.data(), stats.data(), cost.data(), 1, 1, 1,
-                classes, 1, 1, 10, 10, 0.7f, 0.5f, 1.0f, 2.0f, 0.25f, 1.0f, 1.0f, 1.0f);
+                classes, 1, 1, 10, 10, 0.7f, 0.5f, 1.0f, 2.0f, 0.25f, 1.0f);
 
     // The explicit positive objectness scale must override the background
     // penalty when the truth threshold is met.
@@ -374,13 +374,13 @@ TEST(YoloCudaTest, IgnoreThresholdDependsOnlyOnBoxIoU)
     yoloLossGpu(output.data(), delta.data(), truthGpu.data(), truthCountsGpu.data(), 1,
                 assignedClassesGpu.data(), assignedAnchorsGpu.data(), assignedBoxGpu.data(),
                 masksGpu.data(), anchorsGpu.data(), stats.data(), cost.data(), 1, 1, 1,
-                classes, 1, 1, 10, 10, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
+                classes, 1, 1, 10, 10, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
 
     EXPECT_LT(output.asVector()[5], 0.25f);
     EXPECT_FLOAT_EQ(delta.asVector()[4], 0.0f);
 }
 
-TEST(YoloCudaTest, BalancesNegativeClassGradients)
+TEST(YoloCudaTest, UsesConfiguredClassScaleForNegativeClassGradients)
 {
     constexpr int classes = 3;
     constexpr int attributes = classes + 5;
@@ -406,13 +406,12 @@ TEST(YoloCudaTest, BalancesNegativeClassGradients)
     yoloLossGpu(output.data(), delta.data(), truthGpu.data(), truthCountsGpu.data(), 1,
                 assignedClassesGpu.data(), assignedAnchorsGpu.data(), assignedBoxGpu.data(),
                 masksGpu.data(), anchorsGpu.data(), stats.data(), cost.data(), 1, 1, 1,
-                classes, 1, 1, 32, 32, 0.5f, 1.0f, 1.0f, 1.0f, 0.25f, 1.0f, 1.0f,
-                0.5f);
+                classes, 1, 1, 32, 32, 0.5f, 1.0f, 1.0f, 1.0f, 0.25f, 1.0f);
 
     const auto actual = delta.asVector();
-    EXPECT_FLOAT_EQ(actual[5], -0.25f);
+    EXPECT_FLOAT_EQ(actual[5], -0.5f);
     EXPECT_FLOAT_EQ(actual[6], 0.5f);
-    EXPECT_FLOAT_EQ(actual[7], -0.25f);
+    EXPECT_FLOAT_EQ(actual[7], -0.5f);
 }
 
 #endif

@@ -75,8 +75,7 @@ __global__ void regionLossKernel(const float* output, float* delta, const float*
                                  const float* anchors, float* stats, int slots, int maskCount,
                                  int classes, int width, int height, int netWidth, int netHeight,
                                  float ignoreThreshold, float truthThreshold, float coordScale,
-                                 float objectScale, float noObjectScale, float objectNormalizer,
-                                 float classScale, float classNegativeScale)
+                                 float objectScale, float noObjectScale, float classScale)
 {
     const auto slot = (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x + threadIdx.x;
     if (slot >= slots) return;
@@ -103,8 +102,8 @@ __global__ void regionLossKernel(const float* output, float* delta, const float*
     }
     const auto objectIndex = entryIndex(batch, maskSlot, cell, 4, maskCount, classes, area);
     const auto objectness = output[objectIndex];
-    const auto positiveScale = objectScale * objectNormalizer;
-    const auto negativeScale = noObjectScale * objectNormalizer;
+    const auto positiveScale = objectScale;
+    const auto negativeScale = noObjectScale;
     atomicAdd(stats + 5, objectness);
     if (bestTruth < 0 || bestIou < ignoreThreshold) {
         delta[objectIndex] = -negativeScale * objectness;
@@ -118,8 +117,7 @@ __global__ void regionLossKernel(const float* output, float* delta, const float*
         const auto classIndex = entryIndex(batch, maskSlot, cell, 5, maskCount, classes, area);
         for (auto c = 0; c < classes; ++c) {
             const auto truthClass = c == classId ? 1.0f : 0.0f;
-            const auto scale = truthClass == 1.0f ? classScale : classScale * classNegativeScale;
-            delta[classIndex + c * area] = scale * (truthClass - output[classIndex + c * area]);
+            delta[classIndex + c * area] = classScale * (truthClass - output[classIndex + c * area]);
         }
         const auto boxIndex = entryIndex(batch, maskSlot, cell, 0, maskCount, classes, area);
         boxDelta(truths + bestTruth, output, delta, boxIndex, area, cell % width,
@@ -133,8 +131,7 @@ __global__ void objectLossKernel(const float* output, float* delta,
                                  const float* assignedBoxes, const float* anchors, float* stats,
                                  int slots, int maskCount, int classes, int width, int height,
                                  int netWidth, int netHeight, float coordScale,
-                                 float objectScale, float objectNormalizer, float classScale,
-                                 float classNegativeScale)
+                                 float objectScale, float classScale)
 {
     const auto slot = (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x + threadIdx.x;
     if (slot >= slots || assignedClasses[slot] < 0) return;
@@ -154,13 +151,12 @@ __global__ void objectLossKernel(const float* output, float* delta,
              width, height, netWidth, netHeight, anchors, anchor, coordScale);
     const auto objectIndex = entryIndex(batch, maskSlot, cell, 4, maskCount, classes, area);
     atomicAdd(stats + 4, output[objectIndex]);
-    delta[objectIndex] = objectScale * objectNormalizer * (1.0f - output[objectIndex]);
+    delta[objectIndex] = objectScale * (1.0f - output[objectIndex]);
     const auto classIndex = entryIndex(batch, maskSlot, cell, 5, maskCount, classes, area);
     const auto classId = assignedClasses[slot];
     for (auto c = 0; c < classes; ++c) {
         const auto truthClass = c == classId ? 1.0f : 0.0f;
-        const auto scale = truthClass == 1.0f ? classScale : classScale * classNegativeScale;
-        delta[classIndex + c * area] = scale * (truthClass - output[classIndex + c * area]);
+        delta[classIndex + c * area] = classScale * (truthClass - output[classIndex + c * area]);
         if (truthClass != 0.0f) atomicAdd(stats + 3, fminf(1.0f, output[classIndex + c * area]));
     }
     atomicAdd(stats, iou);
@@ -231,8 +227,7 @@ void yoloLossGpu(const float* output, float* delta, const float* truths,
                  int batch, int maskCount, int anchorCount, int classes, int width,
                  int height, int networkWidth, int networkHeight, float ignoreThreshold,
                  float truthThreshold, float coordScale, float objectScale,
-                 float noObjectScale, float objectNormalizer, float classScale,
-                 float classNegativeScale)
+                 float noObjectScale, float classScale)
 {
     (void) anchorCount;
     const auto slots = batch * maskCount * width * height;
@@ -240,12 +235,12 @@ void yoloLossGpu(const float* output, float* delta, const float* truths,
             output, delta, truths, truthCounts, maxTruth, masks, anchors, stats, slots,
             maskCount, classes, width, height, networkWidth, networkHeight,
             ignoreThreshold, truthThreshold, coordScale, objectScale, noObjectScale,
-            objectNormalizer, classScale, classNegativeScale);
+            classScale);
     PX_CUDA_CHECK_LAST();
     objectLossKernel<<<cudaGridsize(slots), CUDA_BLOCK_SIZE>>>(
             output, delta, assignedClasses, assignedAnchors, assignedBoxes, anchors, stats,
             slots, maskCount, classes, width, height, networkWidth, networkHeight,
-            coordScale, objectScale, objectNormalizer, classScale, classNegativeScale);
+            coordScale, objectScale, classScale);
     PX_CUDA_CHECK_LAST();
     const auto outputs = static_cast<std::size_t>(batch) * maskCount * (classes + 5) * width * height;
     squaredNormKernel<<<cudaGridsize(outputs), CUDA_BLOCK_SIZE>>>(delta, cost, outputs);

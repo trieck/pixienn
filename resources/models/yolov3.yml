@@ -47,7 +47,7 @@ model:
     ap_confidence_threshold: 0.001
 
   learning_rate:
-    initial_learning_rate: 0.0001
+    initial_learning_rate: 0.000025
     # Warm up during burn-in, then make one long smooth decay over the run.
     policy: cosine_annealing
 
@@ -56,8 +56,9 @@ model:
       factor: 8.0
 
     cosine_annealing:
-      min_learning_rate: 1e-5
-      batches_per_cycle: 100000
+      min_learning_rate: 2.5e-6
+      # Restart the phase-2 cosine cycle at the resumed optimizer step.
+      batches_per_cycle: 67200
 
     burn_in:
       batches: 0
@@ -648,17 +649,9 @@ model:
       ignore_thresh: 0.7
       truth_thresh: 1.0
       coord_scale: 1.0
-      # Background locations are dense; normalize their total gradient to
-      # the sparse positive-target count during scratch training.
-      object_scale: 1.0
-      noobject_scale: 1.0
-      obj_normalizer: 1.0
-      normalize_noobject: True
+      object_scale: 2.0
+      noobject_scale: 0.1
       class_scale: 1.0
-      # Each object has one positive class and 79 negative classes. Balance
-      # the negative class terms during scratch training so class confidence
-      # does not collapse before the shared features become useful.
-      normalize_class: True
       random: True
       log_interval: 50
 
@@ -743,14 +736,9 @@ model:
       ignore_thresh: 0.7
       truth_thresh: 1.0
       coord_scale: 1.0
-      # Background locations are dense; normalize their total gradient to
-      # the sparse positive-target count during scratch training.
-      object_scale: 1.0
-      noobject_scale: 1.0
-      obj_normalizer: 1.0
-      normalize_noobject: True
+      object_scale: 2.0
+      noobject_scale: 0.1
       class_scale: 1.0
-      normalize_class: True
       random: True
       log_interval: 50
 
@@ -835,13 +823,8 @@ model:
       ignore_thresh: 0.7
       truth_thresh: 1.0
       coord_scale: 1.0
-      # Background locations are dense; normalize their total gradient to
-      # the sparse positive-target count during scratch training.
-      object_scale: 1.0
-      noobject_scale: 1.0
-      obj_normalizer: 1.0
-      normalize_noobject: True
+      object_scale: 2.0
+      noobject_scale: 0.1
       class_scale: 1.0
-      normalize_class: True
       random: True
       log_interval: 50

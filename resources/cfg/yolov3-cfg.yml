@@ -5,8 +5,8 @@ configuration:
   labels: ../data/coco.names
 
 training:
-  train-images: ../data/coco/train-random-9000.txt
+  train-images: ../data/coco/train-80000.txt
   train-labels: ../data/coco/labels/train2014
 
-  val-images: ../data/coco/val-random-1000.txt
-  val-labels: ../data/coco/labels/train2014
+  val-images: ../data/coco/val-40000.txt
+  val-labels: ../data/coco/labels/val2014

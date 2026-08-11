@@ -89,18 +89,11 @@ private:
     void writeCost();
     void writeComponentCost(const char* tag, float value);
     void updateLossComponents();
-    std::size_t positiveTargetCount() const noexcept;
-    float noObjectScaleFor(std::size_t positiveTargets, std::size_t slots) const noexcept;
-    float positiveObjectnessScale() const noexcept;
-    float classNegativeScale() const noexcept;
 
     std::vector<int> mask_, anchors_;
     int numAnchors_, numMasks_;
     float ignoreThresh_, truthThresh_;
-    float coordScale_, objectScale_, noObjectScale_, objectNormalizer_, classScale_;
-    bool normalizeNoObject_ = false;
-    bool normalizeClass_ = false;
-    float effectiveNoObjectScale_ = 1.0f;
+    float coordScale_, objectScale_, noObjectScale_, classScale_;
 
     LogisticActivation<Device::CPU> logistic_;
     PxCpuVector* poutput_, * pdelta_;
@@ -132,10 +125,6 @@ YoloLayer<D>::YoloLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D>(
     coordScale_ = this->template property<float>("coord_scale", 1.0f);
     objectScale_ = this->template property<float>("object_scale", 1.0f);
     noObjectScale_ = this->template property<float>("noobject_scale", 1.0f);
-    objectNormalizer_ = this->template property<float>("obj_normalizer", 1.0f);
-    normalizeNoObject_ = this->template property<bool>("normalize_noobject", false);
-    effectiveNoObjectScale_ = noObjectScale_;
-    normalizeClass_ = this->template property<bool>("normalize_class", false);
     classScale_ = this->template property<float>("class_scale", 1.0f);
     logInterval_ = this->template property<int>("log_interval", 1000);
 
@@ -154,73 +143,6 @@ YoloLayer<D>::YoloLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D>(
     this->delta_ = V(this->batch() * this->outputs(), 0.0f);
 
     setup();
-}
-
-template<Device D>
-float YoloLayer<D>::positiveObjectnessScale() const noexcept
-{
-    // Keep the legacy object_scale knob useful while retaining Darknet's
-    // obj_normalizer as an optional overall multiplier.
-    return objectScale_ * objectNormalizer_;
-}
-
-template<Device D>
-float YoloLayer<D>::classNegativeScale() const noexcept
-{
-    if (!normalizeClass_ || this->classes() <= 1) {
-        return 1.0f;
-    }
-
-    // Each assigned object has one positive class and classes - 1 negative
-    // classes. Equalizing their total weight prevents the negative class
-    // terms from driving all sigmoid outputs toward zero during scratch
-    // training.
-    return 1.0f / static_cast<float>(this->classes() - 1);
-}
-
-template<Device D>
-std::size_t YoloLayer<D>::positiveTargetCount() const noexcept
-{
-    auto count = std::size_t{0};
-    for (auto b = 0; b < this->batch(); ++b) {
-        for (const auto& gt: this->groundTruth(b)) {
-            auto bestIoU = std::numeric_limits<float>::lowest();
-            auto bestAnchor = 0;
-
-            DarkBox truthShift(gt.box);
-            truthShift.x() = 0;
-            truthShift.y() = 0;
-
-            for (auto anchor = 0; anchor < numAnchors_; ++anchor) {
-                DarkBox candidate;
-                candidate.w() = static_cast<float>(anchors_[2 * anchor]) / this->model().width();
-                candidate.h() = static_cast<float>(anchors_[2 * anchor + 1]) / this->model().height();
-
-                const auto iou = candidate.iou(truthShift);
-                if (iou > bestIoU) {
-                    bestIoU = iou;
-                    bestAnchor = anchor;
-                }
-            }
-
-            if (maskIndex(bestAnchor) >= 0) {
-                ++count;
-            }
-        }
-    }
-    return count;
-}
-
-template<Device D>
-float YoloLayer<D>::noObjectScaleFor(std::size_t positiveTargets, std::size_t slots) const noexcept
-{
-    if (!normalizeNoObject_) {
-        return noObjectScale_;
-    }
-
-    const auto positives = std::max<std::size_t>(1, positiveTargets);
-    const auto negatives = std::max<std::size_t>(1, slots > positives ? slots - positives : 1);
-    return noObjectScale_ * static_cast<float>(positives) / static_cast<float>(negatives);
 }
 
 template<Device D>
@@ -285,9 +207,6 @@ void YoloLayer<D>::forwardCpu(const PxCpuVector& input)
     if (!training) {
         resetStats();
     }
-
-    const auto slots = static_cast<std::size_t>(this->batch()) * numMasks_ * area;
-    effectiveNoObjectScale_ = noObjectScaleFor(positiveTargetCount(), slots);
 
     for (auto b = 0; b < this->batch(); ++b) {
         for (auto j = 0; j < this->height(); ++j) {
@@ -477,8 +396,7 @@ void YoloLayer<D>::deltaYoloClass(int index, int classId)
 
     for (auto i = 0; i < this->classes(); ++i) {
         auto netTruth = (i == classId) ? 1.0f : 0.0f;
-        const auto scale = netTruth == 1.0f ? classScale_ : classScale_ * classNegativeScale();
-        pdelta[index + i * stride] = scale * (netTruth - poutput[index + i * stride]);
+        pdelta[index + i * stride] = classScale_ * (netTruth - poutput[index + i * stride]);
 
         if (netTruth) {
             avgCat_ += std::min(1.0f, poutput[index + i * stride]);
@@ -569,7 +487,7 @@ void YoloLayer<D>::processObjects(int b)
 
             auto objIndex = entryIndex(b, location, 4);
             avgObj_ += poutput[objIndex];
-            pdelta[objIndex] = positiveObjectnessScale() * (1 - poutput[objIndex]);
+            pdelta[objIndex] = objectScale_ * (1 - poutput[objIndex]);
 
             auto clsIndex = entryIndex(b, location, 4 + 1);
             deltaYoloClass(clsIndex, gt.classId);
@@ -611,14 +529,14 @@ void YoloLayer<D>::processRegion(int b, int i, int j)
         avgAnyObj_ += poutput[objIndex];
 
         if (gt == nullptr || result.bestIoU < ignoreThresh_) {
-            pdelta[objIndex] = objectNormalizer_ * effectiveNoObjectScale_ * (0 - poutput[objIndex]);
+            pdelta[objIndex] = noObjectScale_ * (0 - poutput[objIndex]);
         }
         // A truth-threshold match must override the no-object penalty.  The
         // thresholds are commonly configured with truth_thresh < ignore_thresh;
         // using else-if here incorrectly labels that entire IoU interval as
         // background.
         if (gt != nullptr && result.bestIoU > truthThresh_) {
-            pdelta[objIndex] = positiveObjectnessScale() * (1 - poutput[objIndex]);
+            pdelta[objIndex] = objectScale_ * (1 - poutput[objIndex]);
 
             auto clsIndex = entryIndex(b, entry, 4 + 1);
             deltaYoloClass(clsIndex, gt->classId);

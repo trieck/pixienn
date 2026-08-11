@@ -165,7 +165,10 @@ function App() {
   const meta = data?.metadata || {};
   const latest = data?.latest;
   const scalarSeries = data?.eventFile?.series || {};
-  const validationMetric = tag => scalarSeries[tag]?.at(-1);
+  const validationMetric = tag => {
+    const values = scalarSeries[tag] || [];
+    return [...values].sort((a, b) => Number(a.step) - Number(b.step)).at(-1);
+  };
   const validationDelta = tag => {
     const values = scalarSeries[tag] || [];
     return values.length > 1 ? values.at(-1).value - values.at(-2).value : null;
@@ -291,15 +294,18 @@ function EventScalarsPanel({ series }) {
 
 function Card({ icon, label, value, title, accent, note }) { return <div className={`card ${accent}`}><div className="card-top"><span>{icon}</span><label>{label}</label></div><strong title={title || undefined}>{value}</strong><small>{note}</small></div>; }
 function HealthMetric({ label, point, values = [], invert = false }) {
-  const recent = values.slice(-12).map(item => Number(item.value)).filter(Number.isFinite);
+  const ordered = [...values].sort((a, b) => Number(a.step) - Number(b.step));
+  const current = ordered.at(-1) || point;
+  const recent = ordered.slice(-12).map(item => Number(item.value)).filter(Number.isFinite);
   const average = recent.length ? recent.reduce((sum, value) => sum + value, 0) / recent.length : null;
-  const improving = average == null || point == null ? null : invert ? point.value < average : point.value > average;
-  const previous = values.length > 1 ? Number(values.at(-2)?.value) : null;
-  const changedFromPrevious = point != null && Number.isFinite(previous) && point.value !== previous;
-  const improvedFromPrevious = changedFromPrevious && (invert ? point.value < previous : point.value > previous);
+  const currentValue = current == null ? null : Number(current.value);
+  const improving = average == null || !Number.isFinite(currentValue) ? null : invert ? currentValue < average : currentValue > average;
+  const previous = ordered.length > 1 ? Number(ordered.at(-2)?.value) : null;
+  const changedFromPrevious = Number.isFinite(currentValue) && Number.isFinite(previous) && currentValue !== previous;
+  const improvedFromPrevious = changedFromPrevious && (invert ? currentValue < previous : currentValue > previous);
   const previousClass = !changedFromPrevious ? '' : improvedFromPrevious ? 'up' : 'down';
   const previousArrow = !changedFromPrevious ? '→' : improvedFromPrevious ? '↑' : '↓';
-  return <div className="health-metric"><span>{label}</span><b title={average == null ? undefined : `Recent moving average: ${metricFmt(average)}`} className={improving == null ? '' : improving ? 'metric-improving' : 'metric-declining'}>{point ? metricFmt(point.value) : '—'}</b><small className="moving-average">moving average {average == null ? '—' : metricFmt(average)}</small><small className={previousClass}>{previous == null ? 'previous —' : `vs previous ${previousArrow} ${metricFmt(Math.abs(point.value - previous))}`}</small></div>;
+  return <div className="health-metric"><span>{label}</span><b title={average == null ? undefined : `Recent moving average: ${metricFmt(average)}`} className={improving == null ? '' : improving ? 'metric-improving' : 'metric-declining'}>{current ? metricFmt(currentValue) : '—'}</b><small className="moving-average">moving average {average == null ? '—' : metricFmt(average)}</small><small className={previousClass}>{previous == null ? 'previous —' : `vs previous ${previousArrow} ${metricFmt(previous)} → ${metricFmt(currentValue)}`}</small></div>;
 }
 function Meta({ label, value }) { return <div className="meta-row"><span>{label}</span><b>{value || '—'}</b></div>; }
 
