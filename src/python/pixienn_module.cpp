@@ -224,7 +224,13 @@ public:
             if (!py::isinstance<py::str>(item.first)) {
                 throw py::type_error("model option keys must be strings");
             }
-            document_["model"][item.first.cast<std::string>()] = toYaml(item.second);
+            const auto key = item.first.cast<std::string>();
+            document_["model"][key] = toYaml(item.second);
+            if (key == "weights-file") {
+                model_->setWeightsFile(item.second.cast<std::string>());
+            } else if (key == "backup-dir") {
+                model_->setBackupDir(item.second.cast<std::string>());
+            }
         }
         return *this;
     }

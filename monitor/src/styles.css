@@ -58,7 +58,7 @@
 #root .tb-toggle>label{display:flex;align-items:center;gap:9px;min-width:0;overflow:hidden;cursor:pointer}
 #root .tb-toggle>label span{overflow:hidden;text-overflow:ellipsis}
 #root .tb-toggle input{width:16px;height:16px;accent-color:#5367f4;flex:0 0 auto}
-#root .tb-scale,#root .tb-smoothing{padding:5px 7px;border:1px solid #d3dae6;border-radius:5px;background:#fff;color:#4f5b6e;font:600 12px 'DM Sans';line-height:1.2}
+#root .tb-scale,#root .tb-smoothing,#root .tb-window{padding:5px 7px;border:1px solid #d3dae6;border-radius:5px;background:#fff;color:#4f5b6e;font:600 12px 'DM Sans';line-height:1.2}
 #root .tb-smoothing{margin-left:auto}
 #root .tb-plot{display:flex;flex:1;min-height:320px;gap:10px;margin-top:16px;min-width:0}
 #root .tb-plot-area{display:flex;flex:1;min-width:0;flex-direction:column}

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Activity, Box, Cpu, Gauge, RefreshCw } from 'lucide-react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
@@ -38,6 +38,25 @@ function logAxis(logValues) {
   for (let exponent = minimum; exponent <= maximum; exponent += 1) addTick(exponent);
   ticks.sort((left, right) => left.value - right.value);
   return { minimum, maximum, range: maximum - minimum, ticks };
+}
+
+function logTicksForRange(minimum, maximum) {
+  const first = Math.ceil(minimum);
+  const last = Math.floor(maximum);
+  return Array.from({ length: Math.max(0, last - first + 1) }, (_, index) => {
+    const exponent = first + index;
+    return { value: exponent, exponent };
+  });
+}
+
+function paddedAxisRange(minimum, maximum) {
+  if (!Number.isFinite(minimum) || !Number.isFinite(maximum)) return { minimum: 0, maximum: 1 };
+  if (maximum <= minimum) {
+    const padding = Math.max(Math.abs(maximum), 1) * 0.05;
+    return { minimum: minimum - padding, maximum: maximum + padding };
+  }
+  const padding = (maximum - minimum) * 0.05;
+  return { minimum: minimum - padding, maximum: maximum + padding };
 }
 
 function PowerLabel({ exponent }) {
@@ -217,15 +236,17 @@ function App() {
       <div className="health-footer"><span>last validation <b>{validationStep?.toLocaleString() || '—'}</b></span><span>confidence threshold <b>{data?.validationThreshold == null ? '—' : data.validationThreshold}</b></span><span>events <b>{eventAge == null ? '—' : eventAge < 1000 ? 'just now' : `${Math.round(eventAge / 1000)}s ago`}</b></span><span>checkpoint <b>{checkpointAge == null ? '—' : checkpointAge < 1000 ? 'just now' : `${Math.round(checkpointAge / 60000)}m ago`}</b></span></div>
     </section>
 
-    <EventScalarsPanel series={data?.eventFile?.series || {}} />
+    <EventScalarsPanel run={run} series={data?.eventFile?.series || {}} tails={data?.eventFile?.tails || {}} />
     <footer><span><span className="live-dot" /> event stream connected</span><span>PIXIENN / LOCAL RUN OBSERVATORY</span></footer>
   </main>;
 }
 
-function EventScalarsPanel({ series }) {
+function EventScalarsPanel({ run, series, tails }) {
   const [hidden, setHidden] = useState(() => new Set());
   const [logScale, setLogScale] = useState(() => new Set());
   const [rawSeries, setRawSeries] = useState(() => new Set());
+  const [cardWindows, setCardWindows] = useState({});
+  const axisRanges = useRef(new Map());
 
   const toggle = tag => setHidden(previous => {
     const next = new Set(previous);
@@ -245,26 +266,53 @@ function EventScalarsPanel({ series }) {
     return next;
   });
 
+  const setCardWindow = (tag, window) => setCardWindows(previous => ({ ...previous, [tag]: window }));
+
   return <section className="panel chart event-file-panel">
-    <div className="tb-head"><span className="kicker">EVENT STREAM SCALARS · X / Y</span><span>{Object.keys(series).length} scalar cards · full run · auto-scaled</span></div>
+    <div className="tb-head"><span className="kicker">EVENT STREAM SCALARS · X / Y</span><span>{Object.keys(series).length} scalar cards · per-card windows · stable y-scale</span></div>
     <div className="tb-cards">{Object.entries(series).map(([tag, values]) => {
       const logarithmic = logScale.has(tag);
       const raw = rawSeries.has(tag);
-      const displayValues = values.map((point, index) => {
+      const window = cardWindows[tag] || 'all';
+      const recentValues = tails[tag]?.length ? tails[tag] : values;
+      const endStep = Number(recentValues.at(-1)?.step);
+      const windowCutoff = window === 'all' || !Number.isFinite(endStep) ? null : endStep - Number(window);
+      const visibleValues = windowCutoff == null
+        ? values
+        : recentValues.filter(point => Number(point.step) >= windowCutoff);
+      const smoothingInput = windowCutoff == null
+        ? visibleValues
+        : [...recentValues.filter(point => Number(point.step) < windowCutoff).slice(-(SMOOTH_WINDOW - 1)), ...visibleValues];
+      const smoothedValues = smoothingInput.map((point, index) => {
         if (raw) return point.value;
-        const slice = values.slice(Math.max(0, index - SMOOTH_WINDOW + 1), index + 1);
+        const slice = smoothingInput.slice(Math.max(0, index - SMOOTH_WINDOW + 1), index + 1);
         return slice.reduce((sum, item) => sum + item.value, 0) / slice.length;
       });
+      const displayValues = windowCutoff == null
+        ? smoothedValues
+        : visibleValues.length ? smoothedValues.slice(-visibleValues.length) : [];
       const logarithms = displayValues.map(value => Math.log10(Math.max(value, LOG_EPSILON)));
       const logAxisData = logAxis(logarithms);
       const transformed = logarithmic ? logarithms : displayValues;
       const finiteValues = transformed.filter(Number.isFinite);
-      const maximum = finiteValues.length
+      const candidateMaximum = finiteValues.length
         ? (logarithmic ? logAxisData.maximum : Math.max(...finiteValues))
         : 1;
-      const minimum = finiteValues.length
+      const candidateMinimum = finiteValues.length
         ? (logarithmic ? logAxisData.minimum : Math.min(...finiteValues))
         : 0;
+      const axisKey = `${run}:${tag}:${window}:${raw ? 'raw' : 'smooth'}:${logarithmic ? 'log' : 'linear'}`;
+      const previousAxis = axisRanges.current.get(axisKey);
+      const candidateAxis = paddedAxisRange(candidateMinimum, candidateMaximum);
+      const axis = previousAxis
+        ? {
+          minimum: Math.min(previousAxis.minimum, candidateAxis.minimum),
+          maximum: Math.max(previousAxis.maximum, candidateAxis.maximum)
+        }
+        : candidateAxis;
+      axisRanges.current.set(axisKey, axis);
+      const maximum = axis.maximum;
+      const minimum = axis.minimum;
       const range = maximum > minimum ? maximum - minimum : LOG_EPSILON;
       const pointY = value => maximum === minimum ? 43 : 86 - ((value - minimum) / range) * 86;
       const svgPoints = transformed.map((value, index) => `${(index / Math.max(transformed.length - 1, 1)) * 220},${pointY(value)}`).join(' ');
@@ -277,13 +325,13 @@ function EventScalarsPanel({ series }) {
         return number.toPrecision(3);
       };
       const yTicks = logarithmic
-        ? logAxisData.ticks.map(tick => ({ exponent: tick.exponent, top: (1 - (tick.value - logAxisData.minimum) / logAxisData.range) * 100 }))
+        ? logTicksForRange(minimum, maximum).map(tick => ({ exponent: tick.exponent, top: (1 - (tick.value - minimum) / range) * 100 }))
         : [{ top: 0, label: axisText(maximum) }, { top: 50, label: axisText((maximum + minimum) / 2) }, { top: 100, label: axisText(minimum) }];
-      const latest = values.at(-1);
-      const scalarAxisTicks = makeAxisTicks(values);
+      const latest = visibleValues.at(-1);
+      const scalarAxisTicks = makeAxisTicks(visibleValues);
       const unit = tag.includes('learning-rate') ? 'learning rate' : tag.includes('objectness') || tag.includes('avg-iou') || tag.includes('recall') || tag.includes('avg-class') ? 'ratio' : 'loss';
       return <article className={`tb-card ${hidden.has(tag) ? 'tb-off' : ''}`} key={tag}>
-        <div className="tb-toggle"><label><input type="checkbox" checked={!hidden.has(tag)} onChange={() => toggle(tag)} /><span>{tag}</span></label><select className="tb-smoothing" value={raw ? 'raw' : 'smooth'} onChange={event => setSmoothing(tag, event.target.value)}><option value="smooth">Smooth</option><option value="raw">Raw</option></select><button type="button" className="tb-scale" onClick={() => toggleLogScale(tag)}>{logarithmic ? 'Log' : 'Linear'}</button></div>
+        <div className="tb-toggle"><label><input type="checkbox" checked={!hidden.has(tag)} onChange={() => toggle(tag)} /><span>{tag}</span></label><select className="tb-window" aria-label={`${tag} time window`} value={window} onChange={event => setCardWindow(tag, event.target.value)}><option value="all">Full</option><option value="1000">Last 1,000</option><option value="5000">Last 5,000</option></select><select className="tb-smoothing" value={raw ? 'raw' : 'smooth'} onChange={event => setSmoothing(tag, event.target.value)}><option value="smooth">Smooth</option><option value="raw">Raw</option></select><button type="button" className="tb-scale" onClick={() => toggleLogScale(tag)}>{logarithmic ? 'Log' : 'Linear'}</button></div>
         <div className="tb-axis-units"><span>Y · {logarithmic ? `log10(${unit})` : unit}</span><span>X · optimizer step</span></div>
         <div className="tb-plot"><div className="tb-y-labels" aria-hidden="true">{yTicks.map((tick, index) => <span key={`${tag}-${tick.top}-${index}`} style={{ top: `${tick.top}%` }}>{logarithmic ? <PowerLabel exponent={tick.exponent} /> : tick.label}</span>)}</div><div className="tb-plot-area"><svg viewBox="0 0 220 86" preserveAspectRatio="none" role="img" aria-label={`${tag} ${logarithmic ? 'logarithmic' : 'linear'} scale`}><defs><linearGradient id={`line-tube-${tag.replace(/[^a-zA-Z0-9_-]/g, '-')}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#d5fbff" /><stop offset="16%" stopColor="#27dfff" /><stop offset="52%" stopColor="#087ff5" /><stop offset="82%" stopColor="#5140df" /><stop offset="100%" stopColor="#a818ff" /></linearGradient></defs>{logarithmic && yTicks.map(tick => <line key={`grid-${tag}-${tick.exponent}`} className="tb-grid-line" x1="0" y1={(tick.top / 100) * 86} x2="220" y2={(tick.top / 100) * 86} />)}<line x1="0" y1="86" x2="220" y2="86" /><line x1="0" y1="0" x2="0" y2="86" /><polyline className="tb-tube-body" stroke={`url(#line-tube-${tag.replace(/[^a-zA-Z0-9_-]/g, '-')})`} points={svgPoints} />{singlePoint && <circle className="tb-single-point" cx={singlePoint.x} cy={singlePoint.y} r="3" />}</svg><div className="tb-x-axis">{scalarAxisTicks.map((tick, index) => <span key={`${tag}-x-${index}`} style={{ left: `${tick.position}%` }}>{tick.step.toLocaleString()}</span>)}</div></div></div>
         <div className="tb-values"><span>step {latest?.step ?? '—'}</span><b>{metricFmt(latest?.value)}</b></div>

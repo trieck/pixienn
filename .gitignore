@@ -26,3 +26,5 @@ events.out.tfevents.*
 /docs/latex/
 /python/.idea/
 /build-python*
+/.venv*
+

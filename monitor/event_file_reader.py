@@ -21,11 +21,13 @@ from tensorboard.util import tensor_util
 event_file = sys.argv[1]
 MAX_DISPLAY_POINTS = 1_200
 MAX_WINDOW_POINTS = 10_000
+MAX_CARD_WINDOW_POINTS = 5_000
 WINDOW_TAGS = {"avg-loss", "learning-rate"}
 CACHE_VERSION = 1
 CACHE_UPDATE_BYTES = 1_000_000
 event_loader = EventFileLoader(event_file)
 tail_series = {tag: deque(maxlen=MAX_WINDOW_POINTS) for tag in WINDOW_TAGS}
+card_tail_series = {}
 full_series = {}
 previous_raw_step = -1
 previous_normalized_step = -1
@@ -84,6 +86,7 @@ def update_series():
                 continue
             point = {"step": normalized_step, "value": value}
             full_series.setdefault(summary.tag, []).append(point)
+            card_tail_series.setdefault(summary.tag, deque(maxlen=MAX_CARD_WINDOW_POINTS)).append(point)
             if summary.tag in tail_series:
                 tail_series[summary.tag].append(point)
 
@@ -125,7 +128,8 @@ def save_cache(response):
 def current_response():
     series = {tag: display_series(values) for tag, values in full_series.items()}
     windows = {tag: list(values) for tag, values in tail_series.items() if values}
-    return {"series": series, "windows": windows}
+    tails = {tag: list(values) for tag, values in card_tail_series.items() if values}
+    return {"series": series, "windows": windows, "tails": tails}
 
 
 cached_response = load_cache()

@@ -63,6 +63,29 @@ Detections nms(const Detections& detects, float threshold)
 
     std::vector<bool> discard(output.size(), false);
 
+    // Different-class hypotheses can still be duplicate predictions for one
+    // object. Keep the strongest near-identical box (for example, dog/cat on
+    // the same animal), while leaving ordinary cross-class overlaps alone.
+    constexpr float crossClassDuplicateIoU = 0.9f;
+    for (std::size_t i = 0; i < output.size(); ++i) {
+        if (discard[i]) {
+            continue;
+        }
+
+        for (std::size_t j = 0; j < i; ++j) {
+            if (discard[j] || output[i].batchId() != output[j].batchId()
+                || output[i].classIndex() == output[j].classIndex()) {
+                continue;
+            }
+
+            if (boxIoU(normalizedRect(output[i].box()), normalizedRect(output[j].box()))
+                > crossClassDuplicateIoU) {
+                discard[i] = true;
+                break;
+            }
+        }
+    }
+
     // Validation deliberately keeps low-confidence predictions so AP can be
     // calculated over a useful precision/recall curve. Group candidates before
     // the overlap pass; detections from different images or classes

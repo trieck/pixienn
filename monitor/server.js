@@ -201,17 +201,17 @@ function readerFor(dir, event) {
 
 async function eventFileSnapshot(dir) {
   const event = latestEventFile(dir);
-  if (!event) return { tags: [], series: {}, latest: {}, windows: {} };
+  if (!event) return { tags: [], series: {}, latest: {}, windows: {}, tails: {} };
   const reader = readerFor(dir, event.file);
   try {
     const result = await reader.request();
     const series = result.series || {};
     const latest = Object.fromEntries(Object.entries(series).map(([tag, values]) => [tag, values.at(-1) || null]));
-    return { tags: Object.keys(series), series, latest, windows: result.windows || {}, eventUpdatedAt: event.mtime };
+    return { tags: Object.keys(series), series, latest, windows: result.windows || {}, tails: result.tails || {}, eventUpdatedAt: event.mtime };
   } catch (error) {
     const result = reader.last?.series || {};
     const latest = Object.fromEntries(Object.entries(result).map(([tag, values]) => [tag, values.at(-1) || null]));
-    return { tags: Object.keys(result), series: result, latest, windows: reader.last?.windows || {}, eventUpdatedAt: event.mtime, error: error.message };
+    return { tags: Object.keys(result), series: result, latest, windows: reader.last?.windows || {}, tails: reader.last?.tails || {}, eventUpdatedAt: event.mtime, error: error.message };
   }
 }
 

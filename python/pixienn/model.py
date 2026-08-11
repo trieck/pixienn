@@ -189,6 +189,18 @@ class Model:
     def evaluate(self) -> None:
         self._native.evaluate()
 
+    def train(self) -> "Model":
+        """Train a configured CPU graph and return the model.
+
+        Training must be configured before ``build()``.  The CUDA Python
+        binding currently exposes inference but not the native trainer.
+        """
+        native_train = getattr(self._native, "train", None)
+        if native_train is None:
+            raise RuntimeError("training is not exposed by the selected native device binding")
+        native_train()
+        return self
+
     def load_weights(self, path: str | Path) -> "Model":
         self._native.load_weights(str(path))
         return self

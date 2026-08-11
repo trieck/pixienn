@@ -50,6 +50,32 @@ TEST(BoxTests, BoxNmsDoesNotSuppressAcrossBatchImages)
     EXPECT_EQ(result.size(), 2);
 }
 
+TEST(BoxTests, BoxNmsSuppressesNearIdenticalDifferentClassDuplicates)
+{
+    Detections detects = {
+            Detection(cv::Rect2f(100, 100, 50, 50), 0, 16, 0.9f), // dog
+            Detection(cv::Rect2f(100, 100, 50, 50), 0, 15, 0.8f)  // cat
+    };
+
+    const auto result = nms(detects, 0.3f);
+
+    ASSERT_EQ(result.size(), 1);
+    EXPECT_EQ(result[0].classIndex(), 16);
+    EXPECT_FLOAT_EQ(result[0].prob(), 0.9f);
+}
+
+TEST(BoxTests, BoxNmsKeepsOrdinaryDifferentClassOverlaps)
+{
+    Detections detects = {
+            Detection(cv::Rect2f(100, 100, 50, 50), 0, 16, 0.9f),
+            Detection(cv::Rect2f(105, 105, 50, 50), 0, 15, 0.8f)
+    };
+
+    const auto result = nms(detects, 0.3f);
+
+    EXPECT_EQ(result.size(), 2);
+}
+
 TEST(BoxTests, BoxNmsDoesNotLetSuppressedBoxesSuppressOthers)
 {
     Detections detects = {

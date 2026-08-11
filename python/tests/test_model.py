@@ -76,6 +76,20 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(model.layers[0]["type"], "yolo")
         self.assertEqual(model.layers[0]["mask"], [0, 1, 2])
 
+    def test_centernet_example_graph_is_python_composable(self):
+        labels = ["person", "car"]
+        model = (Model(3, 64, 64, batch=1)
+                 .set_labels(labels)
+                 .conv(16, 3, stride=2, pad=True, activation="leaky", batch_normalize=True)
+                 .conv(32, 3, stride=2, pad=True, activation="leaky", batch_normalize=True)
+                 .conv(32, 3, stride=1, pad=True, activation="leaky", batch_normalize=True)
+                 .conv(len(labels) + 4, 1, pad=False, activation="linear")
+                 .centernet(max_detections=10)
+                 .build())
+        self.assertEqual(model.layers[-1]["type"], "centernet")
+        self.assertEqual(model.layers[-2]["filters"], len(labels) + 4)
+        self.assertEqual(model.output_shape, [len(labels) + 4, 16, 16])
+
     def test_complete_yolov1_tiny_matches_cpp_yaml_inference(self):
         root = Path(__file__).parents[2]
         binary = root / "cmake-build-release-cuda/bin/pixienn"
