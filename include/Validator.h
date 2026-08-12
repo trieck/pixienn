@@ -42,6 +42,8 @@ public:
     float avgRecall() const noexcept;
     float mAP() const noexcept;
     float microAvgF1() const noexcept;
+    struct PRPoint { float confidence; float precision; float recall; };
+    std::vector<PRPoint> microPRCurve() const;
     float avgLoss() const noexcept;
     float accuracy() const noexcept;
 
@@ -121,6 +123,44 @@ float Validator<D>::mAP() const noexcept
         }
     }
     return classes == 0 ? 0.0f : totalAP / classes;
+}
+
+template<Device D>
+std::vector<typename Validator<D>::PRPoint> Validator<D>::microPRCurve() const
+{
+    constexpr std::size_t samples = 201;
+    std::vector<PRPoint> curve;
+    curve.reserve(samples);
+
+    std::size_t totalGroundTruths = 0;
+    for (const auto count: groundTruthCounts_) {
+        totalGroundTruths += count;
+    }
+
+    for (std::size_t sample = 0; sample < samples; ++sample) {
+        const auto confidence = static_cast<float>(sample) / static_cast<float>(samples - 1);
+        std::size_t truePositives = 0;
+        std::size_t falsePositives = 0;
+        for (const auto& ranked: predictions_) {
+            for (const auto& prediction: ranked) {
+                if (prediction.confidence < confidence) {
+                    continue;
+                }
+                if (prediction.truePositive) {
+                    ++truePositives;
+                } else {
+                    ++falsePositives;
+                }
+            }
+        }
+
+        const auto predicted = truePositives + falsePositives;
+        curve.push_back({
+                confidence,
+                predicted == 0 ? 0.0f : static_cast<float>(truePositives) / static_cast<float>(predicted),
+                totalGroundTruths == 0 ? 0.0f : static_cast<float>(truePositives) / static_cast<float>(totalGroundTruths)});
+    }
+    return curve;
 }
 
 template<Device D>
@@ -242,7 +282,10 @@ template<Device D>
 void Validator<D>::processDetects(const Detections& detects, const GroundTruths& gts)
 {
     auto results = nms(detects, nmsThreshold_);
-    auto apResults = detects;
+    // AP must use the same class-aware NMS policy as inference/Darknet's
+    // exported detections. Keep the low AP confidence cutoff below so score
+    // ordering still includes the tail needed to construct the PR curve.
+    auto apResults = results;
     std::stable_sort(apResults.begin(), apResults.end(), [](const auto& lhs, const auto& rhs) {
         return lhs.prob() > rhs.prob();
     });

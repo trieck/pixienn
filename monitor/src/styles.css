@@ -177,6 +177,38 @@
 #root .loss-legend i:first-child{margin-left:0;background:#20c76a}.loss-legend i.high{background:#f04452}
 @media(max-width:700px){#root .loss-caption{flex-wrap:wrap;gap:7px}.loss-caption>span:last-child{margin-left:auto}}
 
+#root .pr-panel{margin-top:20px}
+#root .pr-panel .tb-y-labels{flex:0 0 76px;height:auto;min-height:320px;align-self:stretch;font-size:14px;font-weight:600;color:#303743}
+#root .pr-panel .tb-y-labels span{padding:2px 4px;background:#fff;border-radius:4px}
+#root .pr-panel .tb-y-labels span:first-child{top:4px!important}
+#root .pr-panel .tb-y-labels span:last-child{top:calc(100% - 4px)!important}
+#root .pr-panel .tb-x-axis{font-size:14px;font-weight:600;color:#303743}
+#root .pr-controls{display:flex;align-items:center;gap:10px}
+#root .pr-meta{color:#687386;font-size:11px}
+#root .pr-caption{display:flex;justify-content:space-between;align-items:center;margin:18px 0 8px;color:#68707d;font-size:11px}
+#root .pr-plot-wrap{display:flex;gap:10px;width:100%;min-height:320px}
+#root .pr-y-labels{display:flex;flex-direction:column;justify-content:space-between;padding:0 0 18px;color:#68707d;font-size:10px}
+#root .pr-plot-area{display:flex;flex:1;min-width:0;flex-direction:column}
+#root .pr-plot-area svg{display:block;width:100%;height:calc(100% - 22px);overflow:visible}
+#root .pr-grid{stroke:#d9d0c1;stroke-width:.6;stroke-dasharray:2 2}
+#root .pr-line{fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+#root .pr-line.precision{stroke:#087ff5}
+#root .pr-line.recall{stroke:#f04452}
+#root .pr-point{fill:#087ff5;stroke:#fff;stroke-width:1.5;vector-effect:non-scaling-stroke}
+#root .pr-x-labels{position:relative;height:18px;padding:4px 0 0;color:#68707d;font-size:10px}
+#root .pr-x-labels span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+#root .pr-x-labels span:first-child{transform:none}
+#root .pr-x-labels span:last-child{transform:translateX(-100%)}
+#root .pr-legend{display:inline-block;width:10px;height:3px;margin:0 4px 2px 0;border-radius:2px;background:#087ff5}
+#root .pr-legend.recall{margin:0 0 2px 4px;background:#f04452}
+#root .pr-footer{display:flex;justify-content:space-between;margin-top:12px;padding:9px 11px;border:1px solid #dfd3be;border-radius:7px;background:#fffdf7;color:#665e52;font-size:12px}
+#root .pr-footer b{color:#171b24}
+@media(max-width:700px){#root .pr-controls{flex-wrap:wrap;justify-content:flex-end}#root .pr-caption{flex-wrap:wrap;gap:7px}.pr-caption>span:nth-child(2){order:3;width:100%}#root .pr-footer{flex-wrap:wrap;gap:7px}}
+#root .validation-clock{display:flex;gap:18px;flex-wrap:wrap;margin-right:auto}
+#root .validation-clock span{display:flex;align-items:baseline;gap:5px}
+#root .validation-clock b{color:#171b24}
+#root .validation-clock small{color:#8a8173;font-size:10px}
+
 /* Parchment card surface: warm, subtle, and still high-contrast. */
 #root .card,
 #root .panel,

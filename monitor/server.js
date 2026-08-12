@@ -59,6 +59,62 @@ function validationThreshold(metadata) {
   return match ? Number(match[1]) : null;
 }
 
+function validationInterval(metadata) {
+  const configuration = metadata.configuration;
+  if (!configuration) return null;
+  const configText = read(configuration);
+  const modelMatch = configText.match(/^\s*model:\s*(\S+)\s*$/m);
+  const modelPath = modelMatch
+    ? path.resolve(path.dirname(configuration), modelMatch[1])
+    : configuration;
+  const modelText = read(modelPath);
+  const match = modelText.match(/validation:[\s\S]{0,500}?^\s+interval:\s*(\d+)\s*$/m);
+  return match ? Number(match[1]) : null;
+}
+
+function validationSchedule(metadata, eventFile) {
+  const interval = validationInterval(metadata);
+  const validationSeries = [...(eventFile.series['mAP50'] || [])]
+    .filter(point => Number.isFinite(Number(point.step)) && Number.isFinite(Number(point.wall_time)))
+    .sort((a, b) => Number(a.step) - Number(b.step));
+  const trainingSeries = [...(eventFile.series['avg-loss'] || [])]
+    .filter(point => Number.isFinite(Number(point.step)) && Number.isFinite(Number(point.wall_time)))
+    .sort((a, b) => Number(a.step) - Number(b.step));
+  const stepOf = point => Number(point.raw_step ?? point.step);
+  const current = trainingSeries.at(-1);
+  // Validation is scheduled on optimizer-step boundaries.  Do not derive the
+  // next boundary from the last event: resumed runs can retain older events
+  // whose step is offset (or ahead of the restored checkpoint).
+  const last = current
+    ? validationSeries.filter(point => stepOf(point) <= stepOf(current)).at(-1)
+    : validationSeries.at(-1);
+  if (!interval || !last) return { interval, lastStep: last?.step ?? null, lastAt: last?.wall_time ? last.wall_time * 1000 : null, nextStep: null, nextAt: null };
+
+  const nextStep = current
+    ? Math.floor(stepOf(current) / interval + 1) * interval
+    : stepOf(last) + interval;
+  const rates = [];
+  for (let i = Math.max(1, trainingSeries.length - 20); i < trainingSeries.length; ++i) {
+    const previous = trainingSeries[i - 1];
+    const point = trainingSeries[i];
+    const stepDelta = stepOf(point) - stepOf(previous);
+    const timeDelta = Number(point.wall_time) - Number(previous.wall_time);
+    if (stepDelta > 0 && timeDelta > 0) rates.push(timeDelta / stepDelta);
+  }
+  // Validation pauses and resume boundaries create large/out-of-order gaps in
+  // the event stream. A median over the recent positive intervals gives a
+  // useful moving training rate without letting one pause dominate the clock.
+  rates.sort((a, b) => a - b);
+  const secondsPerStep = rates.length
+    ? rates[Math.floor(rates.length / 2)]
+    : null;
+  const nextAt = secondsPerStep == null ? null
+    : (current
+      ? Number(current.wall_time) * 1000 + (nextStep - stepOf(current)) * secondsPerStep * 1000
+      : Number(last.wall_time) * 1000 + (nextStep - stepOf(last)) * secondsPerStep * 1000);
+  return { interval, lastStep: stepOf(last), lastAt: Number(last.wall_time) * 1000, nextStep, nextAt, secondsPerStep };
+}
+
 function localDate(value) {
   if (!value) return value;
   const match = value.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/);
@@ -201,17 +257,17 @@ function readerFor(dir, event) {
 
 async function eventFileSnapshot(dir) {
   const event = latestEventFile(dir);
-  if (!event) return { tags: [], series: {}, latest: {}, windows: {}, tails: {} };
+  if (!event) return { tags: [], series: {}, latest: {}, windows: {}, tails: {}, prCurves: {} };
   const reader = readerFor(dir, event.file);
   try {
     const result = await reader.request();
     const series = result.series || {};
     const latest = Object.fromEntries(Object.entries(series).map(([tag, values]) => [tag, values.at(-1) || null]));
-    return { tags: Object.keys(series), series, latest, windows: result.windows || {}, tails: result.tails || {}, eventUpdatedAt: event.mtime };
+    return { tags: Object.keys(series), series, latest, windows: result.windows || {}, tails: result.tails || {}, prCurves: result.prCurves || {}, eventUpdatedAt: event.mtime };
   } catch (error) {
     const result = reader.last?.series || {};
     const latest = Object.fromEntries(Object.entries(result).map(([tag, values]) => [tag, values.at(-1) || null]));
-    return { tags: Object.keys(result), series: result, latest, windows: reader.last?.windows || {}, tails: reader.last?.tails || {}, eventUpdatedAt: event.mtime, error: error.message };
+    return { tags: Object.keys(result), series: result, latest, windows: reader.last?.windows || {}, tails: reader.last?.tails || {}, prCurves: reader.last?.prCurves || {}, eventUpdatedAt: event.mtime, error: error.message };
   }
 }
 
@@ -304,7 +360,7 @@ async function snapshot(runName, selectedLossWindow = null) {
   // coupling the monitor to the unbounded console log.
   const active = Boolean(eventFile.eventUpdatedAt && Date.now() - eventFile.eventUpdatedAt < 120000);
   const { windows, ...publicEventFile } = eventFile;
-  return { name, metadata, latest, points, trend: { average: trendAverage, priorAverage, change, direction }, eventFile: publicEventFile, checkpoints: checkpoints(dir), validationThreshold: validationThreshold(metadata), active, updatedAt: Date.now() };
+  return { name, metadata, latest, points, trend: { average: trendAverage, priorAverage, change, direction }, eventFile: publicEventFile, validationSchedule: validationSchedule(metadata, eventFile), checkpoints: checkpoints(dir), validationThreshold: validationThreshold(metadata), active, updatedAt: Date.now() };
 }
 
 function sharedSnapshot(runName, selectedLossWindow = null) {

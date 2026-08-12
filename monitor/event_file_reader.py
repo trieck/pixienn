@@ -23,11 +23,12 @@ MAX_DISPLAY_POINTS = 1_200
 MAX_WINDOW_POINTS = 10_000
 MAX_CARD_WINDOW_POINTS = 5_000
 WINDOW_TAGS = {"avg-loss", "learning-rate"}
-CACHE_VERSION = 1
+CACHE_VERSION = 6
 CACHE_UPDATE_BYTES = 1_000_000
 event_loader = EventFileLoader(event_file)
 tail_series = {tag: deque(maxlen=MAX_WINDOW_POINTS) for tag in WINDOW_TAGS}
 card_tail_series = {}
+pr_curves = {}
 full_series = {}
 previous_raw_step = -1
 previous_normalized_step = -1
@@ -81,10 +82,24 @@ def update_series():
         previous_raw_step = event.step
         previous_normalized_step = normalized_step
         for summary in event.summary.value:
+            if summary.tag.startswith("validation/micro-pr/") and summary.HasField("tensor"):
+                array = tensor_util.make_ndarray(summary.tensor)
+                if array.ndim == 2 and 3 in array.shape:
+                    rows = array if array.shape[1] == 3 else array.T
+                    points = [{"confidence": float(row[0]), "precision": float(row[1]), "recall": float(row[2])} for row in rows]
+                    # PR curves are validation snapshots. Keep the raw
+                    # optimizer step so resumed-run display offsets cannot
+                    # turn a valid interval boundary into a fake step.
+                    pr_curves[summary.tag] = {"step": event.step, "points": points}
+                continue
             value = scalar_value(summary)
             if value is None or not math.isfinite(value):
                 continue
-            point = {"step": normalized_step, "value": value}
+            # Keep the on-disk optimizer step as well as the display step.
+            # Display steps are made monotonic across resumed runs, but
+            # validation scheduling must use the raw optimizer step because
+            # boundaries are defined by the model's actual step counter.
+            point = {"step": normalized_step, "raw_step": event.step, "value": value, "wall_time": event.wall_time}
             full_series.setdefault(summary.tag, []).append(point)
             card_tail_series.setdefault(summary.tag, deque(maxlen=MAX_CARD_WINDOW_POINTS)).append(point)
             if summary.tag in tail_series:
@@ -129,7 +144,7 @@ def current_response():
     series = {tag: display_series(values) for tag, values in full_series.items()}
     windows = {tag: list(values) for tag, values in tail_series.items() if values}
     tails = {tag: list(values) for tag, values in card_tail_series.items() if values}
-    return {"series": series, "windows": windows, "tails": tails}
+    return {"series": series, "windows": windows, "tails": tails, "prCurves": pr_curves}
 
 
 cached_response = load_cache()

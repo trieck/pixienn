@@ -47,13 +47,11 @@ model:
     ap_confidence_threshold: 0.001
 
   learning_rate:
-    # Resume conservatively from the best checkpoint; sigmoid evaluates the
-    # resumed optimizer step, so the first resumed update is about 4.5e-6.
-    initial_learning_rate: 0.000005
+    initial_learning_rate: 0.00002
     policy: sigmoid
 
     sigmoid:
-      target_learning_rate: 0.000001
+      target_learning_rate: 0.000005
       factor: 8.0
 
     burn_in:

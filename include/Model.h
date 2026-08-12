@@ -263,6 +263,7 @@ private:
     void writeAvgLoss();
     void writeLR();
     void writemAP();
+    void writeMicroPRCurve(const Validator<D>& validator);
     void writeAvgRecall();
     void writeMicroAvgF1();
     void writeAvgValLoss();
@@ -561,6 +562,30 @@ void Model<D>::writemAP()
     // not COCO mAP averaged over IoU 0.5:0.95.
     value->set_tag("mAP50");
     value->set_simple_value(mAP_);
+
+    writer_->write(event);
+}
+
+template<Device D>
+void Model<D>::writeMicroPRCurve(const Validator<D>& validator)
+{
+    const auto curve = validator.microPRCurve();
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(optimizerStep_);
+
+    auto* value = event.mutable_summary()->add_value();
+    value->set_tag("validation/micro-pr/curve");
+    auto* tensor = value->mutable_tensor();
+    tensor->set_dtype(tensorflow::DT_FLOAT);
+    tensor->mutable_tensor_shape()->add_dim()->set_size(static_cast<std::int64_t>(curve.size()));
+    tensor->mutable_tensor_shape()->add_dim()->set_size(3);
+    for (const auto& point: curve) {
+        tensor->add_float_val(point.confidence);
+        tensor->add_float_val(point.precision);
+        tensor->add_float_val(point.recall);
+    }
 
     writer_->write(event);
 }
@@ -1632,6 +1657,7 @@ void Model<D>::validate()
     // Validation values change only here. Write them at their real step
     // instead of repeating stale values on the training-metric interval.
     writemAP();
+    writeMicroPRCurve(validator);
     writeAvgRecall();
     writeMicroAvgF1();
     writeAvgValLoss();

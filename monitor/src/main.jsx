@@ -15,6 +15,24 @@ const metricFmt = n => {
 const SMOOTH_WINDOW = 60;
 const LOG_EPSILON = 1e-6;
 
+function elapsedLabel(timestamp, now = Date.now()) {
+  if (!Number.isFinite(timestamp)) return '—';
+  const seconds = Math.max(0, Math.round((now - timestamp) / 1000));
+  if (seconds < 10) return 'just now';
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m ago`;
+}
+
+function countdownLabel(timestamp, now = Date.now()) {
+  if (!Number.isFinite(timestamp)) return 'estimating…';
+  const seconds = Math.max(0, Math.round((timestamp - now) / 1000));
+  if (seconds < 60) return `in ${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  return minutes < 60 ? `in ${minutes}m ${seconds % 60}s` : `in ${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+}
+
 const makeAxisTicks = values => {
   if (!values.length) return [];
   const count = Math.min(6, values.length);
@@ -70,6 +88,12 @@ function App() {
   const [scale, setScale] = useState('linear');
   const [lossWindow, setLossWindow] = useState('all');
   const [loading, setLoading] = useState(false);
+  const [clockNow, setClockNow] = useState(Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setClockNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const loadRuns = () => fetch('/api/runs', { cache: 'no-store' })
     .then(response => { if (!response.ok) throw new Error(`Run list failed (${response.status})`); return response.json(); })
@@ -233,12 +257,39 @@ function App() {
         <HealthMetric label="Avg. recall" point={validationMetric('avg-recall')} values={scalarSeries['avg-recall']} />
         <HealthMetric label="Val. loss" point={validationMetric('avg-val-loss')} values={scalarSeries['avg-val-loss']} invert />
       </div>
-      <div className="health-footer"><span>last validation <b>{validationStep?.toLocaleString() || '—'}</b></span><span>confidence threshold <b>{data?.validationThreshold == null ? '—' : data.validationThreshold}</b></span><span>events <b>{eventAge == null ? '—' : eventAge < 1000 ? 'just now' : `${Math.round(eventAge / 1000)}s ago`}</b></span><span>checkpoint <b>{checkpointAge == null ? '—' : checkpointAge < 1000 ? 'just now' : `${Math.round(checkpointAge / 60000)}m ago`}</b></span></div>
+      <div className="health-footer"><ValidationClock schedule={data?.validationSchedule} now={clockNow} /><span>confidence threshold <b>{data?.validationThreshold == null ? '—' : data.validationThreshold}</b></span><span>events <b>{eventAge == null ? '—' : eventAge < 1000 ? 'just now' : `${Math.round(eventAge / 1000)}s ago`}</b></span><span>checkpoint <b>{checkpointAge == null ? '—' : checkpointAge < 1000 ? 'just now' : `${Math.round(checkpointAge / 60000)}m ago`}</b></span></div>
     </section>
 
+    <PRCurvePanel curve={data?.eventFile?.prCurves?.['validation/micro-pr/curve'] || data?.eventFile?.prCurves?.['validation/micro-pr/pr_curves']} />
     <EventScalarsPanel run={run} series={data?.eventFile?.series || {}} tails={data?.eventFile?.tails || {}} />
     <footer><span><span className="live-dot" /> event stream connected</span><span>PIXIENN / LOCAL RUN OBSERVATORY</span></footer>
   </main>;
+}
+
+function ValidationClock({ schedule, now }) {
+  return <div className="validation-clock"><span>last validation <b>{elapsedLabel(schedule?.lastAt, now)}</b>{schedule?.lastStep != null && <small>step {Number(schedule.lastStep).toLocaleString()}</small>}</span><span>next likely <b>{countdownLabel(schedule?.nextAt, now)}</b>{schedule?.nextStep != null && <small>step {Number(schedule.nextStep).toLocaleString()}</small>}</span></div>;
+}
+
+function PRCurvePanel({ curve }) {
+  const points = [...(curve?.points || [])]
+    .filter(point => Number.isFinite(Number(point.precision)) && Number.isFinite(Number(point.recall)))
+    .sort((lhs, rhs) => Number(lhs.recall) - Number(rhs.recall));
+  const xMaximum = 1;
+  const yMaximum = 1;
+  const coordinate = point => ({
+    x: Math.max(0, Math.min(xMaximum, Number(point.recall))) / xMaximum * 220,
+    y: 86 - Math.max(0, Math.min(yMaximum, Number(point.precision))) / yMaximum * 86
+  });
+  const svgPoints = points.map(point => {
+    const current = coordinate(point);
+    return `${current.x},${current.y}`;
+  }).join(' ');
+  const axisLabel = value => value.toLocaleString(undefined, { maximumFractionDigits: 3 });
+  return <section className="tb-card pr-panel">
+    <div className="tb-toggle"><span>Precision–recall curve</span><span className="pr-meta">{curve ? `validation step ${Number(curve.step).toLocaleString()}` : 'Waiting for validation data'}</span></div>
+    <div className="tb-axis-units"><span>Y · precision</span><span>X · recall</span></div>
+    <div className="tb-plot"><div className="tb-y-labels"><span style={{ top: '0%' }}>{axisLabel(yMaximum)}</span><span style={{ top: '50%' }}>{axisLabel(yMaximum / 2)}</span><span style={{ top: '100%' }}>0</span></div><div className="tb-plot-area"><svg viewBox="0 0 220 86" preserveAspectRatio="none" role="img" aria-label="Precision versus recall curve"><defs><linearGradient id="pr-line-gradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#d5fbff" /><stop offset="16%" stopColor="#27dfff" /><stop offset="52%" stopColor="#087ff5" /><stop offset="82%" stopColor="#5140df" /><stop offset="100%" stopColor="#a818ff" /></linearGradient></defs><line x1="0" y1="0" x2="220" y2="0" /><line x1="0" y1="43" x2="220" y2="43" /><line x1="0" y1="86" x2="220" y2="86" /><polyline className="tb-tube-body" stroke="url(#pr-line-gradient)" points={svgPoints} /></svg><div className="tb-x-axis"><span style={{ left: '50%' }}>{axisLabel(xMaximum / 2)}</span><span style={{ left: '100%' }}>{axisLabel(xMaximum)}</span></div></div></div>
+  </section>;
 }
 
 function EventScalarsPanel({ run, series, tails }) {
