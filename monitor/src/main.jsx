@@ -285,11 +285,19 @@ function PRCurvePanel({ curve }) {
     return `${current.x},${current.y}`;
   }).join(' ');
   const axisLabel = value => value.toLocaleString(undefined, { maximumFractionDigits: 3 });
+  const endpoint = points.at(-1);
+  const leastPermissive = [...points]
+    .sort((lhs, rhs) => Number(rhs.confidence) - Number(lhs.confidence))
+    .find(point => Number(point.precision) > 0 || Number(point.recall) > 0);
+  const percent = value => `${Math.round(Number(value) * 100)}%`;
+  const confidenceLabel = point => Number(point.confidence).toFixed(3);
   return <section className="tb-card pr-panel">
     <div className="tb-toggle"><span>Precision–recall curve</span><span className="pr-meta">{curve ? `validation step ${Number(curve.step).toLocaleString()}` : 'Waiting for validation data'}</span></div>
     <div className="tb-axis-units"><span>Y · precision</span><span>X · recall</span></div>
     <div className="tb-plot"><div className="tb-y-labels"><span style={{ top: '0%' }}>{axisLabel(yMaximum)}</span><span style={{ top: '50%' }}>{axisLabel(yMaximum / 2)}</span><span style={{ top: '100%' }}>0</span></div><div className="tb-plot-area"><svg viewBox="0 0 220 86" preserveAspectRatio="none" role="img" aria-label="Precision versus recall curve"><defs><linearGradient id="pr-line-gradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#d5fbff" /><stop offset="16%" stopColor="#27dfff" /><stop offset="52%" stopColor="#087ff5" /><stop offset="82%" stopColor="#5140df" /><stop offset="100%" stopColor="#a818ff" /></linearGradient></defs><line x1="0" y1="0" x2="220" y2="0" /><line x1="0" y1="43" x2="220" y2="43" /><line x1="0" y1="86" x2="220" y2="86" /><polyline className="tb-tube-body" stroke="url(#pr-line-gradient)" points={svgPoints} /></svg><div className="tb-x-axis"><span style={{ left: '50%' }}>{axisLabel(xMaximum / 2)}</span><span style={{ left: '100%' }}>{axisLabel(xMaximum)}</span></div></div></div>
     <div className="tb-values"><span>{points.length ? `${points.length} threshold points` : 'No PR data'}</span><span>endpoint precision <b>{points.length ? metricFmt(points.at(-1).precision) : '—'}</b></span><span>endpoint recall <b>{points.length ? metricFmt(points.at(-1).recall) : '—'}</b></span></div>
+    {endpoint && <p className="pr-insight">At the most permissive threshold (confidence {confidenceLabel(endpoint)}), the model finds about {percent(endpoint.recall)} of the objects, but only {percent(endpoint.precision)} of its detections are correct.</p>}
+    {leastPermissive && <p className="pr-insight">At the least permissive threshold that produces detections (confidence {confidenceLabel(leastPermissive)}), about {percent(leastPermissive.precision)} of detections are correct, but the model finds only about {percent(leastPermissive.recall)} of the objects.</p>}
   </section>;
 }
 

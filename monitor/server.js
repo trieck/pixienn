@@ -305,8 +305,10 @@ function checkpoints(dir) {
   const backup = path.join(dir, 'backup');
   let stat;
   try { stat = fs.statSync(backup); } catch { return []; }
+  let latestStat;
+  try { latestStat = fs.statSync(path.join(backup, `${path.basename(dir)}_latest.weights`)); } catch { latestStat = null; }
   const cached = checkpointCaches.get(backup);
-  if (cached && cached.mtimeMs === stat.mtimeMs) return cached.files;
+  if (cached && cached.mtimeMs === stat.mtimeMs && cached.latestMtimeMs === (latestStat?.mtimeMs ?? null)) return cached.files;
 
   let files = [];
   try {
@@ -322,7 +324,7 @@ function checkpoints(dir) {
   } catch {
     files = [];
   }
-  checkpointCaches.set(backup, { mtimeMs: stat.mtimeMs, files });
+  checkpointCaches.set(backup, { mtimeMs: stat.mtimeMs, latestMtimeMs: latestStat?.mtimeMs ?? null, files });
   return files;
 }
 

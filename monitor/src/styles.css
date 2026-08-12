@@ -183,6 +183,7 @@
 #root .pr-panel .tb-y-labels span:first-child{top:4px!important}
 #root .pr-panel .tb-y-labels span:last-child{top:calc(100% - 4px)!important}
 #root .pr-panel .tb-x-axis{font-size:14px;font-weight:600;color:#303743}
+#root .pr-insight{margin:10px 0 0;color:#514a40;font-size:13px;line-height:1.45}
 #root .pr-controls{display:flex;align-items:center;gap:10px}
 #root .pr-meta{color:#687386;font-size:11px}
 #root .pr-caption{display:flex;justify-content:space-between;align-items:center;margin:18px 0 8px;color:#68707d;font-size:11px}
