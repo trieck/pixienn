@@ -941,6 +941,7 @@ void Model<D>::loadWeights()
 {
     auto clearWeights = hasOption("clear-weights");
     auto resetTrainingState = hasOption("reset-training-state");
+    auto resetAdamMoments = hasOption("reset-adam-moments");
     auto latestWeightsFile = weightsLatestFileName();
 
     if (training() && clearWeights) {
@@ -1012,14 +1013,18 @@ void Model<D>::loadWeights()
                              "Optimizer state does not match weights \"%s\"", loadedWeightsFile.c_str());
                 }
                 optimizer.read(reinterpret_cast<char*>(&optimizerStep_), sizeof(optimizerStep_));
-                for (const auto& layer: layers()) {
-                    layer->loadOptimizer(optimizer);
+                if (resetAdamMoments) {
+                    std::printf("Adam moments reset; keeping optimizer step %zu.\n", optimizerStep_);
+                } else {
+                    for (const auto& layer: layers()) {
+                        layer->loadOptimizer(optimizer);
+                    }
                 }
                 PX_CHECK(optimizer.good() || optimizer.eof(), "Could not read optimizer state \"%s\"",
                          optimizerFile.c_str());
             } else {
-                optimizerStep_ = 0;
-                std::printf("Adam optimizer state not found; moments will restart at step 1.\n");
+                optimizerStep_ = updateBatch() > 0 ? seen_ / static_cast<std::size_t>(updateBatch()) : 0;
+                std::printf("Adam optimizer state not found; moments will restart at step %zu.\n", optimizerStep_);
             }
         }
 
@@ -1236,6 +1241,10 @@ void Model<D>::parseModel(const Node& modelDoc)
     }
 
     batch_ = training() || validating() ? model["batch"].as<int>() : 1;
+    if (validating() && hasOption("batch-size")) {
+        batch_ = option<int>("batch-size");
+        PX_CHECK(batch_ > 0, "Evaluation batch size must be positive.");
+    }
     channels_ = model["channels"].as<int>();
     height_ = model["height"].as<int>();
     subdivs_ = model["subdivisions"].as<int>(1);

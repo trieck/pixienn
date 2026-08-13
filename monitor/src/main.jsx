@@ -87,8 +87,19 @@ function App() {
   const [data, setData] = useState(null);
   const [scale, setScale] = useState('linear');
   const [lossWindow, setLossWindow] = useState('all');
+  const [lossBucketCount, setLossBucketCount] = useState(48);
+  const [theme, setTheme] = useState(() => localStorage.getItem('pixienn-monitor-theme') || 'parchment');
   const [loading, setLoading] = useState(false);
   const [clockNow, setClockNow] = useState(Date.now());
+
+  useEffect(() => {
+    localStorage.setItem('pixienn-monitor-theme', theme);
+    const root = document.getElementById('root');
+    if (root) {
+      root.classList.remove('theme-parchment', 'theme-night', 'theme-terminal', 'theme-brown', 'theme-davinci');
+      root.classList.add(`theme-${theme}`);
+    }
+  }, [theme]);
 
   useEffect(() => {
     const id = setInterval(() => setClockNow(Date.now()), 1000);
@@ -149,7 +160,7 @@ function App() {
   }, [run, lossWindow]);
 
   const history = data?.points || [];
-  const bucketCount = Math.min(48, history.length);
+  const bucketCount = Math.min(lossBucketCount, history.length);
   const bucketSize = Math.max(1, Math.ceil(history.length / Math.max(bucketCount, 1)));
   const points = useMemo(() => Array.from({ length: Math.ceil(history.length / bucketSize) }, (_, i) => {
     const bucket = history.slice(i * bucketSize, (i + 1) * bucketSize);
@@ -223,8 +234,8 @@ function App() {
   const checkpointAge = checkpoint?.mtime ? Math.max(0, Date.now() - checkpoint.mtime) : null;
   const movingAverageWindow = 12;
 
-  return <main>
-    <header><div className="run-picker"><span>RUN</span><select value={run} onChange={event => setRun(event.target.value)}>{runs.map(name => <option key={name}>{name}</option>)}</select><button onClick={() => { loadRuns(); refresh(); }}><RefreshCw size={16} /></button></div></header>
+  return <main className={`theme-${theme}`}>
+    <header><div className="run-picker"><span>RUN</span><select value={run} onChange={event => setRun(event.target.value)}>{runs.map(name => <option key={name}>{name}</option>)}</select><button onClick={() => { loadRuns(); refresh(); }}><RefreshCw size={16} /></button><label className="theme-picker"><span>THEME</span><select aria-label="Theme" value={theme} onChange={event => setTheme(event.target.value)}><option value="parchment">Parchment</option><option value="night">Night control room</option><option value="terminal">Terminal green</option><option value="brown">Cocoa</option><option value="davinci">Da Vinci 95</option></select></label></div></header>
 
     <nav><small>updated {data ? new Date(data.updatedAt).toLocaleTimeString() : '—'}</small></nav>
     {loading && <div className="monitor-loading-overlay" role="status" aria-live="polite"><div className="monitor-loading-dialog"><span className="monitor-loading-spinner" /><strong>Loading training history</strong><small>Reading event data…</small></div></div>}
@@ -240,15 +251,6 @@ function App() {
       <Card icon={<Box />} label="CHECKPOINT" value={checkpoint?.name || '—'} title={checkpoint?.name} accent="gold" note="latest saved weights" />
     </section>
 
-    <section className="grid">
-      <div className="panel chart">
-        <div className="panel-head"><div><span className="kicker">LOSS TRAJECTORY</span><h2>Average loss</h2></div><div style={{ display: 'flex', gap: 8 }}><select value={lossWindow} onChange={event => setLossWindow(event.target.value)}><option value="all">Full run · auto-scaled</option><option value="10000">Last 10,000 steps</option><option value="2000">Last 2,000 steps</option><option value="500">Last 500 steps</option></select><select value={scale} onChange={event => setScale(event.target.value)}><option value="linear">Linear</option><option value="log">Log scale</option></select></div></div>
-        <div className="loss-caption"><span>{scale === 'log' ? 'Avg. loss · log10(loss)' : 'Avg. loss'}</span><span className="loss-legend"><i className="low" /> lower loss <i className="high" /> higher loss</span><span>{lossWindow === 'all' ? 'Full training history' : `Last ${Number(lossWindow).toLocaleString()} optimizer steps`}</span></div>
-        <div style={{ display: 'flex', gap: 10, width: '100%' }}><div className="loss-y-labels">{scale === 'log' ? logAxisData.ticks.map(tick => <span key={tick.value} style={{ top: `${(1 - (tick.value - logAxisData.minimum) / logAxisData.range) * 100}%` }}><PowerLabel exponent={tick.exponent} /></span>) : <><span style={{ top: '0%' }}>{max.toPrecision(3)}</span><span style={{ top: '50%' }}>{((max + min) / 2).toPrecision(3)}</span><span style={{ top: '100%' }}>{min.toPrecision(3)}</span></>}</div><div className="spark" style={{ flex: 1, width: '100%', minWidth: 0, height: 260 }}>{scale === 'log' && logAxisData.ticks.map(tick => <span className="loss-grid-line" key={`loss-grid-${tick.value}`} style={{ bottom: `${((tick.value - logAxisData.minimum) / logAxisData.range) * 100}%` }} />)}{points.length ? points.map((point, i) => <div className="loss-bar" key={i} style={{ height: `${height(point.avg)}%`, '--bar-hue': `${lossHue(point.avg)}` }} title={`step ${point.step} · avg loss ${point.avg.toFixed(3)}`} />) : <span className="empty">Waiting for event-file data…</span>}</div></div>
-        <div className="axis loss-x-axis" aria-label="optimizer steps">{axisTicks.map((tick, index) => <span key={`${tick.step}-${index}`} style={{ left: `${tick.position}%` }}>{tick.step.toLocaleString()}</span>)}</div>
-      </div>
-    </section>
-
     <section className="health-panel panel">
       <div className="health-heading"><div><span className="kicker">VALIDATION HEALTH</span><h2>Is the detector improving?</h2><p className="health-legend">Numbers compare the latest validation with the moving average of the last {movingAverageWindow} validations.</p></div><span className={`freshness ${freshness}`}><span /> {freshness}</span></div>
       <div className="health-grid">
@@ -261,9 +263,89 @@ function App() {
     </section>
 
     <PRCurvePanel curve={data?.eventFile?.prCurves?.['validation/micro-pr/curve'] || data?.eventFile?.prCurves?.['validation/micro-pr/pr_curves']} />
+    <section className="grid">
+      <div className="panel chart">
+        <div className="panel-head"><div><span className="kicker">LOSS TRAJECTORY</span><h2>Average loss</h2></div><div style={{ display: 'flex', gap: 8 }}><select value={lossWindow} onChange={event => setLossWindow(event.target.value)}><option value="all">Full run · auto-scaled</option><option value="10000">Last 10,000 steps</option><option value="2000">Last 2,000 steps</option><option value="500">Last 500 steps</option></select><select value={scale} onChange={event => setScale(event.target.value)}><option value="linear">Linear</option><option value="log">Log scale</option></select><select aria-label="Average loss bucket count" value={lossBucketCount} onChange={event => setLossBucketCount(Number(event.target.value))}><option value="24">24 buckets</option><option value="48">48 buckets</option><option value="72">72 buckets</option><option value="120">120 buckets</option></select></div></div>
+        <div className="loss-caption"><span>{scale === 'log' ? 'Avg. loss · log10(loss)' : 'Avg. loss'}</span><span className="loss-legend"><i className="low" /> lower loss <i className="high" /> higher loss</span><span>{lossWindow === 'all' ? 'Full training history' : `Last ${Number(lossWindow).toLocaleString()} optimizer steps`}</span></div>
+        <div style={{ display: 'flex', gap: 10, width: '100%' }}><div className="loss-y-labels">{scale === 'log' ? logAxisData.ticks.map(tick => <span key={tick.value} style={{ top: `${(1 - (tick.value - logAxisData.minimum) / logAxisData.range) * 100}%` }}><PowerLabel exponent={tick.exponent} /></span>) : <><span style={{ top: '0%' }}>{max.toPrecision(3)}</span><span style={{ top: '50%' }}>{((max + min) / 2).toPrecision(3)}</span><span style={{ top: '100%' }}>{min.toPrecision(3)}</span></>}</div><div className="spark" style={{ flex: 1, width: '100%', minWidth: 0, height: 260 }}>{scale === 'log' && logAxisData.ticks.map(tick => <span className="loss-grid-line" key={`loss-grid-${tick.value}`} style={{ bottom: `${((tick.value - logAxisData.minimum) / logAxisData.range) * 100}%` }} />)}{points.length ? points.map((point, i) => <div className="loss-bar" key={i} style={{ height: `${height(point.avg)}%`, '--bar-hue': `${lossHue(point.avg)}` }} title={`step ${point.step} · avg loss ${point.avg.toFixed(3)}`} />) : <span className="empty">Waiting for event-file data…</span>}</div></div>
+        <div className="axis loss-x-axis" aria-label="optimizer steps">{axisTicks.map((tick, index) => <span key={`${tick.step}-${index}`} style={{ left: `${tick.position}%` }}>{tick.step.toLocaleString()}</span>)}</div>
+      </div>
+    </section>
+    <section className="validation-card-grid">
+      <ValidationBarsPanel series={scalarSeries} tag="mAP50" label="mAP50" />
+      <ValidationBarsPanel series={scalarSeries} tag="micro-avg-f1" label="Micro-Avg-F1" />
+    </section>
     <EventScalarsPanel run={run} series={data?.eventFile?.series || {}} tails={data?.eventFile?.tails || {}} />
     <footer><span><span className="live-dot" /> event stream connected</span><span>PIXIENN / LOCAL RUN OBSERVATORY</span></footer>
   </main>;
+}
+
+function ValidationBarsPanel({ series, tag, label }) {
+  const [scale, setScale] = useState('linear');
+  const [bucketCount, setBucketCount] = useState(48);
+  const byStep = new Map();
+  (series[tag] || []).forEach(point => {
+    const step = Number(point.step);
+    const value = Number(point.value);
+    if (!Number.isFinite(step) || !Number.isFinite(value)) return;
+    const bucket = byStep.get(step) || { step };
+    bucket.value = Math.max(0, Math.min(1, value));
+    byStep.set(step, bucket);
+  });
+  const history = [...byStep.values()].sort((left, right) => left.step - right.step);
+  const visibleBucketCount = Math.min(bucketCount, history.length);
+  const bucketSize = Math.max(1, Math.ceil(history.length / Math.max(visibleBucketCount, 1)));
+  const buckets = Array.from({ length: Math.ceil(history.length / bucketSize) }, (_, index) => {
+    const points = history.slice(index * bucketSize, (index + 1) * bucketSize);
+    const values = points.map(point => point.value).filter(Number.isFinite);
+    return { step: points.at(-1)?.step, value: values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null };
+  });
+  const firstStep = buckets[0]?.step;
+  const lastStep = buckets.at(-1)?.step;
+  const values = buckets.map(bucket => bucket.value).filter(Number.isFinite);
+  const minimum = values.length ? Math.min(...values) : 0;
+  const maximum = values.length ? Math.max(...values) : 1;
+  const linearRange = Math.max(maximum - minimum, LOG_EPSILON);
+  const logValues = values.map(value => Math.log10(Math.max(value, LOG_EPSILON)));
+  const logMinimum = logValues.length ? Math.min(...logValues) : -1;
+  const logMaximum = logValues.length ? Math.max(...logValues) : 0;
+  const logRange = Math.max(logMaximum - logMinimum, LOG_EPSILON);
+  const logTicks = logAxis(logValues).ticks;
+  const height = value => {
+    if (!Number.isFinite(value)) return 0;
+    if (scale === 'log') return Math.max(0, Math.min(100, (Math.log10(Math.max(value, LOG_EPSILON)) - logMinimum) / logRange * 100));
+    return values.length === 1 || maximum === minimum ? 100 : Math.max(0, Math.min(100, (value - minimum) / linearRange * 100));
+  };
+  const hue = value => Math.round(height(value) * 1.2);
+  return <div className="validation-bars panel chart">
+    <div className="panel-head"><div><span className="kicker">VALIDATION HISTORY · BUCKETED</span><h2>{label}</h2></div><div style={{ display: 'flex', gap: 8 }}><select aria-label={`${label} scale`} value={scale} onChange={event => setScale(event.target.value)}><option value="linear">Linear</option><option value="log">Log</option></select><select aria-label={`${label} bucket count`} value={bucketCount} onChange={event => setBucketCount(Number(event.target.value))}><option value="24">24 buckets</option><option value="48">48 buckets</option><option value="72">72 buckets</option><option value="120">120 buckets</option></select></div></div>
+    <div className="validation-bars-caption"><span>{scale === 'log' ? 'Validation score · log10(score)' : 'Validation score'} · higher is better</span><span>{history.length} validations · bucketed averages</span></div>
+    {buckets.length ? <><div className="validation-bars-chart"><div className="loss-y-labels">{scale === 'log' ? logTicks.map(tick => <span key={tick.value} style={{ top: `${(1 - (tick.value - logMinimum) / logRange) * 100}%` }}><PowerLabel exponent={tick.exponent} /></span>) : <><span style={{ top: '0%' }}>{maximum.toPrecision(3)}</span><span style={{ top: '50%' }}>{((maximum + minimum) / 2).toPrecision(3)}</span><span style={{ top: '100%' }}>{minimum.toPrecision(3)}</span></>}</div><div className="spark validation-spark" style={{ flex: 1, width: '100%', minWidth: 0, height: 230 }}>{scale === 'log' && logTicks.map(tick => <span className="loss-grid-line" key={`validation-grid-${tick.value}`} style={{ bottom: `${((tick.value - logMinimum) / logRange) * 100}%` }} />)}{buckets.map((bucket, index) => <div className="loss-bar" key={bucket.step ?? index} style={{ height: `${height(bucket.value)}%`, '--bar-hue': `${hue(bucket.value)}` }} title={`step ${Number(bucket.step).toLocaleString()} · ${label} ${Number(bucket.value).toFixed(3)}`} />)}</div></div><div className="axis loss-x-axis validation-bars-axis" aria-label={`${label} validation steps`}><span>step {Number(firstStep).toLocaleString()}</span><span>step {Number(lastStep).toLocaleString()}</span></div></> : <div className="empty validation-bars-empty">Waiting for validation data…</div>}
+  </div>;
+}
+
+function MapProgressPanel({ data }) {
+  const raw = (data?.eventFile?.series?.mAP50 || []).filter(point => Number.isFinite(Number(point.value)));
+  const points = raw.length > 120 ? raw.filter((_, index) => index % Math.ceil(raw.length / 120) === 0 || index === raw.length - 1) : raw;
+  const width = 1000;
+  const height = 230;
+  const values = points.map(point => Number(point.value));
+  const minimum = values.length ? Math.max(0, Math.floor((Math.min(...values) - 0.02) * 100) / 100) : 0;
+  const maximum = values.length ? Math.min(1, Math.ceil((Math.max(...values) + 0.02) * 100) / 100) : 1;
+  const range = Math.max(maximum - minimum, 0.01);
+  const coordinate = (point, index) => ({
+    x: points.length < 2 ? width / 2 : index / (points.length - 1) * width,
+    y: height - 20 - (Number(point.value) - minimum) / range * (height - 40)
+  });
+  const coords = points.map(coordinate);
+  const linePoints = coords.map(point => `${point.x},${point.y}`).join(' ');
+  const best = raw.reduce((winner, point) => Number(point.value) > Number(winner?.value ?? -Infinity) ? point : winner, null);
+  const latest = raw.at(-1);
+  const fmtPercent = value => value == null ? '—' : `${(Number(value) * 100).toFixed(1)}%`;
+  return <section className="map-progress-panel panel">
+    <div className="map-progress-head"><div><span className="kicker">VALIDATION TRAJECTORY</span><h2>mAP50 movement across training</h2><p>Higher on the chart means better validation performance.</p></div><span className={`timeline-status ${data?.active ? 'live' : 'idle'}`}><i />{data?.active ? 'training live' : 'idle'}</span></div>
+    {coords.length ? <><div className="map-chart"><div className="map-y-axis"><span>{maximum.toFixed(2)}</span><span>{((maximum + minimum) / 2).toFixed(2)}</span><span>{minimum.toFixed(2)}</span></div><svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label="mAP50 validation movement"><line className="map-grid" x1="0" y1="20" x2={width} y2="20" /><line className="map-grid" x1="0" y1={height / 2} x2={width} y2={height / 2} /><line className="map-grid" x1="0" y1={height - 20} x2={width} y2={height - 20} /><polyline className="map-line" points={linePoints} />{coords.map((point, index) => { const source = points[index]; const isLatest = index === coords.length - 1; const isBest = Number(source.value) === Number(best?.value); if (!isLatest && !isBest) return null; return <circle key={index} className={`map-point ${isLatest ? 'latest' : ''} ${isBest ? 'best' : ''}`} cx={point.x} cy={point.y} r="5"><title>{`${isLatest ? 'Latest · ' : ''}${isBest ? 'Best · ' : ''}step ${Number(source.raw_step ?? source.step).toLocaleString()} · mAP50 ${fmtPercent(source.value)}`}</title></circle>; })}</svg></div><div className="map-x-axis"><span>step {Number(points[0].raw_step ?? points[0].step).toLocaleString()}</span><span>step {Number(points.at(-1).raw_step ?? points.at(-1).step).toLocaleString()}</span></div><div className="map-summary"><span><small>VALIDATIONS</small><b>{raw.length}</b></span><span><small>LATEST mAP50</small><b>{fmtPercent(latest?.value)}</b></span><span><small>BEST mAP50</small><b>{fmtPercent(best?.value)}</b><em>step {best ? Number(best.raw_step ?? best.step).toLocaleString() : '—'}</em></span></div></> : <div className="empty map-empty">Waiting for validation data…</div>}
+  </section>;
 }
 
 function ValidationClock({ schedule, now }) {
@@ -296,8 +378,8 @@ function PRCurvePanel({ curve }) {
     <div className="tb-axis-units"><span>Y · precision</span><span>X · recall</span></div>
     <div className="tb-plot"><div className="tb-y-labels"><span style={{ top: '0%' }}>{axisLabel(yMaximum)}</span><span style={{ top: '50%' }}>{axisLabel(yMaximum / 2)}</span><span style={{ top: '100%' }}>0</span></div><div className="tb-plot-area"><svg viewBox="0 0 220 86" preserveAspectRatio="none" role="img" aria-label="Precision versus recall curve"><defs><linearGradient id="pr-line-gradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#d5fbff" /><stop offset="16%" stopColor="#27dfff" /><stop offset="52%" stopColor="#087ff5" /><stop offset="82%" stopColor="#5140df" /><stop offset="100%" stopColor="#a818ff" /></linearGradient></defs><line x1="0" y1="0" x2="220" y2="0" /><line x1="0" y1="43" x2="220" y2="43" /><line x1="0" y1="86" x2="220" y2="86" /><polyline className="tb-tube-body" stroke="url(#pr-line-gradient)" points={svgPoints} /></svg><div className="tb-x-axis"><span style={{ left: '50%' }}>{axisLabel(xMaximum / 2)}</span><span style={{ left: '100%' }}>{axisLabel(xMaximum)}</span></div></div></div>
     <div className="tb-values"><span>{points.length ? `${points.length} threshold points` : 'No PR data'}</span><span>endpoint precision <b>{points.length ? metricFmt(points.at(-1).precision) : '—'}</b></span><span>endpoint recall <b>{points.length ? metricFmt(points.at(-1).recall) : '—'}</b></span></div>
-    {endpoint && <p className="pr-insight">At the most permissive threshold (confidence {confidenceLabel(endpoint)}), the model finds about {percent(endpoint.recall)} of the objects, but only {percent(endpoint.precision)} of its detections are correct.</p>}
-    {leastPermissive && <p className="pr-insight">At the least permissive threshold that produces detections (confidence {confidenceLabel(leastPermissive)}), about {percent(leastPermissive.precision)} of detections are correct, but the model finds only about {percent(leastPermissive.recall)} of the objects.</p>}
+    {endpoint && <p className="pr-insight">At the most permissive threshold (confidence {confidenceLabel(endpoint)}), the model finds about {percent(endpoint.recall)} of the objects, with {percent(endpoint.precision)} of its detections correct.</p>}
+    {leastPermissive && <p className="pr-insight">At the least permissive threshold that produces detections (confidence {confidenceLabel(leastPermissive)}), about {percent(leastPermissive.precision)} of its detections are correct, and the model finds about {percent(leastPermissive.recall)} of the objects.</p>}
   </section>;
 }
 

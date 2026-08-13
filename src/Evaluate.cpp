@@ -15,6 +15,7 @@ int main(int argc, char* argv[])
             ("config-file", po::value<std::string>()->required(), "Configuration file")
             ("weights-file", po::value<std::string>()->required(), "Weights/checkpoint file")
             ("all-validation", po::bool_switch()->default_value(false), "Evaluate the full validation manifest")
+            ("batch-size", po::value<int>(), "Override evaluation batch size")
             ("help", po::bool_switch()->default_value(false), "Print program usage")
             ("no-gpu", po::bool_switch()->default_value(false), "Use CPU for processing")
             ("train", po::bool_switch()->default_value(true), "Use the configured validation batch shape");

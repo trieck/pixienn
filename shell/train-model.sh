@@ -32,6 +32,7 @@ Modes:
 Options:
   --verify-data            Check every image and label before training.
   --allow-reset-optimizer  Permit resume without an Adam optimizer sidecar.
+  --reset-adam-moments     Keep weights and step counters, but restart Adam moments.
   --view-image             Pass PixieNN's training-image viewer option.
   --dry-run                Perform preflight and print the command without changing a run.
   -h, --help               Show this help.
@@ -329,6 +330,7 @@ model=""
 mode=""
 verify_data=false
 allow_reset_optimizer=false
+reset_adam_moments=false
 view_image=false
 dry_run=false
 
@@ -346,6 +348,9 @@ while (($#)); do
             ;;
         --allow-reset-optimizer)
             allow_reset_optimizer=true
+            ;;
+        --reset-adam-moments)
+            reset_adam_moments=true
             ;;
         --view-image)
             view_image=true
@@ -424,6 +429,7 @@ fi
 
 trainer_options=()
 $view_image && trainer_options+=(--view-image)
+$reset_adam_moments && trainer_options+=(--reset-adam-moments)
 [[ "$mode" == fresh ]] && trainer_options+=(--clear-weights)
 
 echo
@@ -444,7 +450,7 @@ if $dry_run; then
         [[ -f "$latest" ]] && dry_resume_source=$latest
         [[ -z "$dry_resume_source" && -f "$weights" ]] && dry_resume_source=$weights
         [[ -n "$dry_resume_source" ]] || { echo "No checkpoint found to resume in $run_dir" >&2; exit 1; }
-        if model_uses_adam "$model_file" && [[ ! -f "$dry_resume_source.optimizer" ]] && ! $allow_reset_optimizer; then
+        if model_uses_adam "$model_file" && [[ ! -f "$dry_resume_source.optimizer" ]] && ! $allow_reset_optimizer && ! $reset_adam_moments; then
             echo "Adam state is missing: $dry_resume_source.optimizer" >&2
             exit 1
         fi
@@ -503,7 +509,7 @@ else
     [[ -z "$resume_source" && -f "$weights" ]] && resume_source=$weights
     [[ -n "$resume_source" ]] || { echo "No checkpoint found to resume in $run_dir" >&2; exit 1; }
 
-    if model_uses_adam "$model_file" && [[ ! -f "$resume_source.optimizer" ]]; then
+    if model_uses_adam "$model_file" && [[ ! -f "$resume_source.optimizer" ]] && ! $reset_adam_moments; then
         if ! $allow_reset_optimizer; then
             echo "Adam state is missing: $resume_source.optimizer" >&2
             echo "Use --allow-reset-optimizer only if restarting Adam moments is intentional." >&2
