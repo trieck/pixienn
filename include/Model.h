@@ -268,6 +268,7 @@ private:
     void writeMicroAvgF1();
     void writeAvgValLoss();
     void writeAccuracy();
+    void writeValidationDuration(double seconds);
 
     Mode mode_ = Mode::INFERRING;
 
@@ -655,6 +656,20 @@ void Model<D>::writeAccuracy()
 }
 
 template<Device D>
+void Model<D>::writeValidationDuration(double seconds)
+{
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(optimizerStep_);
+
+    auto* value = event.mutable_summary()->add_value();
+    value->set_tag("validation/duration-seconds");
+    value->set_simple_value(static_cast<float>(seconds));
+    writer_->write(event);
+}
+
+template<Device D>
 float Model<D>::trainBatch()
 {
     trainBatch_ = trainLoader_->next();
@@ -827,7 +842,11 @@ Detections Model<D>::detections(const cv::Size& imageSize) const
 template<Device D>
 void Model<D>::overlay(const std::string& imageFile, const Detections& detects) const
 {
-    auto img = imread(imageFile.c_str(), channels_);
+    // Render overlays on an 8-bit display canvas. TIFF input is loaded as
+    // normalized float data for inference, but Cairo and JPEG require 8-bit
+    // pixels. imsaveTiff() converts this display canvas back to normalized
+    // float RGB when --tiff32 is requested.
+    auto img = imread8(imageFile.c_str(), channels_);
     cv::cvtColor(img, img, cv::COLOR_BGR2BGRA);
 
     ColorMaps colors(options_.count("color-map") ? option<std::string>("color-map") : "fluorescent");
@@ -1647,6 +1666,7 @@ template<Device D>
 void Model<D>::validate()
 {
     std::cout << "Pausing training to validate..." << std::flush;
+    const auto validationStart = std::chrono::steady_clock::now();
 
     Validator <D> validator(valConfidenceThresh_, valApConfidenceThresh_, valIouThresh_, valNmsThresh_, classes());
 
@@ -1656,6 +1676,10 @@ void Model<D>::validate()
         trainBatch_ = valLoader_->next();
         validator.validate(*this, trainBatch_);
     }
+
+    const auto validationSeconds = std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - validationStart).count();
+    writeValidationDuration(validationSeconds);
 
     mAP_ = validator.mAP();
     avgRecall_ = validator.avgRecall();

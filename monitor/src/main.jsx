@@ -22,7 +22,13 @@ function elapsedLabel(timestamp, now = Date.now()) {
   if (seconds < 60) return `${seconds}s ago`;
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes}m ago`;
-  return `${Math.floor(minutes / 60)}h ${minutes % 60}m ago`;
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  return days ? `${days}d ${hours % 24}h ${minutes % 60}m ago` : `${hours}h ${minutes % 60}m ago`;
+}
+
+function localDateLabel(timestamp) {
+  return timestamp == null ? null : new Date(timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 function countdownLabel(timestamp, now = Date.now()) {
@@ -241,7 +247,7 @@ function App() {
     {loading && <div className="monitor-loading-overlay" role="status" aria-live="polite"><div className="monitor-loading-dialog"><span className="monitor-loading-spinner" /><strong>Loading training history</strong><small>Reading event data…</small></div></div>}
 
     <section className="pixienn-banner" aria-label="PixieNN neural network illustration">
-      <div className="banner-meta"><Meta label="mode" value={meta.mode} /><Meta label="started" value={meta.started_utc} /><Meta label="configuration" value={meta.configuration?.split('/').pop()} /><Meta label="engine" value={meta.executable?.split('/').pop()} /></div>
+      <div className="banner-meta"><Meta label="mode" value={meta.mode} /><Meta label="resumed" value={meta.started_utc ? localDateLabel(Date.parse(meta.started_utc)) : null} /><Meta label="training since" value={localDateLabel(data?.earliestTrainingEvent?.at)} /><Meta label="training duration" value={data?.earliestTrainingEvent?.at ? elapsedLabel(data.earliestTrainingEvent.at, clockNow) : null} /><Meta label="configuration" value={meta.configuration?.split('/').pop()} /><Meta label="engine" value={meta.executable?.split('/').pop()} /></div>
     </section>
 
     <section className="cards">
@@ -263,6 +269,7 @@ function App() {
     </section>
 
     <PRCurvePanel curve={data?.eventFile?.prCurves?.['validation/micro-pr/curve'] || data?.eventFile?.prCurves?.['validation/micro-pr/pr_curves']} />
+    <TrainingActivityPanel activity={data?.eventFile?.activity} />
     <section className="grid">
       <div className="panel chart">
         <div className="panel-head"><div><span className="kicker">LOSS TRAJECTORY</span><h2>Average loss</h2></div><div style={{ display: 'flex', gap: 8 }}><select value={lossWindow} onChange={event => setLossWindow(event.target.value)}><option value="all">Full run · auto-scaled</option><option value="10000">Last 10,000 steps</option><option value="2000">Last 2,000 steps</option><option value="500">Last 500 steps</option></select><select value={scale} onChange={event => setScale(event.target.value)}><option value="linear">Linear</option><option value="log">Log scale</option></select><select aria-label="Average loss bucket count" value={lossBucketCount} onChange={event => setLossBucketCount(Number(event.target.value))}><option value="24">24 buckets</option><option value="48">48 buckets</option><option value="72">72 buckets</option><option value="120">120 buckets</option></select></div></div>
@@ -278,6 +285,31 @@ function App() {
     <EventScalarsPanel run={run} series={data?.eventFile?.series || {}} tails={data?.eventFile?.tails || {}} />
     <footer><span><span className="live-dot" /> event stream connected</span><span>PIXIENN / LOCAL RUN OBSERVATORY</span></footer>
   </main>;
+}
+
+function formatDuration(seconds) {
+  if (!Number.isFinite(seconds)) return '—';
+  const totalMinutes = Math.round(Math.max(0, seconds) / 60);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  return days ? `${days}d ${hours}h ${minutes}m` : hours ? `${hours}h ${minutes}m` : `${minutes}m`;
+}
+
+function TrainingActivityPanel({ activity }) {
+  if (!activity) {
+    return <section className="training-activity panel"><div className="panel-head"><div><span className="kicker">RUN ACTIVITY</span><h2>Training time vs. gaps</h2></div></div><div className="empty">Waiting for enough timestamped training events…</div></section>;
+  }
+  const start = Number(activity.start);
+  const end = Number(activity.end);
+  const span = Math.max(1, end - start);
+  const visibleSegments = (activity.segments || []).filter(segment => segment.seconds > 0);
+  return <section className="training-activity panel">
+    <div className="panel-head"><div><span className="kicker">RUN ACTIVITY · INFERRED FROM EVENT TIMESTAMPS</span><h2>Training time vs. gaps</h2></div><span className="training-activity-range">{new Date(start).toLocaleDateString()} → {new Date(end).toLocaleDateString()}</span></div>
+    <div className="activity-summary"><span><i className="active" /> active training <b>{formatDuration(activity.activeSeconds)}</b></span><span><i className="validation" /> validation <b>{formatDuration(activity.validationSeconds)}</b></span><span><i className="offline" /> offline gaps <b>{formatDuration(activity.offlineSeconds)}</b></span></div>
+    <div className="activity-track" aria-label="Training activity timeline">{visibleSegments.map((segment, index) => <span key={`${segment.kind}-${index}`} className={segment.kind} style={{ width: `${segment.seconds / span * 100}%` }} title={`${segment.kind} · ${formatDuration(segment.seconds)}`} />)}</div>
+    <div className="activity-axis"><span>{new Date(start).toLocaleString()}</span><span>{new Date(end).toLocaleString()}</span></div>
+  </section>;
 }
 
 function ValidationBarsPanel({ series, tag, label }) {

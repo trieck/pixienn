@@ -23,7 +23,7 @@ MAX_DISPLAY_POINTS = 1_200
 MAX_WINDOW_POINTS = 10_000
 MAX_CARD_WINDOW_POINTS = 5_000
 WINDOW_TAGS = {"avg-loss", "learning-rate"}
-CACHE_VERSION = 6
+CACHE_VERSION = 7
 CACHE_UPDATE_BYTES = 1_000_000
 event_loader = EventFileLoader(event_file)
 tail_series = {tag: deque(maxlen=MAX_WINDOW_POINTS) for tag in WINDOW_TAGS}
@@ -140,11 +140,52 @@ def save_cache(response):
         pass
 
 
+def activity_summary():
+    events = sorted((point for point in full_series.get("avg-loss", []) if math.isfinite(point.get("wall_time", math.nan))), key=lambda point: point["wall_time"])
+    if len(events) < 2:
+        return None
+    validation_ends = sorted((point for tag in ("mAP50", "micro-avg-f1") for point in full_series.get(tag, []) if math.isfinite(point.get("wall_time", math.nan))), key=lambda point: point["wall_time"])
+    exact = sorted((point for point in full_series.get("validation/duration-seconds", []) if math.isfinite(point.get("wall_time", math.nan)) and math.isfinite(point.get("value", math.nan))), key=lambda point: point["wall_time"])
+    gaps = sorted(b["wall_time"] - a["wall_time"] for a, b in zip(events, events[1:]) if 0 < b["wall_time"] - a["wall_time"] <= 300)
+    cadence = gaps[len(gaps) // 2] if gaps else 60.0
+    candidates = []
+    for left, right in zip(events, events[1:]):
+        gap = right["wall_time"] - left["wall_time"]
+        if gap <= cadence * 2 or gap > 2 * 60 * 60:
+            continue
+        if any(left["wall_time"] < point["wall_time"] <= right["wall_time"] for point in validation_ends):
+            candidates.append(gap - cadence)
+    candidates.sort()
+    inferred = candidates[len(candidates) // 2] if candidates else 0.0
+    active = validation = offline = 0.0
+    segments = []
+    for left, right in zip(events, events[1:]):
+        gap = max(0.0, right["wall_time"] - left["wall_time"])
+        exact_seconds = sum(max(0.0, point["value"]) for point in exact if left["wall_time"] < point["wall_time"] <= right["wall_time"])
+        has_validation = any(left["wall_time"] < point["wall_time"] <= right["wall_time"] for point in validation_ends)
+        validation_gap = min(max(0.0, gap - cadence), inferred) if has_validation and gap > cadence * 2 else 0.0
+        validation_gap = exact_seconds or validation_gap
+        remaining = max(0.0, gap - validation_gap)
+        if remaining > 15 * 60:
+            active_part = min(cadence, remaining)
+            offline_part = remaining - active_part
+            active += active_part
+            offline += offline_part
+            if active_part: segments.append({"kind": "active", "seconds": active_part})
+            if offline_part: segments.append({"kind": "offline", "seconds": offline_part})
+        else:
+            active += remaining
+            if remaining: segments.append({"kind": "active", "seconds": remaining})
+        validation += validation_gap
+        if validation_gap: segments.append({"kind": "validation", "seconds": validation_gap})
+    return {"start": events[0]["wall_time"] * 1000, "end": events[-1]["wall_time"] * 1000, "activeSeconds": active, "validationSeconds": validation, "offlineSeconds": offline, "segments": segments}
+
+
 def current_response():
     series = {tag: display_series(values) for tag, values in full_series.items()}
     windows = {tag: list(values) for tag, values in tail_series.items() if values}
     tails = {tag: list(values) for tag, values in card_tail_series.items() if values}
-    return {"series": series, "windows": windows, "tails": tails, "prCurves": pr_curves}
+    return {"series": series, "windows": windows, "tails": tails, "prCurves": pr_curves, "activity": activity_summary()}
 
 
 cached_response = load_cache()

@@ -180,6 +180,29 @@
 
 #root .pr-panel{margin-top:20px}
 #root .pr-panel{border-radius:18px}
+#root .training-activity{margin-top:20px;padding:22px}
+#root .training-activity-range{color:#687386;font-size:10px;font-variant-numeric:tabular-nums}
+#root .activity-summary{display:flex;flex-wrap:wrap;gap:22px;margin-top:20px;color:#687386;font-size:11px}
+#root .activity-summary span{display:flex;align-items:center;gap:7px}
+#root .activity-summary i{width:10px;height:10px;border-radius:3px}
+#root .activity-summary i.active{background:#5367f4}.activity-summary i.validation{background:#d09422}.activity-summary i.offline{background:#aeb7c4}
+#root .activity-summary b{color:#303743;font-size:13px;font-variant-numeric:tabular-nums}
+#root .activity-track{display:flex;height:26px;margin-top:18px;overflow:hidden;border:1px solid #cbd1da;border-radius:5px;background:#eef1f4;box-shadow:inset 0 1px #fff}
+#root .activity-track span{display:block;min-width:1px;height:100%;border-right:1px solid #ffffff66}
+#root .activity-track .active{background:#5367f4}.activity-track .validation{background:#d09422}.activity-track .offline{background:#aeb7c4}
+#root .activity-axis{display:flex;justify-content:space-between;margin-top:8px;color:#687386;font-size:10px;font-variant-numeric:tabular-nums}
+#root.theme-night .training-activity-range,#root.theme-night .activity-summary,#root.theme-night .activity-axis{color:#a8bad0}
+#root.theme-night .activity-summary b{color:#edf6ff}
+#root.theme-night .activity-track{border-color:#39516c;background:#26364a}
+#root.theme-terminal .training-activity-range,#root.theme-terminal .activity-summary,#root.theme-terminal .activity-axis{color:#9ee5b4}
+#root.theme-terminal .activity-summary b{color:#c6f7d5}
+#root.theme-terminal .activity-track{border-color:#277542;background:#174d2b}
+#root.theme-brown .training-activity-range,#root.theme-brown .activity-summary,#root.theme-brown .activity-axis{color:#d8b99d}
+#root.theme-brown .activity-summary b{color:#ffe8c9}
+#root.theme-brown .activity-track{border-color:#a87452;background:#594033}
+#root.theme-davinci .training-activity-range,#root.theme-davinci .activity-summary,#root.theme-davinci .activity-axis{color:#514b3d}
+#root.theme-davinci .activity-summary b{color:#27261f}
+#root.theme-davinci .activity-track{border-color:#827b6c;background:#bdb5a5;border-radius:0;box-shadow:none}
 #root .validation-card-grid{display:grid;grid-template-columns:1fr;gap:16px;margin-top:16px}
 #root .validation-bars{margin:0;padding:22px;--validation-axis-bg:#fff;--validation-axis-border:#e1e4e8;--validation-axis-color:#687386}
 #root .validation-bars-note{color:#687386;font-size:10px;font-variant-numeric:tabular-nums}
@@ -641,6 +664,13 @@
 #root.theme-davinci .validation-bars-grid i{border-color:#bdb5a5}
 #root.theme-davinci .validation-bars{--validation-axis-bg:#d8d3c5;--validation-axis-border:#827b6c;--validation-axis-color:#27261f}
 #root.theme-davinci .validation-bars .validation-bars-axis span{background:#d8d3c5;color:#27261f}
+
+/* Improve the timestamp contrast in the monitor chrome. */
+#root nav small{color:#687386}
+#root.theme-night nav small{color:#a8bad0}
+#root.theme-terminal nav small{color:#9ee5b4}
+#root.theme-brown nav small{color:#d8b99d}
+#root.theme-davinci nav small{color:#514b3d}
 #root.theme-davinci .validation-bar{border-radius:0;box-shadow:none}
 
 @media(max-width:700px){#root .validation-bars-caption{flex-wrap:wrap;gap:7px}#root .validation-bars-caption>span:last-child{margin-left:auto}}

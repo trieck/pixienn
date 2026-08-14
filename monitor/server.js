@@ -263,11 +263,11 @@ async function eventFileSnapshot(dir) {
     const result = await reader.request();
     const series = result.series || {};
     const latest = Object.fromEntries(Object.entries(series).map(([tag, values]) => [tag, values.at(-1) || null]));
-    return { tags: Object.keys(series), series, latest, windows: result.windows || {}, tails: result.tails || {}, prCurves: result.prCurves || {}, eventUpdatedAt: event.mtime };
+    return { tags: Object.keys(series), series, latest, windows: result.windows || {}, tails: result.tails || {}, prCurves: result.prCurves || {}, activity: result.activity || null, eventUpdatedAt: event.mtime };
   } catch (error) {
     const result = reader.last?.series || {};
     const latest = Object.fromEntries(Object.entries(result).map(([tag, values]) => [tag, values.at(-1) || null]));
-    return { tags: Object.keys(result), series: result, latest, windows: reader.last?.windows || {}, tails: reader.last?.tails || {}, prCurves: reader.last?.prCurves || {}, eventUpdatedAt: event.mtime, error: error.message };
+    return { tags: Object.keys(result), series: result, latest, windows: reader.last?.windows || {}, tails: reader.last?.tails || {}, prCurves: reader.last?.prCurves || {}, activity: reader.last?.activity || null, eventUpdatedAt: event.mtime, error: error.message };
   }
 }
 
@@ -335,6 +335,9 @@ async function snapshot(runName, selectedLossWindow = null) {
   }));
   if (metadata.started_utc) metadata.started_utc = localDate(metadata.started_utc);
   const eventFile = await eventFileSnapshot(dir);
+  const earliestTrainingEvent = [...(eventFile.series['avg-loss'] || [])]
+    .filter(point => Number.isFinite(Number(point.wall_time)))
+    .sort((a, b) => Number(a.wall_time) - Number(b.wall_time))[0] || null;
   const metricSeries = selectedLossWindow
     ? (() => {
       const lossSource = eventFile.windows['avg-loss'] || eventFile.series['avg-loss'] || [];
@@ -362,7 +365,7 @@ async function snapshot(runName, selectedLossWindow = null) {
   // coupling the monitor to the unbounded console log.
   const active = Boolean(eventFile.eventUpdatedAt && Date.now() - eventFile.eventUpdatedAt < 120000);
   const { windows, ...publicEventFile } = eventFile;
-  return { name, metadata, latest, points, trend: { average: trendAverage, priorAverage, change, direction }, eventFile: publicEventFile, validationSchedule: validationSchedule(metadata, eventFile), checkpoints: checkpoints(dir), validationThreshold: validationThreshold(metadata), active, updatedAt: Date.now() };
+  return { name, metadata, earliestTrainingEvent: earliestTrainingEvent ? { at: Number(earliestTrainingEvent.wall_time) * 1000, step: Number(earliestTrainingEvent.raw_step ?? earliestTrainingEvent.step) } : null, latest, points, trend: { average: trendAverage, priorAverage, change, direction }, eventFile: publicEventFile, validationSchedule: validationSchedule(metadata, eventFile), checkpoints: checkpoints(dir), validationThreshold: validationThreshold(metadata), active, updatedAt: Date.now() };
 }
 
 function sharedSnapshot(runName, selectedLossWindow = null) {

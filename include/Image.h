@@ -56,6 +56,10 @@ void calculateROI(int w, int h, int dx, int dy, cv::Rect& roiSrc, cv::Rect& roiD
 // Read an image from a file
 cv::Mat imread(const char* path, int channels);
 
+// Read an image as an 8-bit display image. Normalized float TIFF data is
+// converted back to 8-bit BGR so drawing and standard image codecs can use it.
+cv::Mat imread8(const char* path, int channels);
+
 // Read an image from a file with a specific height, width and channels
 LBMat imread(const char* path, int width, int height, int channels);
 
@@ -101,4 +105,3 @@ void imtabbedText(cv::Mat& image, const char* text, const cv::Point& ptOrg, uint
 uint32_t imtextcolor(uint32_t color);
 
 } // px
-

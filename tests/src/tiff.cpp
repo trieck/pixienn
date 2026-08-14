@@ -21,6 +21,7 @@
 #include <opencv2/core.hpp>
 
 #include "Error.h"
+#include "Image.h"
 #include "TiffIO.h"
 
 using namespace boost::filesystem;
@@ -88,5 +89,29 @@ TEST_F(TIFFIOTest, WriteUnsupportedImageType)
     EXPECT_THROW(writeTIFF(imagePath_.string().c_str(), unsupportedImage), px::Error);
 }
 
-}  // namespace px
+TEST_F(TIFFIOTest, Read8ConvertsNormalizedFloatTiffForDisplay)
+{
+    cv::Mat sampleImage(2, 2, CV_32FC3, cv::Scalar(0.5f, 0.3f, 0.2f));
+    writeTIFF(imagePath_.string().c_str(), sampleImage);
 
+    const auto displayImage = imread8(imagePath_.string().c_str(), 3);
+
+    EXPECT_EQ(displayImage.type(), CV_8UC3);
+    EXPECT_EQ(displayImage.at<cv::Vec3b>(0, 0), cv::Vec3b(51, 76, 128));
+}
+
+TEST_F(TIFFIOTest, SaveDisplayImageAsUsableFloatTiff)
+{
+    cv::Mat displayImage(2, 2, CV_8UC4, cv::Scalar(51, 76, 128, 255));
+    imsaveTiff(imagePath_.string().c_str(), displayImage);
+
+    const auto floatImage = readTIFF(imagePath_.string().c_str());
+
+    EXPECT_EQ(floatImage.type(), CV_32FC3);
+    EXPECT_TRUE(cv::checkRange(floatImage, true, nullptr, 0.0, 1.0));
+    EXPECT_NEAR(floatImage.at<cv::Vec3f>(0, 0)[0], 0.5f, 1.0f / 255.0f);
+    EXPECT_NEAR(floatImage.at<cv::Vec3f>(0, 0)[1], 0.3f, 1.0f / 255.0f);
+    EXPECT_NEAR(floatImage.at<cv::Vec3f>(0, 0)[2], 0.2f, 1.0f / 255.0f);
+}
+
+}  // namespace px

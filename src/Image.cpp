@@ -81,6 +81,29 @@ Mat imread(const char* path, int channels)
     return image;
 }
 
+Mat imread8(const char* path, int channels)
+{
+    auto image = imread(path, channels);
+
+    if (image.depth() != CV_32F) {
+        return image;
+    }
+
+    // TIFFIO returns RGB float images normalized to [0, 1]. Overlay drawing,
+    // Cairo text, and JPEG all expect an 8-bit display image instead.
+    Mat bgr;
+    if (image.channels() == 3) {
+        cv::cvtColor(image, bgr, cv::COLOR_RGB2BGR);
+    } else {
+        bgr = image;
+    }
+
+    bgr *= 255.0f;
+    Mat out;
+    bgr.convertTo(out, CV_MAKETYPE(CV_8U, bgr.channels()));
+    return out;
+}
+
 LBMat imread(const char* path, int width, int height, int channels)
 {
     auto image = imread(path, channels);
@@ -513,4 +536,3 @@ uint32_t imtextcolor(uint32_t bgColor)
 }
 
 } // px
-
