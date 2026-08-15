@@ -33,18 +33,18 @@ static std::string cudaErrorString()
     return cudaErrorString(cudaPeekAtLastError());
 }
 
-CudaError::CudaError() noexcept: error_(cudaPeekAtLastError()),
-                                 Error(__FILENAME__, __LINE__, __FUNCTION__, cudaErrorString())
+CudaError::CudaError() noexcept: Error(__FILENAME__, __LINE__, __FUNCTION__, cudaErrorString()),
+                                 error_(cudaPeekAtLastError())
 {
 }
 
-CudaError::CudaError(cudaError_t error) noexcept: error_(error),
-                                                  Error(__FILENAME__, __LINE__, __FUNCTION__, cudaErrorString(error))
+CudaError::CudaError(cudaError_t error) noexcept: Error(__FILENAME__, __LINE__, __FUNCTION__, cudaErrorString(error)),
+                                                  error_(error)
 {
 }
 
 CudaError::CudaError(cudaError_t error, const char* file, unsigned int line, const char* function,
-                     const std::string& message) noexcept: error_(error), Error(file, line, function, message)
+                     const std::string& message) noexcept: Error(file, line, function, message), error_(error)
 {
 }
 

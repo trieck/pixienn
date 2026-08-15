@@ -86,6 +86,7 @@ void RecordWriter::write(const std::string& record)
 
 void RecordWriter::populateHeader(char* header, const char* data, size_t size)
 {
+    (void)data;
     encodeFixed64(header + 0, size);
     encodeFixed32(header + sizeof(uint64_t), MaskedCrc(header, sizeof(uint64_t)));
 }
@@ -116,4 +117,3 @@ void RecordWriter::close()
 }
 
 }   // px
-

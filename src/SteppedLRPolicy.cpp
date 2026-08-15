@@ -42,7 +42,7 @@ float SteppedLRPolicy::update(int batchNum)
 {
     lr_ = origLr_;
 
-    for (auto i = 0; i < steps_.size(); ++i) {
+    for (std::size_t i = 0; i < steps_.size(); ++i) {
         if (steps_[i] > batchNum) {
             break;
         }

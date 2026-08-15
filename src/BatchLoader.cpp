@@ -28,12 +28,13 @@
 namespace px {
 
 BatchLoader::BatchLoader(std::string imagesPath, std::string labelsPath, std::uint32_t batchSize,
-                         std::uint32_t channels, std::uint32_t height, std::uint32_t width,
-                         std::vector<std::string> labels, const ImageAugmenter::Ptr& augmenter,
-                         bool viewImage, std::uint32_t queueSize, bool randomize)
-        : imagesPath_(std::move(imagesPath)), labelsPath_(std::move(labelsPath)), batchSize_(batchSize),
-          channels_(channels), height_(height), width_(width), stop_(false), labels_(std::move(labels)),
-          augmenter_(augmenter), viewImage_(viewImage), queueSize_(queueSize), randomize_(randomize),
+        std::uint32_t channels, std::uint32_t height, std::uint32_t width,
+        std::vector<std::string> labels, const ImageAugmenter::Ptr& augmenter,
+        bool viewImage, std::uint32_t queueSize, bool randomize)
+        : augmenter_(augmenter), labels_(std::move(labels)), imagesPath_(std::move(imagesPath)),
+          labelsPath_(std::move(labelsPath)), batchSize_(batchSize), channels_(channels),
+          height_(height), width_(width), queueSize_(queueSize), stop_(false), viewImage_(viewImage),
+          randomize_(randomize),
           generator_(std::random_device{}())
 {
     PX_CHECK(queueSize_ > 0, "Batch loader queue size must be positive.");
@@ -85,7 +86,7 @@ void BatchLoader::loadBatches()
             // without the queue mutex. Consumers can pop prefetched batches and
             // other workers can prepare subsequent batches concurrently.
             MiniBatch batch(batchSize_, channels_, height_, width_);
-            for (auto i = 0; i < batchSize_; ++i) {
+            for (std::uint32_t i = 0; i < batchSize_; ++i) {
                 auto imgLabels = loadImgLabels(paths[i]);
 
                 batch.setImageData(i, imgLabels.first);  // the image data must be copied
@@ -232,7 +233,9 @@ GroundTruthVec BatchLoader::groundTruth(const std::string& imagePath)
     float x, y, w, h;
     while (ifs >> id >> x >> y >> w >> h) {
         GroundTruth gt;
-        gt.classId = id;
+        PX_CHECK(id <= static_cast<std::size_t>(std::numeric_limits<int>::max()),
+                 "Class ID is too large: %zu.", id);
+        gt.classId = static_cast<int>(id);
 
         gt.box.x() = constrain(0.0f, 1.0f, x);
         gt.box.y() = constrain(0.0f, 1.0f, y);

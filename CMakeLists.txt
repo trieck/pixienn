@@ -2,8 +2,42 @@ cmake_minimum_required(VERSION 3.15)
 project(pixienn)
 
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(BLA_VENDOR OpenBLAS)
+
+option(PIXIENN_ENABLE_WARNINGS
+        "Enable the project warning policy"
+        ON)
+option(PIXIENN_ENABLE_CLANG_TIDY
+        "Run clang-tidy during C++ compilation"
+        OFF)
+option(PIXIENN_ENABLE_CLANG_FORMAT
+        "Provide the clang-format-check target"
+        ON)
+
+if (PIXIENN_ENABLE_WARNINGS)
+    add_compile_options(
+            $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-Wall>
+            $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-Wextra>
+            $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-Werror>
+            $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-Wno-system-headers>)
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND
+            CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 13)
+        add_compile_options(-Wno-deprecated-enum-enum-conversion)
+    endif ()
+endif ()
+
+if (PIXIENN_ENABLE_CLANG_TIDY)
+    find_program(PIXIENN_CLANG_TIDY_EXECUTABLE NAMES clang-tidy clang-tidy-18 REQUIRED)
+    set(CMAKE_CXX_CLANG_TIDY
+            "${PIXIENN_CLANG_TIDY_EXECUTABLE};--config-file=${CMAKE_SOURCE_DIR}/.clang-tidy"
+            CACHE STRING "clang-tidy command" FORCE)
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        message(STATUS "clang-tidy with GCC requires the GCC compile database; use a Clang compiler for CMake-integrated tidy runs")
+    endif ()
+endif ()
 
 option(PIXIENN_BUILD_PYTHON_BINDINGS
         "Build the optional Python interface"
@@ -158,6 +192,23 @@ list(APPEND SOURCES
 
 add_library(pixienn STATIC ${SOURCES})
 set_target_properties(pixienn PROPERTIES OUTPUT_NAME "pixienn")
+
+if (PIXIENN_ENABLE_CLANG_FORMAT)
+    find_program(PIXIENN_CLANG_FORMAT_EXECUTABLE NAMES clang-format clang-format-18)
+    if (PIXIENN_CLANG_FORMAT_EXECUTABLE)
+        file(GLOB_RECURSE PIXIENN_FORMAT_FILES CONFIGURE_DEPENDS
+                "${CMAKE_SOURCE_DIR}/include/*.h"
+                "${CMAKE_SOURCE_DIR}/src/*.cpp"
+                "${CMAKE_SOURCE_DIR}/tests/src/*.cpp")
+        add_custom_target(pixienn-format-check
+                COMMAND ${PIXIENN_CLANG_FORMAT_EXECUTABLE}
+                --dry-run --Werror --style=file ${PIXIENN_FORMAT_FILES}
+                WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                COMMENT "Checking C++ formatting")
+    else ()
+        message(STATUS "clang-format not found; pixienn-format-check is unavailable")
+    endif ()
+endif ()
 
 add_subdirectory(proto)
 add_dependencies(pixienn pixienn_proto)

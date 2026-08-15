@@ -130,7 +130,8 @@ YoloLayer<D>::YoloLayer(Model<D>& model, const YAML::Node& layerDef) : Layer<D>(
 
     auto nclasses = this->classes();
 
-    PX_CHECK(anchors_.size() == 2 * numAnchors_, "anchors must be twice num size");
+    PX_CHECK(anchors_.size() == static_cast<std::size_t>(2 * numAnchors_),
+             "anchors must be twice num size");
     PX_CHECK(this->channels() == numMasks_ * (nclasses + 4 + 1),
              "YoloLayer: output channel count must match mask-based anchor count");
 

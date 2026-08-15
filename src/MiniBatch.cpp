@@ -24,8 +24,7 @@ MiniBatch::MiniBatch() : batchSize_(0), channels_(0), height_(0), width_(0)
 }
 
 MiniBatch::MiniBatch(std::uint32_t batchSize, uint32_t channels, uint32_t height, uint32_t width)
-        : batchSize_(batchSize), channels_(channels), height_(height), width_(width),
-          groundTruth_(batchSize)
+        : groundTruth_(batchSize), batchSize_(batchSize), channels_(channels), height_(height), width_(width)
 {
     imageData_ = PxCpuVector(batchSize * height * channels * width, 0.0f);
 }

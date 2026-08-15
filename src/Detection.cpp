@@ -20,7 +20,7 @@
 namespace px {
 
 Detection::Detection(cv::Rect2f box, int batchId, int classIndex, float prob)
-        : box_(std::move(box)), batchId_(batchId), classIndex_(classIndex), prob_(prob)
+        : box_(std::move(box)), prob_(prob), classIndex_(classIndex), batchId_(batchId)
 {
 }
 
@@ -45,4 +45,3 @@ int Detection::batchId() const noexcept
 }
 
 }   // px
-

@@ -35,7 +35,7 @@ PxCpuVector exp(const PxCpuVector& input)
 {
     PxCpuVector output(input.size());
 
-    for (auto i = 0; i < input.size(); ++i) {
+    for (PxCpuVector::size_type i = 0; i < input.size(); ++i) {
         output[i] = std::exp(input[i]);
     }
 
@@ -46,7 +46,7 @@ PxCpuVector log(const PxCpuVector& input)
 {
     PxCpuVector output(input.size());
 
-    for (auto i = 0; i < input.size(); ++i) {
+    for (PxCpuVector::size_type i = 0; i < input.size(); ++i) {
         output[i] = std::log(input[i]);
     }
 
@@ -111,7 +111,7 @@ PxCpuVector sigmoid(const PxCpuVector& input)
 {
     PxCpuVector result(input.size());
 
-    for (auto i = 0; i < input.size(); ++i) {
+    for (PxCpuVector::size_type i = 0; i < input.size(); ++i) {
         result[i] = sigmoid(input[i]);
     }
 

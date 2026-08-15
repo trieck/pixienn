@@ -33,7 +33,7 @@ float SmoothSteppedLRPolicy::update(int batchNum)
 {
     // Find the index of the nearest step that is less than or equal to the current batch number
     auto index = 0;
-    for (auto i = 0; i < steps_.size(); ++i) {
+    for (std::size_t i = 0; i < steps_.size(); ++i) {
         if (steps_[i] > batchNum) {
             break;
         }
@@ -48,7 +48,7 @@ float SmoothSteppedLRPolicy::update(int batchNum)
         auto diff = steps_[index] - batchNum;
         t = 1 - static_cast<float>(diff) / steps_[index];
     } else if (batchNum >= steps_[index]) {
-        if (index == steps_.size() - 1) {
+        if (static_cast<std::size_t>(index) == steps_.size() - 1) {
             currentLR_ = targets_[index];
             return currentLR_;
         }

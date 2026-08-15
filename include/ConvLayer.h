@@ -170,13 +170,13 @@ std::streamoff ConvLayer<D>::saveWeights(std::ostream& os)
 }
 
 template<Device D>
-std::streamoff ConvLayer<D>::loadOptimizer(std::istream& is)
+std::streamoff ConvLayer<D>::loadOptimizer(std::istream& /*is*/)
 {
     return 0;
 }
 
 template<Device D>
-std::streamoff ConvLayer<D>::saveOptimizer(std::ostream& os)
+std::streamoff ConvLayer<D>::saveOptimizer(std::ostream& /*os*/)
 {
     return 0;
 }
@@ -205,7 +205,6 @@ void ConvLayer<D>::forward(const V& input)
 
     auto* pin = input.data();
     auto* pout = this->output_.data();
-
     auto alpha = 1.0f;
     auto beta = 0.0f;
 
@@ -261,8 +260,6 @@ void ConvLayer<D>::backward(const V& input, V* grad)
 
     const auto* pin = input.data();
     auto* pdelta = this->delta_.data();
-    auto* pout = this->output_.data();
-
     auto alpha = 1.0f;
     auto beta = 1.0f;
 

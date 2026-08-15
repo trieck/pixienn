@@ -127,7 +127,7 @@ void compareTensors(const PxCpuVector& baseline,
     normalize(normComputed);
 
     auto meanDiff = 0.0f;
-    for (auto i = 0; i < normBaseline.size(); ++i) {
+    for (PxCpuVector::size_type i = 0; i < normBaseline.size(); ++i) {
         auto diff = std::abs(normBaseline[i] - normComputed[i]);
         meanDiff += diff;
     }

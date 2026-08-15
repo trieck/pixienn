@@ -1,0 +1,11 @@
+Checks: >-
+  -*,
+  performance-*,
+  modernize-use-nullptr,
+  modernize-use-override,
+  clang-diagnostic-*
+WarningsAsErrors: ''
+HeaderFilterRegex: '(^|/)(include|src|tests)/'
+SystemHeaders: false
+FormatStyle: file
+InheritParentConfig: false

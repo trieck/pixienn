@@ -18,7 +18,7 @@
 
 #include <numeric>
 
-#if USE_CUDA
+#if defined(USE_CUDA) && USE_CUDA
 
 #include <cuda_runtime.h>
 #include "CudaUtils.cuh"
@@ -210,7 +210,7 @@ template<typename T, typename A>
 auto PxCpuVectorT<T, A>::operator+(T value) const -> PxCpuVectorT
 {
     PxCpuVectorT<T, A> sum(size());
-    for (auto i = 0; i < size(); ++i) {
+    for (size_type i = 0; i < size(); ++i) {
         sum[i] = (*this)[i] + value;
     }
 
@@ -221,7 +221,7 @@ template<typename T, typename A>
 auto PxCpuVectorT<T, A>::operator-(T value) const -> PxCpuVectorT
 {
     PxCpuVectorT<T, A> difference(size());
-    for (auto i = 0; i < size(); ++i) {
+    for (size_type i = 0; i < size(); ++i) {
         difference[i] = (*this)[i] - value;
     }
 
@@ -232,7 +232,7 @@ template<typename T, typename A>
 auto PxCpuVectorT<T, A>::operator*(T value) const -> PxCpuVectorT
 {
     PxCpuVectorT<T, A> product(size());
-    for (auto i = 0; i < size(); ++i) {
+    for (size_type i = 0; i < size(); ++i) {
         product[i] = (*this)[i] * value;
     }
 
@@ -245,7 +245,7 @@ auto PxCpuVectorT<T, A>::operator/(T value) const -> PxCpuVectorT
     PX_CHECK(value != 0, "Division by zero.");
 
     PxCpuVectorT<T, A> div(size());
-    for (auto i = 0; i < size(); ++i) {
+    for (size_type i = 0; i < size(); ++i) {
         div[i] = (*this)[i] / value;
     }
 
@@ -258,7 +258,7 @@ auto PxCpuVectorT<T, A>::operator+(const PxCpuVectorT& rhs) const -> PxCpuVector
     PX_CHECK(size() == rhs.size(), "vectors must be same size.");
 
     PxCpuVectorT<T, A> sum(size());
-    for (auto i = 0; i < size(); ++i) {
+    for (size_type i = 0; i < size(); ++i) {
         sum[i] = (*this)[i] + rhs[i];
     }
 
@@ -271,7 +271,7 @@ auto PxCpuVectorT<T, A>::operator-(const PxCpuVectorT& rhs) const -> PxCpuVector
     PX_CHECK(size() == rhs.size(), "vectors must be same size.");
 
     PxCpuVectorT<T, A> diff(size());
-    for (auto i = 0; i < size(); ++i) {
+    for (size_type i = 0; i < size(); ++i) {
         diff[i] = (*this)[i] - rhs[i];
     }
 
@@ -720,12 +720,12 @@ PxTensor<T, N>::size_type PxTensor<T, N>::size(PxTensor::size_type dim) const
 }
 
 template<typename T, std::size_t N>
-PxTensor<T, N>::PxTensor(Device dev) : dev_(dev)
+PxTensor<T, N>::PxTensor(Device dev) : shape_{}, strides_{}, dev_(dev)
 {
 }
 
 template<typename T, std::size_t N>
-PxTensor<T, N>::PxTensor(Device dev, const shape_type& shape) : dev_(dev), shape_(shape)
+PxTensor<T, N>::PxTensor(Device dev, const shape_type& shape) : shape_(shape), strides_{}, dev_(dev)
 {
     compute_strides(shape, strides_);
 }
@@ -825,7 +825,7 @@ template<typename T, Device D, typename C, std::size_t N>
 auto PxTensorImpl<T, D, C, N>::operator+(T value) const -> PxTensorImpl
 {
     PxTensorImpl sum(this->shape());
-    for (auto i = 0; i < this->size(); ++i) {
+    for (size_type i = 0; i < this->size(); ++i) {
         sum[i] = (*this)[i] + value;
     }
 
@@ -836,7 +836,7 @@ template<typename T, Device D, typename C, std::size_t N>
 auto PxTensorImpl<T, D, C, N>::operator-(T value) const -> PxTensorImpl
 {
     PxTensorImpl diff(this->shape());
-    for (auto i = 0; i < this->size(); ++i) {
+    for (size_type i = 0; i < this->size(); ++i) {
         diff[i] = (*this)[i] - value;
     }
 
@@ -847,7 +847,7 @@ template<typename T, Device D, typename C, std::size_t N>
 auto PxTensorImpl<T, D, C, N>::operator*(T value) const -> PxTensorImpl
 {
     PxTensorImpl product(this->shape());
-    for (auto i = 0; i < this->size(); ++i) {
+    for (size_type i = 0; i < this->size(); ++i) {
         product[i] = (*this)[i] * value;
     }
 
@@ -860,7 +860,7 @@ auto PxTensorImpl<T, D, C, N>::operator/(T value) const -> PxTensorImpl
     PX_CHECK(value != 0, "Division by zero.");
 
     PxTensorImpl div(this->shape());
-    for (auto i = 0; i < this->size(); ++i) {
+    for (size_type i = 0; i < this->size(); ++i) {
         div[i] = (*this)[i] / value;
     }
 
@@ -908,8 +908,8 @@ template<typename T, Device D, typename C, std::size_t N>
 PxTensorImpl<T, D, C, N>::PxTensorImpl(const shape_type& shape, std::initializer_list<T>&& init)
         : PxTensor<T, N>(D, shape), container_(PxTensor<T, N>::size())
 {
-    auto isize = std::distance(init.begin(), init.end());
-    auto size = PxTensor<T, N>::size();
+    const auto isize = static_cast<std::size_t>(std::distance(init.begin(), init.end()));
+    const auto size = PxTensor<T, N>::size();
     PX_CHECK(isize == size, "Initializer list size must match shape.");
 
     container_.copy(std::forward<decltype(init)>(init));

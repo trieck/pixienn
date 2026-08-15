@@ -93,7 +93,7 @@ Mat imread8(const char* path, int channels)
     // Cairo text, and JPEG all expect an 8-bit display image instead.
     Mat bgr;
     if (image.channels() == 3) {
-        cv::cvtColor(image, bgr, cv::COLOR_RGB2BGR);
+        cvtColor(image, bgr, COLOR_RGB2BGR);
     } else {
         bgr = image;
     }
@@ -157,7 +157,7 @@ ImageVec imreadVector(const char* path, int width, int height, int channels)
 }
 
 // normalize 8-bit RGB bands and convert to float
-cv::Mat imnormalize(const cv::Mat& image)
+cv::Mat imnormalize(const Mat& image)
 {
     if (image.type() == CV_32FC3 || image.type() == CV_32FC1) {
         return image;

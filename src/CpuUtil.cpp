@@ -38,6 +38,7 @@ im2ColGetPixel(const float* im, int height, int width, int row, int col, int cha
 static void col2ImAddPixel(float* im, int height, int width, int channels, int row, int col, int channel, int pad,
                            float val)
 {
+    (void)channels;
     row -= pad;
     col -= pad;
 
@@ -326,8 +327,6 @@ void varianceDeltaCpu(const float* x, const float* delta, const float* mean, con
 void normalizeDeltaCpu(const float* x, const float* mean, const float* variance, const float* meanDelta,
                        const float* varianceDelta, int batch, int filters, int spatial, float* delta)
 {
-    const auto spatialSize = batch * spatial;
-
     for (auto j = 0; j < batch; ++j) {
         for (auto f = 0; f < filters; ++f) {
             for (auto k = 0; k < spatial; ++k) {

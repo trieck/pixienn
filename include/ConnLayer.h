@@ -42,8 +42,8 @@ public:
 
     std::streamoff loadWeights(std::istream& is) override;
     std::streamoff saveWeights(std::ostream& os) override;
-    std::streamoff loadOptimizer(std::istream& is) override;
-    std::streamoff saveOptimizer(std::ostream& os) override;
+    std::streamoff loadOptimizer(std::istream& /*is*/) override;
+    std::streamoff saveOptimizer(std::ostream& /*os*/) override;
 
     std::ostream& print(std::ostream& os) override;
 
@@ -156,13 +156,13 @@ std::streamoff ConnLayer<D>::saveWeights(std::ostream& os)
 }
 
 template<Device D>
-std::streamoff ConnLayer<D>::loadOptimizer(std::istream& is)
+std::streamoff ConnLayer<D>::loadOptimizer(std::istream& /*is*/)
 {
     return 0;
 }
 
 template<Device D>
-std::streamoff ConnLayer<D>::saveOptimizer(std::ostream& os)
+std::streamoff ConnLayer<D>::saveOptimizer(std::ostream& /*os*/)
 {
     return 0;
 }

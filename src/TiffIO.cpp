@@ -113,14 +113,14 @@ Mat TIFFIO::read() const
     auto buffer = scanLineBuffer();
     auto elementSize = bitsPerSample / 8;
 
-    for (auto row = 0; row < height; row++) {
+    for (std::uint32_t row = 0; row < height; row++) {
         TIFFReadScanline(tiff_, buffer.get(), row);
         auto rowPtr = image.ptr<float>(row);
 
-        for (auto col = 0; col < width; col++) {
+        for (std::uint32_t col = 0; col < width; col++) {
             auto index = col * numChannels;
 
-            for (auto channel = 0; channel < numChannels; channel++) {
+            for (std::uint32_t channel = 0; channel < numChannels; channel++) {
                 auto outIndex = index + channel;
                 auto inIndex = outIndex * elementSize;
 

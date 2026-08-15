@@ -71,6 +71,7 @@ public:
 
     CUDA_CALLABLE float gradient(float x) const
     {
+        (void)x;
         return 1.0f;
     }
 };

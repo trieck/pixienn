@@ -76,9 +76,9 @@ private:
 template<Device D>
 Validator<D>::Validator(float confidenceThreshold, float apConfidenceThreshold, float iouThreshold,
                         float nmsThreshold, int numClasses)
-        : confidenceThreshold_(confidenceThreshold), apConfidenceThreshold_(apConfidenceThreshold),
+        : matrix_(numClasses), predictions_(numClasses), groundTruthCounts_(numClasses, 0),
+          confidenceThreshold_(confidenceThreshold), apConfidenceThreshold_(apConfidenceThreshold),
           iouThreshold_(iouThreshold), nmsThreshold_(nmsThreshold),
-          matrix_(numClasses), predictions_(numClasses), groundTruthCounts_(numClasses, 0),
           totalLoss_(0.0f), seen_(0), correctPredictions_(0),
           totalPredictions_(0)
 {
@@ -304,7 +304,7 @@ void Validator<D>::processDetects(const Detections& detects, const GroundTruths&
 
         std::vector<bool> apMatched(gtv.size(), false);
         for (const auto& detect: apResults) {
-            if (detect.batchId() != b || detect.prob() < apConfidenceThreshold_) {
+            if (detect.batchId() != static_cast<int>(b) || detect.prob() < apConfidenceThreshold_) {
                 continue;
             }
             auto bestIndex = gtv.size();
@@ -327,7 +327,7 @@ void Validator<D>::processDetects(const Detections& detects, const GroundTruths&
         }
 
         for (const auto& detect: results) {
-            if (detect.batchId() != b || detect.prob() < confidenceThreshold_) {
+            if (detect.batchId() != static_cast<int>(b) || detect.prob() < confidenceThreshold_) {
                 continue;
             }
 

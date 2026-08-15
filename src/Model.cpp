@@ -33,6 +33,8 @@ BaseModel::Ptr BaseModel::createModel(const std::string& cfgFile, BaseModel::var
     if (useGpu) {
         return std::make_unique<CudaModel>(cfgFile, options);
     }
+#else
+    (void)useGpu;
 #endif  // USE_CUDA
 
     return std::make_unique<CpuModel>(cfgFile, options);

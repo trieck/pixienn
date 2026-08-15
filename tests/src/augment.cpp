@@ -72,7 +72,6 @@ protected:
         image = makeImage();
 
         int dw = jitter_ * IMAGE_WIDTH / 2;
-        int dh = jitter_ * IMAGE_HEIGHT / 2;
         auto x = IMAGE_WIDTH / 2 + randomUniform(-dw, dw);
         auto y = IMAGE_WIDTH / 2 + randomUniform(-dw, dw);
         auto w = randomUniform(IMAGE_WIDTH / 8, IMAGE_WIDTH / 4);
@@ -140,7 +139,7 @@ TEST_F(AugmentationTest, EdgeDetection)
 
     auto matched = false;
     for (const auto& box: boxes) {
-        auto dbox = darkBox(boxes[0], image.size());
+        auto dbox = darkBox(box, image.size());
         if (nearBox(dbox, gt.box, 1e-1)) {
             matched = true;
             break;
@@ -204,5 +203,5 @@ TEST_F(AugmentationTest, TransformGT)
     }
 
     // EXPECT_TRUE(matched); won't work for boxes not fully contained in the image
+    (void)matched;
 }
-

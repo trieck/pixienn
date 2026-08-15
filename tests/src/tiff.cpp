@@ -49,8 +49,11 @@ protected:
 
     void TearDown() override
     {
-        auto* fp2 = freopen(NULL, "w", stderr);
-        fclose(fp_);
+        if (fp_ != nullptr) {
+            std::fflush(stderr);
+            PX_CHECK(std::freopen(nullptr, "w", stderr) != nullptr, "Could not restore stderr.");
+            fp_ = nullptr;
+        }
         remove(imagePath_);
     }
 };
@@ -76,7 +79,7 @@ TEST_F(TIFFIOTest, ReadWriteTIFF)
     cv::split(sampleImage, sampleChannels);
     cv::split(readImage, readChannels);
 
-    for (int i = 0; i < sampleChannels.size(); ++i) {
+    for (std::size_t i = 0; i < sampleChannels.size(); ++i) {
         cv::Mat diff;
         cv::compare(sampleChannels[i], readChannels[i], diff, cv::CMP_NE);
         EXPECT_TRUE(cv::countNonZero(diff) == 0);

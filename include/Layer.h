@@ -202,25 +202,25 @@ void Layer<D>::print(std::ostream& os, const std::string& name, std::array<int, 
 }
 
 template<Device D>
-std::streamoff Layer<D>::loadWeights(std::istream& is)
+std::streamoff Layer<D>::loadWeights(std::istream& /*is*/)
 {
     return 0;
 }
 
 template<Device D>
-std::streamoff Layer<D>::saveWeights(std::ostream& is)
+std::streamoff Layer<D>::saveWeights(std::ostream& /*is*/)
 {
     return 0;
 }
 
 template<Device D>
-std::streamoff Layer<D>::loadOptimizer(std::istream& is)
+std::streamoff Layer<D>::loadOptimizer(std::istream& /*is*/)
 {
     return 0;
 }
 
 template<Device D>
-std::streamoff Layer<D>::saveOptimizer(std::ostream& os)
+std::streamoff Layer<D>::saveOptimizer(std::ostream& /*os*/)
 {
     return 0;
 }
@@ -375,7 +375,7 @@ auto Layer<D>::output() const noexcept -> const V&
 }
 
 template<Device D>
-void Layer<D>::forward(const V& input)
+void Layer<D>::forward(const V& /*input*/)
 {
     delta_.fill(0);
     output_.fill(0);
@@ -383,7 +383,7 @@ void Layer<D>::forward(const V& input)
 }
 
 template<Device D>
-void Layer<D>::backward(const V& input, V* grad)
+void Layer<D>::backward(const V& /*input*/, V* /*grad*/)
 {
     // Only the incoming activation gradient exists at this point. Calling the
     // virtual hooks here also rescales/clips parameter-update buffers in layers

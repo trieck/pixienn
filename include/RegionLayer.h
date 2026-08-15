@@ -215,7 +215,8 @@ RegionLayer<D>::RegionLayer(Model<D>& model, const YAML::Node& layerDef) : Layer
     thresh_ = this->template property<float>("thresh", 0.5f);
     logInterval_ = this->template property<int>("log_interval", 1000);
 
-    PX_CHECK(anchors_.size() == 2 * num_, "Anchors size does not match number of regions.");
+    PX_CHECK(anchors_.size() == static_cast<std::size_t>(2 * num_),
+             "Anchors size does not match number of regions.");
 
     this->setOutChannels(num_ * (coords_ + 1 + this->classes()));
     this->setOutHeight(this->height());

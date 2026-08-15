@@ -24,7 +24,7 @@ ConstantLRPolicy::ConstantLRPolicy(float initialLR) : lr_(initialLR)
     PX_CHECK(initialLR > 0, "ConstantLRPolicy: initial learning rate must be greater than zero");
 }
 
-float ConstantLRPolicy::update(int batchNum)
+float ConstantLRPolicy::update(int /*batchNum*/)
 {
     return lr_;
 }

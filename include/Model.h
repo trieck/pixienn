@@ -742,7 +742,7 @@ int Model<D>::batch() const noexcept
 template<Device D>
 const Model<D>::LayerPtr& Model<D>::layerAt(int index) const
 {
-    PX_CHECK(index < layers_.size(), "Index out of range.");
+    PX_CHECK(index >= 0 && static_cast<std::size_t>(index) < layers_.size(), "Index out of range.");
 
     return layers_[index];
 }
@@ -1672,7 +1672,7 @@ void Model<D>::validate()
 
     const auto availableBatches = std::max<std::size_t>(1, (valLoader_->size() + batch_ - 1) / batch_);
     const auto batches = std::min<std::size_t>(valBatches_, availableBatches);
-    for (std::size_t i = 0; i < batches; ++i) {
+    for (std::size_t i = 0; i < static_cast<std::size_t>(batches); ++i) {
         trainBatch_ = valLoader_->next();
         validator.validate(*this, trainBatch_);
     }
@@ -1714,11 +1714,11 @@ void Model<D>::evaluateValidation()
     Validator<D> validator(valConfidenceThresh_, valApConfidenceThresh_, valIouThresh_, valNmsThresh_, classes());
 
     const auto availableBatches = std::max<std::size_t>(1, (valLoader_->size() + batch_ - 1) / batch_);
-    auto batches = valBatches_;
+    std::size_t batches = static_cast<std::size_t>(std::max(0, valBatches_));
     if (hasOption("all-validation") && option<bool>("all-validation")) {
         batches = availableBatches;
     } else {
-        batches = std::min<std::size_t>(static_cast<std::size_t>(std::max(0, batches)), availableBatches);
+        batches = std::min(batches, availableBatches);
     }
 
     PX_CHECK(batches > 0, "Evaluation requires at least one validation batch.");

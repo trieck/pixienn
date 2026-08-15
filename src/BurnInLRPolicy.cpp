@@ -20,7 +20,7 @@
 namespace px {
 
 BurnInLRPolicy::BurnInLRPolicy(float initialLR, int batches, float power)
-        : initialLR_(initialLR), currentLR_(initialLR), batches_(batches), power_(power)
+        : batches_(batches), initialLR_(initialLR), currentLR_(initialLR), power_(power)
 {
     PX_CHECK(initialLR > 0, "ConstantLRPolicy: initial learning rate must be greater than zero");
     PX_CHECK(batches > 0, "BurnInLRPolicy: batches must be greater than zero");
