@@ -225,13 +225,16 @@ class Model:
     def labels(self) -> list[str]:
         return self._native.labels
 
-    def predict_json(self, image_file: str | Path, nms_threshold: float = 0.3) -> str:
-        return self._native.predict_json(str(image_file), nms_threshold)
+    def predict_json(self, image_file: str | Path, *, confidence: float = 0.25,
+                     nms_threshold: float = 0.3) -> str:
+        """Run native inference with an explicit confidence threshold."""
+        return self._native.predict_json(str(image_file), confidence, nms_threshold)
 
-    def predict_image(self, image_file: str | Path, *, nms_threshold: float = 0.3,
+    def predict_image(self, image_file: str | Path, *, confidence: float = 0.25,
+                      nms_threshold: float = 0.3,
                       geojson_path: str | Path | None = None) -> str:
-        """Run inference, render ``predictions.jpg``, and optionally save GeoJSON."""
-        result = self._native.predict_image(str(image_file), nms_threshold)
+        """Run native inference with confidence as the primary filter."""
+        result = self._native.predict_image(str(image_file), confidence, nms_threshold)
         if geojson_path is not None:
             Path(geojson_path).write_text(result)
         return result

@@ -78,7 +78,8 @@ public:
 
     static Ptr create(const std::string& cfgFile, var_map options = {});
 
-    virtual Detections predict(const std::string& imageFile) = 0;
+    virtual Detections predict(const std::string& imageFile, float confidence,
+                               float nmsThreshold) = 0;
     virtual void train() = 0;
     virtual void evaluate() = 0;
 
@@ -157,14 +158,18 @@ public:
 
     void parseModel(const YAML::Node& modelDoc);
 
-    Detections predict(const std::string& imageFile) override;
+    Detections predict(const std::string& imageFile, float confidence,
+                       float nmsThreshold);
     Detections detections() const;
     Detections detections(const cv::Size& imageSize) const;
+    Detections detections(const cv::Size& imageSize, float confidence) const;
 
     void train() override;
     void evaluate() override;
 
     // Explicit checkpoint operations for language bindings and embedders.
+    void setWeightsFile(const std::string& fileName);
+    void setBackupDir(const std::string& directory);
     void loadWeightsFile(const std::string& fileName);
     void saveWeightsFile(const std::string& fileName);
     void saveTrainingStateFile(const std::string& fileName) const;
@@ -349,7 +354,6 @@ private:
     size_t seen_ = 0;
     std::size_t optimizerStep_ = 0;
     float threshold_ = 0.0f;    // Threshold for confidence
-    bool verbose_ = true;       // Native CLI logging; Python bindings set false.
     float mAP_ = 0.0f;          // Mean Average Precision
     float avgRecall_ = 0.0f;    // Average Recall
     float microAvgF1_ = 0.0f;   // Micro Average F1
@@ -412,8 +416,6 @@ float Model<D>::learningRate() const
 template<Device D>
 void Model<D>::train()
 {
-    std::printf("\nTraining model...\n");
-
     parseTrainConfig();
 
     auto viewImage = hasOption("view-image");
@@ -431,15 +433,10 @@ void Model<D>::train()
     constexpr auto windowSize = 10;
     constexpr auto alpha = 2.0f / (windowSize + 1);
 
-    Timer timer;
-    std::printf("LR: %f%s, Momentum: %f, Decay: %f\n", learningRate(), isBurningIn() ? " (burn-in)" : "", momentum_,
-                decay_);
-
     // max_batches, burn-in, validation, checkpoints, and LR policy are
     // optimizer-update counts. `seen_` counts micro-batches when subdivisions
     // are used, so it must not drive the training schedule.
     while (optimizerStep_ < static_cast<std::size_t>(maxBatches_)) {
-        Timer batchTimer;
         const auto optimizerStepBefore = optimizerStep_;
         auto loss = trainBatch();
 
@@ -451,14 +448,6 @@ void Model<D>::train()
         if (std::isinf(avgLoss_) || std::isnan(avgLoss_)) {
             avgLoss_ = loss;
         }
-
-        auto imagesSeen = seen_ * batch_;
-        auto epoch = imagesSeen / trainLoader_->size();
-
-        std::printf("Epoch: %zu, Seen: %zu, Loss: %f, Avg. Loss: %f, LR: %.12f%s, %s, %zu images\n",
-                    epoch, optimizerStep_, loss, avgLoss_, learningRate(),
-                    isBurningIn() ? " (burn-in)" : "",
-                    batchTimer.str().c_str(), imagesSeen);
 
         if (valEnabled_ && detail::optimizerScheduleDue(optimizerStepBefore, optimizerStep_, valInterval_)) {
             validate();
@@ -484,7 +473,6 @@ void Model<D>::train()
             }
 
             if (esEnabled_ && valsWithoutImprovement_ >= esPatience_) {
-                std::printf("Early stopping due to lack of improvement in validation loss.\n");
                 break;
             }
         }
@@ -500,7 +488,6 @@ void Model<D>::train()
 
     saveWeights(true);
 
-    std::printf("trained in %s.\n", timer.str().c_str());
 }
 
 template<Device D>
@@ -791,20 +778,14 @@ Model<D>::Model(std::string cfgFile, var_map options) : Model<D>(options)
 }
 
 template<Device D>
-Detections Model<D>::predict(const std::string& imageFile)
+Detections Model<D>::predict(const std::string& imageFile, float confidence,
+                             float nmsThreshold)
 {
     auto image = imreadVector(imageFile.c_str(), width_, height_, channels_);
 
-    const auto verbose = verbose_;
-    if (verbose) std::printf("\nRunning model...");
-
-    Timer timer;
-
     forward(image);
 
-    auto detects = detections(image.originalSize);
-
-    if (verbose) std::printf("predicted in %s.\n", timer.str().c_str());
+    auto detects = nms(detections(image.originalSize, confidence), nmsThreshold);
 
     return detects;
 }
@@ -827,12 +808,18 @@ Detections Model<D>::detections() const
 template<Device D>
 Detections Model<D>::detections(const cv::Size& imageSize) const
 {
+    return detections(imageSize, threshold_);
+}
+
+template<Device D>
+Detections Model<D>::detections(const cv::Size& imageSize, float confidence) const
+{
     Detections detections;
 
     for (auto& layer: layers()) {
         auto* detector = dynamic_cast<Detector*>(layer.get());
         if (detector) {
-            detector->addDetects(detections, imageSize.width, imageSize.height, threshold_);
+            detector->addDetects(detections, imageSize.width, imageSize.height, confidence);
         }
     }
 
@@ -886,10 +873,6 @@ void Model<D>::overlay(const std::string& imageFile, const Detections& detects) 
         imrect(img, box, bgColor, thickness);
 
         auto text = boost::format("%1%: %2$.2f%%") % label % (detect.prob() * 100);
-        if (verbose_) {
-            std::cout << text << std::endl;
-        }
-
         if (!hasOption("no-labels")) {
             imtabbedText(img, text.str().c_str(), box.tl(), textColor, bgColor, thickness);
         }
@@ -997,13 +980,9 @@ void Model<D>::loadWeights()
     }
 
     if (training() && ifs.fail() && !clearWeights) { // if not found, let's try to load the latest weights
-        std::printf("\nweights not found, trying latest weights \"%s\"...", latestWeightsFile.c_str());
         ifs.open(latestWeightsFile, std::ios::in | std::ios::binary);
         if (ifs.is_open()) {
             loadedWeightsFile = latestWeightsFile;
-            std::printf("found.\n");
-        } else {
-            std::printf("not found.\n");
         }
     }
 
@@ -1056,7 +1035,6 @@ void Model<D>::loadWeights()
                 }
                 optimizer.read(reinterpret_cast<char*>(&optimizerStep_), sizeof(optimizerStep_));
                 if (resetAdamMoments) {
-                    std::printf("Adam moments reset; keeping optimizer step %zu.\n", optimizerStep_);
                 } else {
                     for (const auto& layer: layers()) {
                         layer->loadOptimizer(optimizer);
@@ -1066,7 +1044,6 @@ void Model<D>::loadWeights()
                          optimizerFile.c_str());
             } else {
                 optimizerStep_ = updateBatch() > 0 ? seen_ / static_cast<std::size_t>(updateBatch()) : 0;
-                std::printf("Adam optimizer state not found; moments will restart at step %zu.\n", optimizerStep_);
             }
         }
 
@@ -1107,7 +1084,6 @@ void Model<D>::loadTrainingState(const std::string& weightsFile)
     const auto stateFile = weightsFile + ".training";
     std::ifstream state(stateFile, std::ios::in | std::ios::binary);
     if (!state.is_open()) {
-        std::printf("Training-control state not found; best metrics and early-stopping patience will restart.\n");
         return;
     }
 
@@ -1133,6 +1109,18 @@ void Model<D>::loadTrainingState(const std::string& weightsFile)
     bestValLoss_ = bestValLoss;
     bestmAP_ = bestmAP;
     valsWithoutImprovement_ = valsWithoutImprovement;
+}
+
+template<Device D>
+void Model<D>::setWeightsFile(const std::string& fileName)
+{
+    weightsFile_ = fileName;
+}
+
+template<Device D>
+void Model<D>::setBackupDir(const std::string& directory)
+{
+    backupDir_ = directory;
 }
 
 template<Device D>
@@ -1202,6 +1190,13 @@ void Model<D>::parseModel(const Node& modelDoc)
 {
     PX_CHECK(modelDoc.IsMap(), "Model document not a map.");
     PX_CHECK(modelDoc["model"], "Model document has no model.");
+
+    // Python-built graphs provide the complete document directly to
+    // parseModel(). File-backed models already retain their outer training
+    // configuration in config_, so do not replace it in that path.
+    if (!config_["training"]) {
+        config_ = modelDoc;
+    }
 
     const auto model = modelDoc["model"];
     PX_CHECK(model.IsMap(), "Model is not a map.");
@@ -1292,7 +1287,6 @@ void Model<D>::parseModel(const Node& modelDoc)
     subdivs_ = model["subdivisions"].as<int>(1);
     timeSteps_ = model["time_steps"].as<int>(1);
     width_ = model["width"].as<int>();
-    verbose_ = model["verbose"].as<bool>(true);
 
     if (training() || validating()) {
         batch_ /= subdivs_;
@@ -1307,17 +1301,6 @@ void Model<D>::parseModel(const Node& modelDoc)
     }
 
     PX_CHECK(layers.IsSequence(), "Model layers must be a sequence.");
-
-    const auto verbose = verbose_;
-    if (verbose) {
-        std::cout << std::setfill('_');
-        std::cout << std::setw(21) << std::left << "Layer"
-                  << std::setw(10) << "Filters"
-                  << std::setw(20) << "Size"
-                  << std::setw(20) << "Input"
-                  << std::setw(20) << "Output"
-                  << std::endl;
-    }
 
     int channels(channels_), height(height_), width(width_);
 
@@ -1337,8 +1320,6 @@ void Model<D>::parseModel(const Node& modelDoc)
         height = layer->outHeight();
         width = layer->outWidth();
         inputs = layer->outputs();
-
-        if (verbose) layer->print(std::cout);
 
         layers_.emplace_back(std::move(layer));
     }
@@ -1688,7 +1669,6 @@ std::string Model<D>::weightsBestFileName() const
 template<Device D>
 void Model<D>::validate()
 {
-    std::cout << "Pausing training to validate..." << std::flush;
     const auto validationStart = std::chrono::steady_clock::now();
 
     Validator <D> validator(valConfidenceThresh_, valApConfidenceThresh_, valIouThresh_, valNmsThresh_, classes());
@@ -1719,11 +1699,6 @@ void Model<D>::validate()
     writeAvgValLoss();
     writeAccuracy();
 
-    const auto validationImagesSeen = seen_ * batch_;
-    std::printf("\nEpoch: %zu, mAP50: %f, Avg. Recall: %f, Micro-Avg. F1: %f, Avg. Val. Loss: %f, Accuracy: %f\n",
-                validationImagesSeen / trainLoader_->size(), mAP_, avgRecall_, microAvgF1_, avgValLoss_, valAccuracy_);
-
-    std::cout << "Resuming training..." << std::endl << std::flush;
 }
 
 template<Device D>
@@ -1745,18 +1720,11 @@ void Model<D>::evaluateValidation()
     }
 
     PX_CHECK(batches > 0, "Evaluation requires at least one validation batch.");
-    std::cout << "Evaluating " << batches << " validation batches..." << std::flush;
     for (std::size_t i = 0; i < batches; ++i) {
         trainBatch_ = valLoader_->next();
         validator.validate(*this, trainBatch_);
     }
 
-    std::cout << "\nEvaluation results\n"
-              << "  mAP50:          " << validator.mAP() << '\n'
-              << "  average recall: " << validator.avgRecall() << '\n'
-              << "  MicroAvgF1:     " << validator.microAvgF1() << '\n'
-              << "  validation loss: " << validator.avgLoss() << '\n'
-              << "  accuracy:       " << validator.accuracy() << '\n';
 }
 
 template<Device D>

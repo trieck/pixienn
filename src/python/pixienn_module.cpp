@@ -162,7 +162,7 @@ private:
         }
 
         std::size_t offset = 0;
-        for (py::ssize_t dimension = 0; dimension < indices.size(); ++dimension) {
+        for (std::size_t dimension = 0; dimension < indices.size(); ++dimension) {
             auto index = indices[dimension].cast<py::ssize_t>();
             const auto extent = static_cast<py::ssize_t>(dimensions[dimension]);
             if (index < 0) {
@@ -308,21 +308,22 @@ public:
         return "inference";
     }
 
-    std::string predictJson(const std::string& imageFile, float nmsThreshold = 0.3f)
+    std::string predictJson(const std::string& imageFile, float confidence = 0.25f,
+                            float nmsThreshold = 0.3f)
     {
         if (!built_) {
             throw py::value_error("model must be built before predict()");
         }
-        auto detects = model_->predict(imageFile);
-        return model_->asJson(nms(detects, nmsThreshold));
+        return model_->asJson(model_->predict(imageFile, confidence, nmsThreshold));
     }
 
-    std::string predictImage(const std::string& imageFile, float nmsThreshold = 0.3f)
+    std::string predictImage(const std::string& imageFile, float confidence = 0.25f,
+                             float nmsThreshold = 0.3f)
     {
         if (!built_) {
             throw py::value_error("model must be built before predict()");
         }
-        auto detects = nms(model_->predict(imageFile), nmsThreshold);
+        auto detects = model_->predict(imageFile, confidence, nmsThreshold);
         model_->overlay(imageFile, detects);
         return model_->asJson(detects);
     }
@@ -504,7 +505,13 @@ public:
         if (built_) throw py::value_error("model options must be set before build()");
         for (const auto& item : options) {
             if (!py::isinstance<py::str>(item.first)) throw py::type_error("model option keys must be strings");
-            document_["model"][item.first.cast<std::string>()] = PythonModel::toYaml(item.second);
+            const auto key = item.first.cast<std::string>();
+            document_["model"][key] = PythonModel::toYaml(item.second);
+            if (key == "weights-file") {
+                model_->setWeightsFile(item.second.cast<std::string>());
+            } else if (key == "backup-dir") {
+                model_->setBackupDir(item.second.cast<std::string>());
+            }
         }
         return *this;
     }
@@ -561,11 +568,40 @@ public:
     }
 
     void loadWeights(const std::string& fileName) { model_->loadWeightsFile(fileName); }
+    PythonCudaModel& configureTraining(const py::dict& definition)
+    {
+        if (built_) throw py::value_error("training configuration must be set before build()");
+        document_["training"] = PythonModel::toYaml(definition);
+        model_->setMode(Mode::TRAINING);
+        return *this;
+    }
+    void train()
+    {
+        if (!built_) throw py::value_error("model must be built before train()");
+        model_->train();
+    }
+    void saveWeights(const std::string& fileName) { model_->saveWeightsFile(fileName); }
+    void saveTrainingState(const std::string& fileName) { model_->saveTrainingStateFile(fileName); }
+    PythonCudaModel& setMode(const std::string& mode)
+    {
+        if (mode == "inference") model_->setMode(Mode::INFERRING);
+        else if (mode == "training") model_->setMode(Mode::TRAINING);
+        else if (mode == "validation") model_->setMode(Mode::VALIDATING);
+        else throw py::value_error("mode must be inference, training, or validation");
+        return *this;
+    }
     PythonCudaModel& setThreshold(float threshold) { model_->setThreshold(threshold); return *this; }
-    std::string predictImage(const std::string& imageFile, float nmsThreshold = 0.3f)
+    std::string predictJson(const std::string& imageFile, float confidence = 0.25f,
+                            float nmsThreshold = 0.3f)
+    {
+        if (!built_) throw py::value_error("model must be built before predict_json()");
+        return model_->asJson(model_->predict(imageFile, confidence, nmsThreshold));
+    }
+    std::string predictImage(const std::string& imageFile, float confidence = 0.25f,
+                             float nmsThreshold = 0.3f)
     {
         if (!built_) throw py::value_error("model must be built before predict_image()");
-        auto detects = nms(model_->predict(imageFile), nmsThreshold);
+        auto detects = model_->predict(imageFile, confidence, nmsThreshold);
         model_->overlay(imageFile, detects);
         return model_->asJson(detects);
     }
@@ -647,9 +683,11 @@ PYBIND11_MODULE(_native, module)
         .def("set_mode", &px::PythonModel::setMode, py::arg("mode"))
         .def_property_readonly("mode", &px::PythonModel::mode)
         .def("predict_json", &px::PythonModel::predictJson,
-             py::arg("image_file"), py::arg("nms_threshold") = 0.3f)
+             py::arg("image_file"), py::arg("confidence") = 0.25f,
+             py::arg("nms_threshold") = 0.3f)
         .def("predict_image", &px::PythonModel::predictImage,
-             py::arg("image_file"), py::arg("nms_threshold") = 0.3f)
+             py::arg("image_file"), py::arg("confidence") = 0.25f,
+             py::arg("nms_threshold") = 0.3f)
         .def("set_labels", &px::PythonModel::setLabels, py::arg("labels"))
         .def_property_readonly("labels", &px::PythonModel::labels)
         .def("set_threshold", &px::PythonModel::setThreshold, py::arg("threshold"))
@@ -697,14 +735,25 @@ PYBIND11_MODULE(_native, module)
              py::return_value_policy::reference_internal)
         .def("set_labels", &px::PythonCudaModel::setLabels, py::arg("labels"),
              py::return_value_policy::reference_internal)
+        .def("configure_training", &px::PythonCudaModel::configureTraining, py::arg("definition"),
+             py::return_value_policy::reference_internal)
         .def("build", &px::PythonCudaModel::build)
+        .def("train", &px::PythonCudaModel::train)
         .def("forward", py::overload_cast<const px::PythonTensor&>(&px::PythonCudaModel::forward), py::arg("input"))
         .def("forward", py::overload_cast<const px::PythonCudaTensor&>(&px::PythonCudaModel::forward), py::arg("input"))
         .def("load_weights", &px::PythonCudaModel::loadWeights, py::arg("file_name"))
+        .def("save_weights", &px::PythonCudaModel::saveWeights, py::arg("file_name"))
+        .def("save_training_state", &px::PythonCudaModel::saveTrainingState, py::arg("file_name"))
+        .def("set_mode", &px::PythonCudaModel::setMode, py::arg("mode"),
+             py::return_value_policy::reference_internal)
         .def("set_threshold", &px::PythonCudaModel::setThreshold, py::arg("threshold"),
              py::return_value_policy::reference_internal)
+        .def("predict_json", &px::PythonCudaModel::predictJson,
+             py::arg("image_file"), py::arg("confidence") = 0.25f,
+             py::arg("nms_threshold") = 0.3f)
         .def("predict_image", &px::PythonCudaModel::predictImage,
-             py::arg("image_file"), py::arg("nms_threshold") = 0.3f)
+             py::arg("image_file"), py::arg("confidence") = 0.25f,
+             py::arg("nms_threshold") = 0.3f)
         .def_property_readonly("built", &px::PythonCudaModel::built)
         .def_property_readonly("device", &px::PythonCudaModel::device)
         .def_property_readonly("output_shape", &px::PythonCudaModel::outputShape);

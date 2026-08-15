@@ -19,6 +19,7 @@ from tensorboard.util import tensor_util
 
 
 event_file = sys.argv[1]
+start_time = float(sys.argv[2]) if len(sys.argv) > 2 else None
 MAX_DISPLAY_POINTS = 1_200
 MAX_WINDOW_POINTS = 10_000
 MAX_CARD_WINDOW_POINTS = 5_000
@@ -33,7 +34,7 @@ full_series = {}
 previous_raw_step = -1
 previous_normalized_step = -1
 step_offset = 0
-cache_key = hashlib.sha256(os.path.abspath(event_file).encode()).hexdigest()[:24]
+cache_key = hashlib.sha256(f"{os.path.abspath(event_file)}:{start_time}".encode()).hexdigest()[:24]
 cache_file = os.path.join(tempfile.gettempdir(), f"pixienn-event-cache-{cache_key}.json")
 cache_file_size = 0
 
@@ -76,6 +77,8 @@ def scalar_value(summary):
 def update_series():
     global previous_raw_step, previous_normalized_step, step_offset
     for event in event_loader.Load():
+        if start_time is not None and event.wall_time < start_time:
+            continue
         if event.step < previous_raw_step:
             step_offset += previous_normalized_step + 1 - (event.step + step_offset)
         normalized_step = event.step + step_offset

@@ -48,6 +48,7 @@ function read(name) {
 }
 
 function validationThreshold(metadata) {
+  if (metadata.validation_threshold != null) return Number(metadata.validation_threshold);
   const configuration = metadata.configuration;
   if (!configuration) return null;
   const configText = read(configuration);
@@ -60,6 +61,7 @@ function validationThreshold(metadata) {
 }
 
 function validationInterval(metadata) {
+  if (metadata.validation_interval != null) return Number(metadata.validation_interval);
   const configuration = metadata.configuration;
   if (!configuration) return null;
   const configText = read(configuration);
@@ -116,6 +118,15 @@ function validationSchedule(metadata, eventFile) {
 }
 
 function trainingProgress(metadata, latestStep) {
+  if (metadata.max_batches != null) {
+    const maxBatches = Number(metadata.max_batches);
+    const currentBatches = Number.isFinite(Number(latestStep)) ? Number(latestStep) : null;
+    return {
+      currentBatches,
+      targetBatches: maxBatches,
+      percentage: currentBatches == null ? null : Math.min(100, currentBatches / maxBatches * 100)
+    };
+  }
   const configuration = metadata.configuration;
   if (!configuration) return null;
   const configText = read(configuration);
@@ -133,6 +144,7 @@ function trainingProgress(metadata, latestStep) {
 }
 
 function learningRatePolicy(metadata) {
+  if (metadata.learning_rate_policy) return metadata.learning_rate_policy;
   const configuration = metadata.configuration;
   if (!configuration) return null;
   const configText = read(configuration);
@@ -151,6 +163,12 @@ function localDate(value) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
+function metadataEpochSeconds(value) {
+  const match = String(value || '').match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/);
+  if (!match) return null;
+  return Date.UTC(+match[1], +match[2] - 1, +match[3], +match[4], +match[5], +match[6]) / 1000;
+}
+
 function latestEventFile(dir) {
   try {
     return fs.readdirSync(dir, { withFileTypes: true })
@@ -166,10 +184,13 @@ function latestEventFile(dir) {
 }
 
 class EventFileReader {
-  constructor(event) {
+  constructor(event, startTime = null) {
     this.event = event;
+    this.startTime = startTime;
     const python = process.env.PIXIENN_PYTHON || 'python3';
-    this.child = spawn(python, [path.join(monitorDir, 'event_file_reader.py'), event], {
+    const args = [path.join(monitorDir, 'event_file_reader.py'), event];
+    if (startTime != null) args.push(String(startTime));
+    this.child = spawn(python, args, {
       stdio: ['pipe', 'pipe', 'pipe']
     });
     this.child.stdout.setEncoding('utf8');
@@ -267,25 +288,25 @@ class EventFileReader {
   }
 }
 
-function readerFor(dir, event) {
+function readerFor(dir, event, startTime = null) {
   const previous = eventReaders.get(dir);
-  if (previous && previous.event !== event) {
+  if (previous && (previous.event !== event || previous.startTime !== startTime)) {
     previous.reader.close();
     eventReaders.delete(dir);
   }
   let current = eventReaders.get(dir);
   if (!current || current.reader.failure) {
     current?.reader.close();
-    current = { event, reader: new EventFileReader(event) };
+    current = { event, startTime, reader: new EventFileReader(event, startTime) };
     eventReaders.set(dir, current);
   }
   return current.reader;
 }
 
-async function eventFileSnapshot(dir) {
+async function eventFileSnapshot(dir, startTime = null) {
   const event = latestEventFile(dir);
   if (!event) return { tags: [], series: {}, latest: {}, windows: {}, tails: {}, prCurves: {} };
-  const reader = readerFor(dir, event.file);
+  const reader = readerFor(dir, event.file, startTime);
   try {
     const result = await reader.request();
     const series = result.series || {};
@@ -360,8 +381,9 @@ async function snapshot(runName, selectedLossWindow = null) {
   const metadata = Object.fromEntries(read(path.join(dir, 'run-metadata.txt')).split('\n').filter(Boolean).map(line => {
     const i = line.indexOf('='); return [line.slice(0, i), line.slice(i + 1)];
   }));
+  const eventStart = metadata.mode === 'fresh' ? metadataEpochSeconds(metadata.started_utc) : null;
   if (metadata.started_utc) metadata.started_utc = localDate(metadata.started_utc);
-  const eventFile = await eventFileSnapshot(dir);
+  const eventFile = await eventFileSnapshot(dir, eventStart);
   const earliestTrainingEvent = [...(eventFile.series['avg-loss'] || [])]
     .filter(point => Number.isFinite(Number(point.wall_time)))
     .sort((a, b) => Number(a.wall_time) - Number(b.wall_time))[0] || null;

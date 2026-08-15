@@ -34,10 +34,8 @@ void predict(const std::string& cfgFile, const std::string& imageFile,
              const po::variables_map& options)
 {
     auto model = BaseModel::create(cfgFile, options);
-    auto detects = model->predict(imageFile);
-
     auto nmsThreshold = options["nms"].as<float>();
-    detects = nms(detects, nmsThreshold);
+    auto detects = model->predict(imageFile, options["confidence"].as<float>(), nmsThreshold);
 
     model->overlay(imageFile, detects);
     auto json = model->asJson(detects);

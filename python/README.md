@@ -114,6 +114,13 @@ model = (Model(3, 416, 416, batch=1)
 output = model.forward(Tensor([1, 3, 416, 416]))
 ```
 
+Inference takes confidence explicitly; NMS is a separate secondary filter:
+
+```python
+result = model.predict_image(
+    "image.jpg", confidence=0.25, nms_threshold=0.4)
+```
+
 Every native layer can be supplied with `model.layer(type, **properties)`;
 helpers are provided for common layers. Use `model.config(...)` for a
 portable document or `model.save_native_files(...)` for the native runner's
