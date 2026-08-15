@@ -26,7 +26,12 @@ public:
     ~ColorMaps();
 
     uint32_t color(uint32_t index) const;
+    // Sample the selected map continuously at a normalized value in [0, 1].
+    // Kept distinct from color(index) so existing integer callers remain
+    // unambiguous.
+    uint32_t sample(float value) const;
     static std::vector<std::string> maps();
+    static bool isContinuous(const std::string& mapName);
 private:
     class Iterator;
     Iterator* it_;

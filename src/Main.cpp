@@ -58,7 +58,9 @@ int main(int argc, char* argv[])
     pod.add("image-file", 1);
 
     desc.add_options()
-            ("color-map", po::value<std::string>()->default_value("fluorescent"), "Color map")
+            ("color-map", po::value<std::string>()->default_value("viridis"), "Matplotlib color map")
+            ("color-by-confidence", po::bool_switch()->default_value(false),
+             "Color detection overlays by confidence instead of class")
             ("confidence", po::value<float>()->default_value(0.2f), "Threshold confidence for model")
             ("config-file", po::value<std::string>()->required(), "Configuration file")
             ("find-best-algo", po::bool_switch()->default_value(false), "Find the best cuDNN convolution algorithm")
@@ -69,6 +71,8 @@ int main(int argc, char* argv[])
             ("nms", po::value<float>()->default_value(0.3f), "IoU threshold for Non-Maximum-Suppression")
             ("no-gpu", po::bool_switch()->default_value(false), "Use CPU for processing")
             ("no-labels", po::bool_switch()->default_value(false), "Don't draw labels on image")
+            ("stretch-confidence", po::bool_switch()->default_value(false),
+             "Stretch confidence colors across the detections in the image")
             ("weights", po::value<std::string>(), "Override inference weights file")
             ("tiff32", po::bool_switch()->default_value(false), "Save image in 32-bit floating-point TIFF format");
 
@@ -78,7 +82,9 @@ int main(int argc, char* argv[])
         if (vm["list-colormaps"].as<bool>()) {
             std::cerr << "Color maps:" << std::endl;
             for (const auto& map: ColorMaps::maps()) {
-                std::cerr << "   " << map << std::endl;
+                std::cerr << "   " << map << " ("
+                          << (ColorMaps::isContinuous(map) ? "continuous" : "qualitative")
+                          << ")" << std::endl;
             }
             exit(1);
         } else if (vm["help"].as<bool>() || argc < 3) {

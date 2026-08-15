@@ -849,14 +849,37 @@ void Model<D>::overlay(const std::string& imageFile, const Detections& detects) 
     auto img = imread8(imageFile.c_str(), channels_);
     cv::cvtColor(img, img, cv::COLOR_BGR2BGRA);
 
-    ColorMaps colors(options_.count("color-map") ? option<std::string>("color-map") : "fluorescent");
+    ColorMaps colors(options_.count("color-map") ? option<std::string>("color-map") : "viridis");
     auto thickness = std::max(1, options_.count("line-thickness") ? option<int>("line-thickness") : 2);
+    const auto colorByConfidence = hasOption("color-by-confidence");
+    const auto stretchConfidence = colorByConfidence && hasOption("stretch-confidence");
+    auto minimumConfidence = 0.0f;
+    auto maximumConfidence = 1.0f;
+
+    if (stretchConfidence && !detects.empty()) {
+        minimumConfidence = detects.front().prob();
+        maximumConfidence = minimumConfidence;
+        for (const auto& detect: detects) {
+            minimumConfidence = std::min(minimumConfidence, detect.prob());
+            maximumConfidence = std::max(maximumConfidence, detect.prob());
+        }
+    }
 
     for (const auto& detect: detects) {
         auto index = detect.classIndex();
         const auto& label = labels_[index];
 
-        auto bgColor = colors.color(index);
+        auto colorValue = detect.prob();
+        if (stretchConfidence) {
+            const auto range = maximumConfidence - minimumConfidence;
+            colorValue = range > 0.0f
+                    ? (colorValue - minimumConfidence) / range
+                    : 0.5f;
+        }
+
+        auto bgColor = colorByConfidence
+                ? colors.sample(colorValue)
+                : colors.color(index);
         auto textColor = imtextcolor(bgColor);
 
         const auto& box = detect.box();
