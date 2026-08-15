@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, Box, Cpu, Gauge, RefreshCw } from 'lucide-react';
+import { Activity, Cpu, Gauge, RefreshCw } from 'lucide-react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 
@@ -247,14 +247,13 @@ function App() {
     {loading && <div className="monitor-loading-overlay" role="status" aria-live="polite"><div className="monitor-loading-dialog"><span className="monitor-loading-spinner" /><strong>Loading training history</strong><small>Reading event data…</small></div></div>}
 
     <section className="pixienn-banner" aria-label="PixieNN neural network illustration">
-      <div className="banner-meta"><Meta label="mode" value={meta.mode} /><Meta label="resumed" value={meta.started_utc ? localDateLabel(Date.parse(meta.started_utc)) : null} /><Meta label="training since" value={localDateLabel(data?.earliestTrainingEvent?.at)} /><Meta label="training duration" value={data?.earliestTrainingEvent?.at ? elapsedLabel(data.earliestTrainingEvent.at, clockNow) : null} /><Meta label="configuration" value={meta.configuration?.split('/').pop()} /><Meta label="engine" value={meta.executable?.split('/').pop()} /></div>
+      <div className="banner-meta"><Meta label="mode" value={meta.mode} /><Meta label="resumed" value={meta.started_utc ? localDateLabel(Date.parse(meta.started_utc)) : null} /><Meta label="training since" value={localDateLabel(data?.earliestTrainingEvent?.at)} /><Meta label="training duration" value={data?.earliestTrainingEvent?.at ? elapsedLabel(data.earliestTrainingEvent.at, clockNow) : null} /><Meta label="configuration" value={meta.configuration?.split('/').pop()} /></div>
     </section>
 
     <section className="cards">
-      <Card icon={<Activity />} label="AVG LOSS" value={fmt(latest?.avg)} accent="pink" note="event-file avg-loss" />
-      <Card icon={<Gauge />} label="STEP" value={latest?.step?.toLocaleString() || '—'} accent="blue" note="optimizer step" />
-      <Card icon={<Cpu />} label="LEARNING RATE" value={latest ? latest.lr?.toFixed(9) || '—' : '—'} accent="lime" note="learning rate" />
-      <Card icon={<Box />} label="CHECKPOINT" value={checkpoint?.name || '—'} title={checkpoint?.name} accent="gold" note="latest saved weights" />
+      <LossCard latest={latest} trend={data?.trend} losses={scalarSeries['avg-loss']} />
+      <StepProgressCard progress={data?.progress} />
+      <LearningRateCard latest={latest} rates={data?.eventFile?.series?.['learning-rate']} policy={data?.learningRatePolicy} />
     </section>
 
     <section className="health-panel panel">
@@ -268,8 +267,6 @@ function App() {
       <div className="health-footer"><ValidationClock schedule={data?.validationSchedule} now={clockNow} /><span>confidence threshold <b>{data?.validationThreshold == null ? '—' : data.validationThreshold}</b></span><span>events <b>{eventAge == null ? '—' : eventAge < 1000 ? 'just now' : `${Math.round(eventAge / 1000)}s ago`}</b></span><span>checkpoint <b>{checkpointAge == null ? '—' : checkpointAge < 1000 ? 'just now' : `${Math.round(checkpointAge / 60000)}m ago`}</b></span></div>
     </section>
 
-    <PRCurvePanel curve={data?.eventFile?.prCurves?.['validation/micro-pr/curve'] || data?.eventFile?.prCurves?.['validation/micro-pr/pr_curves']} />
-    <TrainingActivityPanel activity={data?.eventFile?.activity} />
     <section className="grid">
       <div className="panel chart">
         <div className="panel-head"><div><span className="kicker">LOSS TRAJECTORY</span><h2>Average loss</h2></div><div style={{ display: 'flex', gap: 8 }}><select value={lossWindow} onChange={event => setLossWindow(event.target.value)}><option value="all">Full run · auto-scaled</option><option value="10000">Last 10,000 steps</option><option value="2000">Last 2,000 steps</option><option value="500">Last 500 steps</option></select><select value={scale} onChange={event => setScale(event.target.value)}><option value="linear">Linear</option><option value="log">Log scale</option></select><select aria-label="Average loss bucket count" value={lossBucketCount} onChange={event => setLossBucketCount(Number(event.target.value))}><option value="24">24 buckets</option><option value="48">48 buckets</option><option value="72">72 buckets</option><option value="120">120 buckets</option></select></div></div>
@@ -282,6 +279,8 @@ function App() {
       <ValidationBarsPanel series={scalarSeries} tag="mAP50" label="mAP50" />
       <ValidationBarsPanel series={scalarSeries} tag="micro-avg-f1" label="Micro-Avg-F1" />
     </section>
+    <PRCurvePanel curve={data?.eventFile?.prCurves?.['validation/micro-pr/curve'] || data?.eventFile?.prCurves?.['validation/micro-pr/pr_curves']} />
+    <TrainingActivityPanel activity={data?.eventFile?.activity} />
     <EventScalarsPanel run={run} series={data?.eventFile?.series || {}} tails={data?.eventFile?.tails || {}} />
     <footer><span><span className="live-dot" /> event stream connected</span><span>PIXIENN / LOCAL RUN OBSERVATORY</span></footer>
   </main>;
@@ -515,6 +514,58 @@ function EventScalarsPanel({ run, series, tails }) {
 }
 
 function Card({ icon, label, value, title, accent, note }) { return <div className={`card ${accent}`}><div className="card-top"><span>{icon}</span><label>{label}</label></div><strong title={title || undefined}>{value}</strong><small>{note}</small></div>; }
+function LossCard({ latest, trend, losses = [] }) {
+  const direction = trend?.direction || 'waiting';
+  const marker = direction === 'improving' ? '↓' : direction === 'worsening' ? '↑' : direction === 'flat' ? '→' : '•';
+  const label = direction === 'improving' ? 'improving' : direction === 'worsening' ? 'needs attention' : direction === 'flat' ? 'holding steady' : 'awaiting trend';
+  const history = losses.filter(point => Number.isFinite(Number(point.step)) && Number.isFinite(Number(point.value))).slice(-60);
+  const values = history.map(point => Number(point.value));
+  const minimum = values.length ? Math.min(...values) : 0;
+  const maximum = values.length ? Math.max(...values) : 1;
+  const range = Math.max(maximum - minimum, 1e-6);
+  const points = history.map((point, index) => `${(history.length > 1 ? index / (history.length - 1) * 220 : 110).toFixed(1)},${(44 - (Number(point.value) - minimum) / range * 38).toFixed(1)}`).join(' ');
+  return <div className={`card pink loss-card ${direction}`}>
+    <div className="card-top"><span><Activity /></span><label>AVG LOSS</label></div>
+    <strong>{fmt(latest?.avg)}</strong>
+    <div className="loss-trend-chart"><svg viewBox="0 0 220 52" preserveAspectRatio="none" role="img" aria-label="Average loss trend"><line x1="0" y1="44" x2="220" y2="44" /><polyline points={points} /></svg></div>
+    <div className="loss-status"><b>{marker}</b> {label}</div>
+    <small>{trend?.average == null ? 'building trend' : `recent average ${fmt(trend.average)}`}</small>
+  </div>;
+}
+function LearningRateCard({ latest, rates = [], policy }) {
+  const history = rates.filter(point => Number.isFinite(Number(point.step)) && Number.isFinite(Number(point.value))).slice(-80);
+  const values = history.map(point => Number(point.value));
+  const minimum = values.length ? Math.min(...values) : 0;
+  const maximum = values.length ? Math.max(...values) : 1;
+  const padding = Math.max((maximum - minimum) * 0.12, Math.abs(maximum) * 0.02, 1e-9);
+  const low = minimum - padding;
+  const high = maximum + padding;
+  const points = history.map((point, index) => {
+    const x = history.length > 1 ? index / (history.length - 1) * 220 : 110;
+    const y = 44 - ((Number(point.value) - low) / (high - low)) * 38;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const first = history[0];
+  const last = history.at(-1);
+  return <div className="card lime learning-rate-card">
+    <div className="card-top"><span><Cpu /></span><label>LEARNING RATE</label></div>
+    <strong>{latest?.lr?.toFixed(9) || '—'}</strong>
+    <div className="lr-trend-chart"><svg viewBox="0 0 220 52" preserveAspectRatio="none" role="img" aria-label="Learning-rate trend"><line x1="0" y1="44" x2="220" y2="44" /><polyline points={points} /></svg></div>
+    <small>{policy ? `policy: ${policy}` : 'policy unavailable'}{first && last ? ` · steps ${Number(first.step).toLocaleString()} → ${Number(last.step).toLocaleString()}` : ''}</small>
+  </div>;
+}
+function StepProgressCard({ progress }) {
+  const percentage = progress?.percentage;
+  const value = progress ? `${progress.currentBatches?.toLocaleString()} / ${progress.targetBatches?.toLocaleString()}` : '—';
+  return <div className="card blue step-progress-card">
+    <div className="card-top"><span><Gauge /></span><label>STEP PROGRESS</label></div>
+    <strong>{value}</strong>
+    <div className="step-progress-track" role="progressbar" aria-label="Training step progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={percentage ?? 0}>
+      <span style={{ width: `${Math.max(0, Math.min(100, percentage ?? 0))}%` }} />
+    </div>
+    <small>{percentage == null ? 'optimizer steps' : `${percentage.toFixed(1)}% complete`}</small>
+  </div>;
+}
 function HealthMetric({ label, point, values = [], invert = false }) {
   const ordered = [...values].sort((a, b) => Number(a.step) - Number(b.step));
   const current = ordered.at(-1) || point;

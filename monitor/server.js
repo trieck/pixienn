@@ -115,6 +115,33 @@ function validationSchedule(metadata, eventFile) {
   return { interval, lastStep: stepOf(last), lastAt: Number(last.wall_time) * 1000, nextStep, nextAt, secondsPerStep };
 }
 
+function trainingProgress(metadata, latestStep) {
+  const configuration = metadata.configuration;
+  if (!configuration) return null;
+  const configText = read(configuration);
+  const modelMatch = configText.match(/^\s*model:\s*(\S+)\s*$/m);
+  const modelPath = modelMatch ? path.resolve(path.dirname(configuration), modelMatch[1]) : configuration;
+  const modelText = read(modelPath);
+  const maxBatches = Number(modelText.match(/^\s*max_batches:\s*(\d+)\s*$/m)?.[1]);
+  if (!Number.isFinite(maxBatches)) return null;
+  const currentBatches = Number.isFinite(Number(latestStep)) ? Number(latestStep) : null;
+  return {
+    currentBatches,
+    targetBatches: maxBatches,
+    percentage: currentBatches == null ? null : Math.min(100, currentBatches / maxBatches * 100)
+  };
+}
+
+function learningRatePolicy(metadata) {
+  const configuration = metadata.configuration;
+  if (!configuration) return null;
+  const configText = read(configuration);
+  const modelMatch = configText.match(/^\s*model:\s*(\S+)\s*$/m);
+  const modelPath = modelMatch ? path.resolve(path.dirname(configuration), modelMatch[1]) : configuration;
+  const modelText = read(modelPath);
+  return modelText.match(/learning_rate:\s*[\s\S]{0,500}?^\s*policy:\s*([^\s#]+)\s*$/m)?.[1] || null;
+}
+
 function localDate(value) {
   if (!value) return value;
   const match = value.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/);
@@ -365,7 +392,7 @@ async function snapshot(runName, selectedLossWindow = null) {
   // coupling the monitor to the unbounded console log.
   const active = Boolean(eventFile.eventUpdatedAt && Date.now() - eventFile.eventUpdatedAt < 120000);
   const { windows, ...publicEventFile } = eventFile;
-  return { name, metadata, earliestTrainingEvent: earliestTrainingEvent ? { at: Number(earliestTrainingEvent.wall_time) * 1000, step: Number(earliestTrainingEvent.raw_step ?? earliestTrainingEvent.step) } : null, latest, points, trend: { average: trendAverage, priorAverage, change, direction }, eventFile: publicEventFile, validationSchedule: validationSchedule(metadata, eventFile), checkpoints: checkpoints(dir), validationThreshold: validationThreshold(metadata), active, updatedAt: Date.now() };
+  return { name, metadata, earliestTrainingEvent: earliestTrainingEvent ? { at: Number(earliestTrainingEvent.wall_time) * 1000, step: Number(earliestTrainingEvent.raw_step ?? earliestTrainingEvent.step) } : null, latest, progress: trainingProgress(metadata, latest?.step), learningRatePolicy: learningRatePolicy(metadata), points, trend: { average: trendAverage, priorAverage, change, direction }, eventFile: publicEventFile, validationSchedule: validationSchedule(metadata, eventFile), checkpoints: checkpoints(dir), validationThreshold: validationThreshold(metadata), active, updatedAt: Date.now() };
 }
 
 function sharedSnapshot(runName, selectedLossWindow = null) {

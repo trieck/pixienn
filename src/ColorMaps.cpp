@@ -62,6 +62,7 @@ static const ColorMap colorMap = {
         MAP(PuRd, ColorMapKind::Continuous),
         MAP(Purples, ColorMapKind::Continuous),
         MAP(RdPu, ColorMapKind::Continuous),
+        MAP(RdYlGn, ColorMapKind::Continuous),
         MAP(Reds, ColorMapKind::Continuous),
         MAP(YlGn, ColorMapKind::Continuous),
         MAP(YlGnBu, ColorMapKind::Continuous),

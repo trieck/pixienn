@@ -180,29 +180,33 @@
 
 #root .pr-panel{margin-top:20px}
 #root .pr-panel{border-radius:18px}
-#root .training-activity{margin-top:20px;padding:22px}
+#root .training-activity{margin-top:20px;padding:22px;--activity-active:#00a896;--activity-validation:#e76f51;--activity-offline:#8b5cf6;--activity-track:#f1edf8}
 #root .training-activity-range{color:#687386;font-size:10px;font-variant-numeric:tabular-nums}
 #root .activity-summary{display:flex;flex-wrap:wrap;gap:22px;margin-top:20px;color:#687386;font-size:11px}
 #root .activity-summary span{display:flex;align-items:center;gap:7px}
 #root .activity-summary i{width:10px;height:10px;border-radius:3px}
-#root .activity-summary i.active{background:#5367f4}.activity-summary i.validation{background:#d09422}.activity-summary i.offline{background:#aeb7c4}
+#root .activity-summary i.active{background:var(--activity-active)}.activity-summary i.validation{background:var(--activity-validation)}.activity-summary i.offline{background:var(--activity-offline)}
 #root .activity-summary b{color:#303743;font-size:13px;font-variant-numeric:tabular-nums}
-#root .activity-track{display:flex;height:26px;margin-top:18px;overflow:hidden;border:1px solid #cbd1da;border-radius:5px;background:#eef1f4;box-shadow:inset 0 1px #fff}
+#root .activity-track{display:flex;height:26px;margin-top:18px;overflow:hidden;border:1px solid color-mix(in srgb,var(--activity-active),#fff 55%);border-radius:5px;background:var(--activity-track);box-shadow:inset 0 1px #fff}
 #root .activity-track span{display:block;min-width:1px;height:100%;border-right:1px solid #ffffff66}
-#root .activity-track .active{background:#5367f4}.activity-track .validation{background:#d09422}.activity-track .offline{background:#aeb7c4}
+#root .activity-track .active{background:var(--activity-active)}.activity-track .validation{background:var(--activity-validation)}.activity-track .offline{background:var(--activity-offline)}
 #root .activity-axis{display:flex;justify-content:space-between;margin-top:8px;color:#687386;font-size:10px;font-variant-numeric:tabular-nums}
 #root.theme-night .training-activity-range,#root.theme-night .activity-summary,#root.theme-night .activity-axis{color:#a8bad0}
 #root.theme-night .activity-summary b{color:#edf6ff}
-#root.theme-night .activity-track{border-color:#39516c;background:#26364a}
+#root.theme-night .training-activity{--activity-active:#49dcb1;--activity-validation:#ff8f70;--activity-offline:#a78bfa;--activity-track:#292445}
+#root.theme-night .activity-track{border-color:#39516c;background:var(--activity-track)}
 #root.theme-terminal .training-activity-range,#root.theme-terminal .activity-summary,#root.theme-terminal .activity-axis{color:#9ee5b4}
 #root.theme-terminal .activity-summary b{color:#c6f7d5}
-#root.theme-terminal .activity-track{border-color:#277542;background:#174d2b}
+#root.theme-terminal .training-activity{--activity-active:#56f39a;--activity-validation:#ff8a65;--activity-offline:#b58cff;--activity-track:#19353a}
+#root.theme-terminal .activity-track{border-color:#277542;background:var(--activity-track)}
 #root.theme-brown .training-activity-range,#root.theme-brown .activity-summary,#root.theme-brown .activity-axis{color:#d8b99d}
 #root.theme-brown .activity-summary b{color:#ffe8c9}
-#root.theme-brown .activity-track{border-color:#a87452;background:#594033}
+#root.theme-brown .training-activity{--activity-active:#f2a65a;--activity-validation:#ef6f6c;--activity-offline:#9b7ede;--activity-track:#3a2938}
+#root.theme-brown .activity-track{border-color:#a87452;background:var(--activity-track)}
 #root.theme-davinci .training-activity-range,#root.theme-davinci .activity-summary,#root.theme-davinci .activity-axis{color:#514b3d}
 #root.theme-davinci .activity-summary b{color:#27261f}
-#root.theme-davinci .activity-track{border-color:#827b6c;background:#bdb5a5;border-radius:0;box-shadow:none}
+#root.theme-davinci .training-activity{--activity-active:#1d8a78;--activity-validation:#d94f70;--activity-offline:#8b6fb3;--activity-track:#e8dfd2}
+#root.theme-davinci .activity-track{border-color:#827b6c;background:var(--activity-track);border-radius:0;box-shadow:none}
 #root .validation-card-grid{display:grid;grid-template-columns:1fr;gap:16px;margin-top:16px}
 #root .validation-bars{margin:0;padding:22px;--validation-axis-bg:#fff;--validation-axis-border:#e1e4e8;--validation-axis-color:#687386}
 #root .validation-bars-note{color:#687386;font-size:10px;font-variant-numeric:tabular-nums}
@@ -231,6 +235,58 @@
 #root .validation-bars-axis{display:flex;justify-content:space-between;margin:8px 8px 0 52px;color:#687386;font-size:10px;font-variant-numeric:tabular-nums}
 #root .validation-bars .validation-bars-axis{position:static;display:flex!important;justify-content:space-between;height:30px;margin:52px 8px 0 72px;padding:0;white-space:nowrap;clear:both}
 #root .validation-bars .validation-bars-axis span{position:static!important;top:auto;left:auto;right:auto;transform:none!important;padding:2px 4px;background:var(--validation-axis-bg)!important;border:1px solid var(--validation-axis-border);border-radius:4px;color:var(--validation-axis-color)!important}
+#root .cards{grid-template-columns:repeat(3,1fr)}
+#root .loss-card{position:relative;overflow:hidden}
+#root .loss-status{display:flex;align-items:center;gap:6px;margin:-2px 0 7px;color:#a33f50;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase}
+#root .loss-status b{font-size:18px;line-height:10px}
+#root .loss-card.improving .loss-status{color:#26945d}
+#root .loss-card.worsening .loss-status{color:#c45a50}
+#root .loss-card.waiting .loss-status{color:#9a7b83}
+#root .loss-trend-chart{height:54px;margin:8px 0 7px;padding:4px 0;border-bottom:1px solid #e2b2ba;background:linear-gradient(180deg,#fff7f8,#fbecef)}
+#root .loss-trend-chart svg{display:block;width:100%;height:100%}
+#root .loss-trend-chart line{stroke:#e2b2ba;stroke-width:1}
+#root .loss-trend-chart polyline{fill:none;stroke:#c94359;stroke-width:3;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round}
+#root.theme-night .loss-trend-chart{border-color:#75404f;background:#2b1d2a}
+#root.theme-night .loss-trend-chart line{stroke:#75404f}
+#root.theme-night .loss-trend-chart polyline{stroke:#ff8295}
+#root.theme-terminal .loss-trend-chart{border-color:#4b6f43;background:#102216}
+#root.theme-terminal .loss-trend-chart line{stroke:#4b6f43}
+#root.theme-terminal .loss-trend-chart polyline{stroke:#ff6874}
+#root.theme-brown .loss-trend-chart{border-color:#a87452;background:#2b1d18}
+#root.theme-brown .loss-trend-chart line{stroke:#765443}
+#root.theme-brown .loss-trend-chart polyline{stroke:#ff9075}
+#root.theme-davinci .loss-trend-chart{border-color:#b58c82;background:#eee9db}
+#root.theme-davinci .loss-trend-chart line{stroke:#b58c82}
+#root.theme-davinci .loss-trend-chart polyline{stroke:#9b3030}
+#root .learning-rate-card{position:relative;overflow:hidden}
+#root .learning-rate-card strong{font-size:27px;letter-spacing:-.03em}
+#root .lr-trend-chart{height:54px;margin:12px 0 7px;padding:4px 0;border-bottom:1px solid #b7cdbc;background:linear-gradient(180deg,#f7fcf8,#e8f3eb)}
+#root .lr-trend-chart svg{display:block;width:100%;height:100%}
+#root .lr-trend-chart line{stroke:#b7cdbc;stroke-width:1}
+#root .lr-trend-chart polyline{fill:none;stroke:#23814e;stroke-width:3;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round}
+#root.theme-night .lr-trend-chart{border-color:#426a58;background:#172b22}
+#root.theme-night .lr-trend-chart line{stroke:#426a58}
+#root.theme-night .lr-trend-chart polyline{stroke:#7ce2a1}
+#root.theme-terminal .lr-trend-chart{border-color:#277542;background:#07150c}
+#root.theme-terminal .lr-trend-chart line{stroke:#277542}
+#root.theme-terminal .lr-trend-chart polyline{stroke:#54f28a}
+#root.theme-brown .lr-trend-chart{border-color:#a87452;background:#2b1d18}
+#root.theme-brown .lr-trend-chart line{stroke:#765443}
+#root.theme-brown .lr-trend-chart polyline{stroke:#d99a61}
+#root.theme-davinci .lr-trend-chart{border-color:#827b6c;background:#eee9db}
+#root.theme-davinci .lr-trend-chart line{stroke:#bdb5a5}
+#root.theme-davinci .lr-trend-chart polyline{stroke:#236b35}
+#root .step-progress-card strong{font-size:25px;white-space:nowrap}
+#root .step-progress-track{height:22px;margin:9px 0 8px;padding:3px;border:2px inset #d4d0c8;border-radius:0;background:#c0c0c0;box-shadow:inset 1px 1px #808080;overflow:hidden}
+#root .step-progress-track span{display:block;height:100%;border:1px outset #8aa9d8;background:repeating-linear-gradient(90deg,#1654a5 0 9px,#1654a5 9px,#c0c0c0 9px 11px);box-shadow:inset 1px 1px #6e9bd8;transition:width .4s ease}
+#root.theme-night .step-progress-track{background:#172333;border-color:#52677d}
+#root.theme-night .step-progress-track span{background:repeating-linear-gradient(90deg,#3d8ee8 0 9px,#3d8ee8 9px,#26364a 9px 11px);border-color:#8cc5ff;box-shadow:inset 1px 1px #b8ddff}
+#root.theme-terminal .step-progress-track{background:#07150c;border-color:#277542}
+#root.theme-terminal .step-progress-track span{background:repeating-linear-gradient(90deg,#16833e 0 9px,#16833e 9px,#07150c 9px 11px);border-color:#54f28a;box-shadow:inset 1px 1px #9effbd}
+#root.theme-brown .step-progress-track{background:#241a16;border-color:#a87452}
+#root.theme-brown .step-progress-track span{background:repeating-linear-gradient(90deg,#a85e32 0 9px,#a85e32 9px,#241a16 9px 11px);border-color:#e3a477;box-shadow:inset 1px 1px #ffd0a8}
+#root.theme-davinci .step-progress-track{background:#eee9db;border-color:#827b6c}
+#root.theme-davinci .step-progress-track span{background:repeating-linear-gradient(90deg,#173c70 0 9px,#173c70 9px,#eee9db 9px 11px);border-color:#5a78a5;box-shadow:inset 1px 1px #b7c9e2}
 #root .validation-bars-empty{height:260px;display:grid;place-items:center}
 #root .validation-bars-plot.validation-spark{height:260px;margin:0;border:1px solid #aeb7c4;border-top:0;border-radius:0 0 5px 5px;box-shadow:inset 0 0 0 1px #dce2ed,0 10px 0 -2px #697789,0 13px 0 -3px #303b4b,0 18px 20px #29345122;padding:0 18px;background:repeating-linear-gradient(0deg,transparent 0,transparent 51px,#cdd2da 52px),repeating-linear-gradient(90deg,transparent 0,transparent 79px,#dfe3e8 80px),linear-gradient(180deg,#ffffff,#f1f3f6)}
 #root .validation-spark .validation-bars-groups{padding:0;gap:7px}
@@ -664,6 +720,75 @@
 #root.theme-davinci .validation-bars-grid i{border-color:#bdb5a5}
 #root.theme-davinci .validation-bars{--validation-axis-bg:#d8d3c5;--validation-axis-border:#827b6c;--validation-axis-color:#27261f}
 #root.theme-davinci .validation-bars .validation-bars-axis span{background:#d8d3c5;color:#27261f}
+
+/* Da Vinci reference palette: dusty sepia, parchment, burgundy ink, and olive gold. */
+#root.theme-davinci,#root.theme-davinci body,#root.theme-davinci main{background:#9b8580;color:#302523}
+#root.theme-davinci header,#root.theme-davinci nav{border-color:#e4d5c2}
+#root.theme-davinci .card,#root.theme-davinci .panel,#root.theme-davinci .tb-card{background:#d8c5b5;background-image:linear-gradient(135deg,#e8d8c5,#c7ada4);border-color:#eadbc7}
+#root.theme-davinci .run-picker select,#root.theme-davinci .run-picker button,
+#root.theme-davinci .panel select,#root.theme-davinci .theme-picker select,
+#root.theme-davinci .tb-toggle select,#root.theme-davinci .tb-scale{background:#cbb7aa;border-color:#eadbc7;color:#302523}
+#root.theme-davinci .run-picker button:active,#root.theme-davinci select:active,#root.theme-davinci .tb-scale:active{border-color:#76534f}
+#root.theme-davinci .card-top,#root.theme-davinci .health-metric span,#root.theme-davinci .health-metric small,
+#root.theme-davinci .health-metric .moving-average,#root.theme-davinci .health-footer,
+#root.theme-davinci .health-footer b,#root.theme-davinci .tb-head,#root.theme-davinci .tb-toggle,
+#root.theme-davinci .tb-toggle label,#root.theme-davinci .tb-axis-units,#root.theme-davinci .tb-y-labels,
+#root.theme-davinci .tb-x-axis{color:#5b4541!important}
+#root.theme-davinci .card label{background:#b79b94;border-color:#76534f;color:#302523}
+#root.theme-davinci .card-top svg{color:#6f3f43}
+#root.theme-davinci .card strong,#root.theme-davinci .card.blue strong{color:#6f3f43}
+#root.theme-davinci .card.pink strong{color:#713f45}
+#root.theme-davinci .card.lime strong{color:#2f6040}
+#root.theme-davinci .card.gold strong{color:#85662e}
+#root.theme-davinci .panel h2,#root.theme-davinci .health-heading h2{color:#302523}
+#root.theme-davinci .health-grid,#root.theme-davinci .health-metric{border-color:#a88780}
+#root.theme-davinci .health-metric b{color:#6f3f43}
+#root.theme-davinci .health-metric b.metric-improving,#root.theme-davinci .health-metric small.up{color:#2f6040!important}
+#root.theme-davinci .health-metric b.metric-declining,#root.theme-davinci .health-metric small.down{color:#8c4b4c!important}
+#root.theme-davinci .chart .spark,#root.theme-davinci .tb-card svg{background:#cbb7aa;border-color:#a88780}
+#root.theme-davinci .spark{border-color:#76534f;background:repeating-linear-gradient(to bottom,transparent 0,transparent 64px,#b79b94 65px)!important}
+#root.theme-davinci .pixienn-banner{filter:sepia(.35) saturate(.7);box-shadow:none;border-color:#eadbc7}
+#root.theme-davinci .tb-values,#root.theme-davinci .pr-footer{background:#b79b94;border-color:#76534f;color:#302523}
+#root.theme-davinci .tb-values b,#root.theme-davinci .pr-footer b{color:#6f3f43}
+#root.theme-davinci .pr-insight,#root.theme-davinci .pr-panel .tb-toggle,#root.theme-davinci .pr-panel .pr-meta{color:#5b4541}
+#root.theme-davinci .map-chart svg,#root.theme-davinci .validation-bars-plot{background:#cbb7aa;border-color:#a88780}
+#root.theme-davinci .map-grid,#root.theme-davinci .validation-bars-grid i{stroke:#b79b94;border-color:#b79b94}
+#root.theme-davinci .map-line{stroke:#6f3f43}
+#root.theme-davinci .map-summary span{background:#c1a79c;border-color:#a88780}
+#root.theme-davinci .validation-bars{--validation-axis-bg:#cbb7aa;--validation-axis-border:#a88780;--validation-axis-color:#302523}
+#root.theme-davinci .validation-bars .validation-bars-axis span{background:#cbb7aa;color:#302523}
+#root.theme-davinci .loss-trend-chart,#root.theme-davinci .lr-trend-chart{background:#cbb7aa;border-color:#a88780}
+#root.theme-davinci .loss-trend-chart line,#root.theme-davinci .lr-trend-chart line{stroke:#a88780}
+#root.theme-davinci .loss-trend-chart polyline{stroke:#713f45}
+#root.theme-davinci .lr-trend-chart polyline{stroke:#2f6040}
+#root.theme-davinci .pixienn-banner{
+  background-color:#b79b94;
+  filter:sepia(.12) saturate(.55) hue-rotate(330deg);
+}
+#root.theme-davinci .pixienn-banner::after{
+  display:block;
+  position:absolute;
+  inset:0;
+  z-index:0;
+  content:"";
+  background:#807276;
+  mix-blend-mode:multiply;
+  opacity:.14;
+  pointer-events:none;
+}
+#root.theme-davinci .banner-brand,#root.theme-davinci .banner-meta{
+  background:#d8c5b5d9;
+  border-color:#76534f;
+  box-shadow:none;
+  backdrop-filter:none;
+}
+#root.theme-davinci .banner-brand span,#root.theme-davinci .pixienn-banner span{color:#6f3f43}
+#root.theme-davinci .banner-brand strong,#root.theme-davinci .banner-brand em,
+#root.theme-davinci .pixienn-banner strong,#root.theme-davinci .pixienn-banner em{color:#2f6040}
+#root.theme-davinci .banner-meta-kicker{color:#6f3f43}
+#root.theme-davinci .banner-meta .meta-row{border-color:#a88780}
+#root.theme-davinci .banner-meta .meta-row span{color:#76534f}
+#root.theme-davinci .banner-meta .meta-row b{color:#302523}
 
 /* Improve the timestamp contrast in the monitor chrome. */
 #root nav small{color:#687386}
