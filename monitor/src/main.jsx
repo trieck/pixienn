@@ -385,8 +385,9 @@ function ValidationClock({ schedule, now }) {
 }
 
 function PRCurvePanel({ curve }) {
-  const points = [...(curve?.points || [])]
-    .filter(point => Number.isFinite(Number(point.precision)) && Number.isFinite(Number(point.recall)))
+  const sampledPoints = [...(curve?.points || [])]
+    .filter(point => Number.isFinite(Number(point.precision)) && Number.isFinite(Number(point.recall)));
+  const points = [...sampledPoints]
     .sort((lhs, rhs) => Number(lhs.recall) - Number(rhs.recall));
   const xMaximum = 1;
   const yMaximum = 1;
@@ -399,19 +400,28 @@ function PRCurvePanel({ curve }) {
     return `${current.x},${current.y}`;
   }).join(' ');
   const axisLabel = value => value.toLocaleString(undefined, { maximumFractionDigits: 3 });
-  const endpoint = points.at(-1);
-  const leastPermissive = [...points]
-    .sort((lhs, rhs) => Number(rhs.confidence) - Number(lhs.confidence))
-    .find(point => Number(point.precision) > 0 || Number(point.recall) > 0);
+  const activePoints = sampledPoints.filter(point => Number(point.precision) > 0 || Number(point.recall) > 0);
+  const lowerThreshold = activePoints.reduce((lowest, point) => (
+    !lowest || Number(point.confidence) < Number(lowest.confidence) ? point : lowest
+  ), null);
+  const upperThreshold = activePoints.reduce((highest, point) => (
+    !highest || Number(point.confidence) > Number(highest.confidence) ? point : highest
+  ), null);
   const percent = value => `${Math.round(Number(value) * 100)}%`;
   const confidenceLabel = point => Number(point.confidence).toFixed(3);
+  const thresholdInsight = (point, description) => {
+    const precision = Number(point.precision);
+    const recall = Number(point.recall);
+    return <p className="pr-insight">At confidence {confidenceLabel(point)}—{description}—the model detects about {percent(recall)} of the ground-truth objects in the evaluated validation set. Its precision is about {percent(precision)}, so about {percent(1 - precision)} of its detections are false positives. Its recall is about {percent(recall)}, so about {percent(1 - recall)} of ground-truth objects are missed (false negatives).</p>;
+  };
   return <section className="tb-card pr-panel">
     <div className="tb-toggle"><span>Precision–recall curve</span><span className="pr-meta">{curve ? `validation step ${Number(curve.step).toLocaleString()}` : 'Waiting for validation data'}</span></div>
     <div className="tb-axis-units"><span>Y · precision</span><span>X · recall</span></div>
     <div className="tb-plot"><div className="tb-y-labels"><span style={{ top: '0%' }}>{axisLabel(yMaximum)}</span><span style={{ top: '50%' }}>{axisLabel(yMaximum / 2)}</span><span style={{ top: '100%' }}>0</span></div><div className="tb-plot-area"><svg viewBox="0 0 220 86" preserveAspectRatio="none" role="img" aria-label="Precision versus recall curve"><defs><linearGradient id="pr-line-gradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#d5fbff" /><stop offset="16%" stopColor="#27dfff" /><stop offset="52%" stopColor="#087ff5" /><stop offset="82%" stopColor="#5140df" /><stop offset="100%" stopColor="#a818ff" /></linearGradient></defs><line x1="0" y1="0" x2="220" y2="0" /><line x1="0" y1="43" x2="220" y2="43" /><line x1="0" y1="86" x2="220" y2="86" /><polyline className="tb-tube-body" stroke="url(#pr-line-gradient)" points={svgPoints} /></svg><div className="tb-x-axis"><span style={{ left: '50%' }}>{axisLabel(xMaximum / 2)}</span><span style={{ left: '100%' }}>{axisLabel(xMaximum)}</span></div></div></div>
-    <div className="tb-values"><span>{points.length ? `${points.length} threshold points` : 'No PR data'}</span><span>endpoint precision <b>{points.length ? metricFmt(points.at(-1).precision) : '—'}</b></span><span>endpoint recall <b>{points.length ? metricFmt(points.at(-1).recall) : '—'}</b></span></div>
-    {endpoint && <p className="pr-insight">At the most permissive threshold (confidence {confidenceLabel(endpoint)}), the model finds about {percent(endpoint.recall)} of the objects, with {percent(endpoint.precision)} of its detections correct.</p>}
-    {leastPermissive && <p className="pr-insight">At the least permissive threshold that produces detections (confidence {confidenceLabel(leastPermissive)}), about {percent(leastPermissive.precision)} of its detections are correct, and the model finds about {percent(leastPermissive.recall)} of the objects.</p>}
+    <div className="tb-values"><span>{points.length ? `${points.length} threshold points` : 'No PR data'}</span><span>lowest-threshold precision <b>{lowerThreshold ? metricFmt(lowerThreshold.precision) : '—'}</b></span><span>lowest-threshold recall <b>{lowerThreshold ? metricFmt(lowerThreshold.recall) : '—'}</b></span></div>
+    {lowerThreshold && thresholdInsight(lowerThreshold, 'the lowest threshold and most permissive setting')}
+    {upperThreshold && thresholdInsight(upperThreshold, 'the highest threshold that produces any detections')}
+    {points.length > 0 && <p className="pr-insight">These are sampled confidence cutoffs from 0.000 through 1.000 in 0.005 increments. Precision is the percentage of the model&apos;s detections that are correct; the rest are false positives. Recall is the percentage of real objects that the model found; the rest were missed (false negatives).</p>}
   </section>;
 }
 
