@@ -17,6 +17,7 @@
 #pragma once
 
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string/trim.hpp>
 #include <boost/format.hpp>
 #include <boost/program_options.hpp>
 #include <boost/program_options/variables_map.hpp>
@@ -80,6 +81,8 @@ public:
 
     virtual Detections predict(const std::string& imageFile, float confidence,
                                float nmsThreshold) = 0;
+    virtual std::string predictBatchImageList(const std::string& imageList, float confidence,
+                                               float nmsThreshold) = 0;
     virtual void train() = 0;
     virtual void evaluate() = 0;
 
@@ -161,6 +164,7 @@ public:
     Detections predict(const std::string& imageFile, float confidence,
                        float nmsThreshold);
     Detections detections() const;
+    Detections detections(float confidence) const;
     Detections detections(const cv::Size& imageSize) const;
     Detections detections(const cv::Size& imageSize, float confidence) const;
 
@@ -175,6 +179,8 @@ public:
     void saveTrainingStateFile(const std::string& fileName) const;
 
     void overlay(const std::string& imageFile, const Detections& detects) const override;
+    std::string predictBatchImageList(const std::string& imageList, float confidence,
+                                      float nmsThreshold) override;
     std::string asJson(const Detections& detects) const noexcept override;
 
     void forward(const V& input);
@@ -791,6 +797,104 @@ Detections Model<D>::predict(const std::string& imageFile, float confidence,
 }
 
 template<Device D>
+std::string Model<D>::predictBatchImageList(const std::string& imageList, float confidence,
+                                            float nmsThreshold)
+{
+    std::ifstream ifs(imageList);
+    PX_CHECK(ifs.good(), "Could not open image list \"%s\"", imageList.c_str());
+
+    std::vector<std::string> imageFiles;
+    const auto basePath = boost::filesystem::path(imageList).parent_path();
+    for (std::string line; std::getline(ifs, line);) {
+        boost::algorithm::trim(line);
+        if (line.empty()) {
+            continue;
+        }
+        boost::filesystem::path imagePath(line);
+        if (imagePath.is_relative()) {
+            imagePath = basePath / imagePath;
+        }
+        PX_CHECK(boost::filesystem::is_regular_file(imagePath),
+                 "Could not open image file \"%s\"", imagePath.c_str());
+        imageFiles.push_back(boost::filesystem::canonical(imagePath).string());
+    }
+    PX_CHECK(!imageFiles.empty(), "Image list \"%s\" is empty", imageList.c_str());
+    PX_CHECK(batch_ > 0, "Model batch size must be positive");
+
+    const auto imageSize = static_cast<std::size_t>(channels_) * height_ * width_;
+    Detections allDetections;
+    std::vector<cv::Mat> images;
+    images.reserve(imageFiles.size());
+
+    for (std::size_t first = 0; first < imageFiles.size(); first += batch_) {
+        const auto count = std::min<std::size_t>(batch_, imageFiles.size() - first);
+        PxCpuVector hostInput(static_cast<std::size_t>(batch_) * imageSize);
+        hostInput.fill(0.0f);
+
+        for (std::size_t b = 0; b < count; ++b) {
+            const auto image = imreadVector(imageFiles[first + b].c_str(), width_, height_, channels_);
+            std::copy(image.data.data(), image.data.data() + image.data.size(),
+                      hostInput.data() + b * imageSize);
+            images.push_back(imread8(imageFiles[first + b].c_str(), channels_));
+        }
+
+        V input(hostInput.size());
+        input.copyHost(hostInput.data(), hostInput.size());
+        forward(input);
+        auto detections = nms(this->detections(confidence), nmsThreshold);
+        for (auto& detection: detections) {
+            if (detection.batchId() < static_cast<int>(count)) {
+                allDetections.emplace_back(detection.box(),
+                                           detection.batchId() + static_cast<int>(first),
+                                           detection.classIndex(), detection.prob());
+            }
+        }
+    }
+
+    const auto columns = std::max<std::size_t>(1, static_cast<std::size_t>(std::ceil(std::sqrt(imageFiles.size()))));
+    const auto rows = (imageFiles.size() + columns - 1) / columns;
+    constexpr int tileWidth = 640;
+    constexpr int tileHeight = 480;
+    cv::Mat mosaic(static_cast<int>(rows) * tileHeight, static_cast<int>(columns) * tileWidth,
+                   CV_8UC4, cv::Scalar(32, 32, 32, 255));
+    ColorMaps colors(options_.count("color-map") ? option<std::string>("color-map") : "viridis");
+    const auto thickness = std::max(1, options_.count("line-thickness") ? option<int>("line-thickness") : 2);
+
+    for (std::size_t i = 0; i < images.size(); ++i) {
+        cv::Mat tile;
+        cv::resize(images[i], tile, {tileWidth, tileHeight});
+        cv::cvtColor(tile, tile, cv::COLOR_BGR2BGRA);
+        const auto col = static_cast<int>(i % columns);
+        const auto row = static_cast<int>(i / columns);
+        tile.copyTo(mosaic(cv::Rect(col * tileWidth, row * tileHeight, tileWidth, tileHeight)));
+
+        for (const auto& detection: allDetections) {
+            if (detection.batchId() != static_cast<int>(i)) {
+                continue;
+            }
+            const auto index = detection.classIndex();
+            const auto color = hasOption("color-by-confidence")
+                    ? colors.sample(detection.prob()) : colors.color(index);
+            const auto textColor = imtextcolor(color);
+            const auto& box = detection.box();
+            cv::Rect rect(static_cast<int>(box.x * tileWidth),
+                          static_cast<int>(box.y * tileHeight),
+                          static_cast<int>(box.width * tileWidth),
+                          static_cast<int>(box.height * tileHeight));
+            rect &= cv::Rect(0, 0, tileWidth, tileHeight);
+            imrect(tile, rect, color, thickness);
+            auto text = boost::format("%1%: %2$.2f%%") % labels_[index] % (detection.prob() * 100);
+            if (!hasOption("no-labels")) {
+                imtabbedText(tile, text.str().c_str(), rect.tl(), textColor, color, thickness);
+            }
+        }
+        tile.copyTo(mosaic(cv::Rect(col * tileWidth, row * tileHeight, tileWidth, tileHeight)));
+    }
+    imsave("predictions.jpg", mosaic);
+    return asJson(allDetections);
+}
+
+template<Device D>
 Detections Model<D>::detections() const
 {
     Detections detections;
@@ -802,6 +906,19 @@ Detections Model<D>::detections() const
         }
     }
 
+    return detections;
+}
+
+template<Device D>
+Detections Model<D>::detections(float confidence) const
+{
+    Detections detections;
+    for (auto& layer: layers()) {
+        auto* detector = dynamic_cast<Detector*>(layer.get());
+        if (detector) {
+            detector->addDetects(detections, confidence);
+        }
+    }
     return detections;
 }
 

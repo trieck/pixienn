@@ -46,6 +46,14 @@ void predict(const std::string& cfgFile, const std::string& imageFile,
     ofs.close();
 }
 
+void predictBatch(const std::string& cfgFile, const std::string& imageList,
+                  const po::variables_map& options)
+{
+    auto model = BaseModel::create(cfgFile, options);
+    model->predictBatchImageList(imageList, options["confidence"].as<float>(),
+                                 options["nms"].as<float>());
+}
+
 }   // px
 
 int main(int argc, char* argv[])
@@ -63,7 +71,9 @@ int main(int argc, char* argv[])
             ("config-file", po::value<std::string>()->required(), "Configuration file")
             ("find-best-algo", po::bool_switch()->default_value(false), "Find the best cuDNN convolution algorithm")
             ("help", po::bool_switch()->default_value(false), "Print program usage")
-            ("image-file", po::value<std::string>()->required(), "Image file")
+            ("image-file", po::value<std::string>(), "Image file")
+            ("image-list", po::value<std::string>(),
+             "File containing image paths; runs native batched inference and writes predictions.jpg")
             ("line-thickness", po::value<int>()->default_value(2), "Line thickness")
             ("list-colormaps", po::bool_switch()->default_value(false), "List colormaps and exit")
             ("nms", po::value<float>()->default_value(0.3f), "IoU threshold for Non-Maximum-Suppression")
@@ -94,9 +104,12 @@ int main(int argc, char* argv[])
         po::notify(vm);
 
         auto config = vm["config-file"].as<std::string>();
-        auto image = vm["image-file"].as<std::string>();
-
-        predict(config, image, vm);
+        if (vm.count("image-list")) {
+            predictBatch(config, vm["image-list"].as<std::string>(), vm);
+        } else {
+            PX_CHECK(vm.count("image-file"), "Specify an image file or --image-list");
+            predict(config, vm["image-file"].as<std::string>(), vm);
+        }
     } catch (const px::Error& e) {
         std::cerr << e.what() << std::endl;
         exit(1);

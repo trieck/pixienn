@@ -328,6 +328,13 @@ public:
         return model_->asJson(detects);
     }
 
+    std::string predictBatchImageList(const std::string& imageList, float confidence = 0.25f,
+                                      float nmsThreshold = 0.3f)
+    {
+        if (!built_) throw py::value_error("model must be built before predict_batch_image_list()");
+        return model_->predictBatchImageList(imageList, confidence, nmsThreshold);
+    }
+
     void setLabels(const std::vector<std::string>& labels) { model_->setLabels(labels); }
     std::vector<std::string> labels() const { return model_->labels(); }
     void setThreshold(float threshold) { model_->setThreshold(threshold); }
@@ -605,6 +612,12 @@ public:
         model_->overlay(imageFile, detects);
         return model_->asJson(detects);
     }
+    std::string predictBatchImageList(const std::string& imageList, float confidence = 0.25f,
+                                      float nmsThreshold = 0.3f)
+    {
+        if (!built_) throw py::value_error("model must be built before predict_batch_image_list()");
+        return model_->predictBatchImageList(imageList, confidence, nmsThreshold);
+    }
     std::vector<int> outputShape() const
     {
         if (!built_ || model_->layerSize() == 0) return {model_->channels(), model_->height(), model_->width()};
@@ -688,6 +701,9 @@ PYBIND11_MODULE(_native, module)
         .def("predict_image", &px::PythonModel::predictImage,
              py::arg("image_file"), py::arg("confidence") = 0.25f,
              py::arg("nms_threshold") = 0.3f)
+        .def("predict_batch_image_list", &px::PythonModel::predictBatchImageList,
+             py::arg("image_list"), py::arg("confidence") = 0.25f,
+             py::arg("nms_threshold") = 0.3f)
         .def("set_labels", &px::PythonModel::setLabels, py::arg("labels"))
         .def_property_readonly("labels", &px::PythonModel::labels)
         .def("set_threshold", &px::PythonModel::setThreshold, py::arg("threshold"))
@@ -753,6 +769,9 @@ PYBIND11_MODULE(_native, module)
              py::arg("nms_threshold") = 0.3f)
         .def("predict_image", &px::PythonCudaModel::predictImage,
              py::arg("image_file"), py::arg("confidence") = 0.25f,
+             py::arg("nms_threshold") = 0.3f)
+        .def("predict_batch_image_list", &px::PythonCudaModel::predictBatchImageList,
+             py::arg("image_list"), py::arg("confidence") = 0.25f,
              py::arg("nms_threshold") = 0.3f)
         .def_property_readonly("built", &px::PythonCudaModel::built)
         .def_property_readonly("device", &px::PythonCudaModel::device)

@@ -89,7 +89,7 @@ function PowerLabel({ exponent }) {
 
 function App() {
   const [runs, setRuns] = useState([]);
-  const [run, setRun] = useState('yolov3');
+  const [run, setRun] = useState(null);
   const [data, setData] = useState(null);
   const [scale, setScale] = useState('linear');
   const [lossWindow, setLossWindow] = useState('all');
@@ -116,7 +116,7 @@ function App() {
     .then(response => { if (!response.ok) throw new Error(`Run list failed (${response.status})`); return response.json(); })
     .then(names => {
       setRuns(names);
-      setRun(current => names.length && !names.includes(current) ? names[0] : current);
+      setRun(current => names.length && (!current || !names.includes(current)) ? names[0] : current);
     })
     .catch(error => console.warn(error));
 
@@ -140,6 +140,7 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (!run) return undefined;
     let stopped = false;
     let inFlight = false;
     let controller;

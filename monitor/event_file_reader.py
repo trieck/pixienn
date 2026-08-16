@@ -37,6 +37,9 @@ step_offset = 0
 cache_key = hashlib.sha256(f"{os.path.abspath(event_file)}:{start_time}".encode()).hexdigest()[:24]
 cache_file = os.path.join(tempfile.gettempdir(), f"pixienn-event-cache-{cache_key}.json")
 cache_file_size = 0
+loaded_file_size = 0
+loaded_file_mtime_ns = None
+loaded_event_count = 0
 
 
 def display_series(values, limit=MAX_DISPLAY_POINTS):
@@ -76,6 +79,21 @@ def scalar_value(summary):
 
 def update_series():
     global previous_raw_step, previous_normalized_step, step_offset
+    global loaded_file_size, loaded_file_mtime_ns, loaded_event_count
+    current_stat = os.stat(event_file)
+    if (loaded_file_size == current_stat.st_size
+            and loaded_file_mtime_ns == current_stat.st_mtime_ns):
+        return
+    if loaded_file_size > current_stat.st_size:
+        full_series.clear()
+        card_tail_series.clear()
+        pr_curves.clear()
+        for values in tail_series.values():
+            values.clear()
+        previous_raw_step = -1
+        previous_normalized_step = -1
+        step_offset = 0
+        loaded_event_count = 0
     for event in event_loader.Load():
         if start_time is not None and event.wall_time < start_time:
             continue
@@ -107,6 +125,9 @@ def update_series():
             card_tail_series.setdefault(summary.tag, deque(maxlen=MAX_CARD_WINDOW_POINTS)).append(point)
             if summary.tag in tail_series:
                 tail_series[summary.tag].append(point)
+    loaded_file_size = current_stat.st_size
+    loaded_file_mtime_ns = current_stat.st_mtime_ns
+    loaded_event_count = 0
 
 
 def load_cache():
@@ -121,6 +142,12 @@ def load_cache():
             return None
         if not isinstance(response, dict) or not isinstance(response.get("series"), dict):
             return None
+        response["series"] = {
+            tag: display_series(values, MAX_DISPLAY_POINTS if tag in WINDOW_TAGS else 240)
+            for tag, values in response["series"].items()
+        }
+        if isinstance(response.get("tails"), dict):
+            response["tails"] = {tag: values for tag, values in response["tails"].items() if tag in WINDOW_TAGS}
         cache_file_size = cached_size
         return response
     except (OSError, ValueError, TypeError, json.JSONDecodeError):
@@ -185,9 +212,13 @@ def activity_summary():
 
 
 def current_response():
-    series = {tag: display_series(values) for tag, values in full_series.items()}
+    series = {tag: display_series(values, MAX_DISPLAY_POINTS if tag in WINDOW_TAGS else 240)
+              for tag, values in full_series.items()}
     windows = {tag: list(values) for tag, values in tail_series.items() if values}
-    tails = {tag: list(values) for tag, values in card_tail_series.items() if values}
+    # Long tails are needed for the loss-window controls. Other scalar cards
+    # already have bounded display series and do not need a second copy of
+    # thousands of recent points in every response.
+    tails = {tag: list(card_tail_series[tag]) for tag in WINDOW_TAGS if tag in card_tail_series}
     return {"series": series, "windows": windows, "tails": tails, "prCurves": pr_curves, "activity": activity_summary()}
 
 

@@ -56,7 +56,7 @@ function validationThreshold(metadata) {
   const modelPath = modelMatch
     ? path.resolve(path.dirname(configuration), modelMatch[1])
     : configuration;
-  const match = read(modelPath).match(/validation:\s*\n(?:\s+[^\n]+\n)*?\s+threshold:\s*([0-9.+-eE]+)\s*$/m);
+  const match = read(modelPath).match(/^\s+threshold:\s*([0-9.+-eE]+)\s*$/m);
   return match ? Number(match[1]) : null;
 }
 
@@ -196,10 +196,12 @@ class EventFileReader {
     this.child.stdout.setEncoding('utf8');
     this.child.stderr.setEncoding('utf8');
     this.buffer = '';
+    this.bufferParts = [];
     this.waiters = [];
     this.active = null;
     this.failure = null;
     this.last = null;
+    this.lastMtime = null;
     this.stderr = '';
 
     this.child.stdout.on('data', data => this.receive(data));
@@ -215,10 +217,11 @@ class EventFileReader {
     });
   }
 
-  request() {
+  request(mtime) {
     if (this.failure) return Promise.reject(this.failure);
+    if (this.last && this.lastMtime === mtime) return Promise.resolve(this.last);
     return new Promise((resolve, reject) => {
-      this.waiters.push({ resolve, reject });
+      this.waiters.push({ resolve, reject, mtime });
       this.pump();
     });
   }
@@ -240,7 +243,10 @@ class EventFileReader {
   }
 
   receive(data) {
-    this.buffer += data;
+    this.bufferParts.push(data);
+    if (!data.includes('\n')) return;
+    this.buffer += this.bufferParts.join('');
+    this.bufferParts = [];
     let newline;
     while ((newline = this.buffer.indexOf('\n')) >= 0) {
       const line = this.buffer.slice(0, newline);
@@ -261,6 +267,7 @@ class EventFileReader {
       clearTimeout(active.timeout);
       this.active = null;
       this.last = result;
+      this.lastMtime = active.mtime;
       // Requests that arrived while the reader was working can share this
       // response; sending another full reload for each poll is unnecessary.
       const waiters = active.waiters.concat(this.waiters);
@@ -290,25 +297,25 @@ class EventFileReader {
 
 function readerFor(dir, event, startTime = null) {
   const previous = eventReaders.get(dir);
-  if (previous && (previous.event !== event || previous.startTime !== startTime)) {
+  if (previous && (previous.event !== event.file || previous.startTime !== startTime)) {
     previous.reader.close();
     eventReaders.delete(dir);
   }
   let current = eventReaders.get(dir);
   if (!current || current.reader.failure) {
     current?.reader.close();
-    current = { event, startTime, reader: new EventFileReader(event, startTime) };
+    current = { event: event.file, startTime, reader: new EventFileReader(event.file, startTime) };
     eventReaders.set(dir, current);
   }
-  return current.reader;
+  return { reader: current.reader, mtime: event.mtime };
 }
 
 async function eventFileSnapshot(dir, startTime = null) {
   const event = latestEventFile(dir);
   if (!event) return { tags: [], series: {}, latest: {}, windows: {}, tails: {}, prCurves: {} };
-  const reader = readerFor(dir, event.file, startTime);
+  const { reader, mtime } = readerFor(dir, event, startTime);
   try {
-    const result = await reader.request();
+    const result = await reader.request(mtime);
     const series = result.series || {};
     const latest = Object.fromEntries(Object.entries(series).map(([tag, values]) => [tag, values.at(-1) || null]));
     return { tags: Object.keys(series), series, latest, windows: result.windows || {}, tails: result.tails || {}, prCurves: result.prCurves || {}, activity: result.activity || null, eventUpdatedAt: event.mtime };
@@ -330,7 +337,7 @@ function metricPoints(series) {
       rateIndex++;
       currentRate = rates[rateIndex].value;
     }
-    return { step: loss.step, loss: loss.value, avg: loss.value, lr: currentRate };
+    return { step: loss.step, raw_step: loss.raw_step, loss: loss.value, avg: loss.value, lr: currentRate };
   });
 }
 
@@ -381,6 +388,11 @@ async function snapshot(runName, selectedLossWindow = null) {
   const metadata = Object.fromEntries(read(path.join(dir, 'run-metadata.txt')).split('\n').filter(Boolean).map(line => {
     const i = line.indexOf('='); return [line.slice(0, i), line.slice(i + 1)];
   }));
+  // Older runs predate run-metadata.txt and keep their configuration locally.
+  if (!metadata.configuration) {
+    const legacyConfiguration = path.join(dir, 'config.yml');
+    if (fs.existsSync(legacyConfiguration)) metadata.configuration = legacyConfiguration;
+  }
   const eventStart = metadata.mode === 'fresh' ? metadataEpochSeconds(metadata.started_utc) : null;
   if (metadata.started_utc) metadata.started_utc = localDate(metadata.started_utc);
   const eventFile = await eventFileSnapshot(dir, eventStart);
@@ -414,7 +426,13 @@ async function snapshot(runName, selectedLossWindow = null) {
   // coupling the monitor to the unbounded console log.
   const active = Boolean(eventFile.eventUpdatedAt && Date.now() - eventFile.eventUpdatedAt < 120000);
   const { windows, ...publicEventFile } = eventFile;
-  return { name, metadata, earliestTrainingEvent: earliestTrainingEvent ? { at: Number(earliestTrainingEvent.wall_time) * 1000, step: Number(earliestTrainingEvent.raw_step ?? earliestTrainingEvent.step) } : null, latest, progress: trainingProgress(metadata, latest?.step), learningRatePolicy: learningRatePolicy(metadata), points, trend: { average: trendAverage, priorAverage, change, direction }, eventFile: publicEventFile, validationSchedule: validationSchedule(metadata, eventFile), checkpoints: checkpoints(dir), validationThreshold: validationThreshold(metadata), active, updatedAt: Date.now() };
+  const progressStep = latest?.raw_step ?? latest?.step;
+  const policy = learningRatePolicy(metadata);
+  const schedule = validationSchedule(metadata, eventFile);
+  const runCheckpoints = checkpoints(dir);
+  const threshold = validationThreshold(metadata);
+  const result = { name, metadata, earliestTrainingEvent: earliestTrainingEvent ? { at: Number(earliestTrainingEvent.wall_time) * 1000, step: Number(earliestTrainingEvent.raw_step ?? earliestTrainingEvent.step) } : null, latest, progress: trainingProgress(metadata, progressStep), learningRatePolicy: policy, points, trend: { average: trendAverage, priorAverage, change, direction }, eventFile: publicEventFile, validationSchedule: schedule, checkpoints: runCheckpoints, validationThreshold: threshold, active, updatedAt: Date.now() };
+  return result;
 }
 
 function sharedSnapshot(runName, selectedLossWindow = null) {
@@ -428,7 +446,7 @@ function sharedSnapshot(runName, selectedLossWindow = null) {
   return request;
 }
 
-const vite = await createViteServer({ root: path.dirname(fileURLToPath(import.meta.url)), server: { middlewareMode: true }, appType: 'spa' });
+const vite = await createViteServer({ root: path.dirname(fileURLToPath(import.meta.url)), server: { middlewareMode: true, hmr: false, watch: { ignored: [monitorDir, '**/*'] } }, appType: 'spa' });
 createServer(async (req, res) => {
   try {
     if (req.url === '/api/runs') {

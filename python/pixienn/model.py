@@ -239,6 +239,11 @@ class Model:
             Path(geojson_path).write_text(result)
         return result
 
+    def predict_batch_image_list(self, image_list: str | Path, *, confidence: float = 0.25,
+                                 nms_threshold: float = 0.3) -> str:
+        """Run one native batched inference pass and write ``predictions.jpg`` mosaic."""
+        return self._native.predict_batch_image_list(str(image_list), confidence, nms_threshold)
+
     @property
     def cost(self) -> float:
         return self._native.cost
