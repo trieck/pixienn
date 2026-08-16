@@ -143,7 +143,7 @@ selected with `set_mode("inference"|"training"|"validation")`.
 
 ## Native CenterNet architecture
 
-`python/centernet_demo.py` is a CenterNet experiment built through the native
+`python/examples/centernet_demo.py` is a CenterNet experiment built through the native
 PixieNN Python binding. Python describes the graph and orchestrates the run;
 convolution, routing, upsampling, target generation, focal loss, decoding,
 CUDA execution, checkpoints, and event writing remain in C++.
@@ -200,7 +200,7 @@ Changing this graph makes old CenterNet weights incompatible. Start a new
 experiment with:
 
 ```bash
-python3 python/centernet_demo.py \
+python3 python/examples/centernet_demo.py \
   --fresh \
   --batch-size=32 \
   --epochs=5000 \

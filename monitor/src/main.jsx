@@ -102,7 +102,7 @@ function App() {
     localStorage.setItem('pixienn-monitor-theme', theme);
     const root = document.getElementById('root');
     if (root) {
-      root.classList.remove('theme-parchment', 'theme-night', 'theme-terminal', 'theme-brown', 'theme-davinci');
+      root.classList.remove('theme-parchment', 'theme-night', 'theme-terminal', 'theme-brown', 'theme-davinci', 'theme-anime');
       root.classList.add(`theme-${theme}`);
     }
   }, [theme]);
@@ -242,7 +242,7 @@ function App() {
   const movingAverageWindow = 12;
 
   return <main className={`theme-${theme}`}>
-    <header><div className="run-picker"><span>RUN</span><select value={run} onChange={event => setRun(event.target.value)}>{runs.map(name => <option key={name}>{name}</option>)}</select><button onClick={() => { loadRuns(); refresh(); }}><RefreshCw size={16} /></button><label className="theme-picker"><span>THEME</span><select aria-label="Theme" value={theme} onChange={event => setTheme(event.target.value)}><option value="parchment">Parchment</option><option value="night">Night control room</option><option value="terminal">Terminal green</option><option value="brown">Cocoa</option><option value="davinci">Da Vinci 95</option></select></label></div></header>
+    <header><div className="run-picker"><span>RUN</span><select value={run} onChange={event => setRun(event.target.value)}>{runs.map(name => <option key={name}>{name}</option>)}</select><button onClick={() => { loadRuns(); refresh(); }}><RefreshCw size={16} /></button><label className="theme-picker"><span>THEME</span><select aria-label="Theme" value={theme} onChange={event => setTheme(event.target.value)}><option value="parchment">Parchment</option><option value="night">Night control room</option><option value="terminal">Terminal green</option><option value="brown">Cocoa</option><option value="davinci">Da Vinci 95</option><option value="anime">Japanese ink anime</option></select></label></div></header>
 
     <nav><small>updated {data ? new Date(data.updatedAt).toLocaleTimeString() : '—'}</small></nav>
     {loading && <div className="monitor-loading-overlay" role="status" aria-live="polite"><div className="monitor-loading-dialog"><span className="monitor-loading-spinner" /><strong>Loading training history</strong><small>Reading event data…</small></div></div>}

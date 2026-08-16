@@ -758,6 +758,215 @@
 #root.theme-davinci .validation-bars{--validation-axis-bg:#cbb7aa;--validation-axis-border:#a88780;--validation-axis-color:#302523}
 #root.theme-davinci .validation-bars .validation-bars-axis span{background:#cbb7aa;color:#302523}
 #root.theme-davinci .loss-trend-chart,#root.theme-davinci .lr-trend-chart{background:#cbb7aa;border-color:#a88780}
+
+/* Sakura anime: indigo night, sakura pink, electric cyan, and magical sparkle. */
+#root.theme-anime, #root.theme-anime body, #root.theme-anime main,
+#root.theme-anime .chart .spark, #root.theme-anime .tb-card svg{
+  background-color:#171633;
+  background-image:
+    radial-gradient(circle at 12% 18%,#ff9fc833 0 1px,transparent 2px),
+    radial-gradient(circle at 82% 8%,#6ee7f733 0 1px,transparent 2px),
+    radial-gradient(circle at 65% 70%,#ffffff12 0 1px,transparent 2px);
+  background-size:97px 83px,131px 109px,73px 127px;
+  color:#f8edff;
+}
+#root.theme-anime main{font-family:'DM Sans',sans-serif}
+#root.theme-anime header,#root.theme-anime nav{border-color:#4a3c76}
+#root.theme-anime .brand b{color:#fff4ff}
+#root.theme-anime .brand span,#root.theme-anime .theme-picker,#root.theme-anime .run-picker{color:#c0addd}
+#root.theme-anime h1{color:#fff4ff;text-shadow:0 0 24px #ff75c955}
+#root.theme-anime h1 span{color:#ff94ce}
+#root.theme-anime h1 em,#root.theme-anime .sub,#root.theme-anime .kicker,#root.theme-anime .eyebrow{color:#c6b6e0}
+#root.theme-anime .mark{background:linear-gradient(135deg,#ff5fa2,#735cff);box-shadow:0 8px 22px #ff5fa255}
+#root.theme-anime .status{background:#172f4b;border-color:#3ccef0;color:#8df2ff}
+#root.theme-anime .status.idle{background:#39273e;border-color:#f0a0c3;color:#ffc2de}
+#root.theme-anime nav button{color:#a99bc7}
+#root.theme-anime nav button.active{color:#ff87c3;border-color:#ff87c3}
+#root.theme-anime .run-picker select,#root.theme-anime .run-picker button,
+#root.theme-anime .panel select,#root.theme-anime .theme-picker select{
+  background:#211d48;border-color:#594b8d;color:#f6eaff;border-radius:999px;
+  box-shadow:0 3px 12px #09071c66;
+}
+#root.theme-anime .card,#root.theme-anime .panel,#root.theme-anime .tb-card{
+  background:#211d48;
+  background-image:
+    radial-gradient(circle at 90% 8%,#ff8bc51c 0 2px,transparent 3px),
+    linear-gradient(145deg,#29235a,#1b193d);
+  border-color:#594b8d;
+  border-radius:22px;
+  box-shadow:0 12px 30px #08061980,inset 0 1px #ffffff12;
+}
+#root.theme-anime .card:hover{border-color:#ff80bd;box-shadow:0 12px 32px #ff5fa233,inset 0 1px #ffffff18}
+#root.theme-anime .card-top,#root.theme-anime .meta-row span,#root.theme-anime .card-top svg{color:#c4b5df}
+#root.theme-anime .card label{background:#38265d;border-color:#7952a5;color:#ffb8dc;border-radius:999px}
+#root.theme-anime .card strong,#root.theme-anime .health-metric b{color:#ff83bf}
+#root.theme-anime .card.blue strong{color:#6ee7f7}
+#root.theme-anime .card.lime strong{color:#8ee8b1}
+#root.theme-anime .card.gold strong{color:#ffd77d}
+#root.theme-anime .panel h2,#root.theme-anime .health-heading h2,
+#root.theme-anime .timeline-head h2,#root.theme-anime .timeline-item strong,
+#root.theme-anime .map-progress-head h2,#root.theme-anime .map-summary b{color:#fff4ff}
+#root.theme-anime .health-legend,#root.theme-anime .health-footer,
+#root.theme-anime .health-metric span,#root.theme-anime .health-metric small,
+#root.theme-anime .health-metric .moving-average,#root.theme-anime .loss-caption,
+#root.theme-anime .loss-legend,#root.theme-anime .pr-meta,#root.theme-anime .map-progress-head p,
+#root.theme-anime .map-y-axis,#root.theme-anime .map-x-axis,#root.theme-anime .map-summary,
+#root.theme-anime .validation-bars-caption,#root.theme-anime .validation-bars-note,
+#root.theme-anime .validation-bars-y,#root.theme-anime .validation-bars-axis{color:#c4b5df}
+#root.theme-anime .health-grid,#root.theme-anime .health-metric,
+#root.theme-anime .timeline-track,#root.theme-anime .timeline-item{border-color:#594b8d;background:#211d48}
+#root.theme-anime .health-metric b.metric-improving,#root.theme-anime .health-metric small.up{color:#8ee8b1!important}
+#root.theme-anime .health-metric b.metric-declining,#root.theme-anime .health-metric small.down{color:#ff829e!important}
+#root.theme-anime .spark{border-color:#6b5ca5;background:repeating-linear-gradient(to bottom,transparent 0,transparent 64px,#40396c 65px)!important}
+#root.theme-anime .chart .spark,#root.theme-anime .tb-card svg{background-color:#1c1940}
+#root.theme-anime .tb-values,#root.theme-anime .pr-footer{background:#171633;border-color:#594b8d;color:#c4b5df}
+#root.theme-anime .tb-values b,#root.theme-anime .pr-footer b{color:#fff4ff}
+#root.theme-anime .tb-toggle,#root.theme-anime .tb-toggle label,#root.theme-anime .tb-axis-units,
+#root.theme-anime .tb-y-labels,#root.theme-anime .tb-x-axis,#root.theme-anime .pr-insight{color:#f3e7ff}
+#root.theme-anime .tb-toggle input{accent-color:#ff76ba}
+#root.theme-anime .tb-x-axis span,#root.theme-anime .loss-x-axis span,
+#root.theme-anime .pr-panel .tb-x-axis span{background:#29235a;color:#fff4ff}
+#root.theme-anime .pixienn-banner{filter:saturate(1.2) hue-rotate(4deg);box-shadow:0 10px 26px #08061999}
+#root.theme-anime .monitor-loading-overlay{background:#080619aa}
+#root.theme-anime .monitor-loading-dialog{background:#29235a;color:#fff4ff;border-color:#ff80bd;box-shadow:0 10px 30px #080619cc}
+#root.theme-anime .map-progress-head{border-color:#594b8d}
+#root.theme-anime .map-summary{border-color:#594b8d}
+#root.theme-anime .map-summary span{background:#171633;border-color:#594b8d;color:#fff4ff}
+#root.theme-anime .map-chart svg,#root.theme-anime .validation-bars-plot{background:#171633;border-color:#594b8d}
+#root.theme-anime .map-grid,#root.theme-anime .validation-bars-grid i{stroke:#40396c;border-color:#40396c}
+#root.theme-anime .map-line{stroke:#6ee7f7}
+#root.theme-anime .validation-bars{--validation-axis-bg:#211d48;--validation-axis-border:#594b8d;--validation-axis-color:#f3e7ff}
+#root.theme-anime .validation-bars .validation-bars-axis span{background:#211d48;color:#f3e7ff}
+#root.theme-anime footer,#root.theme-anime .timeline-item small,#root.theme-anime .timeline-item time{color:#a99bc7}
+
+/* Japanese ink anime: paper, sumi ink, plum shadow, and restrained sakura. */
+#root.theme-anime, #root.theme-anime body, #root.theme-anime main,
+#root.theme-anime .chart .spark, #root.theme-anime .tb-card svg{
+  background-color:#eee9df;
+  background-image:
+    radial-gradient(circle at 78% 8%,#d92d5b 0 62px,#d92d5b 63px,#d92d5b00 65px),
+    radial-gradient(ellipse at 15% 86%,#5b43551c 0 16%,transparent 42%),
+    linear-gradient(115deg,#f8f5ed 0%,#eee8dc 55%,#e7dfd3 100%);
+  color:#28232b;
+}
+#root.theme-anime main{font-family:'DM Sans',sans-serif;box-shadow:inset 0 0 90px #7b5b5b18}
+#root.theme-anime header,#root.theme-anime nav{border-color:#42343d}
+#root.theme-anime .brand b,#root.theme-anime h1,#root.theme-anime .panel h2,
+#root.theme-anime .health-heading h2,#root.theme-anime .timeline-head h2,
+#root.theme-anime .timeline-item strong,#root.theme-anime .map-progress-head h2,
+#root.theme-anime .map-summary b{color:#29232b}
+#root.theme-anime .brand span,#root.theme-anime .theme-picker,#root.theme-anime .run-picker,
+#root.theme-anime h1 em,#root.theme-anime .sub,#root.theme-anime .kicker,
+#root.theme-anime .eyebrow{color:#695a63}
+#root.theme-anime h1{text-shadow:2px 3px 0 #d9c8c2;letter-spacing:-.045em}
+#root.theme-anime h1 span{color:#b52952}
+#root.theme-anime .mark{background:#302833;box-shadow:0 6px 14px #30283344;border-radius:8px}
+#root.theme-anime .status{background:#f7f2ea;border-color:#7f9b91;color:#315b4d}
+#root.theme-anime .status.idle{background:#f8e9e8;border-color:#d9919f;color:#98354f}
+#root.theme-anime nav button{color:#796a71}
+#root.theme-anime nav button.active{color:#b52952;border-color:#b52952}
+#root.theme-anime .run-picker select,#root.theme-anime .run-picker button,
+#root.theme-anime .panel select,#root.theme-anime .theme-picker select{
+  background:#f8f4eb;border-color:#9b8b88;color:#302832;border-radius:4px;box-shadow:0 2px 5px #4a354015;
+}
+#root.theme-anime .card,#root.theme-anime .panel,#root.theme-anime .tb-card{
+  background:#f8f4eb;
+  background-image:radial-gradient(circle at 12% 18%,#b5295209 0 1px,transparent 2px),linear-gradient(145deg,#fffdf8,#eee7dc);
+  border-color:#8c7b7b;border-radius:12px;box-shadow:0 7px 18px #4a35401c,inset 0 1px #ffffffaa;
+}
+#root.theme-anime .card:hover{border-color:#b52952;box-shadow:0 8px 20px #7b3d532b,inset 0 1px #ffffffcc}
+#root.theme-anime .card-top,#root.theme-anime .meta-row span,#root.theme-anime .card-top svg,
+#root.theme-anime .health-legend,#root.theme-anime .health-footer,#root.theme-anime .health-metric span,
+#root.theme-anime .health-metric small,#root.theme-anime .health-metric .moving-average,
+#root.theme-anime .loss-caption,#root.theme-anime .loss-legend,#root.theme-anime .pr-meta,
+#root.theme-anime .map-progress-head p,#root.theme-anime .map-y-axis,#root.theme-anime .map-x-axis,
+#root.theme-anime .map-summary,#root.theme-anime .validation-bars-caption,
+#root.theme-anime .validation-bars-note,#root.theme-anime .validation-bars-y,
+#root.theme-anime .validation-bars-axis{color:#695a63}
+#root.theme-anime .card label{background:#f6dce3;border-color:#c98b9b;color:#8e2948;border-radius:4px}
+#root.theme-anime .card strong,#root.theme-anime .health-metric b{color:#a72b50}
+#root.theme-anime .card.blue strong{color:#3e6f77}
+#root.theme-anime .card.lime strong{color:#43704d}
+#root.theme-anime .card.gold strong{color:#9a672c}
+#root.theme-anime .health-grid,#root.theme-anime .health-metric,
+#root.theme-anime .timeline-track,#root.theme-anime .timeline-item{border-color:#b9a7a2;background:#f8f4eb}
+#root.theme-anime .health-metric b.metric-improving,#root.theme-anime .health-metric small.up{color:#43704d!important}
+#root.theme-anime .health-metric b.metric-declining,#root.theme-anime .health-metric small.down{color:#a72b50!important}
+#root.theme-anime .spark{border-color:#716169;background:repeating-linear-gradient(to bottom,transparent 0,transparent 64px,#d4c7c0 65px)!important}
+#root.theme-anime .chart .spark,#root.theme-anime .tb-card svg{background-color:#f5f0e7}
+#root.theme-anime .tb-values,#root.theme-anime .pr-footer{background:#fffaf1;border-color:#c3ada5;color:#695a63}
+#root.theme-anime .tb-values b,#root.theme-anime .pr-footer b,#root.theme-anime .tb-toggle,
+#root.theme-anime .tb-toggle label,#root.theme-anime .tb-axis-units,#root.theme-anime .tb-y-labels,
+#root.theme-anime .tb-x-axis,#root.theme-anime .pr-insight{color:#302832}
+#root.theme-anime .tb-toggle input{accent-color:#b52952}
+#root.theme-anime .tb-x-axis span,#root.theme-anime .loss-x-axis span,
+#root.theme-anime .pr-panel .tb-x-axis span{background:#fffaf1;color:#302832}
+#root.theme-anime .pixienn-banner{filter:sepia(.18) saturate(.8) contrast(1.03);box-shadow:0 8px 20px #4a354033}
+#root.theme-anime .monitor-loading-overlay{background:#4a354033}
+#root.theme-anime .monitor-loading-dialog{background:#fffaf1;color:#302832;border-color:#9b777f;box-shadow:0 8px 22px #4a354044}
+#root.theme-anime .map-progress-head{border-color:#b9a7a2}
+#root.theme-anime .map-summary{border-color:#b9a7a2}
+#root.theme-anime .map-summary span{background:#fffaf1;border-color:#b9a7a2;color:#302832}
+#root.theme-anime .map-chart svg,#root.theme-anime .validation-bars-plot{background:#f5f0e7;border-color:#b9a7a2}
+#root.theme-anime .map-grid,#root.theme-anime .validation-bars-grid i{stroke:#d4c7c0;border-color:#d4c7c0}
+#root.theme-anime .map-line{stroke:#a72b50}
+#root.theme-anime .validation-bars{--validation-axis-bg:#fffaf1;--validation-axis-border:#b9a7a2;--validation-axis-color:#302832}
+#root.theme-anime .validation-bars .validation-bars-axis span{background:#fffaf1;color:#302832}
+#root.theme-anime footer,#root.theme-anime .timeline-item small,#root.theme-anime .timeline-item time{color:#796a71}
+
+/* Gallery mode: let the supplied landscape carry the theme instead of
+   reducing it to another UI palette. */
+#root.theme-anime, #root.theme-anime body{
+  min-height:100%;
+  background:#211c27 url('/assets/japanese-landscape.png') center top/cover fixed no-repeat;
+}
+#root.theme-anime main{
+  max-width:1500px;
+  margin:24px auto;
+  padding:28px 52px 24px;
+  background:#f6f1e9d9;
+  border:1px solid #fffaf2;
+  border-radius:18px;
+  box-shadow:0 18px 60px #19131c99, inset 0 1px #ffffffcc;
+  backdrop-filter:blur(3px);
+}
+#root.theme-anime header,#root.theme-anime nav{border-color:#29212c}
+#root.theme-anime .card,#root.theme-anime .panel,#root.theme-anime .tb-card{
+  background:#fffaf1e8;
+  background-image:linear-gradient(135deg,#fffdf8e8,#f0e5d9e8);
+  border-color:#6a5058;
+  box-shadow:0 8px 22px #34232e33,inset 0 1px #ffffffdd;
+  backdrop-filter:blur(5px);
+}
+#root.theme-anime .card:hover{border-color:#b51f4d;box-shadow:0 10px 26px #6b2d433d,inset 0 1px #ffffffee}
+#root.theme-anime .pixienn-banner{
+  background-color:#29212c;
+  background-image:url('/assets/japanese-landscape.png');
+  background-position:center 43%;
+  background-size:cover;
+  border-color:#3a2934;
+  box-shadow:0 9px 26px #34232e55;
+  filter:none;
+}
+#root.theme-anime .pixienn-banner::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#1b142088,#1b142000 65%),linear-gradient(0deg,#1b142066,#1b142000 55%);pointer-events:none}
+#root.theme-anime .banner-brand,#root.theme-anime .banner-meta{background:#fffaf1d9;border-color:#562e3e;box-shadow:0 4px 14px #24142144;backdrop-filter:blur(4px)}
+#root.theme-anime .banner-brand span,#root.theme-anime .pixienn-banner span{color:#391f2c}
+#root.theme-anime .banner-brand strong,#root.theme-anime .pixienn-banner strong,
+#root.theme-anime .banner-brand em,#root.theme-anime .pixienn-banner em{color:#7c324c}
+#root.theme-anime .banner-meta-kicker{color:#633d4b}
+#root.theme-anime .banner-meta .meta-row{border-color:#c8a7a6aa}
+#root.theme-anime .banner-meta .meta-row span{color:#694b55}
+#root.theme-anime .banner-meta .meta-row b{color:#2d2028}
+#root.theme-anime .mark{background:#281d29;color:#fffaf1}
+#root.theme-anime .status{background:#fffaf1ee}
+#root.theme-anime .run-picker select,#root.theme-anime .run-picker button,
+#root.theme-anime .panel select,#root.theme-anime .theme-picker select{background:#fffaf1ee;border-color:#6a5058}
+#root.theme-anime .chart .spark,#root.theme-anime .tb-card svg,
+#root.theme-anime .loss-trend-chart,#root.theme-anime .lr-trend-chart,
+#root.theme-anime .map-chart svg,#root.theme-anime .validation-bars-plot{
+  background-image:none!important;
+  background-color:#f5f0e7!important;
+}
 #root.theme-davinci .loss-trend-chart line,#root.theme-davinci .lr-trend-chart line{stroke:#a88780}
 #root.theme-davinci .loss-trend-chart polyline{stroke:#713f45}
 #root.theme-davinci .lr-trend-chart polyline{stroke:#2f6040}
