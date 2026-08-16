@@ -414,14 +414,47 @@ function PRCurvePanel({ curve }) {
     const recall = Number(point.recall);
     return <p className="pr-insight">At confidence {confidenceLabel(point)}—{description}—the model&apos;s recall is about {percent(recall)}, so about {percent(1 - recall)} of ground-truth objects are missed (false negatives). Its precision is about {percent(precision)}, so about {percent(1 - precision)} of its detections are false positives.</p>;
   };
+  const areaPoints = [];
+  for (const point of points) {
+    const recall = Number(point.recall);
+    const precision = Number(point.precision);
+    const previous = areaPoints.at(-1);
+    if (previous && Math.abs(previous.recall - recall) < 1e-12) {
+      previous.precision = Math.max(previous.precision, precision);
+    } else {
+      areaPoints.push({ recall, precision });
+    }
+  }
+  let runningPrecision = 0;
+  for (let index = areaPoints.length - 1; index >= 0; --index) {
+    runningPrecision = Math.max(runningPrecision, areaPoints[index].precision);
+    areaPoints[index].precision = runningPrecision;
+  }
+  let prArea = 0;
+  let previousRecall = 0;
+  for (const point of areaPoints) {
+    if (point.recall > previousRecall) {
+      prArea += (point.recall - previousRecall) * point.precision;
+      previousRecall = point.recall;
+    }
+  }
+  const maximumRecall = areaPoints.at(-1)?.recall || 0;
+  const randomBaseline = lowerThreshold
+    ? Number(lowerThreshold.precision) * maximumRecall
+    : 0;
+  const prScore = points.length === 0
+    ? null
+    : randomBaseline >= 1 - 1e-12
+      ? (prArea >= 1 - 1e-12 ? 1 : 0)
+      : Math.max(0, Math.min(1, (prArea - randomBaseline) / (1 - randomBaseline)));
   return <section className="tb-card pr-panel">
     <div className="tb-toggle"><span>Precision–recall curve</span><span className="pr-meta">{curve ? `validation step ${Number(curve.step).toLocaleString()}` : 'Waiting for validation data'}</span></div>
     <div className="tb-axis-units"><span>Y · precision</span><span>X · recall</span></div>
     <div className="tb-plot"><div className="tb-y-labels"><span style={{ top: '0%' }}>{axisLabel(yMaximum)}</span><span style={{ top: '50%' }}>{axisLabel(yMaximum / 2)}</span><span style={{ top: '100%' }}>0</span></div><div className="tb-plot-area"><svg viewBox="0 0 220 86" preserveAspectRatio="none" role="img" aria-label="Precision versus recall curve"><defs><linearGradient id="pr-line-gradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#d5fbff" /><stop offset="16%" stopColor="#27dfff" /><stop offset="52%" stopColor="#087ff5" /><stop offset="82%" stopColor="#5140df" /><stop offset="100%" stopColor="#a818ff" /></linearGradient></defs><line x1="0" y1="0" x2="220" y2="0" /><line x1="0" y1="43" x2="220" y2="43" /><line x1="0" y1="86" x2="220" y2="86" /><polyline className="tb-tube-body" stroke="url(#pr-line-gradient)" points={svgPoints} /></svg><div className="tb-x-axis"><span style={{ left: '50%' }}>{axisLabel(xMaximum / 2)}</span><span style={{ left: '100%' }}>{axisLabel(xMaximum)}</span></div></div></div>
-    <div className="tb-values"><span>{points.length ? `${points.length} threshold points` : 'No PR data'}</span><span>lowest-threshold precision <b>{lowerThreshold ? metricFmt(lowerThreshold.precision) : '—'}</b></span><span>lowest-threshold recall <b>{lowerThreshold ? metricFmt(lowerThreshold.recall) : '—'}</b></span></div>
+    <div className="tb-values"><span>{points.length ? `${points.length} threshold points` : 'No PR data'}</span><span>PR score <b>{prScore == null ? '—' : prScore.toFixed(2)}</b></span><span>lowest-threshold precision <b>{lowerThreshold ? metricFmt(lowerThreshold.precision) : '—'}</b></span><span>lowest-threshold recall <b>{lowerThreshold ? metricFmt(lowerThreshold.recall) : '—'}</b></span></div>
     {lowerThreshold && thresholdInsight(lowerThreshold, 'the lowest threshold and most permissive setting')}
     {upperThreshold && thresholdInsight(upperThreshold, 'the highest threshold that produces any detections')}
-    {points.length > 0 && <p className="pr-insight">These are sampled confidence cutoffs from 0.000 through 1.000 in 0.005 increments. Precision is the percentage of the model&apos;s detections that are correct; the rest are false positives. Recall is the percentage of real objects that the model found; the rest were missed (false negatives).</p>}
+    {points.length > 0 && <p className="pr-insight">These are sampled confidence cutoffs from 0.000 through 1.000 in 0.005 increments. Precision is the percentage of the model&apos;s detections that are correct; the rest are false positives. Recall is the percentage of real objects that the model found; the rest were missed (false negatives). The PR score is the area under this curve, scaled so random ordering of these detections scores 0 and perfect precision with full recall scores 1.</p>}
   </section>;
 }
 
