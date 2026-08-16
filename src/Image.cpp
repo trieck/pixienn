@@ -458,19 +458,12 @@ void imtabbedText(cv::Mat& image, const char* text, const cv::Point& ptOrg, uint
 
     auto yoffset = thickness / 2;
 
-    auto x0 = std::max(0, std::min(ptOrg.x, image.cols - 1));
-    auto y0 = std::max(0, std::min(ptOrg.y - yoffset, image.rows - 1));
-
-    auto x1 = std::max(0, std::min(x0 + textSize.width, image.cols - 1));
-    auto y1 = std::max(0, std::min(y0 - textSize.height, image.rows - 1));
-
-    if (x1 - x0 < textSize.width) {
-        x0 = std::max(x1 - textSize.width, 0);
-    }
-
-    if (y0 - y1 < textSize.height) {
-        y0 = std::min(y1 + textSize.height, image.rows - 1);
-    }
+    const auto maxX = std::max(0, image.cols - textSize.width);
+    auto x0 = std::max(0, std::min(ptOrg.x, maxX));
+    auto y0 = std::max(textSize.height,
+                       std::min(ptOrg.y - yoffset, image.rows - 1));
+    auto x1 = std::min(x0 + textSize.width, image.cols);
+    auto y1 = std::max(0, y0 - textSize.height);
 
     Point ptStart(x0, y0);
     Point ptEnd(x1, y1);
@@ -509,8 +502,14 @@ void imtabbedText(cv::Mat& image, const char* text, const cv::Point& ptOrg, uint
     textSize.height += baseline;
 
     auto yoffset = thickness / 2;
-    Point ptStart(ptOrg.x, ptOrg.y - yoffset);
-    Point ptEnd(ptStart.x + textSize.width + xpad, ptStart.y - textSize.height);
+    const auto labelWidth = textSize.width + xpad;
+    const auto maxX = std::max(0, image.cols - labelWidth);
+    const auto x0 = std::max(0, std::min(ptOrg.x, maxX));
+    const auto y0 = std::max(textSize.height,
+                             std::min(ptOrg.y - yoffset, image.rows - 1));
+    Point ptStart(x0, y0);
+    Point ptEnd(std::min(ptStart.x + labelWidth, image.cols),
+                std::max(0, ptStart.y - textSize.height));
     Point ptText(ptStart.x + xpad, ptStart.y - baseline + thickness);
 
     imtabbedRect(image, ptStart, ptEnd, bgColor, thickness, FILLED);
