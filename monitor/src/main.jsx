@@ -412,7 +412,7 @@ function PRCurvePanel({ curve }) {
   const thresholdInsight = (point, description) => {
     const precision = Number(point.precision);
     const recall = Number(point.recall);
-    return <p className="pr-insight">At confidence {confidenceLabel(point)}—{description}—the model detects about {percent(recall)} of the ground-truth objects in the evaluated validation set. Its precision is about {percent(precision)}, so about {percent(1 - precision)} of its detections are false positives. Its recall is about {percent(recall)}, so about {percent(1 - recall)} of ground-truth objects are missed (false negatives).</p>;
+    return <p className="pr-insight">At confidence {confidenceLabel(point)}—{description}—the model&apos;s recall is about {percent(recall)}, so about {percent(1 - recall)} of ground-truth objects are missed (false negatives). Its precision is about {percent(precision)}, so about {percent(1 - precision)} of its detections are false positives.</p>;
   };
   return <section className="tb-card pr-panel">
     <div className="tb-toggle"><span>Precision–recall curve</span><span className="pr-meta">{curve ? `validation step ${Number(curve.step).toLocaleString()}` : 'Waiting for validation data'}</span></div>
