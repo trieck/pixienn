@@ -294,7 +294,6 @@ private:
     LRPolicy::Ptr burnInPolicy_;
     ImageAugmenter::Ptr augmenter_;
     BatchLoader::Ptr trainLoader_;
-    BatchLoader::Ptr valLoader_;
 
     MiniBatch trainBatch_;
     RecordWriter::Ptr writer_;
@@ -334,7 +333,6 @@ private:
     int width_ = 0;
     bool valEnabled_ = false;
     int valInterval_ = 0;
-    int valBatches_ = 0;
     float valConfidenceThresh_ = 0.0f;
     float valApConfidenceThresh_ = 0.0f;
     float valIouThresh_ = 0.5f;
@@ -429,11 +427,6 @@ void Model<D>::train()
     const auto deterministicData = std::getenv("PIXIENN_DETERMINISTIC_DATA") != nullptr;
     trainLoader_ = std::make_unique<BatchLoader>(trainImagePath_, trainLabelPath_, batch_, channels_, height_, width_,
                                                  labels_, augmenter_, viewImage, 10, !deterministicData);
-
-    if (valEnabled_) {
-        valLoader_ = std::make_unique<BatchLoader>(valImagePath_, valLabelPath_, batch_, channels_, height_, width_,
-                                                   labels_, nullptr, false, 10, false);
-    }
 
     avgLoss_ = std::numeric_limits<float>::lowest();
     constexpr auto windowSize = 10;
@@ -1381,7 +1374,6 @@ void Model<D>::parseModel(const Node& modelDoc)
         if (val && val.IsMap()) {
             valEnabled_ = val["enabled"].as<bool>(true);
             valInterval_ = val["interval"].as<int>(1000);
-            valBatches_ = val["batches"].as<int>(100);
             // "threshold" remains a compatibility alias for confidence only.
             valConfidenceThresh_ = val["confidence_threshold"].as<float>(
                     val["threshold"].as<float>(0.2f));
@@ -1789,11 +1781,14 @@ void Model<D>::validate()
     const auto validationStart = std::chrono::steady_clock::now();
 
     Validator <D> validator(valConfidenceThresh_, valApConfidenceThresh_, valIouThresh_, valNmsThresh_, classes());
+    // Recreate the deterministic validation loader for every checkpoint so
+    // every metric uses the same complete validation manifest.
+    BatchLoader validationLoader(valImagePath_, valLabelPath_, batch_, channels_, height_, width_,
+                                 labels_, nullptr, false, 1, false);
 
-    const auto availableBatches = std::max<std::size_t>(1, (valLoader_->size() + batch_ - 1) / batch_);
-    const auto batches = std::min<std::size_t>(valBatches_, availableBatches);
-    for (std::size_t i = 0; i < static_cast<std::size_t>(batches); ++i) {
-        trainBatch_ = valLoader_->next();
+    const auto availableBatches = std::max<std::size_t>(1, (validationLoader.size() + batch_ - 1) / batch_);
+    for (std::size_t i = 0; i < availableBatches; ++i) {
+        trainBatch_ = validationLoader.next();
         validator.validate(*this, trainBatch_);
     }
 
@@ -1824,21 +1819,13 @@ void Model<D>::evaluateValidation()
     PX_CHECK(!valImagePath_.empty() && !valLabelPath_.empty(),
              "Validation image and label paths are required for evaluation.");
 
-    valLoader_ = std::make_unique<BatchLoader>(valImagePath_, valLabelPath_, batch_, channels_, height_, width_,
-                                               labels_, nullptr, false, 10, false);
+    BatchLoader validationLoader(valImagePath_, valLabelPath_, batch_, channels_, height_, width_,
+                                 labels_, nullptr, false, 1, false);
     Validator<D> validator(valConfidenceThresh_, valApConfidenceThresh_, valIouThresh_, valNmsThresh_, classes());
 
-    const auto availableBatches = std::max<std::size_t>(1, (valLoader_->size() + batch_ - 1) / batch_);
-    std::size_t batches = static_cast<std::size_t>(std::max(0, valBatches_));
-    if (hasOption("all-validation") && option<bool>("all-validation")) {
-        batches = availableBatches;
-    } else {
-        batches = std::min(batches, availableBatches);
-    }
-
-    PX_CHECK(batches > 0, "Evaluation requires at least one validation batch.");
-    for (std::size_t i = 0; i < batches; ++i) {
-        trainBatch_ = valLoader_->next();
+    const auto availableBatches = std::max<std::size_t>(1, (validationLoader.size() + batch_ - 1) / batch_);
+    for (std::size_t i = 0; i < availableBatches; ++i) {
+        trainBatch_ = validationLoader.next();
         validator.validate(*this, trainBatch_);
     }
 

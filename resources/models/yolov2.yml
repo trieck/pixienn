@@ -40,7 +40,6 @@ model:
   validation:
     enabled: False
     interval: 10000
-    batches: 100
     threshold: 0.2
 
   save_weights_interval: 1000
@@ -189,4 +188,3 @@ model:
       coord_scale: 1
       thresh: 0.6
       log_interval: 50
-

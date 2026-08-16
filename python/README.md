@@ -208,6 +208,11 @@ python3 python/centernet_demo.py \
   --output runs/centernet
 ```
 
+Validation evaluates all selected validation images at every validation
+interval. Use `--validation-count` to choose a smaller fixed validation subset
+for a quick smoke test; the native validator recreates its deterministic
+validation loader at each interval so the same images are evaluated repeatedly.
+
 `--fresh` removes the existing CenterNet checkpoints and event file for that
 output directory. Later runs can resume using the native weights, optimizer
 state, and training-control sidecars produced by PixieNN.

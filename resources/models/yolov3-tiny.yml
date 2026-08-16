@@ -40,7 +40,6 @@ model:
   validation:
     enabled: False
     interval: 1000
-    batches: 100
     threshold: 0.2
 
   save_weights_interval: 1000

@@ -34,6 +34,7 @@ public:
     MiniBatch& operator=(MiniBatch&& rhs);
 
     std::uint32_t batchSize() const noexcept;
+    std::uint32_t validSize() const noexcept;
     std::uint32_t channels() const noexcept;
     std::uint32_t height() const noexcept;
     std::uint32_t width() const noexcept;
@@ -47,6 +48,7 @@ public:
     void setImageData(std::uint32_t batch, const PxCpuVector& imageData);
     void setGroundTruth(std::uint32_t batch, GroundTruthVec&& groundTruthVec);
     void addGroundTruth(std::uint32_t batch, GroundTruth&& groundTruth);
+    void setValidSize(std::uint32_t validSize);
 
     void release();
 private:
@@ -54,10 +56,10 @@ private:
     PxCpuVector imageData_;
 
     std::uint32_t batchSize_;
+    std::uint32_t validSize_;
     std::uint32_t channels_;
     std::uint32_t height_;
     std::uint32_t width_;
 };
 
 }   // px
-

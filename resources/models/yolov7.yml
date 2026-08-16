@@ -40,7 +40,6 @@ model:
   validation:
     enabled: True
     interval: 200
-    batches: 10
     confidence_threshold: 0.05
     ap_confidence_threshold: 0.001
     iou_threshold: 0.5

@@ -41,7 +41,6 @@ model:
   validation:
     enabled: True
     interval: 2500
-    batches: 500
     threshold: 0.7
     ap_confidence_threshold: 0.001
 

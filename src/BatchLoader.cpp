@@ -60,6 +60,7 @@ void BatchLoader::loadBatches()
     try {
         while (true) {
             std::vector<std::string> paths(batchSize_);
+            auto validSize = batchSize_;
             {
                 std::unique_lock<std::mutex> lock(mutex_);
                 cv_.wait(lock, [this] {
@@ -71,14 +72,18 @@ void BatchLoader::loadBatches()
 
                 ++batchesInFlight_;
                 reservedBatch = true;
-                for (auto& path: paths) {
+                for (std::uint32_t i = 0; i < batchSize_; ++i) {
                     if (nextImage_ == imageOrder_.size()) {
+                        if (!randomize_ && i > 0) {
+                            validSize = i;
+                            break;
+                        }
                         nextImage_ = 0;
                         if (randomize_) {
                             std::shuffle(imageOrder_.begin(), imageOrder_.end(), generator_);
                         }
                     }
-                    path = imageFiles_[imageOrder_[nextImage_++]];
+                    paths[i] = imageFiles_[imageOrder_[nextImage_++]];
                 }
             }
 
@@ -86,12 +91,13 @@ void BatchLoader::loadBatches()
             // without the queue mutex. Consumers can pop prefetched batches and
             // other workers can prepare subsequent batches concurrently.
             MiniBatch batch(batchSize_, channels_, height_, width_);
-            for (std::uint32_t i = 0; i < batchSize_; ++i) {
+            for (std::uint32_t i = 0; i < validSize; ++i) {
                 auto imgLabels = loadImgLabels(paths[i]);
 
                 batch.setImageData(i, imgLabels.first);  // the image data must be copied
                 batch.setGroundTruth(i, std::move(imgLabels.second));
             }
+            batch.setValidSize(validSize);
 
             {
                 std::lock_guard<std::mutex> lock(mutex_);

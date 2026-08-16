@@ -19,12 +19,13 @@
 
 namespace px {
 
-MiniBatch::MiniBatch() : batchSize_(0), channels_(0), height_(0), width_(0)
+MiniBatch::MiniBatch() : batchSize_(0), validSize_(0), channels_(0), height_(0), width_(0)
 {
 }
 
 MiniBatch::MiniBatch(std::uint32_t batchSize, uint32_t channels, uint32_t height, uint32_t width)
-        : groundTruth_(batchSize), batchSize_(batchSize), channels_(channels), height_(height), width_(width)
+        : groundTruth_(batchSize), batchSize_(batchSize), validSize_(batchSize), channels_(channels),
+          height_(height), width_(width)
 {
     imageData_ = PxCpuVector(batchSize * height * channels * width, 0.0f);
 }
@@ -45,6 +46,7 @@ MiniBatch& MiniBatch::operator=(const MiniBatch& rhs)
         imageData_ = rhs.imageData_;
         groundTruth_ = rhs.groundTruth_;
         batchSize_ = rhs.batchSize_;
+        validSize_ = rhs.validSize_;
         channels_ = rhs.channels_;
         height_ = rhs.height_;
         width_ = rhs.width_;
@@ -58,6 +60,7 @@ MiniBatch& MiniBatch::operator=(MiniBatch&& rhs)
     std::swap(imageData_, rhs.imageData_);
     std::swap(groundTruth_, rhs.groundTruth_);
     std::swap(batchSize_, rhs.batchSize_);
+    std::swap(validSize_, rhs.validSize_);
     std::swap(channels_, rhs.channels_);
     std::swap(height_, rhs.height_);
     std::swap(width_, rhs.width_);
@@ -68,6 +71,7 @@ MiniBatch& MiniBatch::operator=(MiniBatch&& rhs)
 void MiniBatch::allocate(std::uint32_t batchSize, std::uint32_t channels, std::uint32_t height, std::uint32_t width)
 {
     batchSize_ = batchSize;
+    validSize_ = batchSize;
     channels_ = channels;
     height_ = height;
     width_ = width;
@@ -81,6 +85,11 @@ void MiniBatch::allocate(std::uint32_t batchSize, std::uint32_t channels, std::u
 std::uint32_t MiniBatch::batchSize() const noexcept
 {
     return batchSize_;
+}
+
+std::uint32_t MiniBatch::validSize() const noexcept
+{
+    return validSize_;
 }
 
 std::uint32_t MiniBatch::channels() const noexcept
@@ -144,6 +153,12 @@ void MiniBatch::addGroundTruth(std::uint32_t batch, GroundTruth&& groundTruth)
     groundTruth_[batch].emplace_back(std::move(groundTruth));
 }
 
+void MiniBatch::setValidSize(std::uint32_t validSize)
+{
+    PX_CHECK(validSize <= batchSize_, "Valid batch size exceeds batch size.");
+    validSize_ = validSize;
+}
+
 std::size_t MiniBatch::imageDataSize() const noexcept
 {
     return imageData_.size();
@@ -153,6 +168,8 @@ void MiniBatch::release()
 {
     groundTruth_.clear();
     imageData_.release();
+    batchSize_ = 0;
+    validSize_ = 0;
 }
 
 }   // px

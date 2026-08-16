@@ -27,7 +27,6 @@ model:
     # 10,000 training and 2,000 validation images at batch 32: validate and
     # checkpoint approximately once per complete training epoch.
     interval: 313
-    batches: 63
     confidence_threshold: 0.05
     ap_confidence_threshold: 0.001
     iou_threshold: 0.5

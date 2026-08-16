@@ -50,7 +50,7 @@ public:
 private:
     void forward(Model<D>& model, const PxCpuVector& input);
 
-    void processDetects(const Detections& detects, const GroundTruths& gts);
+    void processDetects(const Detections& detects, const GroundTruths& gts, std::size_t validBatchSize);
     GroundTruthVec::size_type findGroundTruth(const Detection& detection, const GroundTruthVec& gtv,
                                               int classIndex = -1);
     float iou(const Detection& detection, const GroundTruth& truth);
@@ -224,7 +224,7 @@ void Validator<D>::validate(Model<D>& model, const MiniBatch& batch)
         totalLoss_ += model.cost();
         seen_++;
 
-        processDetects(model.detections(), batch.groundTruth());
+        processDetects(model.detections(), batch.groundTruth(), batch.validSize());
 
         std::cout << "." << std::flush;
     } catch (...) {
@@ -279,7 +279,8 @@ GroundTruthVec::size_type Validator<D>::findGroundTruth(const Detection& detecti
 }
 
 template<Device D>
-void Validator<D>::processDetects(const Detections& detects, const GroundTruths& gts)
+void Validator<D>::processDetects(const Detections& detects, const GroundTruths& gts,
+                                  std::size_t validBatchSize)
 {
     auto results = nms(detects, nmsThreshold_);
     // AP must use the same class-aware NMS policy as inference/Darknet's
@@ -294,7 +295,8 @@ void Validator<D>::processDetects(const Detections& detects, const GroundTruths&
         return lhs.prob() > rhs.prob();
     });
 
-    for (std::size_t b = 0; b < gts.size(); ++b) {
+    const auto images = std::min(validBatchSize, gts.size());
+    for (std::size_t b = 0; b < images; ++b) {
         auto gtv = gts[b];   // copy the ground truth vector
 
         for (const auto& gt: gtv) {

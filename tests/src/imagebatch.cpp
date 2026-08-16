@@ -32,9 +32,21 @@ GTEST_TEST(ImageBatchTest, ConstructorAndGetters)
     MiniBatch imageBatch(batchSize, channels, height, width);
 
     EXPECT_EQ(imageBatch.batchSize(), batchSize);
+    EXPECT_EQ(imageBatch.validSize(), batchSize);
     EXPECT_EQ(imageBatch.channels(), channels);
     EXPECT_EQ(imageBatch.height(), height);
     EXPECT_EQ(imageBatch.width(), width);
+}
+
+GTEST_TEST(ImageBatchTest, TracksPartialBatchSize)
+{
+    MiniBatch imageBatch(32, 3, 4, 4);
+
+    imageBatch.setValidSize(8);
+
+    EXPECT_EQ(imageBatch.batchSize(), 32u);
+    EXPECT_EQ(imageBatch.validSize(), 8u);
+    EXPECT_THROW(imageBatch.setValidSize(33), px::Error);
 }
 
 GTEST_TEST(ImageBatchTest, CopyConstructor)
