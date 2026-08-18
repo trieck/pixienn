@@ -1,23 +1,23 @@
 model:
-  batch: 1
+  batch: 8
   subdivisions: 1
   width: 416
   height: 416
   channels: 3
 
-  max_batches: 2000
+  max_batches: 3000
 
   momentum: 0.9
   decay: 0.0005
 
   adam:
-    enabled: True
+    enabled: False
     beta1: 0.9
     beta2: 0.999
     epsilon: 1e-8
 
   augmentation:
-    enabled: True
+    enabled: False
     flip: True
     jitter: 0.2
     saturation: 1.5
@@ -25,7 +25,7 @@ model:
     hue: 0.1
 
   early_stopping:
-    enabled: True
+    enabled: False
     patience: 10
     threshold: 0.0001
 
@@ -45,16 +45,17 @@ model:
     iou_threshold: 0.5
     nms_threshold: 0.4
 
-  save_weights_interval: 100
+  save_weights_interval: 1000
+  max_checkpoints: 5
   write_metrics_interval: 50
 
   learning_rate:
     burn_in:
-      batches: 1000
+      batches: 0
       power: 4.0
 
     initial_learning_rate: 0.001
-    policy: stepped
+    policy: constant
 
     stepped:
       steps: [ 600000, 675000 ]

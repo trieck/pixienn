@@ -7,6 +7,21 @@
 
 namespace px {
 
+/**
+ * Validation-driven learning-rate policy that reduces the current rate when
+ * the monitored mAP50 metric stops improving.
+ *
+ * Each validation appends mAP50 to a bounded deque containing at most
+ * `smoothing` recent values. The policy compares their moving average with
+ * the best smoothed metric seen so far. Improvements larger than `threshold`
+ * reset the bad-validation counter; otherwise the counter advances after any
+ * cooldown period. Once `patience` consecutive non-improving validations have
+ * accumulated, the learning rate is multiplied by `factor`, never dropping
+ * below `minLR`, and the cooldown timer is restarted.
+ *
+ * The policy state, including the recent validation window and plateau
+ * counters, is serialized so a resumed training run preserves its schedule.
+ */
 class ReduceOnPlateauLRPolicy : public LRPolicy
 {
 public:

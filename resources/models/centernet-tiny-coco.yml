@@ -55,7 +55,7 @@ model:
       patience: 3
       threshold: 0.005
       cooldown: 1
-      min_learning_rate: 0.000005
+      min_learning_rate: 0.0000001
       smoothing: 3
 
   layers:

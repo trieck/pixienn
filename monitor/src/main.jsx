@@ -659,7 +659,13 @@ function LearningRateCard({ latest, rates = [], policy }) {
 }
 function StepProgressCard({ progress }) {
   const percentage = progress?.percentage;
-  const value = progress ? `${progress.currentBatches?.toLocaleString()} / ${progress.targetBatches?.toLocaleString()}` : '—';
+  const current = Number.isFinite(Number(progress?.currentBatches))
+    ? Number(progress.currentBatches).toLocaleString()
+    : '—';
+  const target = Number.isFinite(Number(progress?.targetBatches))
+    ? Number(progress.targetBatches).toLocaleString()
+    : '—';
+  const value = progress ? `${current} / ${target}` : '—';
   return <div className="card blue step-progress-card">
     <div className="card-top"><span><Gauge /></span><label>STEP PROGRESS</label></div>
     <strong>{value}</strong>

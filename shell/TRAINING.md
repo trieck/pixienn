@@ -49,25 +49,6 @@ manifest image and corresponding label before committing GPU time:
 ```bash
 ./shell/check-training-data.sh resources/cfg/yolov3-tiny-voc-cfg.yml
 ```
-
-## Train every preset
-
-The following runs every configuration sequentially on one GPU and can take a
-very long time:
-
-```bash
-./shell/train-all-models.sh --fresh --verify-data
-```
-
-To run only detector configurations:
-
-```bash
-./shell/train-all-models.sh --fresh --verify-data --yolo-only
-```
-
-This intentionally runs models sequentially. Concurrent jobs would compete for
-GPU memory and make timing and out-of-memory failures difficult to interpret.
-
 ## Monitoring
 
 `train-model.sh` starts TensorBoard automatically for the selected run and
