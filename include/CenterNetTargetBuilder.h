@@ -8,7 +8,7 @@ namespace px {
 struct CenterNetTargets
 {
     PxCpuVector heatmap;   // [classes, height, width]
-    PxCpuVector size;      // [2, height, width], normalized image width/height
+    PxCpuVector size;      // [2, height, width], width/height in feature-map cells
     PxCpuVector offset;    // [2, height, width], fractional center offset
     PxCpuVector mask;      // [height, width]
     std::size_t objects = 0;

@@ -214,8 +214,8 @@ void CenterNetLayer<D>::addDetects(Detections& detections, int batch, int width,
                     continue;
                 }
 
-                const auto boxWidth = predictions[sizeOffset + index];
-                const auto boxHeight = predictions[sizeOffset + area + index];
+                const auto boxWidth = predictions[sizeOffset + index] / this->width();
+                const auto boxHeight = predictions[sizeOffset + area + index] / this->height();
                 const auto offsetX = predictions[centerOffset + index];
                 const auto offsetY = predictions[centerOffset + area + index];
                 if (!std::isfinite(boxWidth) || !std::isfinite(boxHeight) ||

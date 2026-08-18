@@ -173,7 +173,7 @@ TEST(BlasTests, VarianceCpu)
 
     PxCpuTensor<1> mean({ filters }, { 2.0f, 4.0f, 6.0f });
 
-    PxCpuTensor<1> expected({ filters }, { 90.85714, 125.14286, 168.57144 });
+    PxCpuTensor<1> expected({ filters }, { 79.5, 109.5, 147.5 });
 
     PxCpuTensor<1> variance({ filters });
     varianceCpu(input.data(), mean.data(), batch, filters, spatial, variance.data());

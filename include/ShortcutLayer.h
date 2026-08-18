@@ -40,6 +40,7 @@ private:
     Activations<D>::Ptr activation_;
     Layer<D>::Ptr from_;
     float alpha_, beta_;
+    V preActivation_;
 };
 
 template<Device D>
@@ -68,6 +69,7 @@ ShortcutLayer<D>::ShortcutLayer(Model<D>& model, const YAML::Node& layerDef) : L
 
     this->output_ = V(this->batch() * this->outputs(), 0.0f);
     this->delta_ = V(this->batch() * this->outputs(), 0.0f);
+    preActivation_ = V(this->batch() * this->outputs(), 0.0f);
 }
 
 template<Device D>
@@ -89,6 +91,7 @@ void ShortcutLayer<D>::forward(const V& input)
     shortcut(this->width(), this->height(), this->channels(), from_->output(),
              this->outWidth(), this->outHeight(), this->outChannels(), this->output_, alpha_, beta_);
 
+    preActivation_.copy(this->output_);
     activation_->apply(this->output_);
 }
 
@@ -97,7 +100,7 @@ void ShortcutLayer<D>::backward(const V& input, V* grad)
 {
     Layer<D>::backward(input, grad);
 
-    activation_->gradient(this->output_, this->delta_);
+    activation_->gradient(preActivation_, this->delta_);
 
     shortcut(this->outWidth(), this->outHeight(), this->outChannels(), this->delta_,
              this->width(), this->height(), this->channels(), from_->delta(), 1.0f, beta_);

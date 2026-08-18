@@ -16,8 +16,8 @@ TEST(CenterNetTargetBuilderTest, BuildsHeatmapSizeAndOffsetTargets)
     const auto index = y * 16 + x;
 
     EXPECT_FLOAT_EQ(targets.heatmap[area + index], 1.0f);
-    EXPECT_FLOAT_EQ(targets.size[index], 0.25f);
-    EXPECT_FLOAT_EQ(targets.size[area + index], 0.50f);
+    EXPECT_FLOAT_EQ(targets.size[index], 4.0f);
+    EXPECT_FLOAT_EQ(targets.size[area + index], 4.0f);
     EXPECT_NEAR(targets.offset[index], 0.40f, 1e-6f);
     EXPECT_NEAR(targets.offset[area + index], 0.80f, 1e-6f);
     EXPECT_FLOAT_EQ(targets.mask[index], 1.0f);
@@ -50,8 +50,8 @@ TEST(CenterNetTargetBuilderTest, ReportsRegressionCollisionsAndKeepsLargerBox)
     EXPECT_EQ(targets.collisions, 1);
     EXPECT_FLOAT_EQ(targets.heatmap[index], 1.0f);
     EXPECT_FLOAT_EQ(targets.heatmap[8 * 8 + index], 1.0f);
-    EXPECT_FLOAT_EQ(targets.size[index], 0.30f);
-    EXPECT_FLOAT_EQ(targets.size[8 * 8 + index], 0.20f);
+    EXPECT_FLOAT_EQ(targets.size[index], 2.40f);
+    EXPECT_FLOAT_EQ(targets.size[8 * 8 + index], 1.60f);
 }
 
 TEST(CenterNetTargetBuilderTest, RejectsOutOfRangeClasses)
@@ -83,8 +83,8 @@ model:
     std::fill(input.begin(), input.begin() + area, -10.0f);
     const auto index = 2 * 4 + 1;
     input[index] = 4.0f;                    // center confidence
-    input[area + index] = 0.5f;             // width
-    input[2 * area + index] = 0.25f;        // height
+    input[area + index] = 2.0f;             // width in feature-map cells
+    input[2 * area + index] = 1.0f;         // height in feature-map cells
     input[3 * area + index] = 0.5f;         // x offset
     input[4 * area + index] = 0.0f;         // y offset
 

@@ -263,7 +263,9 @@ void meanCpu(const float* x, int batch, int filters, int spatial, float* mean)
 
 void varianceCpu(const float* x, float* mean, int batch, int filters, int spatial, float* variance)
 {
-    auto scale = 1.0f / (batch * spatial - 1);
+    // Match cuDNN's batch-normalization variance convention: population
+    // variance over batch and spatial elements, rather than sample variance.
+    auto scale = 1.0f / (batch * spatial);
 
     for (auto i = 0; i < filters; ++i) {
         variance[i] = 0;
@@ -283,7 +285,7 @@ void normalizeCpu(float* x, const float* mean, const float* variance, int batch,
         for (auto f = 0; f < filters; ++f) {
             for (auto i = 0; i < spatial; ++i) {
                 auto index = b * filters * spatial + f * spatial + i;
-                x[index] = (x[index] - mean[f]) / (sqrt(variance[f]) + .000001f);
+                x[index] = (x[index] - mean[f]) / (sqrt(variance[f]) + .00001f);
             }
         }
     }

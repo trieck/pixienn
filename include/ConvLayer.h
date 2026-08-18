@@ -82,13 +82,14 @@ ConvLayer<D>::ConvLayer(Model<D>& model, YAML::Node layerDef) : Layer<D>(model, 
     filters_ = this->template property<int>("filters", 1);
     kernel_ = this->template property<int>("kernel", 1);
     auto pad = this->template property<bool>("pad", false);
-    padding_ = pad ? kernel_ / 2 : 0;
+    const auto effectiveKernel = dilation_ * (kernel_ - 1) + 1;
+    padding_ = pad ? effectiveKernel / 2 : 0;
     stride_ = this->template property<int>("stride", 1);
     groups_ = std::max(1, this->template property<int>("groups", 1));
 
     this->setOutChannels(filters_);
-    this->setOutHeight((this->height() + 2 * padding_ - kernel_) / stride_ + 1);
-    this->setOutWidth((this->width() + 2 * padding_ - kernel_) / stride_ + 1);
+    this->setOutHeight((this->height() + 2 * padding_ - effectiveKernel) / stride_ + 1);
+    this->setOutWidth((this->width() + 2 * padding_ - effectiveKernel) / stride_ + 1);
     this->setOutputs(this->outHeight() * this->outWidth() * this->outChannels());
 
     if (batchNorm_) {
@@ -216,7 +217,7 @@ void ConvLayer<D>::forward(const V& input)
             auto* c = pout + (i * groups_ + j) * n * m;
 
             im2ColCpuExt(im, this->channels() / groups_, this->height(), this->width(), kernel_, kernel_,
-                         padding_ * dilation_, padding_ * dilation_,
+                         padding_, padding_,
                          stride_, stride_, dilation_, dilation_, column_.data());
 
             cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, alpha, a, k, b, n, beta, c, n);
@@ -271,7 +272,7 @@ void ConvLayer<D>::backward(const V& input, V* grad)
             auto* c = pweightUpdates + j * nweights / groups_;
 
             im2ColCpuExt(im, this->channels() / groups_, this->height(), this->width(), kernel_, kernel_,
-                         padding_ * dilation_, padding_ * dilation_,
+                         padding_, padding_,
                          stride_, stride_, dilation_, dilation_, column_.data());
 
             cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, m, n, k, alpha, a, k, b, k, beta, c, n);
@@ -288,7 +289,7 @@ void ConvLayer<D>::backward(const V& input, V* grad)
                 cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, n, k, m, alpha, a, n, b, k, 0.0f, c, k);
 
                 col2ImCpuExt(c, this->channels() / groups_, this->height(), this->width(), kernel_, kernel_,
-                             padding_ * dilation_, padding_ * dilation_, stride_, stride_, dilation_, dilation_, imd,
+                             padding_, padding_, stride_, stride_, dilation_, dilation_, imd,
                              true);
             }
         }

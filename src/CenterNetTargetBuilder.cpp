@@ -59,18 +59,19 @@ CenterNetTargets CenterNetTargetBuilder::build(const GroundTruthVec& truth) cons
         ++targets.objects;
 
         drawGaussian(targets.heatmap, gt.classId, cellX, cellY,
-                     gaussianRadius(gt.box.w() * width_, gt.box.h() * height_));
+                     std::max(1, gaussianRadius(gt.box.w() * width_, gt.box.h() * height_)));
 
         if (targets.mask[index] > 0.0f) {
             ++targets.collisions;
             const auto oldArea = targets.size[index] * targets.size[area + index];
-            if (gt.box.w() * gt.box.h() <= oldArea) {
+            const auto newArea = (gt.box.w() * width_) * (gt.box.h() * height_);
+            if (newArea <= oldArea) {
                 continue;
             }
         }
 
-        targets.size[index] = gt.box.w();
-        targets.size[area + index] = gt.box.h();
+        targets.size[index] = gt.box.w() * width_;
+        targets.size[area + index] = gt.box.h() * height_;
         targets.offset[index] = centerX - cellX;
         targets.offset[area + index] = centerY - cellY;
         targets.mask[index] = 1.0f;

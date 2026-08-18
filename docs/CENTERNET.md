@@ -190,7 +190,7 @@ No detector gets magic for free.
 The implementation is intentionally compact and inspectable:
 
 - [`CenterNetTargetBuilder`](../include/CenterNetTargetBuilder.h) constructs
-  Gaussian heatmaps, normalized sizes, offsets, masks, and collision counts.
+  Gaussian heatmaps, feature-map-cell sizes, offsets, masks, and collision counts.
 - [`CenterNetLayer`](../include/CenterNetLayer.h) computes focal/L1 losses,
   update directions, local peaks, top detections, and decoded boxes.
 - [`CUDA bridge`](../include/cuda/CenterNetLayer.h) keeps the convolutional
