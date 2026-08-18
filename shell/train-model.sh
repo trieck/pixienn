@@ -5,19 +5,6 @@ set -euo pipefail
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 repo_root=$(cd -- "$script_dir/.." && pwd -P)
 
-models=(
-    centernet-smoke-voc
-    centernet-tiny-voc
-    resnet18
-    yolov2
-    yolo-nano
-    yolov1-tiny
-    yolov3-tiny-voc
-    yolov3-tiny
-    yolov3
-    yolov7
-)
-
 usage()
 {
     cat <<'EOF'
@@ -45,29 +32,19 @@ EOF
 
 list_models()
 {
-    cat <<'EOF'
-MODEL               DATASET/PURPOSE         CONFIG
-centernet-smoke-voc VOC pipeline smoke test resources/cfg/centernet-smoke-voc-cfg.yml
-centernet-tiny-voc  VOC anchor-free detector resources/cfg/centernet-tiny-voc-cfg.yml
-resnet18            ImageNet paths required resources/cfg/resnet18-cfg.yml
-yolov2              YOLOv2 VOC smoke preset resources/cfg/yolov2-voc-cfg.yml
-yolo-nano           VOC full manifests      resources/cfg/yolo-nano-cfg.yml
-yolov1-tiny         VOC full manifests      resources/cfg/yolov1-tiny-cfg.yml
-yolov3-tiny-voc     VOC full manifests      resources/cfg/yolov3-tiny-voc-cfg.yml
-yolov3-tiny         COCO smoke preset       resources/cfg/yolov3-tiny-cfg.yml
-yolov3              COCO smoke preset       resources/cfg/yolov3-cfg.yml
-yolov7              COCO 82k/1k manifests  resources/cfg/yolov7-cfg.yml
-EOF
+    printf '%-36s %s\n' MODEL CONFIG
+    while IFS= read -r config_file; do
+        model_name=${config_file##*/}
+        model_name=${model_name%-cfg.yml}
+        printf '%-36s %s\n' "$model_name" "resources/cfg/${config_file##*/}"
+    done < <(find "$repo_root/resources/cfg" -maxdepth 1 -type f -name '*-cfg.yml' -printf '%f\n' | sort)
 }
 
 is_model()
 {
     local candidate=$1
-    local known
-    for known in "${models[@]}"; do
-        [[ "$candidate" == "$known" ]] && return 0
-    done
-    return 1
+    [[ "$candidate" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]] || return 1
+    [[ -f "$(config_for_model "$candidate")" ]]
 }
 
 config_for_model()

@@ -1,0 +1,10 @@
+configuration:
+  model: ../models/centernet-tiny-coco.yml
+  weights: ../weights/centernet-tiny-coco.weights
+  labels: ../data/coco.names
+
+training:
+  train-images: ../data/coco/train-80000.txt
+  train-labels: ../data/coco/labels/train2014
+  val-images: ../data/coco/val-1000.txt
+  val-labels: ../data/coco/labels/val2014

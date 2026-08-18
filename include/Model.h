@@ -48,6 +48,7 @@
 #include "MiniBatch.h"
 #include "PxTensor.h"
 #include "RandomLRPolicy.h"
+#include "ReduceOnPlateauLRPolicy.h"
 #include "RecordWriter.h"
 #include "SigmoidLRPolicy.h"
 #include "SmoothCyclicDecayLRPolicy.h"
@@ -257,6 +258,7 @@ private:
     void loadWeights();
     void loadTrainingState(const std::string& weightsFile);
     void saveTrainingState(const std::string& weightsFile) const;
+    void cleanupCheckpoints();
     void setup();
     float trainBatch();
     float trainOnce(const V& input);
@@ -348,6 +350,7 @@ private:
     int esPatience_ = 0;
 
     int saveWeightsInterval_ = 0;
+    int maxCheckpoints_ = 5;
     int writeMetricsInterval_ = 0;
 
     // network version
@@ -1140,14 +1143,27 @@ void Model<D>::loadWeights()
                 if (fileMagic == magicV2) {
                     std::uint64_t checkpointSeen = 0;
                     optimizer.read(reinterpret_cast<char*>(&checkpointSeen), sizeof(checkpointSeen));
-                    PX_CHECK(checkpointSeen == seen_,
-                             "Optimizer state does not match weights \"%s\"", loadedWeightsFile.c_str());
-                }
-                optimizer.read(reinterpret_cast<char*>(&optimizerStep_), sizeof(optimizerStep_));
-                if (resetAdamMoments) {
+                    if (checkpointSeen != seen_) {
+                        std::cerr << "Warning: optimizer state does not match weights \""
+                                  << loadedWeightsFile << "\"; discarding stale optimizer moments."
+                                  << std::endl;
+                        optimizerStep_ = updateBatch() > 0
+                                ? seen_ / static_cast<std::size_t>(updateBatch())
+                                : 0;
+                    } else {
+                        optimizer.read(reinterpret_cast<char*>(&optimizerStep_), sizeof(optimizerStep_));
+                        if (!resetAdamMoments) {
+                            for (const auto& layer: layers()) {
+                                layer->loadOptimizer(optimizer);
+                            }
+                        }
+                    }
                 } else {
-                    for (const auto& layer: layers()) {
-                        layer->loadOptimizer(optimizer);
+                    optimizer.read(reinterpret_cast<char*>(&optimizerStep_), sizeof(optimizerStep_));
+                    if (!resetAdamMoments) {
+                        for (const auto& layer: layers()) {
+                            layer->loadOptimizer(optimizer);
+                        }
                     }
                 }
                 PX_CHECK(optimizer.good() || optimizer.eof(), "Could not read optimizer state \"%s\"",
@@ -1212,13 +1228,21 @@ void Model<D>::loadTrainingState(const std::string& weightsFile)
 
     PX_CHECK(state.good(), "Could not read training-control state \"%s\"", stateFile.c_str());
     PX_CHECK(magic == expectedMagic, "Invalid training-control state file \"%s\"", stateFile.c_str());
-    PX_CHECK(checkpointSeen == seen_, "Training-control state does not match weights \"%s\"", weightsFile.c_str());
+    if (checkpointSeen != seen_) {
+        std::cerr << "Warning: training-control state does not match weights \""
+                  << weightsFile << "\"; discarding stale validation state."
+                  << std::endl;
+        return;
+    }
     PX_CHECK(valsWithoutImprovement >= 0,
              "Invalid early-stopping state in \"%s\"", stateFile.c_str());
 
     bestValLoss_ = bestValLoss;
     bestmAP_ = bestmAP;
     valsWithoutImprovement_ = valsWithoutImprovement;
+    if (state.peek() != std::ifstream::traits_type::eof()) {
+        policy_->loadState(state);
+    }
 }
 
 template<Device D>
@@ -1270,6 +1294,7 @@ void Model<D>::saveTrainingState(const std::string& weightsFile) const
     state.write(reinterpret_cast<const char*>(&bestValLoss_), sizeof(bestValLoss_));
     state.write(reinterpret_cast<const char*>(&bestmAP_), sizeof(bestmAP_));
     state.write(reinterpret_cast<const char*>(&valsWithoutImprovement), sizeof(valsWithoutImprovement));
+    policy_->saveState(state);
 
     PX_CHECK(state.good(), "Could not write training-control state \"%s\"", stateFile.c_str());
 }
@@ -1383,6 +1408,8 @@ void Model<D>::parseModel(const Node& modelDoc)
         }
 
         saveWeightsInterval_ = model["save_weights_interval"].as<int>(1000);
+        maxCheckpoints_ = model["max_checkpoints"].as<int>(5);
+        PX_CHECK(maxCheckpoints_ >= 0, "max_checkpoints must not be negative.");
         writeMetricsInterval_ = model["write_metrics_interval"].as<int>(1000);
     }
 
@@ -1468,6 +1495,18 @@ void Model<D>::parsePolicy(const Node& model)
             auto factor = sigmoidNode["factor"].as<float>(12.0f);
 
             policy_ = std::make_unique<SigmoidLRPolicy>(learningRate, targetLR, factor, maxBatches_);
+
+        } else if (sPolicy == "reduce_on_plateau") {
+            auto plateauNode = lrNode["reduce_on_plateau"];
+            auto factor = plateauNode["factor"].as<float>(0.5f);
+            auto patience = plateauNode["patience"].as<int>(3);
+            auto threshold = plateauNode["threshold"].as<float>(0.0001f);
+            auto cooldown = plateauNode["cooldown"].as<int>(0);
+            auto minLR = plateauNode["min_learning_rate"].as<float>(0.0f);
+            auto smoothing = plateauNode["smoothing"].as<int>(1);
+
+            policy_ = std::make_unique<ReduceOnPlateauLRPolicy>(learningRate, factor, patience, threshold,
+                                                                cooldown, minLR, smoothing);
 
         } else if (sPolicy == "smooth_stepped") {
             auto smoothNode = lrNode["smooth_stepped"];
@@ -1694,6 +1733,53 @@ void Model<D>::saveWeights(bool final)
 
     fileName = weightsLatestFileName();
     saveWeights(fileName);
+    cleanupCheckpoints();
+}
+
+template<Device D>
+void Model<D>::cleanupCheckpoints()
+{
+    if (!boost::filesystem::exists(backupDir_)) {
+        return;
+    }
+
+    const auto prefix = baseName(weightsFile_) + "_";
+    const std::string suffix = ".weights";
+    std::vector<std::pair<std::size_t, boost::filesystem::path>> checkpoints;
+
+    for (boost::filesystem::directory_iterator it(backupDir_), end; it != end; ++it) {
+        if (!boost::filesystem::is_regular_file(it->path())) {
+            continue;
+        }
+
+        const auto fileName = it->path().filename().string();
+        if (fileName.size() <= prefix.size() + suffix.size() ||
+            fileName.compare(0, prefix.size(), prefix) != 0 ||
+            fileName.compare(fileName.size() - suffix.size(), suffix.size(), suffix) != 0) {
+            continue;
+        }
+
+        const auto number = fileName.substr(prefix.size(), fileName.size() - prefix.size() - suffix.size());
+        if (number.empty() || number.find_first_not_of("0123456789") != std::string::npos) {
+            continue;
+        }
+
+        try {
+            checkpoints.emplace_back(std::stoull(number), it->path());
+        } catch (const std::exception&) {
+            // Ignore checkpoint names that do not fit in size_t.
+        }
+    }
+
+    std::sort(checkpoints.begin(), checkpoints.end(),
+              [](const auto& lhs, const auto& rhs) { return lhs.first > rhs.first; });
+
+    for (std::size_t index = static_cast<std::size_t>(maxCheckpoints_); index < checkpoints.size(); ++index) {
+        const auto& checkpoint = checkpoints[index].second;
+        boost::filesystem::remove(checkpoint);
+        boost::filesystem::remove(checkpoint.string() + ".optimizer");
+        boost::filesystem::remove(checkpoint.string() + ".training");
+    }
 }
 
 template<Device D>
@@ -1801,6 +1887,9 @@ void Model<D>::validate()
     microAvgF1_ = validator.microAvgF1();
     avgValLoss_ = validator.avgLoss();
     valAccuracy_ = validator.accuracy();
+
+    currentPolicy()->onValidation({ mAP_, avgValLoss_, avgRecall_, microAvgF1_, valAccuracy_ },
+                                  static_cast<int>(optimizerStep_));
 
     // Validation values change only here. Write them at their real step
     // instead of repeating stale values on the training-metric interval.

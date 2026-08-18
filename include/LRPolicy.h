@@ -16,9 +16,20 @@
 
 #pragma once
 
+#include <iosfwd>
+
 #include "Common.h"
 
 namespace px {
+
+struct ValidationMetrics
+{
+    float mAP50 = 0.0f;
+    float avgLoss = 0.0f;
+    float recall = 0.0f;
+    float f1 = 0.0f;
+    float accuracy = 0.0f;
+};
 
 /**
  * @brief Abstract base class for learning rate policies.
@@ -45,6 +56,11 @@ public:
      * @return The updated learning rate.
      */
     virtual float update(int batchNum) = 0;
+
+    virtual void onValidation(const ValidationMetrics& /*metrics*/, int /*batchNum*/) {}
+
+    virtual void saveState(std::ostream& /*state*/) const {}
+    virtual void loadState(std::istream& /*state*/) {}
 
     /**
      * @brief Reset the learning rate to its original value.

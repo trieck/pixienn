@@ -13,6 +13,8 @@ const metricFmt = n => {
   return value.toLocaleString(undefined, { maximumFractionDigits: 9 });
 };
 const SMOOTH_WINDOW = 60;
+// Six validations balances responsiveness with noisy COCO metrics.
+const VALIDATION_MOVING_AVERAGE_WINDOW = 6;
 const LOG_EPSILON = 1e-6;
 
 function elapsedLabel(timestamp, now = Date.now()) {
@@ -239,7 +241,7 @@ function App() {
   const freshness = eventAge == null ? 'waiting' : eventAge < 120000 ? 'fresh' : 'stale';
   const checkpoint = data?.checkpoints?.[0];
   const checkpointAge = checkpoint?.mtime ? Math.max(0, Date.now() - checkpoint.mtime) : null;
-  const movingAverageWindow = 12;
+  const movingAverageWindow = VALIDATION_MOVING_AVERAGE_WINDOW;
 
   return <main className={`theme-${theme}`}>
     <header><div className="run-picker"><span>RUN</span><select value={run} onChange={event => setRun(event.target.value)}>{runs.map(name => <option key={name}>{name}</option>)}</select><button onClick={() => { loadRuns(); refresh(); }}><RefreshCw size={16} /></button><label className="theme-picker"><span>THEME</span><select aria-label="Theme" value={theme} onChange={event => setTheme(event.target.value)}><option value="parchment">Parchment</option><option value="night">Night control room</option><option value="terminal">Terminal green</option><option value="brown">Cocoa</option><option value="davinci">Da Vinci 95</option><option value="anime">Japanese ink anime</option></select></label></div></header>
@@ -260,10 +262,10 @@ function App() {
     <section className="health-panel panel">
       <div className="health-heading"><div><span className="kicker">VALIDATION HEALTH</span><h2>Is the detector improving?</h2><p className="health-legend">Numbers compare the latest validation with the moving average of the last {movingAverageWindow} validations.</p></div><span className={`freshness ${freshness}`}><span /> {freshness}</span></div>
       <div className="health-grid">
-        <HealthMetric label="mAP50" point={validationMetric('mAP50')} values={scalarSeries['mAP50']} />
-        <HealthMetric label="Micro-Avg-F1" point={validationMetric('micro-avg-f1')} values={scalarSeries['micro-avg-f1']} />
-        <HealthMetric label="Avg. recall" point={validationMetric('avg-recall')} values={scalarSeries['avg-recall']} />
-        <HealthMetric label="Val. loss" point={validationMetric('avg-val-loss')} values={scalarSeries['avg-val-loss']} invert />
+        <HealthMetric label="mAP50" point={validationMetric('mAP50')} values={scalarSeries['mAP50']} window={movingAverageWindow} />
+        <HealthMetric label="Micro-Avg-F1" point={validationMetric('micro-avg-f1')} values={scalarSeries['micro-avg-f1']} window={movingAverageWindow} />
+        <HealthMetric label="Avg. recall" point={validationMetric('avg-recall')} values={scalarSeries['avg-recall']} window={movingAverageWindow} />
+        <HealthMetric label="Val. loss" point={validationMetric('avg-val-loss')} values={scalarSeries['avg-val-loss']} window={movingAverageWindow} invert />
       </div>
       <div className="health-footer"><ValidationClock schedule={data?.validationSchedule} now={clockNow} /><span>confidence threshold <b>{data?.validationThreshold == null ? '—' : data.validationThreshold}</b></span><span>events <b>{eventAge == null ? '—' : eventAge < 1000 ? 'just now' : `${Math.round(eventAge / 1000)}s ago`}</b></span><span>checkpoint <b>{checkpointAge == null ? '—' : checkpointAge < 1000 ? 'just now' : `${Math.round(checkpointAge / 60000)}m ago`}</b></span></div>
     </section>
@@ -274,6 +276,7 @@ function App() {
         <div className="loss-caption"><span>{scale === 'log' ? 'Avg. loss · log10(loss)' : 'Avg. loss'}</span><span className="loss-legend"><i className="low" /> lower loss <i className="high" /> higher loss</span><span>{lossWindow === 'all' ? 'Full training history' : `Last ${Number(lossWindow).toLocaleString()} optimizer steps`}</span></div>
         <div style={{ display: 'flex', gap: 10, width: '100%' }}><div className="loss-y-labels">{scale === 'log' ? logAxisData.ticks.map(tick => <span key={tick.value} style={{ top: `${(1 - (tick.value - logAxisData.minimum) / logAxisData.range) * 100}%` }}><PowerLabel exponent={tick.exponent} /></span>) : <><span style={{ top: '0%' }}>{max.toPrecision(3)}</span><span style={{ top: '50%' }}>{((max + min) / 2).toPrecision(3)}</span><span style={{ top: '100%' }}>{min.toPrecision(3)}</span></>}</div><div className="spark" style={{ flex: 1, width: '100%', minWidth: 0, height: 260 }}>{scale === 'log' && logAxisData.ticks.map(tick => <span className="loss-grid-line" key={`loss-grid-${tick.value}`} style={{ bottom: `${((tick.value - logAxisData.minimum) / logAxisData.range) * 100}%` }} />)}{points.length ? points.map((point, i) => <div className="loss-bar" key={i} style={{ height: `${height(point.avg)}%`, '--bar-hue': `${lossHue(point.avg)}` }} title={`step ${point.step} · avg loss ${point.avg.toFixed(3)}`} />) : <span className="empty">Waiting for event-file data…</span>}</div></div>
         <div className="axis loss-x-axis" aria-label="optimizer steps">{axisTicks.map((tick, index) => <span key={`${tick.step}-${index}`} style={{ left: `${tick.position}%` }}>{tick.step.toLocaleString()}</span>)}</div>
+        <p className="chart-explanation">Average loss is the model's training error: a summary of how far its predictions are from the expected outputs. It is calculated using the loss functions defined by the selected model. Lower loss generally means the model is fitting the training examples better, but loss is not itself a measure of accuracy.</p>
       </div>
     </section>
     <section className="validation-card-grid">
@@ -302,13 +305,33 @@ function TrainingActivityPanel({ activity }) {
   }
   const start = Number(activity.start);
   const end = Number(activity.end);
-  const span = Math.max(1, end - start);
-  const visibleSegments = (activity.segments || []).filter(segment => segment.seconds > 0);
+  const crossesDayBoundary = new Date(start).toDateString() !== new Date(end).toDateString();
+  // Activity durations are reported in seconds, while timestamps are in
+  // milliseconds. Keep the timeline widths in the same unit as segments.
+  const span = Math.max(1, (end - start) / 1000);
+  const visibleSegments = (activity.segments || [])
+    .filter(segment => segment.seconds > 0)
+    .reduce((segments, segment) => {
+      const previous = segments[segments.length - 1];
+      if (previous && previous.kind === segment.kind) previous.seconds += segment.seconds;
+      else segments.push({ ...segment });
+      return segments;
+    }, []);
+  const tickCount = Math.min(7, Math.max(3, Math.ceil(span / (4 * 60 * 60)) + 1));
+  const ticks = Array.from({ length: tickCount }, (_, index) => {
+    const position = index / (tickCount - 1);
+    const timestamp = start + (end - start) * position;
+    const date = new Date(timestamp);
+    const label = crossesDayBoundary || span >= 24 * 60 * 60
+      ? date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric' })
+      : date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    return { label, position };
+  });
   return <section className="training-activity panel">
     <div className="panel-head"><div><span className="kicker">RUN ACTIVITY · INFERRED FROM EVENT TIMESTAMPS</span><h2>Training time vs. gaps</h2></div><span className="training-activity-range">{new Date(start).toLocaleDateString()} → {new Date(end).toLocaleDateString()}</span></div>
     <div className="activity-summary"><span><i className="active" /> active training <b>{formatDuration(activity.activeSeconds)}</b></span><span><i className="validation" /> validation <b>{formatDuration(activity.validationSeconds)}</b></span><span><i className="offline" /> offline gaps <b>{formatDuration(activity.offlineSeconds)}</b></span></div>
-    <div className="activity-track" aria-label="Training activity timeline">{visibleSegments.map((segment, index) => <span key={`${segment.kind}-${index}`} className={segment.kind} style={{ width: `${segment.seconds / span * 100}%` }} title={`${segment.kind} · ${formatDuration(segment.seconds)}`} />)}</div>
-    <div className="activity-axis"><span>{new Date(start).toLocaleString()}</span><span>{new Date(end).toLocaleString()}</span></div>
+    <div className="activity-track" aria-label="Training activity timeline">{visibleSegments.map((segment, index) => <span key={`${segment.kind}-${index}`} className={segment.kind} style={{ flex: `0 0 ${segment.seconds / span * 100}%`, width: `${segment.seconds / span * 100}%`, background: segment.kind === 'active' ? '#355e3b' : segment.kind === 'validation' ? '#f4d35e' : '#8b1e1e' }} title={`${segment.kind} · ${formatDuration(segment.seconds)}`} />)}</div>
+    <div className="activity-axis">{ticks.map((tick, index) => <span key={`${tick.position}-${index}`} className={index === 0 ? 'first' : index === ticks.length - 1 ? 'last' : ''} style={{ left: `${tick.position * 100}%` }}>{tick.label}</span>)}</div>
   </section>;
 }
 
@@ -352,7 +375,7 @@ function ValidationBarsPanel({ series, tag, label }) {
   return <div className="validation-bars panel chart">
     <div className="panel-head"><div><span className="kicker">VALIDATION HISTORY · BUCKETED</span><h2>{label}</h2></div><div style={{ display: 'flex', gap: 8 }}><select aria-label={`${label} scale`} value={scale} onChange={event => setScale(event.target.value)}><option value="linear">Linear</option><option value="log">Log</option></select><select aria-label={`${label} bucket count`} value={bucketCount} onChange={event => setBucketCount(Number(event.target.value))}><option value="24">24 buckets</option><option value="48">48 buckets</option><option value="72">72 buckets</option><option value="120">120 buckets</option></select></div></div>
     <div className="validation-bars-caption"><span>{scale === 'log' ? 'Validation score · log10(score)' : 'Validation score'} · higher is better</span><span>{history.length} validations · bucketed averages</span></div>
-    {buckets.length ? <><div className="validation-bars-chart"><div className="loss-y-labels">{scale === 'log' ? logTicks.map(tick => <span key={tick.value} style={{ top: `${(1 - (tick.value - logMinimum) / logRange) * 100}%` }}><PowerLabel exponent={tick.exponent} /></span>) : <><span style={{ top: '0%' }}>{maximum.toPrecision(3)}</span><span style={{ top: '50%' }}>{((maximum + minimum) / 2).toPrecision(3)}</span><span style={{ top: '100%' }}>{minimum.toPrecision(3)}</span></>}</div><div className="spark validation-spark" style={{ flex: 1, width: '100%', minWidth: 0, height: 230 }}>{scale === 'log' && logTicks.map(tick => <span className="loss-grid-line" key={`validation-grid-${tick.value}`} style={{ bottom: `${((tick.value - logMinimum) / logRange) * 100}%` }} />)}{buckets.map((bucket, index) => <div className="loss-bar" key={bucket.step ?? index} style={{ height: `${height(bucket.value)}%`, '--bar-hue': `${hue(bucket.value)}` }} title={`step ${Number(bucket.step).toLocaleString()} · ${label} ${Number(bucket.value).toFixed(3)}`} />)}</div></div><div className="axis loss-x-axis validation-bars-axis" aria-label={`${label} validation steps`}><span>step {Number(firstStep).toLocaleString()}</span><span>step {Number(lastStep).toLocaleString()}</span></div></> : <div className="empty validation-bars-empty">Waiting for validation data…</div>}
+    {buckets.length ? <><div className="validation-bars-chart"><div className="loss-y-labels">{scale === 'log' ? logTicks.map(tick => <span key={tick.value} style={{ top: `${(1 - (tick.value - logMinimum) / logRange) * 100}%` }}><PowerLabel exponent={tick.exponent} /></span>) : <><span style={{ top: '0%' }}>{maximum.toPrecision(3)}</span><span style={{ top: '50%' }}>{((maximum + minimum) / 2).toPrecision(3)}</span><span style={{ top: '100%' }}>{minimum.toPrecision(3)}</span></>}</div><div className="spark validation-spark" style={{ flex: 1, width: '100%', minWidth: 0, height: 230 }}>{scale === 'log' && logTicks.map(tick => <span className="loss-grid-line" key={`validation-grid-${tick.value}`} style={{ bottom: `${((tick.value - logMinimum) / logRange) * 100}%` }} />)}{buckets.map((bucket, index) => <div className="loss-bar" key={bucket.step ?? index} style={{ height: `${height(bucket.value)}%`, '--bar-hue': `${hue(bucket.value)}` }} title={`step ${Number(bucket.step).toLocaleString()} · ${label} ${Number(bucket.value).toFixed(3)}`} />)}</div></div><div className="axis loss-x-axis validation-bars-axis" aria-label={`${label} validation steps`}><span>step {Number(firstStep).toLocaleString()}</span><span>step {Number(lastStep).toLocaleString()}</span></div>{tag === 'micro-avg-f1' && <p className="validation-bars-note validation-bars-explanation">Micro-Avg-F1 is one score for the whole validation set. It pools all images and classes, counting correct detections, incorrect detections, and missed ground-truth objects. Precision is correct detections divided by all detections; recall is correct detections divided by all ground-truth objects. F1 combines precision and recall, so it is high only when both are high.</p>}{tag === 'mAP50' && <p className="validation-bars-note validation-bars-explanation">mAP50 summarizes detection quality across the validation set. A prediction counts as correct when it has the right class and its box overlaps the matching ground-truth box by at least 50%. For each class, detections are ranked by confidence to form a precision–recall curve; the area under that curve is the class's average precision. mAP50 is the average of those class scores, so higher values mean better performance across the classes represented in the validation set.</p>}</> : <div className="empty validation-bars-empty">Waiting for validation data…</div>}
   </div>;
 }
 
@@ -392,13 +415,9 @@ function PRCurvePanel({ curve }) {
   const xMaximum = 1;
   const yMaximum = 1;
   const coordinate = point => ({
-    x: Math.max(0, Math.min(xMaximum, Number(point.recall))) / xMaximum * 220,
-    y: 86 - Math.max(0, Math.min(yMaximum, Number(point.precision))) / yMaximum * 86
+    x: 2 + Math.max(0, Math.min(xMaximum, Number(point.recall))) / xMaximum * 216,
+    y: 85 - Math.max(0, Math.min(yMaximum, Number(point.precision))) / yMaximum * 84
   });
-  const svgPoints = points.map(point => {
-    const current = coordinate(point);
-    return `${current.x},${current.y}`;
-  }).join(' ');
   const axisLabel = value => value.toLocaleString(undefined, { maximumFractionDigits: 3 });
   const activePoints = sampledPoints.filter(point => Number(point.precision) > 0 || Number(point.recall) > 0);
   const lowerThreshold = activePoints.reduce((lowest, point) => (
@@ -407,18 +426,32 @@ function PRCurvePanel({ curve }) {
   const upperThreshold = activePoints.reduce((highest, point) => (
     !highest || Number(point.confidence) > Number(highest.confidence) ? point : highest
   ), null);
+  const middleThreshold = lowerThreshold && upperThreshold
+    ? activePoints.reduce((middle, point) => {
+      const midpoint = (Number(lowerThreshold.confidence) + Number(upperThreshold.confidence)) / 2;
+      return !middle || Math.abs(Number(point.confidence) - midpoint) < Math.abs(Number(middle.confidence) - midpoint)
+        ? point
+        : middle;
+    }, null)
+    : null;
   const percent = value => `${Math.round(Number(value) * 100)}%`;
   const confidenceLabel = point => Number(point.confidence).toFixed(3);
   const thresholdInsight = (point, description) => {
     const precision = Number(point.precision);
     const recall = Number(point.recall);
-    return <p className="pr-insight">At confidence {confidenceLabel(point)}—{description}—the model&apos;s recall is about {percent(recall)}, so about {percent(1 - recall)} of ground-truth objects are missed (false negatives). Its precision is about {percent(precision)}, so about {percent(1 - precision)} of its detections are false positives.</p>;
+    const recallText = recall >= 0.9995
+      ? 'It finds essentially all of the ground-truth objects.'
+      : `It misses about ${percent(1 - recall)} of the ground-truth objects (false negatives).`;
+    const precisionText = precision >= 0.9995
+      ? 'Nearly all of its detections are correct.'
+      : `About ${percent(1 - precision)} of its detections are false positives.`;
+    return <p className="pr-insight">At confidence {confidenceLabel(point)}—{description}—the model&apos;s recall is about {percent(recall)}. {recallText} Its precision is about {percent(precision)}. {precisionText}</p>;
   };
   const areaPoints = [];
   for (const point of points) {
     const recall = Number(point.recall);
     const precision = Number(point.precision);
-    const previous = areaPoints.at(-1);
+    const previous = areaPoints[areaPoints.length - 1];
     if (previous && Math.abs(previous.recall - recall) < 1e-12) {
       previous.precision = Math.max(previous.precision, precision);
     } else {
@@ -441,14 +474,46 @@ function PRCurvePanel({ curve }) {
   const prScore = points.length === 0
     ? null
     : Math.max(0, Math.min(1, prArea));
+  const envelopePoints = areaPoints.length && areaPoints[0].recall > 0
+    ? [{ recall: 0, precision: areaPoints[0].precision }, ...areaPoints]
+    : areaPoints;
+  const smoothEnvelopePoints = envelopePoints.length < 2
+    ? envelopePoints
+    : Array.from({ length: 201 }, (_, index) => {
+      const recall = index / 200;
+      let right = 1;
+      while (right < envelopePoints.length && envelopePoints[right].recall < recall) right++;
+      if (right >= envelopePoints.length) {
+        return { recall, precision: envelopePoints[envelopePoints.length - 1].precision };
+      }
+      const left = Math.max(0, right - 1);
+      const before = envelopePoints[left];
+      const after = envelopePoints[right];
+      const span = after.recall - before.recall;
+      const fraction = span > 0 ? (recall - before.recall) / span : 0;
+      return {
+        recall,
+        precision: before.precision + (after.precision - before.precision) * fraction
+      };
+    });
+  const svgPoints = smoothEnvelopePoints.map(point => {
+    const current = coordinate(point);
+    return `${current.x},${current.y}`;
+  }).join(' ');
+  const chartPoints = svgPoints || points.map(point => {
+    const current = coordinate(point);
+    return `${current.x},${current.y}`;
+  }).join(' ');
   return <section className="tb-card pr-panel">
     <div className="tb-toggle"><span>Precision–recall curve</span><span className="pr-meta">{curve ? `validation step ${Number(curve.step).toLocaleString()}` : 'Waiting for validation data'}</span></div>
     <div className="tb-axis-units"><span>Y · precision</span><span>X · recall</span></div>
-    <div className="tb-plot"><div className="tb-y-labels"><span style={{ top: '0%' }}>{axisLabel(yMaximum)}</span><span style={{ top: '50%' }}>{axisLabel(yMaximum / 2)}</span><span style={{ top: '100%' }}>0</span></div><div className="tb-plot-area"><svg viewBox="0 0 220 86" preserveAspectRatio="none" role="img" aria-label="Precision versus recall curve"><defs><linearGradient id="pr-line-gradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#d5fbff" /><stop offset="16%" stopColor="#27dfff" /><stop offset="52%" stopColor="#087ff5" /><stop offset="82%" stopColor="#5140df" /><stop offset="100%" stopColor="#a818ff" /></linearGradient></defs><line x1="0" y1="0" x2="220" y2="0" /><line x1="0" y1="43" x2="220" y2="43" /><line x1="0" y1="86" x2="220" y2="86" /><polyline className="tb-tube-body" stroke="url(#pr-line-gradient)" points={svgPoints} /></svg><div className="tb-x-axis"><span style={{ left: '50%' }}>{axisLabel(xMaximum / 2)}</span><span style={{ left: '100%' }}>{axisLabel(xMaximum)}</span></div></div></div>
+    <div className="tb-plot"><div className="tb-y-labels"><span style={{ top: '0%' }}>{axisLabel(yMaximum)}</span><span style={{ top: '50%' }}>{axisLabel(yMaximum / 2)}</span><span style={{ top: '100%' }}>0</span></div><div className="tb-plot-area"><svg viewBox="0 0 220 86" preserveAspectRatio="none" role="img" aria-label="Precision versus recall curve"><line x1="0" y1="0" x2="220" y2="0" /><line x1="0" y1="43" x2="220" y2="43" /><line x1="0" y1="86" x2="220" y2="86" /><polyline className="tb-tube-body" points={chartPoints} fill="none" stroke="#087ff5" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" /></svg><div className="tb-x-axis"><span style={{ left: '50%' }}>{axisLabel(xMaximum / 2)}</span><span style={{ left: '100%' }}>{axisLabel(xMaximum)}</span></div></div></div>
     <div className="tb-values"><span>{points.length ? `${points.length} threshold points` : 'No PR data'}</span><span>micro PR score <b>{prScore == null ? '—' : prScore.toFixed(2)}</b></span><span>lowest-threshold precision <b>{lowerThreshold ? metricFmt(lowerThreshold.precision) : '—'}</b></span><span>lowest-threshold recall <b>{lowerThreshold ? metricFmt(lowerThreshold.recall) : '—'}</b></span></div>
+    {prScore != null && <p className="pr-insight">A micro PR score of {prScore.toFixed(2)} summarizes the entire confidence sweep, not one cutoff. A score of 1.00 means the curve reaches the ideal precision–recall envelope: at one confidence setting, the model finds every ground-truth object and its detections are all correct.</p>}
     {lowerThreshold && thresholdInsight(lowerThreshold, 'the lowest threshold and most permissive setting')}
+    {middleThreshold && thresholdInsight(middleThreshold, 'a middle confidence setting between the two extremes')}
     {upperThreshold && thresholdInsight(upperThreshold, 'the highest threshold that produces any detections')}
-    {points.length > 0 && <p className="pr-insight">These are sampled confidence cutoffs from 0.000 through 1.000 in 0.005 increments. Precision is the percentage of the model&apos;s detections that are correct; the rest are false positives. Recall is the percentage of real objects that the model found; the rest were missed (false negatives). The micro PR score is the area under this pooled curve: 0 means the curve has no precision–recall area, while 1 means perfect precision and full recall.</p>}
+    <p className="pr-insight">The curve uses confidence cutoffs from 0.000 through 1.000 in 0.005 increments. Precision is the percentage of detections that are correct. Recall is the percentage of ground-truth objects the model finds.</p>
   </section>;
 }
 
@@ -604,10 +669,10 @@ function StepProgressCard({ progress }) {
     <small>{percentage == null ? 'optimizer steps' : `${percentage.toFixed(1)}% complete`}</small>
   </div>;
 }
-function HealthMetric({ label, point, values = [], invert = false }) {
+function HealthMetric({ label, point, values = [], window = VALIDATION_MOVING_AVERAGE_WINDOW, invert = false }) {
   const ordered = [...values].sort((a, b) => Number(a.step) - Number(b.step));
   const current = ordered.at(-1) || point;
-  const recent = ordered.slice(-12).map(item => Number(item.value)).filter(Number.isFinite);
+  const recent = ordered.slice(-window).map(item => Number(item.value)).filter(Number.isFinite);
   const average = recent.length ? recent.reduce((sum, value) => sum + value, 0) / recent.length : null;
   const currentValue = current == null ? null : Number(current.value);
   const improving = average == null || !Number.isFinite(currentValue) ? null : invert ? currentValue < average : currentValue > average;

@@ -226,7 +226,6 @@ void Validator<D>::validate(Model<D>& model, const MiniBatch& batch)
 
         processDetects(model.detections(), batch.groundTruth(), batch.validSize());
 
-        std::cout << "." << std::flush;
     } catch (...) {
         model.setThreshold(previousThreshold);
         model.setMode(previousMode);

@@ -131,7 +131,13 @@ public:
 
     CUDA_CALLABLE float gradient(float x) const
     {
-        return 1. / (1. + std::exp(-x));
+        if (x > threshold_) {
+            return 1.0f;
+        } else if (x < -threshold_) {
+            return std::exp(x);
+        } else {
+            return 1.0f / (1.0f + std::exp(-x));
+        }
     }
 
 private:
@@ -154,7 +160,7 @@ public:
     CUDA_CALLABLE float gradient(float x) const
     {
         auto sp = softplus_.apply(x);
-        auto gradSp = 1 - std::exp(-sp);
+        auto gradSp = softplus_.gradient(x);
         auto tsp = std::tanh(sp);
         auto gradTsp = (1 - tsp * tsp) * gradSp;
         auto grad = x * gradTsp + tsp;

@@ -56,7 +56,9 @@ function validationThreshold(metadata) {
   const modelPath = modelMatch
     ? path.resolve(path.dirname(configuration), modelMatch[1])
     : configuration;
-  const match = read(modelPath).match(/^\s+threshold:\s*([0-9.+-eE]+)\s*$/m);
+  const modelText = read(modelPath);
+  const validationBlock = modelText.match(/^[ \t]{2}validation:[ \t]*\n([\s\S]*?)(?=^[ \t]{2}[A-Za-z0-9_-]+:)/m)?.[1] || '';
+  const match = validationBlock.match(/^\s+confidence_threshold:\s*([0-9.+-eE]+)\s*$/m);
   return match ? Number(match[1]) : null;
 }
 

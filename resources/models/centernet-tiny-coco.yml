@@ -1,0 +1,215 @@
+model:
+  batch: 64
+  subdivisions: 1
+  channels: 3
+  height: 320
+  width: 320
+  max_batches: 500000
+  momentum: 0.9
+  decay: 0.0005
+
+  adam:
+    enabled: True
+    beta1: 0.9
+    beta2: 0.999
+    epsilon: 1e-8
+
+  augmentation:
+    enabled: True
+    flip: True
+    jitter: 0.2
+    saturation: 1.2
+    exposure: 1.2
+    hue: 0.1
+
+  validation:
+    enabled: True
+    interval: 1000
+    confidence_threshold: 0.05
+    ap_confidence_threshold: 0.001
+    iou_threshold: 0.5
+    nms_threshold: 0.4
+
+  early_stopping:
+    enabled: False
+    patience: 10
+    threshold: 0.0001
+
+  gradient_rescale:
+    enabled: True
+    threshold: 100.0
+
+  gradient_clipping:
+    enabled: False
+
+  save_weights_interval: 1000
+  max_checkpoints: 5
+  write_metrics_interval: 50
+
+  learning_rate:
+    initial_learning_rate: 0.00003
+    policy: reduce_on_plateau
+
+    reduce_on_plateau:
+      factor: 0.5
+      patience: 3
+      threshold: 0.005
+      cooldown: 1
+      min_learning_rate: 0.000005
+      smoothing: 3
+
+  layers:
+    - type: conv
+      filters: 32
+      kernel: 3
+      stride: 2
+      pad: True
+      activation: mish
+      batch_normalize: True
+
+    - type: conv
+      filters: 64
+      kernel: 3
+      stride: 2
+      pad: True
+      activation: mish
+      batch_normalize: True
+
+    # Encode through stride 32 so every prediction sees enough context to
+    # estimate complete objects, then decode back to a stride-4 heatmap.
+    - type: conv
+      filters: 128
+      kernel: 3
+      stride: 2
+      pad: True
+      activation: mish
+      batch_normalize: True
+
+    - type: conv
+      filters: 128
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: mish
+      batch_normalize: True
+
+    - type: conv
+      filters: 256
+      kernel: 3
+      stride: 2
+      pad: True
+      activation: mish
+      batch_normalize: True
+
+    - type: conv
+      filters: 256
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: mish
+      batch_normalize: True
+
+    - type: conv
+      filters: 384
+      kernel: 3
+      stride: 2
+      pad: True
+      activation: mish
+      batch_normalize: True
+
+    - type: conv
+      filters: 384
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: mish
+      batch_normalize: True
+
+    - type: conv
+      filters: 256
+      kernel: 1
+      stride: 1
+      pad: False
+      activation: mish
+      batch_normalize: True
+
+    - type: upsample
+      stride: 2
+
+    - type: route
+      layers: [ -1, 5 ]
+
+    - type: conv
+      filters: 256
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: mish
+      batch_normalize: True
+
+    - type: conv
+      filters: 128
+      kernel: 1
+      stride: 1
+      pad: False
+      activation: mish
+      batch_normalize: True
+
+    - type: upsample
+      stride: 2
+
+    - type: route
+      layers: [ -1, 3 ]
+
+    - type: conv
+      filters: 128
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: mish
+      batch_normalize: True
+
+    - type: conv
+      filters: 64
+      kernel: 1
+      stride: 1
+      pad: False
+      activation: mish
+      batch_normalize: True
+
+    - type: upsample
+      stride: 2
+
+    - type: route
+      layers: [ -1, 1 ]
+
+    - type: conv
+      filters: 128
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: mish
+      batch_normalize: True
+
+    - type: conv
+      filters: 64
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: mish
+      batch_normalize: True
+
+    # COCO: 80 center heatmaps + 2 size maps + 2 center-offset maps.
+    - type: conv
+      filters: 84
+      kernel: 1
+      stride: 1
+      pad: False
+      activation: linear
+
+    - type: centernet
+      focal_alpha: 2.0
+      focal_beta: 4.0
+      heatmap_bias: -2.19
+      size_weight: 0.1
+      max_detections: 100

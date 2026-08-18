@@ -180,6 +180,7 @@ list(APPEND SOURCES
         src/MiniBatch.cpp
         src/Model.cpp
         src/RandomLRPolicy.cpp
+        src/ReduceOnPlateauLRPolicy.cpp
         src/RecordWriter.cpp
         src/SigmoidLRPolicy.cpp
         src/SmoothCyclicDecayLRPolicy.cpp
