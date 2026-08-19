@@ -7,6 +7,7 @@ series that spans the complete run, keeping the browser render bounded too.
 """
 
 import json
+import base64
 import hashlib
 import math
 import os
@@ -14,7 +15,8 @@ import sys
 import tempfile
 from collections import deque
 
-from tensorboard.backend.event_processing.event_file_loader import EventFileLoader
+from tensorboard.backend.event_processing.event_file_loader import RawEventFileLoader
+from tensorboard.compat.proto import event_pb2
 from tensorboard.util import tensor_util
 
 
@@ -24,12 +26,15 @@ MAX_DISPLAY_POINTS = 1_200
 MAX_WINDOW_POINTS = 10_000
 MAX_CARD_WINDOW_POINTS = 5_000
 WINDOW_TAGS = {"avg-loss", "learning-rate"}
-CACHE_VERSION = 7
+CACHE_VERSION = 12
 CACHE_UPDATE_BYTES = 1_000_000
-event_loader = EventFileLoader(event_file)
+# RawEventFileLoader preserves the original Summary.Value oneof. TensorBoard's
+# higher-level EventFileLoader migrates Summary.Image into a TensorProto.
+event_loader = RawEventFileLoader(event_file)
 tail_series = {tag: deque(maxlen=MAX_WINDOW_POINTS) for tag in WINDOW_TAGS}
 card_tail_series = {}
 pr_curves = {}
+images = {}
 full_series = {}
 previous_raw_step = -1
 previous_normalized_step = -1
@@ -88,13 +93,15 @@ def update_series():
         full_series.clear()
         card_tail_series.clear()
         pr_curves.clear()
+        images.clear()
         for values in tail_series.values():
             values.clear()
         previous_raw_step = -1
         previous_normalized_step = -1
         step_offset = 0
         loaded_event_count = 0
-    for event in event_loader.Load():
+    for record in event_loader.Load():
+        event = event_pb2.Event.FromString(record)
         if start_time is not None and event.wall_time < start_time:
             continue
         if event.step < previous_raw_step:
@@ -103,6 +110,16 @@ def update_series():
         previous_raw_step = event.step
         previous_normalized_step = normalized_step
         for summary in event.summary.value:
+            if summary.HasField("image"):
+                encoded = base64.b64encode(summary.image.encoded_image_string).decode("ascii")
+                images[summary.tag] = {
+                    "step": event.step,
+                    "wall_time": event.wall_time,
+                    "width": summary.image.width,
+                    "height": summary.image.height,
+                    "data": f"data:image/jpeg;base64,{encoded}",
+                }
+                continue
             if summary.tag.startswith("validation/micro-pr/") and summary.HasField("tensor"):
                 array = tensor_util.make_ndarray(summary.tensor)
                 if array.ndim == 2 and 3 in array.shape:
@@ -219,7 +236,8 @@ def current_response():
     # already have bounded display series and do not need a second copy of
     # thousands of recent points in every response.
     tails = {tag: list(card_tail_series[tag]) for tag in WINDOW_TAGS if tag in card_tail_series}
-    return {"series": series, "windows": windows, "tails": tails, "prCurves": pr_curves, "activity": activity_summary()}
+    return {"series": series, "windows": windows, "tails": tails, "prCurves": pr_curves,
+            "images": images, "activity": activity_summary()}
 
 
 cached_response = load_cache()

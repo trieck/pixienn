@@ -187,6 +187,16 @@
 
 #root .pr-panel{margin-top:20px}
 #root .pr-panel{border-radius:18px}
+#root .validation-gallery{margin-top:20px}
+#root .validation-gallery .gallery-meta{color:#8b919d;font-size:11px;font-variant-numeric:tabular-nums}
+#root .validation-gallery img{display:block;width:100%;max-height:720px;object-fit:contain;margin-top:18px;border:1px solid #e3e5e1;border-radius:12px;background:#20242b}
+#root .validation-gallery .gallery-empty{min-height:120px;display:grid;place-items:center;margin-top:18px;border:1px dashed #d8dce0;border-radius:12px}
+#root .validation-gallery .chart-explanation{margin:14px 0 0;color:#687386;font-size:13px;line-height:1.45}
+#root.theme-night .validation-gallery .chart-explanation{color:#a8bad0}
+#root.theme-terminal .validation-gallery .chart-explanation{color:#9ee5b4}
+#root.theme-brown .validation-gallery .chart-explanation{color:#d8b99d}
+#root.theme-davinci .validation-gallery .chart-explanation{color:#514b3d}
+#root.theme-anime .validation-gallery .chart-explanation{color:#695a63}
 #root .training-activity{margin-top:20px;padding:22px;--activity-active:#355e3b;--activity-validation:#f4d35e;--activity-offline:#8b1e1e;--activity-track:#eee8d8}
 #root .training-activity-range{color:#687386;font-size:10px;font-variant-numeric:tabular-nums}
 #root .activity-summary{display:flex;flex-wrap:wrap;gap:22px;margin-top:20px;color:#687386;font-size:11px}

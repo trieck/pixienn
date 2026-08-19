@@ -23,9 +23,12 @@
 #include <boost/program_options/variables_map.hpp>
 #include <chrono>
 #include <fstream>
+#include <iomanip>
 #include <nlohmann/json.hpp>
 #include <opencv2/highgui.hpp>
+#include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc/types_c.h>
+#include <sstream>
 #include <utility>
 #include <yaml-cpp/node/node.h>
 
@@ -282,6 +285,7 @@ private:
     void writeAvgValLoss();
     void writeAccuracy();
     void writeValidationDuration(double seconds);
+    void writeValidationGallery(const MiniBatch& batch);
 
     Mode mode_ = Mode::INFERRING;
 
@@ -352,6 +356,9 @@ private:
     int saveWeightsInterval_ = 0;
     int maxCheckpoints_ = 5;
     int writeMetricsInterval_ = 0;
+    bool valGalleryEnabled_ = true;
+    int valGalleryInterval_ = 5;
+    std::size_t validationRuns_ = 0;
 
     // network version
     int major_ = 0;
@@ -655,6 +662,129 @@ void Model<D>::writeValidationDuration(double seconds)
     auto* value = event.mutable_summary()->add_value();
     value->set_tag("validation/duration-seconds");
     value->set_simple_value(static_cast<float>(seconds));
+    writer_->write(event);
+}
+
+template<Device D>
+void Model<D>::writeValidationGallery(const MiniBatch& batch)
+{
+    // Keep the event stream useful for long runs: six fixed validation images
+    // every configured number of validation runs expose localization failures
+    // without turning the event file into an image archive.
+    if (!valGalleryEnabled_ || validationRuns_ == 0 ||
+        validationRuns_ % static_cast<std::size_t>(valGalleryInterval_) != 0 || batch.validSize() == 0) {
+        return;
+    }
+
+    constexpr int columns = 3;
+    constexpr int rows = 2;
+    constexpr int tileWidth = 480;
+    constexpr int tileHeight = 360;
+    constexpr int maxImages = columns * rows;
+    const auto count = std::min<std::size_t>(batch.validSize(), maxImages);
+    // imtabbedText uses Cairo/Pango when available, whose ARGB32 surface
+    // requires four bytes per pixel. Keep the gallery BGRA while drawing so
+    // labels use the same memory layout as the other annotated image paths.
+    cv::Mat gallery(rows * tileHeight, columns * tileWidth, CV_8UC4, cv::Scalar(32, 32, 32, 255));
+
+    auto predictions = nms(detections(valConfidenceThresh_), valNmsThresh_);
+    const auto hasVisiblePrediction = std::any_of(predictions.cbegin(), predictions.cend(), [count](const auto& detect) {
+        return detect.batchId() >= 0 && static_cast<std::size_t>(detect.batchId()) < count;
+    });
+    if (!hasVisiblePrediction) {
+        return;
+    }
+
+    for (std::size_t b = 0; b < count; ++b) {
+        cv::Mat normalized(height_, width_, CV_32FC3);
+        auto* pixels = normalized.ptr<float>();
+        const auto* planar = batch.slice(static_cast<std::uint32_t>(b));
+        const auto planeSize = static_cast<std::size_t>(height_) * width_;
+        for (std::size_t pixel = 0; pixel < planeSize; ++pixel) {
+            for (int channel = 0; channel < channels_; ++channel) {
+                pixels[pixel * channels_ + channel] = planar[channel * planeSize + pixel];
+            }
+        }
+        cv::Mat tile = imdenormalize(normalized);
+        cv::resize(tile, tile, {tileWidth, tileHeight}, 0.0, 0.0, cv::INTER_AREA);
+        cv::cvtColor(tile, tile, cv::COLOR_BGR2BGRA);
+
+        const auto scaleX = static_cast<float>(tileWidth) / width_;
+        const auto scaleY = static_cast<float>(tileHeight) / height_;
+        const cv::Size modelSize(width_, height_);
+        const auto toTile = [scaleX, scaleY, modelSize](const DarkBox& box) {
+            // Detections and ground truth remain normalized Darknet boxes until
+            // they are rendered. Convert to model pixels before scaling to the
+            // gallery tile; treating normalized coordinates as pixels makes
+            // every box collapse into the upper-left corner.
+            const auto pixelBox = lightBox(box, modelSize);
+            return cv::Rect(static_cast<int>(pixelBox.x * scaleX), static_cast<int>(pixelBox.y * scaleY),
+                            static_cast<int>(pixelBox.width * scaleX), static_cast<int>(pixelBox.height * scaleY));
+        };
+        const auto clipped = cv::Rect(0, 0, tileWidth, tileHeight);
+
+        std::vector<bool> matched(batch.groundTruth(static_cast<std::uint32_t>(b)).size(), false);
+        for (const auto& detect: predictions) {
+            if (detect.batchId() != static_cast<int>(b)) {
+                continue;
+            }
+            auto rect = toTile(DarkBox(detect.box())) & clipped;
+            auto best = matched.size();
+            auto bestIoU = valIouThresh_;
+            for (std::size_t i = 0; i < matched.size(); ++i) {
+                if (matched[i] || batch.groundTruth(static_cast<std::uint32_t>(b))[i].classId != detect.classIndex()) {
+                    continue;
+                }
+                const auto overlap = DarkBox(detect.box()).iou(batch.groundTruth(static_cast<std::uint32_t>(b))[i].box);
+                if (overlap >= bestIoU) {
+                    bestIoU = overlap;
+                    best = i;
+                }
+            }
+            const auto truePositive = best < matched.size();
+            if (truePositive) {
+                matched[best] = true;
+            }
+            const auto color = truePositive ? 0x355e3bU : 0x8b1e1eU;
+            imrect(tile, rect, color, 2);
+            std::ostringstream text;
+            text << labels_.at(detect.classIndex()) << ' ' << std::fixed << std::setprecision(2) << detect.prob();
+            imtabbedText(tile, text.str().c_str(), rect.tl(), imtextcolor(color), color, 1);
+        }
+
+        for (std::size_t i = 0; i < matched.size(); ++i) {
+            if (matched[i]) {
+                continue;
+            }
+            const auto& truth = batch.groundTruth(static_cast<std::uint32_t>(b))[i];
+            auto rect = toTile(truth.box) & clipped;
+            const auto color = 0xd4af37U;
+            imrect(tile, rect, color, 2);
+            imtabbedText(tile, labels_.at(truth.classId).c_str(), rect.tl(), imtextcolor(color), color, 1);
+        }
+
+        const auto col = static_cast<int>(b % columns);
+        const auto row = static_cast<int>(b / columns);
+        tile.copyTo(gallery(cv::Rect(col * tileWidth, row * tileHeight, tileWidth, tileHeight)));
+    }
+
+    std::vector<uchar> encoded;
+    PX_CHECK(cv::imencode(".jpg", gallery, encoded, {cv::IMWRITE_JPEG_QUALITY, 85}),
+             "Could not encode validation gallery");
+
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(optimizerStep_);
+    auto* value = event.mutable_summary()->add_value();
+    value->set_tag("validation/error-gallery");
+    auto* image = value->mutable_image();
+    image->set_height(gallery.rows);
+    image->set_width(gallery.cols);
+    image->set_colorspace(3);
+    image->set_encoded_image_string(reinterpret_cast<const char*>(encoded.data()), encoded.size());
+    PX_CHECK(value->value_case() == tensorflow::Summary::Value::kImage,
+             "Validation error gallery was not selected as Summary.Image before serialization.");
     writer_->write(event);
 }
 
@@ -1405,6 +1535,12 @@ void Model<D>::parseModel(const Node& modelDoc)
             valApConfidenceThresh_ = val["ap_confidence_threshold"].as<float>(valConfidenceThresh_);
             valIouThresh_ = val["iou_threshold"].as<float>(0.5f);
             valNmsThresh_ = val["nms_threshold"].as<float>(0.4f);
+            auto gallery = val["gallery"];
+            if (gallery && gallery.IsMap()) {
+                valGalleryEnabled_ = gallery["enabled"].as<bool>(true);
+                valGalleryInterval_ = gallery["interval"].as<int>(5);
+            }
+            PX_CHECK(valGalleryInterval_ > 0, "validation.gallery.interval must be positive.");
         }
 
         saveWeightsInterval_ = model["save_weights_interval"].as<int>(1000);
@@ -1865,6 +2001,7 @@ template<Device D>
 void Model<D>::validate()
 {
     const auto validationStart = std::chrono::steady_clock::now();
+    ++validationRuns_;
 
     Validator <D> validator(valConfidenceThresh_, valApConfidenceThresh_, valIouThresh_, valNmsThresh_, classes());
     // Recreate the deterministic validation loader for every checkpoint so
@@ -1876,6 +2013,9 @@ void Model<D>::validate()
     for (std::size_t i = 0; i < availableBatches; ++i) {
         trainBatch_ = validationLoader.next();
         validator.validate(*this, trainBatch_);
+        if (i == 0) {
+            writeValidationGallery(trainBatch_);
+        }
     }
 
     const auto validationSeconds = std::chrono::duration<double>(

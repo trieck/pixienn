@@ -284,10 +284,19 @@ function App() {
       <ValidationBarsPanel series={scalarSeries} tag="micro-avg-f1" label="Micro-Avg-F1" />
     </section>
     <PRCurvePanel curve={data?.eventFile?.prCurves?.['validation/micro-pr/curve'] || data?.eventFile?.prCurves?.['validation/micro-pr/pr_curves']} />
+    <ValidationGallery image={data?.eventFile?.images?.['validation/error-gallery']} />
     <TrainingActivityPanel activity={data?.eventFile?.activity} />
     <EventScalarsPanel run={run} series={data?.eventFile?.series || {}} tails={data?.eventFile?.tails || {}} />
     <footer><span><span className="live-dot" /> event stream connected</span><span>PIXIENN / LOCAL RUN OBSERVATORY</span></footer>
   </main>;
+}
+
+function ValidationGallery({ image }) {
+  return <section className="panel validation-gallery">
+    <div className="panel-head"><div><span className="kicker">VALIDATION EVIDENCE</span><h2>Validation Error Gallery</h2></div><span className="gallery-meta">{image ? `step ${Number(image.step).toLocaleString()}` : 'Waiting for gallery'}</span></div>
+    {image ? <img src={image.data} alt={`Validation predictions and errors at step ${image.step}`} /> : <div className="empty gallery-empty">A gallery is written after the configured interval when at least one validation prediction clears the confidence threshold.</div>}
+    <p className="chart-explanation">Green boxes are matched predictions, red boxes are false positives, and yellow boxes are missed ground-truth objects.</p>
+  </section>;
 }
 
 function formatDuration(seconds) {
