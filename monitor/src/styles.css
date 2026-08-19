@@ -416,9 +416,9 @@
 #root .pixienn-banner span{display:block;color:#173f72;font:700 18px 'Space Grotesk';letter-spacing:.14em}
 #root .pixienn-banner strong{display:block;margin-top:4px;color:#315f70;font-size:11px;letter-spacing:.08em}
 #root .pixienn-banner em{margin-left:auto;color:#315f70;font:600 14px 'Space Grotesk';font-style:normal}
-#root .banner-meta{position:absolute;z-index:2;left:58%;right:22px;bottom:18px;width:auto;padding:12px 18px;border:1px solid #dfd1b8aa;border-radius:12px;background:#fffdf7b8;backdrop-filter:blur(5px);box-shadow:0 5px 15px #8b76551a}
+#root .banner-meta{position:absolute;z-index:2;left:58%;right:22px;top:50%;bottom:auto;transform:translateY(-50%);width:auto;padding:12px 18px;border:1px solid #dfd1b8aa;border-radius:12px;background:#fffdf7b8;backdrop-filter:blur(5px);box-shadow:0 5px 15px #8b76551a;text-align:left}
 #root .banner-meta-kicker{display:block;margin-bottom:4px;color:#526071;font-size:10px;font-weight:700;letter-spacing:.13em}
-#root .banner-meta .meta-row{padding:7px 0;border-bottom:1px solid #d9cdb899;font-size:11px}
+#root .banner-meta .meta-row{justify-content:space-between;gap:20px;padding:7px 0;border-bottom:1px solid #d9cdb899;font-size:11px}
 #root .banner-meta .meta-row:last-child{border-bottom:0}
 #root .banner-meta .meta-row span{color:#6f756f}
 #root .banner-meta .meta-row b{color:#27303b}
@@ -710,7 +710,7 @@
 #root.theme-davinci .pr-panel .tb-y-labels,#root.theme-davinci .pr-panel .tb-x-axis{color:#37352d}
 #root.theme-davinci .pr-panel .tb-x-axis span{background:#d8d3c5;color:#27261f}
 #root.theme-davinci .tb-values b,#root.theme-davinci .pr-footer b{color:#173c70}
-#root.theme-davinci .pixienn-banner{filter:none;box-shadow:none;border:2px outset #eee9db;border-radius:0;background-image:url('/assets/pixienn-banner-davinci95.png')}
+#root.theme-davinci .pixienn-banner{filter:none;box-shadow:none;border:2px outset #eee9db;border-radius:0;background-color:#d8c5b5;background-image:linear-gradient(90deg,transparent 0%,transparent 48%,#eee9db 58%,#d8c5b5 72%,#d8c5b5 100%),url('/assets/pixienn-banner-davinci95.png');background-size:100% 100%,58% auto;background-position:center,left center;background-repeat:no-repeat}
 #root.theme-davinci .monitor-loading-overlay{background:#6e675855}
 #root.theme-davinci .monitor-loading-dialog{background:#d8d3c5;color:#27261f;border:2px outset #eee9db;border-radius:0;box-shadow:none}
 #root.theme-davinci footer{color:#514b3d}
@@ -984,17 +984,7 @@
   background-color:#b79b94;
   filter:sepia(.12) saturate(.55) hue-rotate(330deg);
 }
-#root.theme-davinci .pixienn-banner::after{
-  display:block;
-  position:absolute;
-  inset:0;
-  z-index:0;
-  content:"";
-  background:#807276;
-  mix-blend-mode:multiply;
-  opacity:.14;
-  pointer-events:none;
-}
+#root.theme-davinci .pixienn-banner::after{display:none}
 #root.theme-davinci .banner-brand,#root.theme-davinci .banner-meta{
   background:#d8c5b5d9;
   border-color:#76534f;
