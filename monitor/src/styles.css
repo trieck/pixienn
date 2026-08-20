@@ -1017,6 +1017,55 @@
 #root.theme-davinci nav small{color:#514b3d}
 #root.theme-davinci .validation-bar{border-radius:0;box-shadow:none}
 
+#root .confusion-scroll{overflow-x:auto;padding:8px 0}
+#root .confusion-axis-note{font-size:11px;color:#687386;margin:2px 0 10px}
+#root .confusion-grid{display:grid;grid-template-columns:128px repeat(var(--matrix-size),minmax(72px,1fr));min-width:760px;gap:3px;align-items:stretch}
+#root .confusion-corner{font-size:10px;color:#687386;font-weight:700;padding:8px 5px;align-self:end}
+#root .confusion-label{font-size:11px;color:#303743;overflow:hidden;text-overflow:ellipsis;white-space:normal;padding:8px 4px;line-height:1.15}
+#root .confusion-label.top{text-align:center;min-height:44px;display:flex;align-items:end;justify-content:center;overflow-wrap:anywhere}
+#root .confusion-label.side{text-align:right;align-self:center}
+#root .confusion-cell{min-height:38px;display:flex;align-items:center;justify-content:center;border:1px solid #dfe4ea;border-radius:4px;background:rgba(83,103,244,var(--cell-alpha));color:var(--text);font-size:12px;font-variant-numeric:tabular-nums}
+#root .confusion-summary{display:flex;gap:9px;margin:4px 0 16px}
+#root .confusion-summary span{display:flex;flex-direction:column;gap:3px;padding:9px 12px;border:1px solid #dfe4ea;border-radius:6px;background:#fafbfc;min-width:120px}
+#root .confusion-summary b{font:600 18px 'Space Grotesk';color:#303743}
+#root .confusion-summary small{font-size:10px;color:#687386;text-transform:uppercase;letter-spacing:.05em}
+#root .compact-heatmap{border:0;border-radius:0;background:transparent;padding:0;margin:0}
+#root .detection-profile{width:100%;max-width:none;padding:22px;margin:0 0 8px}
+#root .compact-heatmap-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+#root .compact-heatmap-head strong{font:600 14px 'Space Grotesk';color:#303743}
+#root .compact-heatmap-head span{font-size:10px;color:inherit;opacity:.72}
+#root .compact-heatmap-grid{display:grid;grid-template-columns:180px repeat(4,minmax(120px,1fr));column-gap:4px;row-gap:12px;align-items:center;width:100%;max-width:1120px;margin:0 auto}
+#root .compact-corner,#root .compact-column,#root .compact-label{font-size:10px;color:inherit;padding:5px 7px}
+#root .compact-corner{text-align:right}
+#root .compact-column{text-align:center;font-weight:700;letter-spacing:.08em}
+#root .compact-label{height:30px;display:flex;align-items:center;justify-content:flex-end;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;padding-right:10px;color:inherit}
+#root .compact-cell{height:30px;display:flex;align-items:center;justify-content:center;border-radius:4px;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;color:inherit;background:color-mix(in srgb,currentColor 8%,transparent);border:1px solid color-mix(in srgb,currentColor 18%,transparent)}
+#root .compact-cell small{margin-left:7px;font-size:9px;font-weight:500;opacity:.72}
+#root .validation-bars .validation-bars-explanation,#root .chart .chart-explanation,#root .validation-gallery .chart-explanation,#root .detection-profile .chart-explanation{margin:14px 0 0;color:#687386;font:13px/1.45 'DM Sans',sans-serif;font-variant-numeric:normal}
+#root.theme-night .detection-profile .chart-explanation{color:#a8bad0}
+#root.theme-terminal .detection-profile .chart-explanation{color:#9ee5b4}
+#root.theme-brown .detection-profile .chart-explanation{color:#d8b99d}
+#root.theme-davinci .detection-profile .chart-explanation{color:#514b3d}
+#root.theme-anime .detection-profile .chart-explanation{color:#695a63}
+#root .compact-cell.f1-cell{color:#fff;background:linear-gradient(180deg,hsl(var(--quality-hue) 100% 86%),hsl(var(--quality-hue) 100% 70%) 48%,hsl(var(--quality-hue) 100% 53%));border:0;box-shadow:inset 1px 0 #ffffffa0,0 5px 8px hsl(var(--quality-hue) 70% 35% / .22)}
+@media(max-width:700px){#root .compact-heatmap-grid{grid-template-columns:120px repeat(4,minmax(82px,1fr))}}
+
+/* All explanatory prose uses one shared card treatment. */
+#root .chart-explanation,#root .validation-bars-explanation,#root .validation-gallery .chart-explanation,#root .pr-insight,#root .detection-profile .pr-insight{color:#514a40;font:13px/1.45 'DM Sans',sans-serif;font-variant-numeric:normal}
+#root.theme-night .chart-explanation,#root.theme-night .validation-bars-explanation,#root.theme-night .validation-gallery .chart-explanation,#root.theme-night .pr-insight{color:#dbe7f5}
+#root.theme-terminal .chart-explanation,#root.theme-terminal .validation-bars-explanation,#root.theme-terminal .validation-gallery .chart-explanation,#root.theme-terminal .pr-insight{color:#c6f7d5}
+#root.theme-brown .chart-explanation,#root.theme-brown .validation-bars-explanation,#root.theme-brown .validation-gallery .chart-explanation,#root.theme-brown .pr-insight{color:#f0d3b3}
+#root.theme-davinci .chart-explanation,#root.theme-davinci .validation-bars-explanation,#root.theme-davinci .validation-gallery .chart-explanation,#root.theme-davinci .pr-insight{color:#5b4541}
+#root.theme-anime .chart-explanation,#root.theme-anime .validation-bars-explanation,#root.theme-anime .validation-gallery .chart-explanation,#root.theme-anime .pr-insight{color:#302832}
+
+/* Final shared prose contract: every explanatory paragraph matches. */
+#root .health-legend,#root .chart-explanation,#root .validation-bars-note,#root .validation-bars-explanation,#root .validation-gallery .chart-explanation,#root .pr-insight{font:13px/1.45 'DM Sans',sans-serif!important;color:#514a40!important;font-variant-numeric:normal}
+#root.theme-night .health-legend,#root.theme-night .chart-explanation,#root.theme-night .validation-bars-note,#root.theme-night .validation-bars-explanation,#root.theme-night .validation-gallery .chart-explanation,#root.theme-night .pr-insight{color:#dbe7f5!important}
+#root.theme-terminal .health-legend,#root.theme-terminal .chart-explanation,#root.theme-terminal .validation-bars-note,#root.theme-terminal .validation-bars-explanation,#root.theme-terminal .validation-gallery .chart-explanation,#root.theme-terminal .pr-insight{color:#c6f7d5!important}
+#root.theme-brown .health-legend,#root.theme-brown .chart-explanation,#root.theme-brown .validation-bars-note,#root.theme-brown .validation-bars-explanation,#root.theme-brown .validation-gallery .chart-explanation,#root.theme-brown .pr-insight{color:#f0d3b3!important}
+#root.theme-davinci .health-legend,#root.theme-davinci .chart-explanation,#root.theme-davinci .validation-bars-note,#root.theme-davinci .validation-bars-explanation,#root.theme-davinci .validation-gallery .chart-explanation,#root.theme-davinci .pr-insight{color:#5b4541!important}
+#root.theme-anime .health-legend,#root.theme-anime .chart-explanation,#root.theme-anime .validation-bars-note,#root.theme-anime .validation-bars-explanation,#root.theme-anime .validation-gallery .chart-explanation,#root.theme-anime .pr-insight{color:#302832!important}
+
 /* Sico robot: warm retro control-panel colors, steel edges, and status green. */
 #root.theme-sico,
 #root.theme-sico body,

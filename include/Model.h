@@ -280,6 +280,7 @@ private:
     void writeLR();
     void writemAP();
     void writeMicroPRCurve(const Validator<D>& validator);
+    void writeConfusionMatrix(const Validator<D>& validator);
     void writeAvgRecall();
     void writeMicroAvgF1();
     void writeAvgValLoss();
@@ -584,6 +585,32 @@ void Model<D>::writeMicroPRCurve(const Validator<D>& validator)
         tensor->add_float_val(point.recall);
     }
 
+    writer_->write(event);
+}
+
+template<Device D>
+void Model<D>::writeConfusionMatrix(const Validator<D>& validator)
+{
+    const auto matrix = validator.confusionMatrix();
+    const auto dimension = static_cast<std::int64_t>(labels_.size() + 1);
+    Event event;
+    event.set_wall_time(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    event.set_step(optimizerStep_);
+    auto* value = event.mutable_summary()->add_value();
+    value->set_tag("validation/confusion-matrix");
+    auto* tensor = value->mutable_tensor();
+    tensor->set_dtype(tensorflow::DT_INT32);
+    tensor->mutable_tensor_shape()->add_dim()->set_size(dimension);
+    tensor->mutable_tensor_shape()->add_dim()->set_size(dimension);
+    for (const auto count: matrix) tensor->add_int_val(count);
+    auto* names = event.mutable_summary()->add_value();
+    names->set_tag("validation/confusion-matrix/labels");
+    auto* nameTensor = names->mutable_tensor();
+    nameTensor->set_dtype(tensorflow::DT_STRING);
+    nameTensor->mutable_tensor_shape()->add_dim()->set_size(static_cast<std::int64_t>(labels_.size() + 1));
+    for (const auto& label: labels_) nameTensor->add_string_val(label);
+    nameTensor->add_string_val("background");
     writer_->write(event);
 }
 
@@ -2034,6 +2061,7 @@ void Model<D>::validate()
     // instead of repeating stale values on the training-metric interval.
     writemAP();
     writeMicroPRCurve(validator);
+    writeConfusionMatrix(validator);
     writeAvgRecall();
     writeMicroAvgF1();
     writeAvgValLoss();

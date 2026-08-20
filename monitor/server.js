@@ -314,17 +314,17 @@ function readerFor(dir, event, startTime = null) {
 
 async function eventFileSnapshot(dir, startTime = null) {
   const event = latestEventFile(dir);
-  if (!event) return { tags: [], series: {}, latest: {}, windows: {}, tails: {}, prCurves: {}, images: {} };
+  if (!event) return { tags: [], series: {}, latest: {}, windows: {}, tails: {}, prCurves: {}, images: {}, confusionMatrix: null };
   const { reader, mtime } = readerFor(dir, event, startTime);
   try {
     const result = await reader.request(mtime);
     const series = result.series || {};
     const latest = Object.fromEntries(Object.entries(series).map(([tag, values]) => [tag, values.at(-1) || null]));
-    return { tags: Object.keys(series), series, latest, windows: result.windows || {}, tails: result.tails || {}, prCurves: result.prCurves || {}, images: result.images || {}, activity: result.activity || null, eventUpdatedAt: event.mtime };
+    return { tags: Object.keys(series), series, latest, windows: result.windows || {}, tails: result.tails || {}, prCurves: result.prCurves || {}, images: result.images || {}, confusionMatrix: result.confusionMatrix || null, activity: result.activity || null, eventUpdatedAt: event.mtime };
   } catch (error) {
     const result = reader.last?.series || {};
     const latest = Object.fromEntries(Object.entries(result).map(([tag, values]) => [tag, values.at(-1) || null]));
-    return { tags: Object.keys(result), series: result, latest, windows: reader.last?.windows || {}, tails: reader.last?.tails || {}, prCurves: reader.last?.prCurves || {}, images: reader.last?.images || {}, activity: reader.last?.activity || null, eventUpdatedAt: event.mtime, error: error.message };
+    return { tags: Object.keys(result), series: result, latest, windows: reader.last?.windows || {}, tails: reader.last?.tails || {}, prCurves: reader.last?.prCurves || {}, images: reader.last?.images || {}, confusionMatrix: reader.last?.confusionMatrix || null, activity: reader.last?.activity || null, eventUpdatedAt: event.mtime, error: error.message };
   }
 }
 

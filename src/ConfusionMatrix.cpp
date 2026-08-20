@@ -224,4 +224,14 @@ int ConfusionMatrix::classes() const noexcept
     return numClasses_;
 }
 
+std::vector<int> ConfusionMatrix::values() const
+{
+    std::vector<int> values;
+    values.reserve((numClasses_ + 1) * (numClasses_ + 1));
+    for (const auto& row: matrix_) {
+        values.insert(values.end(), row.begin(), row.end());
+    }
+    return values;
+}
+
 }   // px

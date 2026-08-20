@@ -25,8 +25,9 @@ start_time = float(sys.argv[2]) if len(sys.argv) > 2 else None
 MAX_DISPLAY_POINTS = 1_200
 MAX_WINDOW_POINTS = 10_000
 MAX_CARD_WINDOW_POINTS = 5_000
+MAX_CONFUSION_CLASSES = 24
 WINDOW_TAGS = {"avg-loss", "learning-rate"}
-CACHE_VERSION = 12
+CACHE_VERSION = 14
 CACHE_UPDATE_BYTES = 1_000_000
 # RawEventFileLoader preserves the original Summary.Value oneof. TensorBoard's
 # higher-level EventFileLoader migrates Summary.Image into a TensorProto.
@@ -35,6 +36,7 @@ tail_series = {tag: deque(maxlen=MAX_WINDOW_POINTS) for tag in WINDOW_TAGS}
 card_tail_series = {}
 pr_curves = {}
 images = {}
+confusion_matrix = None
 full_series = {}
 previous_raw_step = -1
 previous_normalized_step = -1
@@ -84,7 +86,7 @@ def scalar_value(summary):
 
 def update_series():
     global previous_raw_step, previous_normalized_step, step_offset
-    global loaded_file_size, loaded_file_mtime_ns, loaded_event_count
+    global loaded_file_size, loaded_file_mtime_ns, loaded_event_count, confusion_matrix
     current_stat = os.stat(event_file)
     if (loaded_file_size == current_stat.st_size
             and loaded_file_mtime_ns == current_stat.st_mtime_ns):
@@ -94,6 +96,7 @@ def update_series():
         card_tail_series.clear()
         pr_curves.clear()
         images.clear()
+        confusion_matrix = None
         for values in tail_series.values():
             values.clear()
         previous_raw_step = -1
@@ -119,6 +122,18 @@ def update_series():
                     "height": summary.image.height,
                     "data": f"data:image/jpeg;base64,{encoded}",
                 }
+                continue
+            if summary.tag == "validation/confusion-matrix" and summary.HasField("tensor"):
+                array = tensor_util.make_ndarray(summary.tensor)
+                confusion_matrix = {"step": event.step, "values": array.astype(int).reshape(-1).tolist(),
+                                    "size": int(array.shape[0])}
+                continue
+            if summary.tag == "validation/confusion-matrix/labels" and summary.HasField("tensor"):
+                if confusion_matrix is None: confusion_matrix = {"step": event.step}
+                labels = list(summary.tensor.string_val)
+                confusion_matrix["labels"] = [item.decode("utf-8") if isinstance(item, bytes) else str(item)
+                                                for item in labels]
+                confusion_matrix["step"] = event.step
                 continue
             if summary.tag.startswith("validation/micro-pr/") and summary.HasField("tensor"):
                 array = tensor_util.make_ndarray(summary.tensor)
@@ -237,7 +252,40 @@ def current_response():
     # thousands of recent points in every response.
     tails = {tag: list(card_tail_series[tag]) for tag in WINDOW_TAGS if tag in card_tail_series}
     return {"series": series, "windows": windows, "tails": tails, "prCurves": pr_curves,
-            "images": images, "activity": activity_summary()}
+            "images": images, "confusionMatrix": condensed_confusion_matrix(), "activity": activity_summary()}
+
+
+def condensed_confusion_matrix():
+    """Keep the most informative classes and aggregate the long tail.
+
+    The event file retains the full matrix, but the browser receives at most
+    24 active classes plus Other and Background. Ranking uses both actual and
+    predicted traffic so rare-but-noisy classes are not silently discarded.
+    """
+    if not confusion_matrix or not confusion_matrix.get("values"):
+        return confusion_matrix
+    size = int(confusion_matrix["size"])
+    labels = confusion_matrix.get("labels") or [f"class {i}" for i in range(size)]
+    values = confusion_matrix["values"]
+    if size <= MAX_CONFUSION_CLASSES + 2:
+        return confusion_matrix
+    background = size - 1
+    totals = []
+    for index in range(background):
+        row = sum(values[index * size:(index + 1) * size])
+        column = sum(values[index::size])
+        totals.append((row + column, index))
+    keep = [index for _, index in sorted(totals, reverse=True)[:MAX_CONFUSION_CLASSES]]
+    keep_set = set(keep)
+    other = [index for index in range(background) if index not in keep_set]
+    groups = keep + [other, [background]]
+    condensed = []
+    for row_group in groups:
+        for col_group in groups:
+            condensed.append(sum(values[row * size + col] for row in row_group for col in col_group))
+    condensed_labels = [labels[index] for index in keep] + ["other", labels[background] if background < len(labels) else "background"]
+    return {"step": confusion_matrix.get("step"), "values": condensed, "size": len(groups),
+            "labels": condensed_labels, "condensed": True, "hiddenClasses": len(other)}
 
 
 cached_response = load_cache()

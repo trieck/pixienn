@@ -173,6 +173,7 @@ public:
     int ghosts(int clsIndex) const;
 
     int classes() const noexcept;
+    std::vector<int> values() const;
 
 private:
     int numClasses_;

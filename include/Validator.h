@@ -46,6 +46,7 @@ public:
     std::vector<PRPoint> microPRCurve() const;
     float avgLoss() const noexcept;
     float accuracy() const noexcept;
+    std::vector<int> confusionMatrix() const { return matrix_.values(); }
 
 private:
     void forward(Model<D>& model, const PxCpuVector& input);

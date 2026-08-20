@@ -286,6 +286,7 @@ function App() {
       <ValidationBarsPanel series={scalarSeries} tag="micro-avg-f1" label="Micro-Avg-F1" />
     </section>
     <PRCurvePanel curve={data?.eventFile?.prCurves?.['validation/micro-pr/curve'] || data?.eventFile?.prCurves?.['validation/micro-pr/pr_curves']} />
+    <ConfusionMatrixPanel matrix={data?.eventFile?.confusionMatrix} />
     <ValidationGallery image={data?.eventFile?.images?.['validation/error-gallery']} />
     <TrainingActivityPanel activity={data?.eventFile?.activity} />
     <EventScalarsPanel run={run} series={data?.eventFile?.series || {}} tails={data?.eventFile?.tails || {}} />
@@ -293,9 +294,48 @@ function App() {
   </main>;
 }
 
+function ConfusionMatrixPanel({ matrix }) {
+  if (!matrix?.values || !matrix?.size) return <section className="panel detection-profile"><div className="panel-head"><div><span className="kicker">VALIDATION COUNTS</span><h2>Detection profile</h2></div></div><div className="empty">Waiting for validation counts…</div></section>;
+  const labels = matrix.labels?.length === matrix.size ? matrix.labels : Array.from({ length: matrix.size }, (_, i) => i === matrix.size - 1 ? 'background' : `class ${i}`);
+  const values = matrix.values.map(Number);
+  const background = matrix.size - 1;
+  const classLabels = labels.slice(0, background);
+  const metricValues = metric => classLabels.map((_, cls) => {
+    if (metric === 'TP') return values[cls * matrix.size + cls] || 0;
+    if (metric === 'FP') return values.reduce((sum, value, i) => sum + (i % matrix.size === cls && Math.floor(i / matrix.size) !== cls ? value : 0), 0);
+    return values.slice(cls * matrix.size, (cls + 1) * matrix.size).reduce((sum, value, col) => sum + (col !== cls ? value : 0), 0);
+  });
+  return <section className="panel detection-profile">
+    <div className="panel-head"><h2>Class detection profile</h2></div>
+    <CompactErrorHeatmap labels={classLabels} tp={metricValues('TP')} fp={metricValues('FP')} fn={metricValues('FN')} />
+    <p className="pr-insight">Each row is one class. TP, FP, and FN are the raw validation counts: correct detections, false positives, and missed objects. F1 is calculated as <strong>2 × TP ÷ (2 × TP + FP + FN)</strong>, balancing correct detections against both kinds of error. It ranges from 0 to 1, with higher values indicating stronger class performance.</p>
+  </section>;
+}
+
+function CompactErrorHeatmap({ labels, tp, fp, fn }) {
+  const columns = [{ key: 'tp', label: 'TP', values: tp }, { key: 'fp', label: 'FP', values: fp }, { key: 'fn', label: 'FN', values: fn }];
+  const textForGradient = (hueDegrees, intensity) => {
+    const h = hueDegrees / 360, s = .2 + .8 * intensity;
+    const rgb = lightness => { const a = s * Math.min(lightness, 1 - lightness); const f = n => { const k = (n + h * 12) % 12; return lightness - a * Math.max(-1, Math.min(k - 3, Math.min(9 - k, 1))); }; return [f(0), f(8), f(4)]; };
+    const stops = [0.86 - intensity * .08, 0.70 - intensity * .08, 0.53 - intensity * .05].map(rgb);
+    const luminance = color => color.map(channel => channel <= .03928 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4).reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
+    const contrast = (foreground, background) => (Math.max(foreground, background) + .05) / (Math.min(foreground, background) + .05);
+    const white = Math.min(...stops.map(stop => contrast(1, luminance(stop))));
+    const black = Math.min(...stops.map(stop => contrast(0, luminance(stop))));
+    return black >= white ? '#000' : '#fff';
+  };
+  const qualityStyle = value => {
+    const hue = 120 * value / 360;
+    const hsl = (h, s, l) => { const a = s * Math.min(l, 1 - l); const f = n => { const k = (n + h * 12) % 12; return l - a * Math.max(-1, Math.min(k - 3, Math.min(9 - k, 1))); }; return [f(0), f(8), f(4)]; };
+    return { '--quality-hue': 120 * value, '--cell-intensity': 1, '--cell-saturation': '100%', color: textForGradient(120 * value, 1) };
+  };
+  const classQuality = row => { const denominator = 2 * tp[row] + fp[row] + fn[row]; return denominator ? (2 * tp[row]) / denominator : 0; };
+  return <div className="compact-heatmap"><div className="compact-heatmap-grid"><div className="compact-corner">class</div>{columns.map(column => <div className="compact-column" key={column.key}>{column.label}</div>)}<div className="compact-column">F1</div>{labels.map((label, row) => { const score = classQuality(row); return <React.Fragment key={label}><div className="compact-label" title={`${label} · F1 ${score.toFixed(3)}`}>{label}</div>{columns.map(column => <div className="compact-cell" key={`${label}-${column.key}`} title={`${label} · ${column.label}: ${column.values[row]}`}>{column.values[row].toLocaleString()}</div>)}<div className="compact-cell f1-cell" style={qualityStyle(score)} title={`${label} · F1 ${score.toFixed(3)}`}>{score.toFixed(2)}</div></React.Fragment>; })}</div></div>;
+}
+
 function ValidationGallery({ image }) {
   return <section className="panel validation-gallery">
-    <div className="panel-head"><div><span className="kicker">VALIDATION EVIDENCE</span><h2>Validation Error Gallery</h2></div><span className="gallery-meta">{image ? `step ${Number(image.step).toLocaleString()}` : 'Waiting for gallery'}</span></div>
+    <div className="panel-head"><h2>Validation gallery</h2></div>
     {image ? <img src={image.data} alt={`Validation predictions and errors at step ${image.step}`} /> : <div className="empty gallery-empty">A gallery is written after the configured interval when at least one validation prediction clears the confidence threshold.</div>}
     <p className="chart-explanation">Green boxes are matched predictions, red boxes are false positives, and yellow boxes are missed ground-truth objects.</p>
   </section>;
@@ -516,7 +556,7 @@ function PRCurvePanel({ curve }) {
     return `${current.x},${current.y}`;
   }).join(' ');
   return <section className="tb-card pr-panel">
-    <div className="tb-toggle"><span>Precision–recall curve</span><span className="pr-meta">{curve ? `validation step ${Number(curve.step).toLocaleString()}` : 'Waiting for validation data'}</span></div>
+    <div className="tb-toggle"><span>Precision–recall curve</span></div>
     <div className="tb-axis-units"><span>Y · precision</span><span>X · recall</span></div>
     <div className="tb-plot"><div className="tb-y-labels"><span style={{ top: '0%' }}>{axisLabel(yMaximum)}</span><span style={{ top: '50%' }}>{axisLabel(yMaximum / 2)}</span><span style={{ top: '100%' }}>0</span></div><div className="tb-plot-area"><svg viewBox="0 0 220 86" preserveAspectRatio="none" role="img" aria-label="Precision versus recall curve"><line x1="0" y1="0" x2="220" y2="0" /><line x1="0" y1="43" x2="220" y2="43" /><line x1="0" y1="86" x2="220" y2="86" /><polyline className="tb-tube-body" points={chartPoints} fill="none" stroke="#087ff5" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" /></svg><div className="tb-x-axis"><span style={{ left: '50%' }}>{axisLabel(xMaximum / 2)}</span><span style={{ left: '100%' }}>{axisLabel(xMaximum)}</span></div></div></div>
     <div className="tb-values"><span>{points.length ? `${points.length} threshold points` : 'No PR data'}</span><span>micro PR score <b>{prScore == null ? '—' : prScore.toFixed(2)}</b></span><span>lowest-threshold precision <b>{lowerThreshold ? metricFmt(lowerThreshold.precision) : '—'}</b></span><span>lowest-threshold recall <b>{lowerThreshold ? metricFmt(lowerThreshold.recall) : '—'}</b></span></div>
