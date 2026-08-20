@@ -13,6 +13,7 @@ events.out.tfevents.*
 /resources/data/voc/train.txt
 /resources/data/voc/val-*.txt
 /resources/data/voc/val.txt
+/resources/data/kitti/
 /resources/images/*.jpg
 /python/__pycache__/
 /ruby/.idea/
@@ -27,4 +28,3 @@ events.out.tfevents.*
 /python/.idea/
 /build-python*
 /.venv*
-

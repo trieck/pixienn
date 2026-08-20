@@ -51,7 +51,7 @@ The repository includes model graphs and runnable presets spanning small experim
 
 | Family | Included preset | Intended use |
 |---|---|---|
-| CenterNet | `centernet-smoke-voc`, `centernet-tiny-voc` | Anchor-free VOC pipeline checks and training |
+| CenterNet | `centernet-smoke-voc`, `centernet-tiny-voc`, `centernet-kitti`, `centernet-coco` | Anchor-free VOC, KITTI, and COCO training |
 | YOLOv1 | `yolov1-tiny` | Compact VOC training and architecture experiments |
 | YOLOv2 | `yolov2` | YOLOv2-style anchor-based VOC smoke tests |
 | YOLO Nano | `yolo-nano` | Minimal detector experiments on VOC |
@@ -76,6 +76,14 @@ decode pipeline on a small network. Use `centernet-tiny-voc` for a real VOC
 experiment. The current CUDA implementation performs the CenterNet head math on
 the host while the convolutional backbone remains CUDA-accelerated; it favors a
 clear, testable reference implementation over peak head throughput.
+
+For a smaller real-world alternative to COCO, download and prepare KITTI's
+object-detection training set in Darknet layout:
+
+```bash
+./shell/kitti.sh
+./shell/train-model.sh centernet-kitti --fresh --verify-data
+```
 
 Read **[CenterNet: Objects as Glowing Points](docs/CENTERNET.md)** for a visual,
 beginner-friendly tour of heatmaps, center offsets, box reconstruction, and how

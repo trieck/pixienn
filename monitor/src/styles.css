@@ -1017,4 +1017,207 @@
 #root.theme-davinci nav small{color:#514b3d}
 #root.theme-davinci .validation-bar{border-radius:0;box-shadow:none}
 
+/* Sico robot: warm retro control-panel colors, steel edges, and status green. */
+#root.theme-sico,
+#root.theme-sico body,
+#root.theme-sico main,
+#root.theme-sico .chart .spark,
+#root.theme-sico .tb-card svg{
+  background-color:#d8d2c3;
+}
+#root.theme-sico main{
+  color:#23333a;
+  font-family:'DM Sans',sans-serif;
+  background-image:linear-gradient(135deg,#d8d2c3,#c9c4b8);
+}
+#root.theme-sico header,#root.theme-sico nav{border-color:#8d9693}
+#root.theme-sico .card,#root.theme-sico .panel,#root.theme-sico .tb-card{
+  background:#e8e4d8;
+  background-image:linear-gradient(145deg,#f1eee5,#d5d2c7);
+  border-color:#77858a;
+  border-radius:8px;
+  box-shadow:inset 1px 1px #ffffffaa,inset -2px -2px #9da39f88,0 7px 14px #34444a2b;
+}
+#root.theme-sico .card:hover{border-color:#b47a25;box-shadow:inset 1px 1px #fff,inset -2px -2px #9da39f88,0 0 0 2px #d39b3240}
+#root.theme-sico h1,#root.theme-sico .panel h2,#root.theme-sico .health-heading h2,
+#root.theme-sico .card strong,#root.theme-sico .health-metric b{color:#23333a}
+#root.theme-sico h1 span{color:#a8661f}
+#root.theme-sico .sub,#root.theme-sico .health-legend,#root.theme-sico .kicker,
+#root.theme-sico .eyebrow,#root.theme-sico .meta-row span,#root.theme-sico .health-footer,
+#root.theme-sico .loss-caption,#root.theme-sico .loss-legend,#root.theme-sico .pr-meta{color:#52676d}
+#root.theme-sico .run-picker select,#root.theme-sico .run-picker button,#root.theme-sico .panel select,
+#root.theme-sico .theme-picker select{background:#eeece4;border-color:#77858a;color:#23333a;border-radius:4px;box-shadow:inset 1px 1px #fff,inset -1px -1px #aeb2ae}
+#root.theme-sico .card label{background:#c5d9d2;border-color:#6f9489;color:#245347;border-radius:4px}
+#root.theme-sico .mark{background:#3b6870;border-radius:6px;box-shadow:inset 1px 1px #ffffff66,0 4px 8px #34444a44}
+#root.theme-sico .status{background:#d8eadf;border-color:#6a9d83;color:#246342;border-radius:5px}
+#root.theme-sico .health-grid,#root.theme-sico .health-metric{border-color:#9aa5a2}
+#root.theme-sico .health-metric span,#root.theme-sico .health-metric small,
+#root.theme-sico .health-metric .moving-average,#root.theme-sico .health-footer b{color:#52676d!important}
+#root.theme-sico .health-metric b.metric-improving,#root.theme-sico .health-metric small.up{color:#2d885b!important}
+#root.theme-sico .health-metric b.metric-declining,#root.theme-sico .health-metric small.down{color:#a84f42!important}
+#root.theme-sico .spark{border-color:#77858a;background:repeating-linear-gradient(to bottom,transparent 0,transparent 64px,#b5b9b2 65px)!important}
+#root.theme-sico .pixienn-banner{filter:sepia(.18) saturate(.72) hue-rotate(145deg);box-shadow:0 7px 18px #34444a44}
+#root .sico-face,#root .sico-banner-copy{display:none}
+#root.theme-sico .pixienn-banner{
+  min-height:240px;
+  background-color:#b7c5c0;
+  background-image:linear-gradient(90deg,#6c858588 1px,transparent 1px),linear-gradient(#6c858844 1px,transparent 1px),linear-gradient(90deg,#d8e2dc 0%,#b9c9c3 42%,#8da8a6 100%);
+  background-size:24px 24px,24px 24px,100% 100%;
+  border:2px solid #62777b;
+  box-shadow:inset 0 2px #ffffffaa,inset 0 -5px #66777a55,0 8px 18px #34444a44;
+}
+#root.theme-sico .pixienn-banner::after{
+  display:block;
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent 0 5px,#ffffff12 5px 6px),linear-gradient(90deg,#23333a00 0 58%,#23333a22 100%);
+}
+#root.theme-sico .sico-face{
+  display:block;
+  position:absolute;
+  z-index:1;
+  left:42px;
+  top:48px;
+  width:226px;
+  height:142px;
+  border:5px solid #52676d;
+  border-radius:28px 28px 20px 20px;
+  background:linear-gradient(145deg,#e8eee8,#aebdb8);
+  box-shadow:inset 4px 4px #ffffffaa,inset -5px -6px #71858966,0 8px 10px #34444a44;
+}
+#root.theme-sico .sico-face::before{
+  content:"";
+  position:absolute;
+  left:96px;
+  top:-35px;
+  width:22px;
+  height:35px;
+  border-left:5px solid #52676d;
+}
+#root.theme-sico .sico-face::after{
+  content:"";
+  position:absolute;
+  left:92px;
+  top:-49px;
+  width:17px;
+  height:17px;
+  border:4px solid #a8661f;
+  border-radius:50%;
+  background:#e3ad45;
+  box-shadow:0 0 0 4px #e3ad4533,0 0 14px #e3ad4588;
+}
+#root.theme-sico .sico-face i{position:absolute;top:48px;width:30px;height:30px;border:5px solid #52676d;border-radius:50%;background:#4aa06f;box-shadow:inset 0 0 0 6px #b9d6c4,0 0 10px #4aa06f88}
+#root.theme-sico .sico-face i:first-child{left:43px}
+#root.theme-sico .sico-face i:last-child{right:43px}
+#root.theme-sico .sico-banner-copy{display:block;position:absolute;z-index:2;left:310px;top:49px;color:#23333a}
+#root.theme-sico .sico-banner-copy span{display:block;color:#a8661f;font:700 13px 'Space Grotesk';letter-spacing:.14em}
+#root.theme-sico .sico-banner-copy strong{display:block;margin-top:13px;color:#23333a;font:700 clamp(22px,3vw,36px)/1 'Space Grotesk';letter-spacing:.04em}
+#root.theme-sico .sico-banner-copy em{display:block;margin-top:15px;color:#2d885b;font:600 12px 'IBM Plex Mono','DM Mono',monospace;font-style:normal;letter-spacing:.04em}
+#root.theme-sico .sico-banner-copy::after{content:"";display:block;width:150px;height:4px;margin-top:22px;background:repeating-linear-gradient(90deg,#2d885b 0 16px,transparent 16px 22px);box-shadow:0 0 8px #2d885b88}
+#root.theme-sico .banner-meta{left:auto;right:22px;top:18px;transform:none;width:245px;background:#e8eee8dd;border-color:#77858a;box-shadow:inset 1px 1px #fff,0 4px 10px #34444a33}
+#root.theme-sico .banner-meta-kicker{color:#a8661f}
+#root.theme-sico .banner-meta .meta-row{border-color:#b5c1bc}
+#root.theme-sico .banner-meta .meta-row span{color:#52676d}
+#root.theme-sico .banner-meta .meta-row b{color:#23333a}
+#root.theme-sico .tb-values,#root.theme-sico .pr-footer{background:#d4d9d1;border-color:#8d9995;color:#52676d}
+#root.theme-sico .tb-values b,#root.theme-sico .pr-footer b{color:#23333a}
+#root.theme-sico .monitor-loading-overlay{background:#34444a44}
+#root.theme-sico .monitor-loading-dialog{background:#e8e4d8;color:#23333a;border-color:#a8661f;border-radius:7px}
+#root.theme-sico .timeline-track,#root.theme-sico .timeline-item{border-color:#8d9995;background:#e8e4d8}
+#root.theme-sico .timeline-head h2,#root.theme-sico .timeline-item strong,
+#root.theme-sico .map-progress-head h2,#root.theme-sico .map-summary b{color:#23333a}
+#root.theme-sico .validation-bars-caption,#root.theme-sico .validation-bars-note,
+#root.theme-sico .validation-bars-y,#root.theme-sico .validation-bars-axis{color:#52676d}
+#root.theme-sico .validation-bars-plot{background:#e8e4d8;border-color:#8d9995}
+#root.theme-sico .validation-bars-grid i{border-color:#bdc1ba}
+#root.theme-sico .validation-bars{--validation-axis-bg:#e8e4d8;--validation-axis-border:#8d9995;--validation-axis-color:#23333a}
+#root.theme-sico .validation-bars .validation-bars-axis span{background:#e8e4d8;color:#23333a}
+#root.theme-sico .training-activity{--activity-track:#b6c0bb;--activity-active:#2d885b;--activity-validation:#b47a25;--activity-offline:#a84f42}
+#root.theme-sico .activity-track{border-color:#77858a;box-shadow:inset 1px 1px #fff}
+#root.theme-sico nav small{color:#52676d}
+@media(max-width:800px){#root.theme-sico .sico-face{left:18px;transform:scale(.72);transform-origin:left top}#root.theme-sico .sico-banner-copy{left:190px;top:48px}#root.theme-sico .banner-meta{display:none}}
+
 @media(max-width:700px){#root .validation-bars-caption{flex-wrap:wrap;gap:7px}#root .validation-bars-caption>span:last-child{margin-left:auto}}
+
+/* Sico banner layout correction: keep the robot, message, and telemetry in
+   distinct zones so the message remains legible at monitor widths. */
+#root.theme-sico .pixienn-banner{padding:22px 28px}
+#root.theme-sico .sico-face{left:28px;top:50%;transform:translateY(-50%);width:206px;height:132px}
+#root.theme-sico .sico-banner-copy{left:270px;right:300px;top:50%;transform:translateY(-50%);max-width:470px}
+#root.theme-sico .sico-banner-copy span{font-size:12px;white-space:nowrap}
+#root.theme-sico .sico-banner-copy strong{font-size:clamp(20px,2.35vw,34px);line-height:1.05;letter-spacing:.015em;white-space:nowrap}
+#root.theme-sico .sico-banner-copy em{white-space:nowrap}
+#root.theme-sico .banner-meta{right:20px;top:50%;transform:translateY(-50%);width:250px}
+@media(max-width:1050px){
+  #root.theme-sico .banner-meta{display:none}
+  #root.theme-sico .sico-banner-copy{right:28px;max-width:none}
+}
+@media(max-width:700px){
+  #root.theme-sico .pixienn-banner{min-height:210px;padding:20px}
+  #root.theme-sico .sico-face{left:16px;top:50%;transform:translateY(-50%) scale(.62);transform-origin:left center}
+  #root.theme-sico .sico-banner-copy{left:155px;right:18px}
+  #root.theme-sico .sico-banner-copy strong{font-size:clamp(17px,5vw,25px);white-space:normal}
+  #root.theme-sico .sico-banner-copy em{font-size:10px;white-space:normal}
+}
+
+/* Final Sico composition: never compress telemetry into a narrow right rail. */
+#root.theme-sico .pixienn-banner{
+  min-height:300px;
+  padding:24px 28px;
+}
+#root.theme-sico .sico-face{
+  left:30px;
+  top:50%;
+  width:218px;
+  height:144px;
+  transform:translateY(-58%);
+}
+#root.theme-sico .sico-banner-copy{
+  left:292px;
+  right:28px;
+  top:34px;
+  transform:none;
+  max-width:none;
+}
+#root.theme-sico .sico-banner-copy strong{font-size:clamp(22px,2.7vw,40px)}
+#root.theme-sico .banner-meta{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:0;
+  left:292px;
+  right:28px;
+  bottom:22px;
+  top:auto;
+  width:auto;
+  transform:none;
+  padding:10px 4px;
+  border-radius:6px;
+}
+#root.theme-sico .banner-meta .meta-row{
+  display:block;
+  min-width:0;
+  padding:8px 12px;
+  border-bottom:0;
+  border-left:1px solid #b5c1bc;
+}
+#root.theme-sico .banner-meta .meta-row:first-of-type{border-left:0}
+#root.theme-sico .banner-meta .meta-row span,
+#root.theme-sico .banner-meta .meta-row b{display:block;text-align:left;max-width:100%;}
+#root.theme-sico .banner-meta .meta-row b{margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#root.theme-sico .banner-meta-kicker{display:none}
+@media(max-width:1050px){
+  #root.theme-sico .pixienn-banner{min-height:330px}
+  #root.theme-sico .banner-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));left:28px;bottom:20px}
+  #root.theme-sico .sico-banner-copy{right:28px}
+  #root.theme-sico .banner-meta .meta-row:nth-child(4){border-left:0}
+}
+@media(max-width:700px){
+  #root.theme-sico .pixienn-banner{min-height:390px}
+  #root.theme-sico .sico-face{left:20px;top:22px;transform:scale(.56);transform-origin:left top}
+  #root.theme-sico .sico-banner-copy{left:20px;right:20px;top:175px}
+  #root.theme-sico .sico-banner-copy strong{font-size:24px}
+  #root.theme-sico .banner-meta{grid-template-columns:repeat(2,minmax(0,1fr));left:20px;right:20px;bottom:18px}
+  #root.theme-sico .banner-meta .meta-row:nth-child(3),#root.theme-sico .banner-meta .meta-row:nth-child(5){border-left:0}
+}

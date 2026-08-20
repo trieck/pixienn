@@ -747,8 +747,7 @@ void Model<D>::writeValidationGallery(const MiniBatch& batch)
             }
             const auto color = truePositive ? 0x355e3bU : 0x8b1e1eU;
             imrect(tile, rect, color, 2);
-            std::ostringstream text;
-            text << labels_.at(detect.classIndex()) << ' ' << std::fixed << std::setprecision(2) << detect.prob();
+            auto text = boost::format("%1%: %2$.2f%%") % labels_.at(detect.classIndex()) % (detect.prob() * 100);
             imtabbedText(tile, text.str().c_str(), rect.tl(), imtextcolor(color), color, 1);
         }
 

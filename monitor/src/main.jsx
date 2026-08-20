@@ -104,7 +104,7 @@ function App() {
     localStorage.setItem('pixienn-monitor-theme', theme);
     const root = document.getElementById('root');
     if (root) {
-      root.classList.remove('theme-parchment', 'theme-night', 'theme-terminal', 'theme-brown', 'theme-davinci', 'theme-anime');
+      root.classList.remove('theme-parchment', 'theme-night', 'theme-terminal', 'theme-brown', 'theme-davinci', 'theme-anime', 'theme-sico');
       root.classList.add(`theme-${theme}`);
     }
   }, [theme]);
@@ -244,13 +244,15 @@ function App() {
   const movingAverageWindow = VALIDATION_MOVING_AVERAGE_WINDOW;
 
   return <main className={`theme-${theme}`}>
-    <header><div className="run-picker"><span>RUN</span><select value={run} onChange={event => setRun(event.target.value)}>{runs.map(name => <option key={name}>{name}</option>)}</select><button onClick={() => { loadRuns(); refresh(); }}><RefreshCw size={16} /></button><label className="theme-picker"><span>THEME</span><select aria-label="Theme" value={theme} onChange={event => setTheme(event.target.value)}><option value="parchment">Parchment</option><option value="night">Night control room</option><option value="terminal">Terminal green</option><option value="brown">Cocoa</option><option value="davinci">Da Vinci 95</option><option value="anime">Japanese ink anime</option></select></label></div></header>
+    <header><div className="run-picker"><span>RUN</span><select value={run} onChange={event => setRun(event.target.value)}>{runs.map(name => <option key={name}>{name}</option>)}</select><button onClick={() => { loadRuns(); refresh(); }}><RefreshCw size={16} /></button><label className="theme-picker"><span>THEME</span><select aria-label="Theme" value={theme} onChange={event => setTheme(event.target.value)}><option value="parchment">Parchment</option><option value="night">Night control room</option><option value="terminal">Terminal green</option><option value="brown">Cocoa</option><option value="davinci">Da Vinci 95</option><option value="anime">Japanese ink anime</option><option value="sico">Sico robot</option></select></label></div></header>
 
     <nav><small>updated {data ? new Date(data.updatedAt).toLocaleTimeString() : '—'}</small></nav>
     {loading && <div className="monitor-loading-overlay" role="status" aria-live="polite"><div className="monitor-loading-dialog"><span className="monitor-loading-spinner" /><strong>Loading training history</strong><small>Reading event data…</small></div></div>}
 
     <section className="pixienn-banner" aria-label="PixieNN neural network illustration">
       <div className="banner-meta"><Meta label="mode" value={meta.mode} /><Meta label="resumed" value={meta.started_utc ? localDateLabel(Date.parse(meta.started_utc)) : null} /><Meta label="training since" value={localDateLabel(data?.earliestTrainingEvent?.at)} /><Meta label="training duration" value={data?.earliestTrainingEvent?.at ? elapsedLabel(data.earliestTrainingEvent.at, clockNow) : null} /><Meta label="configuration" value={meta.configuration?.split('/').pop()} /></div>
+      <div className="sico-face" aria-hidden="true"><i /><i /></div>
+      <div className="sico-banner-copy"><span>SICO // TRAINING COMPANION</span><strong>KEEP WATCH. KEEP LEARNING.</strong><em>status: observing the green lights</em></div>
     </section>
 
     <section className="cards">
