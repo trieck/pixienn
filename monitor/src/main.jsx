@@ -295,6 +295,7 @@ function App() {
 }
 
 function ConfusionMatrixPanel({ matrix }) {
+  const [profileView, setProfileView] = useState('pies');
   if (!matrix?.values || !matrix?.size) return <section className="panel detection-profile"><div className="panel-head"><div><span className="kicker">VALIDATION COUNTS</span><h2>Detection profile</h2></div></div><div className="empty">Waiting for validation counts…</div></section>;
   const labels = matrix.labels?.length === matrix.size ? matrix.labels : Array.from({ length: matrix.size }, (_, i) => i === matrix.size - 1 ? 'background' : `class ${i}`);
   const values = matrix.values.map(Number);
@@ -307,13 +308,12 @@ function ConfusionMatrixPanel({ matrix }) {
   });
   return <section className="panel detection-profile">
     <div className="panel-head"><div><span className="kicker">VALIDATION COUNTS · PER CLASS</span><h2>Class detection profile</h2></div></div>
-    <CompactErrorHeatmap labels={classLabels} tp={metricValues('TP')} fp={metricValues('FP')} fn={metricValues('FN')} />
-    <p className="pr-insight">Each class is shown as a composition of true-positive, false-positive, and false-negative results. Wedge size uses <strong>2×TP</strong>, FP, and FN so the true-positive share corresponds directly to the F1 calculation; the key below each class gives the exact counts. Greener means a stronger positive TP contribution, while redder means a larger FP or FN penalty. The centered score is that class&apos;s F1, calculated as <strong>2 × TP ÷ (2 × TP + FP + FN)</strong>. Use the view control to switch between pie wedges and independently scaled bars.</p>
+    <CompactErrorHeatmap labels={classLabels} tp={metricValues('TP')} fp={metricValues('FP')} fn={metricValues('FN')} view={profileView} onViewChange={setProfileView} />
+    {profileView === 'pies' ? <p className="pr-insight">Each class is shown as a composition of true-positive, false-positive, and false-negative results. Wedge size uses <strong>TP, FP, and FN</strong> counts; the key below each class gives the exact values. Color shows each count&apos;s influence on F1: greener means a stronger positive TP contribution, while redder means a larger FP or FN penalty. The centered score is that class&apos;s F1, calculated as <strong>2 × TP ÷ (2 × TP + FP + FN)</strong>.</p> : <p className="pr-insight">Each class is shown in its own bounded group of true-positive, false-positive, and false-negative bars with a local count scale. The values above the bars are exact counts. Color shows each count&apos;s influence on F1: greener means a stronger positive TP contribution, while redder means a larger FP or FN penalty. The badge below each group is that class&apos;s F1, calculated as <strong>2 × TP ÷ (2 × TP + FP + FN)</strong>.</p>}
   </section>;
 }
 
-function CompactErrorHeatmap({ labels, tp, fp, fn }) {
-  const [view, setView] = useState('pies');
+function CompactErrorHeatmap({ labels, tp, fp, fn, view, onViewChange }) {
   const columns = [{ key: 'tp', label: 'TP', values: tp }, { key: 'fp', label: 'FP', values: fp }, { key: 'fn', label: 'FN', values: fn }];
   const classQuality = row => { const denominator = 2 * tp[row] + fp[row] + fn[row]; return denominator ? (2 * tp[row]) / denominator : 0; };
   const impactStyle = (key, value, row) => {
@@ -334,7 +334,7 @@ function CompactErrorHeatmap({ labels, tp, fp, fn }) {
   const classMaximum = row => Math.max(1, ...columns.map(column => column.values[row]));
   const impactColor = (key, value, row) => impactStyle(key, value, row)['--bar-color'];
   return <div className="compact-heatmap">
-    <div className="class-profile-controls"><label>VIEW <select aria-label="Class detection profile view" value={view} onChange={event => setView(event.target.value)}><option value="bars">Bars</option><option value="pies">Pie wedges</option></select></label></div>
+    <div className="class-profile-controls"><label>VIEW <select aria-label="Class detection profile view" value={view} onChange={event => onViewChange(event.target.value)}><option value="bars">Bars</option><option value="pies">Pie wedges</option></select></label></div>
     {view === 'bars' ? <div className="class-bar-chart">
       <div className="class-bar-groups">
         {labels.map((label, row) => {
@@ -352,8 +352,8 @@ function CompactErrorHeatmap({ labels, tp, fp, fn }) {
       </div>
     </div> : <div className="class-pie-chart">
       {labels.map((label, row) => {
-        const denominator = 2 * tp[row] + fp[row] + fn[row];
-        const tpEnd = denominator ? 2 * tp[row] / denominator * 100 : 0;
+        const denominator = tp[row] + fp[row] + fn[row];
+        const tpEnd = denominator ? tp[row] / denominator * 100 : 0;
         const fpEnd = denominator ? tpEnd + fp[row] / denominator * 100 : 0;
         const score = classQuality(row);
         const piePath = (start, end) => {

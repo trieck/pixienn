@@ -4,7 +4,7 @@ configuration:
   labels: ../data/kitti/kitti.names
 
 training:
-  train-images: ../data/kitti/train.txt
+  train-images: ../data/kitti/train-person-sitting-4x.txt
   train-labels: ../data/kitti/labels
   val-images: ../data/kitti/val.txt
   val-labels: ../data/kitti/labels
