@@ -4,7 +4,7 @@ model:
   channels: 3
   height: 512
   width: 512
-  max_batches: 100000
+  max_batches: 300000
   momentum: 0.9
   decay: 0.001
 
@@ -55,7 +55,7 @@ model:
     policy: reduce_on_plateau
 
     reduce_on_plateau:
-      factor: 0.5
+      factor: 0.7
       patience: 3
       threshold: 0.003
       cooldown: 1
@@ -63,7 +63,6 @@ model:
       smoothing: 3
 
   layers:
-    # Stem: stride 4, 104x104 feature map at 416x416 input.
     - type: conv
       filters: 64
       kernel: 3

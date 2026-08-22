@@ -389,6 +389,7 @@ function TrainingActivityPanel({ activity }) {
 function ValidationBarsPanel({ series, tag, label }) {
   const [scale, setScale] = useState('linear');
   const [bucketCount, setBucketCount] = useState(48);
+  const [range, setRange] = useState('all');
   const byStep = new Map();
   (series[tag] || []).forEach(point => {
     const step = Number(point.step);
@@ -399,10 +400,11 @@ function ValidationBarsPanel({ series, tag, label }) {
     byStep.set(step, bucket);
   });
   const history = [...byStep.values()].sort((left, right) => left.step - right.step);
-  const visibleBucketCount = Math.min(bucketCount, history.length);
-  const bucketSize = Math.max(1, Math.ceil(history.length / Math.max(visibleBucketCount, 1)));
-  const buckets = Array.from({ length: Math.ceil(history.length / bucketSize) }, (_, index) => {
-    const points = history.slice(index * bucketSize, (index + 1) * bucketSize);
+  const visibleHistory = range === 'all' ? history : history.slice(-Number(range));
+  const visibleBucketCount = Math.min(bucketCount, visibleHistory.length);
+  const bucketSize = Math.max(1, Math.ceil(visibleHistory.length / Math.max(visibleBucketCount, 1)));
+  const buckets = Array.from({ length: Math.ceil(visibleHistory.length / bucketSize) }, (_, index) => {
+    const points = visibleHistory.slice(index * bucketSize, (index + 1) * bucketSize);
     const values = points.map(point => point.value).filter(Number.isFinite);
     return { step: points.at(-1)?.step, value: values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null };
   });
@@ -413,10 +415,11 @@ function ValidationBarsPanel({ series, tag, label }) {
   const maximum = values.length ? Math.max(...values) : 1;
   const linearRange = Math.max(maximum - minimum, LOG_EPSILON);
   const logValues = values.map(value => Math.log10(Math.max(value, LOG_EPSILON)));
-  const logMinimum = logValues.length ? Math.min(...logValues) : -1;
-  const logMaximum = logValues.length ? Math.max(...logValues) : 0;
-  const logRange = Math.max(logMaximum - logMinimum, LOG_EPSILON);
-  const logTicks = logAxis(logValues).ticks;
+  const logAxisData = logAxis(logValues);
+  const logMinimum = logAxisData.minimum;
+  const logMaximum = logAxisData.maximum;
+  const logRange = logAxisData.range;
+  const logTicks = logAxisData.ticks;
   const height = value => {
     if (!Number.isFinite(value)) return 0;
     if (scale === 'log') return Math.max(0, Math.min(100, (Math.log10(Math.max(value, LOG_EPSILON)) - logMinimum) / logRange * 100));
@@ -424,9 +427,9 @@ function ValidationBarsPanel({ series, tag, label }) {
   };
   const hue = value => Math.round(height(value) * 1.2);
   return <div className="validation-bars panel chart">
-    <div className="panel-head"><div><span className="kicker">VALIDATION HISTORY · BUCKETED</span><h2>{label}</h2></div><div style={{ display: 'flex', gap: 8 }}><select aria-label={`${label} scale`} value={scale} onChange={event => setScale(event.target.value)}><option value="linear">Linear</option><option value="log">Log</option></select><select aria-label={`${label} bucket count`} value={bucketCount} onChange={event => setBucketCount(Number(event.target.value))}><option value="24">24 buckets</option><option value="48">48 buckets</option><option value="72">72 buckets</option><option value="120">120 buckets</option></select></div></div>
-    <div className="validation-bars-caption"><span>{scale === 'log' ? 'Validation score · log10(score)' : 'Validation score'} · higher is better</span><span>{history.length} validations · bucketed averages</span></div>
-    {buckets.length ? <><div className="validation-bars-chart"><div className="loss-y-labels">{scale === 'log' ? logTicks.map(tick => <span key={tick.value} style={{ top: `${(1 - (tick.value - logMinimum) / logRange) * 100}%` }}><PowerLabel exponent={tick.exponent} /></span>) : <><span style={{ top: '0%' }}>{maximum.toPrecision(3)}</span><span style={{ top: '50%' }}>{((maximum + minimum) / 2).toPrecision(3)}</span><span style={{ top: '100%' }}>{minimum.toPrecision(3)}</span></>}</div><div className="spark validation-spark" style={{ flex: 1, width: '100%', minWidth: 0, height: 230 }}>{scale === 'log' && logTicks.map(tick => <span className="loss-grid-line" key={`validation-grid-${tick.value}`} style={{ bottom: `${((tick.value - logMinimum) / logRange) * 100}%` }} />)}{buckets.map((bucket, index) => <div className="loss-bar" key={bucket.step ?? index} style={{ height: `${height(bucket.value)}%`, '--bar-hue': `${hue(bucket.value)}` }} title={`step ${Number(bucket.step).toLocaleString()} · ${label} ${Number(bucket.value).toFixed(3)}`} />)}</div></div><div className="axis loss-x-axis validation-bars-axis" aria-label={`${label} validation steps`}><span>step {Number(firstStep).toLocaleString()}</span><span>step {Number(lastStep).toLocaleString()}</span></div>{tag === 'micro-avg-f1' && <p className="validation-bars-note validation-bars-explanation">Micro-Avg-F1 is one score for the whole validation set. It pools all images and classes, counting correct detections, incorrect detections, and missed ground-truth objects. Precision is correct detections divided by all detections; recall is correct detections divided by all ground-truth objects. F1 combines precision and recall, so it is high only when both are high.</p>}{tag === 'mAP50' && <p className="validation-bars-note validation-bars-explanation">mAP50 summarizes detection quality across the validation set. A prediction counts as correct when it has the right class and its box overlaps the matching ground-truth box by at least 50%. For each class, detections are ranked by confidence to form a precision–recall curve; the area under that curve is the class's average precision. mAP50 is the average of those class scores, so higher values mean better performance across the classes represented in the validation set.</p>}</> : <div className="empty validation-bars-empty">Waiting for validation data…</div>}
+    <div className="panel-head"><div><span className="kicker">VALIDATION HISTORY · BUCKETED</span><h2>{label}</h2></div><div style={{ display: 'flex', gap: 8 }}><select aria-label={`${label} validation history range`} value={range} onChange={event => setRange(event.target.value)}><option value="all">Full run</option><option value="100">Last 100</option><option value="20">Last 20</option></select><select aria-label={`${label} scale`} value={scale} onChange={event => setScale(event.target.value)}><option value="linear">Linear</option><option value="log">Log</option></select><select aria-label={`${label} bucket count`} value={bucketCount} onChange={event => setBucketCount(Number(event.target.value))}><option value="24">24 buckets</option><option value="48">48 buckets</option><option value="72">72 buckets</option><option value="120">120 buckets</option></select></div></div>
+    <div className="validation-bars-caption"><span>{scale === 'log' ? 'Validation score · log10(score)' : 'Validation score'} · higher is better</span><span>{visibleHistory.length} validations · {range === 'all' ? 'full run' : `last ${Number(range)}`} · bucketed averages</span></div>
+    {buckets.length ? <><div className="validation-bars-chart"><div className="loss-y-labels">{scale === 'log' ? [...logTicks].reverse().map(tick => <span key={tick.value}><PowerLabel exponent={tick.exponent} /></span>) : <><span>{maximum.toPrecision(3)}</span><span>{((maximum + minimum) / 2).toPrecision(3)}</span><span>{minimum.toPrecision(3)}</span></>}</div><div className="spark validation-spark" style={{ flex: 1, width: '100%', minWidth: 0, height: 230 }}>{scale === 'log' && logTicks.map(tick => <span className="loss-grid-line" key={`validation-grid-${tick.value}`} style={{ bottom: `${((tick.value - logMinimum) / logRange) * 100}%` }} />)}{buckets.map((bucket, index) => <div className="loss-bar" key={bucket.step ?? index} style={{ height: `${height(bucket.value)}%`, '--bar-hue': `${hue(bucket.value)}` }} title={`step ${Number(bucket.step).toLocaleString()} · ${label} ${Number(bucket.value).toFixed(3)}`} />)}</div></div><div className="axis loss-x-axis validation-bars-axis" aria-label={`${label} validation steps`}><span>step {Number(firstStep).toLocaleString()}</span><span>step {Number(lastStep).toLocaleString()}</span></div>{tag === 'micro-avg-f1' && <p className="validation-bars-note validation-bars-explanation">Micro-Avg-F1 is one score for the whole validation set. It pools all images and classes, counting correct detections, incorrect detections, and missed ground-truth objects. Precision is correct detections divided by all detections; recall is correct detections divided by all ground-truth objects. F1 combines precision and recall, so it is high only when both are high.</p>}{tag === 'mAP50' && <p className="validation-bars-note validation-bars-explanation">mAP50 summarizes detection quality across the validation set. A prediction counts as correct when it has the right class and its box overlaps the matching ground-truth box by at least 50%. For each class, detections are ranked by confidence to form a precision–recall curve; the area under that curve is the class's average precision. mAP50 is the average of those class scores, so higher values mean better performance across the classes represented in the validation set.</p>}</> : <div className="empty validation-bars-empty">Waiting for validation data…</div>}
   </div>;
 }
 

@@ -1006,15 +1006,28 @@ std::string Model<D>::predictBatchImageList(const std::string& imageList, float 
     const auto columns = std::max<std::size_t>(1, static_cast<std::size_t>(std::ceil(std::sqrt(imageFiles.size()))));
     const auto rows = (imageFiles.size() + columns - 1) / columns;
     constexpr int tileWidth = 640;
-    constexpr int tileHeight = 480;
+    const auto maxAspectHeight = std::accumulate(images.begin(), images.end(), 0.0f,
+        [](float height, const cv::Mat& image) {
+            return std::max(height, static_cast<float>(image.rows) / image.cols);
+        });
+    const auto tileHeight = std::max(1, static_cast<int>(std::lround(tileWidth * maxAspectHeight)));
     cv::Mat mosaic(static_cast<int>(rows) * tileHeight, static_cast<int>(columns) * tileWidth,
                    CV_8UC4, cv::Scalar(32, 32, 32, 255));
     ColorMaps colors(options_.count("color-map") ? option<std::string>("color-map") : "viridis");
     const auto thickness = std::max(1, options_.count("line-thickness") ? option<int>("line-thickness") : 2);
 
     for (std::size_t i = 0; i < images.size(); ++i) {
-        cv::Mat tile;
-        cv::resize(images[i], tile, {tileWidth, tileHeight});
+        const auto scale = std::min(static_cast<float>(tileWidth) / images[i].cols,
+                                    static_cast<float>(tileHeight) / images[i].rows);
+        const auto resizedWidth = std::max(1, static_cast<int>(std::lround(images[i].cols * scale)));
+        const auto resizedHeight = std::max(1, static_cast<int>(std::lround(images[i].rows * scale)));
+        const auto offsetX = (tileWidth - resizedWidth) / 2;
+        const auto offsetY = (tileHeight - resizedHeight) / 2;
+
+        cv::Mat resized;
+        cv::resize(images[i], resized, {resizedWidth, resizedHeight});
+        cv::Mat tile(tileHeight, tileWidth, images[i].type(), cv::Scalar(32, 32, 32));
+        resized.copyTo(tile(cv::Rect(offsetX, offsetY, resizedWidth, resizedHeight)));
         cv::cvtColor(tile, tile, cv::COLOR_BGR2BGRA);
         const auto col = static_cast<int>(i % columns);
         const auto row = static_cast<int>(i / columns);
@@ -1029,10 +1042,10 @@ std::string Model<D>::predictBatchImageList(const std::string& imageList, float 
                     ? colors.sample(detection.prob()) : colors.color(index);
             const auto textColor = imtextcolor(color);
             const auto& box = detection.box();
-            cv::Rect rect(static_cast<int>(box.x * tileWidth),
-                          static_cast<int>(box.y * tileHeight),
-                          static_cast<int>(box.width * tileWidth),
-                          static_cast<int>(box.height * tileHeight));
+            cv::Rect rect(offsetX + static_cast<int>(box.x * resizedWidth),
+                          offsetY + static_cast<int>(box.y * resizedHeight),
+                          static_cast<int>(box.width * resizedWidth),
+                          static_cast<int>(box.height * resizedHeight));
             rect &= cv::Rect(0, 0, tileWidth, tileHeight);
             imrect(tile, rect, color, thickness);
             auto text = boost::format("%1%: %2$.2f%%") % labels_[index] % (detection.prob() * 100);

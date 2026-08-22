@@ -238,6 +238,10 @@
 #root .validation-bars-legend i.map{background:#5367f4}.validation-bars-legend i.f1{background:#d09422}
 #root .validation-bars-chart{display:grid;grid-template-columns:52px 1fr;gap:10px;height:230px}
 #root .validation-bars-chart .loss-y-labels{height:230px}
+#root .validation-bars-chart .loss-y-labels{display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box;padding:4px 0}
+#root .validation-bars-chart .loss-y-labels span{position:static;transform:none!important}
+#root .validation-bars-chart .validation-spark{margin-top:0}
+#root .grid .chart .loss-y-labels{margin-top:28px}
 #root .validation-bars-y{display:flex;flex-direction:column;justify-content:space-between;padding:3px 0;text-align:right;color:#687386;font-size:10px;font-variant-numeric:tabular-nums}
 #root .validation-bars-plot{position:relative;min-width:0;border:1px solid #dfe3e8;border-bottom:2px solid #aeb7c4;border-radius:8px 8px 0 0;background:linear-gradient(180deg,#fafbff,#fff);overflow:hidden}
 #root .validation-bars-grid{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;padding:0 0 1px;pointer-events:none}
