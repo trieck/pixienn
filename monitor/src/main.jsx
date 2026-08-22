@@ -306,31 +306,48 @@ function ConfusionMatrixPanel({ matrix }) {
     return values.slice(cls * matrix.size, (cls + 1) * matrix.size).reduce((sum, value, col) => sum + (col !== cls ? value : 0), 0);
   });
   return <section className="panel detection-profile">
-    <div className="panel-head"><h2>Class detection profile</h2></div>
+    <div className="panel-head"><div><span className="kicker">VALIDATION COUNTS · PER CLASS</span><h2>Class detection profile</h2></div></div>
     <CompactErrorHeatmap labels={classLabels} tp={metricValues('TP')} fp={metricValues('FP')} fn={metricValues('FN')} />
-    <p className="pr-insight">Each row is one class. TP, FP, and FN are the raw validation counts: correct detections, false positives, and missed objects. F1 is calculated as <strong>2 × TP ÷ (2 × TP + FP + FN)</strong>, balancing correct detections against both kinds of error. It ranges from 0 to 1, with higher values indicating stronger class performance.</p>
+    <p className="pr-insight">Each class is shown in its own bounded group of true-positive, false-positive, and false-negative bars. Every group has its own vertical count scale, so the relationship between its three counts remains visible; the values above the bars are the exact counts. Bar color shows each count&apos;s influence on F1: greener means a stronger positive TP contribution, while redder means a larger FP or FN penalty. The badge below each group is that class&apos;s F1, calculated as <strong>2 × TP ÷ (2 × TP + FP + FN)</strong>; higher values indicate stronger performance.</p>
   </section>;
 }
 
 function CompactErrorHeatmap({ labels, tp, fp, fn }) {
   const columns = [{ key: 'tp', label: 'TP', values: tp }, { key: 'fp', label: 'FP', values: fp }, { key: 'fn', label: 'FN', values: fn }];
-  const textForGradient = (hueDegrees, intensity) => {
-    const h = hueDegrees / 360, s = .2 + .8 * intensity;
-    const rgb = lightness => { const a = s * Math.min(lightness, 1 - lightness); const f = n => { const k = (n + h * 12) % 12; return lightness - a * Math.max(-1, Math.min(k - 3, Math.min(9 - k, 1))); }; return [f(0), f(8), f(4)]; };
-    const stops = [0.86 - intensity * .08, 0.70 - intensity * .08, 0.53 - intensity * .05].map(rgb);
-    const luminance = color => color.map(channel => channel <= .03928 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4).reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
-    const contrast = (foreground, background) => (Math.max(foreground, background) + .05) / (Math.min(foreground, background) + .05);
-    const white = Math.min(...stops.map(stop => contrast(1, luminance(stop))));
-    const black = Math.min(...stops.map(stop => contrast(0, luminance(stop))));
-    return black >= white ? '#000' : '#fff';
-  };
-  const qualityStyle = value => {
-    const hue = 120 * value / 360;
-    const hsl = (h, s, l) => { const a = s * Math.min(l, 1 - l); const f = n => { const k = (n + h * 12) % 12; return l - a * Math.max(-1, Math.min(k - 3, Math.min(9 - k, 1))); }; return [f(0), f(8), f(4)]; };
-    return { '--quality-hue': 120 * value, '--cell-intensity': 1, '--cell-saturation': '100%', color: textForGradient(120 * value, 1) };
-  };
   const classQuality = row => { const denominator = 2 * tp[row] + fp[row] + fn[row]; return denominator ? (2 * tp[row]) / denominator : 0; };
-  return <div className="compact-heatmap"><div className="compact-heatmap-grid"><div className="compact-corner">class</div>{columns.map(column => <div className="compact-column" key={column.key}>{column.label}</div>)}<div className="compact-column">F1</div>{labels.map((label, row) => { const score = classQuality(row); return <React.Fragment key={label}><div className="compact-label" title={`${label} · F1 ${score.toFixed(3)}`}>{label}</div>{columns.map(column => <div className="compact-cell" key={`${label}-${column.key}`} title={`${label} · ${column.label}: ${column.values[row]}`}>{column.values[row].toLocaleString()}</div>)}<div className="compact-cell f1-cell" style={qualityStyle(score)} title={`${label} · F1 ${score.toFixed(3)}`}>{score.toFixed(2)}</div></React.Fragment>; })}</div></div>;
+  const impactStyle = (key, value, row) => {
+    const denominator = 2 * tp[row] + fp[row] + fn[row];
+    const impact = denominator ? (key === 'tp' ? 2 * value : value) / denominator : 0;
+    const positive = key === 'tp';
+    const hue = positive ? 68 + impact * 58 : 38 - impact * 38;
+    const saturation = positive ? 88 : 96;
+    const topLightness = positive ? 30 + impact * 58 : 88 - impact * 48;
+    const bottomLightness = positive ? 18 + impact * 48 : 68 - impact * 48;
+    return {
+      '--bar-top-color': `hsl(${hue} ${saturation}% ${topLightness}%)`,
+      '--bar-bottom-color': `hsl(${hue} ${saturation}% ${bottomLightness}%)`,
+      '--bar-border-color': `hsl(${hue} ${saturation}% ${Math.max(16, bottomLightness - 8)}%)`
+    };
+  };
+  const classMaximum = row => Math.max(1, ...columns.map(column => column.values[row]));
+  return <div className="compact-heatmap">
+    <div className="class-bar-chart">
+      <div className="class-bar-groups">
+        {labels.map((label, row) => {
+          const score = classQuality(row);
+          return <div className="class-bar-group" key={label}>
+            <div className="class-bar-scale"><span>{classMaximum(row).toLocaleString()}</span><span>0</span></div>
+            <div className="class-bar-columns">{columns.map(column => {
+              const value = column.values[row];
+              return <div className={`class-bar ${column.key}`} key={`${label}-${column.key}`} style={{ ...impactStyle(column.key, value, row), height: `${value / classMaximum(row) * 100}%` }} title={`${label} · ${column.label}: ${value.toLocaleString()}`}><span>{value.toLocaleString()}</span><small>{column.label}</small></div>;
+            })}</div>
+            <div className="class-bar-f1" style={{ '--quality-hue': `${120 * score}` }} title={`${label} · F1 ${score.toFixed(3)}`}>F1 {score.toFixed(2)}</div>
+            <div className="class-bar-label" title={label}>{label}</div>
+          </div>;
+        })}
+      </div>
+    </div>
+  </div>;
 }
 
 function ValidationGallery({ image }) {

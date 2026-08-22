@@ -19,6 +19,7 @@ Modes:
 Options:
   --verify-data            Check every image and label before training.
   --allow-reset-optimizer  Permit resume without an Adam optimizer sidecar.
+  --reset-learning-rate    Reset the learning-rate policy to its configured initial rate.
   --reset-adam-moments     Keep weights and step counters, but restart Adam moments.
   --view-image             Pass PixieNN's training-image viewer option.
   --dry-run                Perform preflight and print the command without changing a run.
@@ -307,6 +308,7 @@ model=""
 mode=""
 verify_data=false
 allow_reset_optimizer=false
+reset_learning_rate=false
 reset_adam_moments=false
 view_image=false
 dry_run=false
@@ -325,6 +327,9 @@ while (($#)); do
             ;;
         --allow-reset-optimizer)
             allow_reset_optimizer=true
+            ;;
+        --reset-learning-rate)
+            reset_learning_rate=true
             ;;
         --reset-adam-moments)
             reset_adam_moments=true
@@ -406,6 +411,7 @@ fi
 
 trainer_options=()
 $view_image && trainer_options+=(--view-image)
+$reset_learning_rate && trainer_options+=(--reset-learning-rate)
 $reset_adam_moments && trainer_options+=(--reset-adam-moments)
 [[ "$mode" == fresh ]] && trainer_options+=(--clear-weights)
 

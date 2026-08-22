@@ -35,6 +35,13 @@ Resume prefers `backup/yolov7_latest.weights`. If an older primary
 load it instead of the latest checkpoint. Adam-based models require the matching
 `.optimizer` sidecar unless `--allow-reset-optimizer` is explicitly supplied.
 
+To resume with the configured initial learning rate while preserving weights,
+step counters, and Adam moments:
+
+```bash
+./shell/train-model.sh yolov7 --resume --reset-learning-rate
+```
+
 Preview a run without changing files:
 
 ```bash

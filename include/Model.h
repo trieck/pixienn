@@ -1248,6 +1248,7 @@ void Model<D>::loadWeights()
 {
     auto clearWeights = hasOption("clear-weights");
     auto resetTrainingState = hasOption("reset-training-state");
+    auto resetLearningRate = hasOption("reset-learning-rate");
     auto resetAdamMoments = hasOption("reset-adam-moments");
     auto latestWeightsFile = weightsLatestFileName();
 
@@ -1369,6 +1370,10 @@ void Model<D>::loadWeights()
                 }
             }
             loadTrainingState(loadedWeightsFile);
+        }
+
+        if (training() && resetLearningRate) {
+            policy_->reset();
         }
     }
 }

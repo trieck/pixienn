@@ -47,6 +47,8 @@ int main(int argc, char* argv[])
             ("clear-weights", po::bool_switch()->default_value(false), "Clear target weights")
             ("reset-training-state", po::bool_switch()->default_value(false),
              "Reset seen count, optimizer moments, and training-control state")
+            ("reset-learning-rate", po::bool_switch()->default_value(false),
+             "Reset the learning-rate policy to its configured initial rate")
             ("reset-adam-moments", po::bool_switch()->default_value(false),
              "Keep weights and step counters, but restart Adam moments")
             ("view-image", po::bool_switch()->default_value(false), "View training image for debugging");
