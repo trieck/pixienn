@@ -308,11 +308,12 @@ function ConfusionMatrixPanel({ matrix }) {
   return <section className="panel detection-profile">
     <div className="panel-head"><div><span className="kicker">VALIDATION COUNTS · PER CLASS</span><h2>Class detection profile</h2></div></div>
     <CompactErrorHeatmap labels={classLabels} tp={metricValues('TP')} fp={metricValues('FP')} fn={metricValues('FN')} />
-    <p className="pr-insight">Each class is shown in its own bounded group of true-positive, false-positive, and false-negative bars. Every group has its own vertical count scale, so the relationship between its three counts remains visible; the values above the bars are the exact counts. Bar color shows each count&apos;s influence on F1: greener means a stronger positive TP contribution, while redder means a larger FP or FN penalty. The badge below each group is that class&apos;s F1, calculated as <strong>2 × TP ÷ (2 × TP + FP + FN)</strong>; higher values indicate stronger performance.</p>
+    <p className="pr-insight">Each class is shown as a composition of true-positive, false-positive, and false-negative results. Wedge size uses <strong>2×TP</strong>, FP, and FN so the true-positive share corresponds directly to the F1 calculation; the key below each class gives the exact counts. Greener means a stronger positive TP contribution, while redder means a larger FP or FN penalty. The centered score is that class&apos;s F1, calculated as <strong>2 × TP ÷ (2 × TP + FP + FN)</strong>. Use the view control to switch between pie wedges and independently scaled bars.</p>
   </section>;
 }
 
 function CompactErrorHeatmap({ labels, tp, fp, fn }) {
+  const [view, setView] = useState('pies');
   const columns = [{ key: 'tp', label: 'TP', values: tp }, { key: 'fp', label: 'FP', values: fp }, { key: 'fn', label: 'FN', values: fn }];
   const classQuality = row => { const denominator = 2 * tp[row] + fp[row] + fn[row]; return denominator ? (2 * tp[row]) / denominator : 0; };
   const impactStyle = (key, value, row) => {
@@ -324,14 +325,17 @@ function CompactErrorHeatmap({ labels, tp, fp, fn }) {
     const topLightness = positive ? 30 + impact * 58 : 88 - impact * 48;
     const bottomLightness = positive ? 18 + impact * 48 : 68 - impact * 48;
     return {
+      '--bar-color': `hsl(${hue} ${saturation}% ${topLightness}%)`,
       '--bar-top-color': `hsl(${hue} ${saturation}% ${topLightness}%)`,
       '--bar-bottom-color': `hsl(${hue} ${saturation}% ${bottomLightness}%)`,
       '--bar-border-color': `hsl(${hue} ${saturation}% ${Math.max(16, bottomLightness - 8)}%)`
     };
   };
   const classMaximum = row => Math.max(1, ...columns.map(column => column.values[row]));
+  const impactColor = (key, value, row) => impactStyle(key, value, row)['--bar-color'];
   return <div className="compact-heatmap">
-    <div className="class-bar-chart">
+    <div className="class-profile-controls"><label>VIEW <select aria-label="Class detection profile view" value={view} onChange={event => setView(event.target.value)}><option value="bars">Bars</option><option value="pies">Pie wedges</option></select></label></div>
+    {view === 'bars' ? <div className="class-bar-chart">
       <div className="class-bar-groups">
         {labels.map((label, row) => {
           const score = classQuality(row);
@@ -346,7 +350,34 @@ function CompactErrorHeatmap({ labels, tp, fp, fn }) {
           </div>;
         })}
       </div>
-    </div>
+    </div> : <div className="class-pie-chart">
+      {labels.map((label, row) => {
+        const denominator = 2 * tp[row] + fp[row] + fn[row];
+        const tpEnd = denominator ? 2 * tp[row] / denominator * 100 : 0;
+        const fpEnd = denominator ? tpEnd + fp[row] / denominator * 100 : 0;
+        const score = classQuality(row);
+        const piePath = (start, end) => {
+          const point = percentage => {
+            const angle = percentage / 100 * Math.PI * 2;
+            return [50 + 48 * Math.sin(angle), 50 - 48 * Math.cos(angle)];
+          };
+          const [startX, startY] = point(start);
+          const [endX, endY] = point(end);
+          return `M 50 50 L ${startX} ${startY} A 48 48 0 ${end - start > 50 ? 1 : 0} 1 ${endX} ${endY} Z`;
+        };
+        const pieSegments = [
+          { key: 'tp', label: 'TP', value: tp[row], start: 0, end: tpEnd },
+          { key: 'fp', label: 'FP', value: fp[row], start: tpEnd, end: fpEnd },
+          { key: 'fn', label: 'FN', value: fn[row], start: fpEnd, end: 100 }
+        ].filter(segment => segment.value > 0);
+        const f1Id = `class-pie-f1-${row}`;
+        return <div className="class-pie-group" key={label}>
+          <div className="class-pie"><svg viewBox="0 0 100 100" role="img" aria-label={`${label}: TP ${tp[row]}, FP ${fp[row]}, FN ${fn[row]}, F1 ${score.toFixed(2)}`}><defs>{pieSegments.map(segment => { const style = impactStyle(segment.key, segment.value, row); return <linearGradient key={segment.key} id={`class-pie-${row}-${segment.key}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={style['--bar-top-color']} /><stop offset="100%" stopColor={style['--bar-bottom-color']} /></linearGradient>; })}<linearGradient id={f1Id} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={`hsl(${120 * score} 100% 86%)`} /><stop offset="48%" stopColor={`hsl(${120 * score} 100% 70%)`} /><stop offset="100%" stopColor={`hsl(${120 * score} 100% 53%)`} /></linearGradient></defs>{pieSegments.map(segment => <path key={segment.key} d={piePath(segment.start, segment.end)} fill={`url(#class-pie-${row}-${segment.key})`} stroke="#f6ead3" strokeWidth="1.5"><title>{`${label} · ${segment.label}: ${segment.value.toLocaleString()}`}</title></path>)}<circle cx="50" cy="50" r="22" fill={`url(#${f1Id})`} stroke="#ffffff88" strokeWidth="1" /><text x="50" y="51" textAnchor="middle">{score.toFixed(2)}</text></svg></div>
+          <div className="class-pie-label">{label}</div>
+          <div className="class-pie-keys">{pieSegments.map(segment => { const style = impactStyle(segment.key, segment.value, row); return <span key={segment.key} style={{ '--pie-top-color': style['--bar-top-color'], '--pie-bottom-color': style['--bar-bottom-color'] }}><i />{segment.label} {segment.value.toLocaleString()}</span>; })}</div>
+        </div>;
+      })}
+    </div>}
   </div>;
 }
 
