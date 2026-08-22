@@ -455,6 +455,28 @@ model:
       layers: [ 52 ]
     - type: conv
       filters: 128
+      kernel: 1
+      stride: 1
+      pad: True
+      activation: mish
+      batch_normalize: True
+    - type: upsample
+      stride: 2
+
+    - type: route
+      layers: [ -1, 56 ]
+    - type: conv
+      filters: 128
+      kernel: 3
+      stride: 1
+      pad: True
+      activation: mish
+      batch_normalize: True
+
+    - type: route
+      layers: [ 71 ]
+    - type: conv
+      filters: 128
       kernel: 3
       stride: 1
       pad: True
@@ -468,7 +490,7 @@ model:
       activation: linear
 
     - type: route
-      layers: [ 52 ]
+      layers: [ 71 ]
     - type: conv
       filters: 128
       kernel: 3
@@ -484,7 +506,7 @@ model:
       activation: linear
 
     - type: route
-      layers: [ 52 ]
+      layers: [ 71 ]
     - type: conv
       filters: 128
       kernel: 3
@@ -500,7 +522,7 @@ model:
       activation: linear
 
     - type: route
-      layers: [ 70, 73, 76 ]
+      layers: [ 75, 78, 81 ]
     - type: centernet
       focal_alpha: 2.0
       focal_beta: 4.0

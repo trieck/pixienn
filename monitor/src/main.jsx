@@ -357,6 +357,7 @@ function CompactErrorHeatmap({ labels, tp, fp, fn, view, onViewChange }) {
         const fpEnd = denominator ? tpEnd + fp[row] / denominator * 100 : 0;
         const score = classQuality(row);
         const piePath = (start, end) => {
+          if (end - start >= 99.999) return 'M 50 2 A 48 48 0 1 1 50 98 A 48 48 0 1 1 50 2 Z';
           const point = percentage => {
             const angle = percentage / 100 * Math.PI * 2;
             return [50 + 48 * Math.sin(angle), 50 - 48 * Math.cos(angle)];
