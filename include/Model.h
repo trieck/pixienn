@@ -36,6 +36,7 @@
 #include "summary.pb.h"
 
 #include "BatchLoader.h"
+#include "Box.h"
 #include "BurnInLRPolicy.h"
 #include "ColorMaps.h"
 #include "ConstantLRPolicy.h"
@@ -140,6 +141,33 @@ inline bool optimizerScheduleDue(std::size_t previousStep, std::size_t currentSt
 {
     return interval > 0 && currentStep != previousStep && currentStep > 0 &&
            currentStep % static_cast<std::size_t>(interval) == 0;
+}
+
+// Inference images are letterboxed before entering the network.  Detector
+// outputs are normalized to that square canvas, while callers expect boxes in
+// the original image coordinate system.  Undo the letterbox before rendering
+// or serializing predictions; otherwise wide images produce vertically
+// compressed boxes inside the padded band.
+inline cv::Rect2f unletterboxBox(const cv::Rect2f& box, const cv::Size& originalSize,
+                                 const cv::Size& modelSize) noexcept
+{
+    const auto imageWidth = static_cast<float>(originalSize.width);
+    const auto imageHeight = static_cast<float>(originalSize.height);
+    const auto networkWidth = static_cast<float>(modelSize.width);
+    const auto networkHeight = static_cast<float>(modelSize.height);
+    const auto scale = std::min(networkWidth / imageWidth, networkHeight / imageHeight);
+    const auto resizedWidth = static_cast<float>(static_cast<int>(imageWidth * scale));
+    const auto resizedHeight = static_cast<float>(static_cast<int>(imageHeight * scale));
+    const auto ax = resizedWidth / networkWidth;
+    const auto ay = resizedHeight / networkHeight;
+    const auto dx = (networkWidth - resizedWidth) / (2.0f * networkWidth);
+    const auto dy = (networkHeight - resizedHeight) / (2.0f * networkHeight);
+
+    const auto centerX = (box.x + box.width / 2.0f - dx) / ax;
+    const auto centerY = (box.y + box.height / 2.0f - dy) / ay;
+    const auto width = box.width / ax;
+    const auto height = box.height / ay;
+    return { centerX - width / 2.0f, centerY - height / 2.0f, width, height };
 }
 
 }   // namespace detail
@@ -943,7 +971,22 @@ Detections Model<D>::predict(const std::string& imageFile, float confidence,
 
     forward(image);
 
-    auto detects = nms(detections(image.originalSize, confidence), nmsThreshold);
+    const cv::Size originalSize = image.originalSize;
+    const cv::Size modelSize{ width_, height_ };
+    Detections corrected;
+    for (const auto& detection: detections(originalSize, confidence)) {
+        const auto& box = detection.box();
+        const cv::Rect2f normalized{ box.x / originalSize.width, box.y / originalSize.height,
+                                     box.width / originalSize.width, box.height / originalSize.height };
+        const auto unletterboxed = detail::unletterboxBox(normalized, originalSize, modelSize);
+        corrected.emplace_back(
+                cv::Rect2f(unletterboxed.x * originalSize.width,
+                           unletterboxed.y * originalSize.height,
+                           unletterboxed.width * originalSize.width,
+                           unletterboxed.height * originalSize.height),
+                detection.batchId(), detection.classIndex(), detection.prob());
+    }
+    auto detects = nms(corrected, nmsThreshold);
 
     return detects;
 }
@@ -993,7 +1036,18 @@ std::string Model<D>::predictBatchImageList(const std::string& imageList, float 
         V input(hostInput.size());
         input.copyHost(hostInput.data(), hostInput.size());
         forward(input);
-        auto detections = nms(this->detections(confidence), nmsThreshold);
+        Detections corrected;
+        for (const auto& detection: this->detections(confidence)) {
+            const auto batchId = detection.batchId();
+            if (batchId < 0 || batchId >= static_cast<int>(count)) {
+                continue;
+            }
+            const auto originalSize = images[batchId].size();
+            const cv::Rect2f unletterboxed = detail::unletterboxBox(
+                    detection.box(), originalSize, { width_, height_ });
+            corrected.emplace_back(unletterboxed, batchId, detection.classIndex(), detection.prob());
+        }
+        auto detections = nms(corrected, nmsThreshold);
         for (auto& detection: detections) {
             if (detection.batchId() < static_cast<int>(count)) {
                 allDetections.emplace_back(detection.box(),
