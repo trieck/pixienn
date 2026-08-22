@@ -382,6 +382,12 @@
 #root .pr-line{fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
 #root .pr-line.precision{stroke:#087ff5}
 #root .pr-line.recall{stroke:#f04452}
+#root .pr-panel .pr-area{opacity:.58;stroke:#f97316;stroke-width:.7;stroke-opacity:.75;vector-effect:non-scaling-stroke;filter:saturate(1.25)}
+#root .pr-panel .pr-area-glow{opacity:.42;mix-blend-mode:screen;pointer-events:none}
+#root .pr-panel .pr-best-guide{stroke:#fff7c2;stroke-width:.7;stroke-dasharray:2 2;stroke-opacity:.72;vector-effect:non-scaling-stroke}
+#root .pr-panel .pr-best-halo{fill:#fff7c2;opacity:.36;filter:drop-shadow(0 0 3px #ff7a18)}
+#root .pr-panel .pr-best-point{fill:#fff7c2;stroke:#8f1d1d;stroke-width:1;vector-effect:non-scaling-stroke}
+#root .pr-panel .pr-best-label{fill:#fff7c2;font:700 4px 'DM Sans';letter-spacing:.08em;paint-order:stroke;stroke:#7f1d1d;stroke-width:1.2px;vector-effect:non-scaling-stroke}
 #root .pr-point{fill:#087ff5;stroke:#fff;stroke-width:1.5;vector-effect:non-scaling-stroke}
 #root .pr-x-labels{position:relative;height:18px;padding:4px 0 0;color:#68707d;font-size:10px}
 #root .pr-x-labels span{position:absolute;transform:translateX(-50%);white-space:nowrap}

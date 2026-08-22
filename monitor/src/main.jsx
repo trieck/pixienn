@@ -526,6 +526,14 @@ function PRCurvePanel({ curve }) {
   const lowerThreshold = activePoints.reduce((lowest, point) => (
     !lowest || Number(point.confidence) < Number(lowest.confidence) ? point : lowest
   ), null);
+  const f1Score = point => {
+    const precision = Number(point.precision);
+    const recall = Number(point.recall);
+    return precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
+  };
+  const bestF1Point = activePoints.reduce((best, point) => (
+    !best || f1Score(point) > f1Score(best) ? point : best
+  ), null);
   const upperThreshold = activePoints.reduce((highest, point) => (
     !highest || Number(point.confidence) > Number(highest.confidence) ? point : highest
   ), null);
@@ -544,11 +552,11 @@ function PRCurvePanel({ curve }) {
     const recall = Number(point.recall);
     const recallText = recall >= 0.9995
       ? 'It finds essentially all of the ground-truth objects.'
-      : `It misses about ${percent(1 - recall)} of the ground-truth objects (false negatives).`;
+      : `This cutoff leaves about ${percent(1 - recall)} of the ground-truth objects for lower-confidence settings.`;
     const precisionText = precision >= 0.9995
       ? 'Nearly all of its detections are correct.'
-      : `About ${percent(1 - precision)} of its detections are false positives.`;
-    return <p className="pr-insight">At confidence {confidenceLabel(point)}—{description}—the model&apos;s recall is about {percent(recall)}. {recallText} Its precision is about {percent(precision)}. {precisionText}</p>;
+      : `About ${percent(1 - precision)} of its detections are false alarms, so this is a deliberate precision–recall tradeoff.`;
+    return <p className="pr-insight">At confidence {confidenceLabel(point)}—{description}—the detector finds about {percent(recall)} of the ground-truth objects. {recallText} Its detections are about {percent(precision)} correct. {precisionText}</p>;
   };
   const areaPoints = [];
   for (const point of points) {
@@ -607,11 +615,14 @@ function PRCurvePanel({ curve }) {
     const current = coordinate(point);
     return `${current.x},${current.y}`;
   }).join(' ');
+  const areaPolygon = chartPoints ? `2,85 ${chartPoints} 218,85` : '';
+  const bestF1Coordinate = bestF1Point ? coordinate(bestF1Point) : null;
   return <section className="tb-card pr-panel">
     <div className="tb-toggle"><span>Precision–recall curve</span></div>
     <div className="tb-axis-units"><span>Y · precision</span><span>X · recall</span></div>
-    <div className="tb-plot"><div className="tb-y-labels"><span style={{ top: '0%' }}>{axisLabel(yMaximum)}</span><span style={{ top: '50%' }}>{axisLabel(yMaximum / 2)}</span><span style={{ top: '100%' }}>0</span></div><div className="tb-plot-area"><svg viewBox="0 0 220 86" preserveAspectRatio="none" role="img" aria-label="Precision versus recall curve"><line x1="0" y1="0" x2="220" y2="0" /><line x1="0" y1="43" x2="220" y2="43" /><line x1="0" y1="86" x2="220" y2="86" /><polyline className="tb-tube-body" points={chartPoints} fill="none" stroke="#087ff5" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" /></svg><div className="tb-x-axis"><span style={{ left: '50%' }}>{axisLabel(xMaximum / 2)}</span><span style={{ left: '100%' }}>{axisLabel(xMaximum)}</span></div></div></div>
-    <div className="tb-values"><span>{points.length ? `${points.length} threshold points` : 'No PR data'}</span><span>micro PR score <b>{prScore == null ? '—' : prScore.toFixed(2)}</b></span><span>lowest-threshold precision <b>{lowerThreshold ? metricFmt(lowerThreshold.precision) : '—'}</b></span><span>lowest-threshold recall <b>{lowerThreshold ? metricFmt(lowerThreshold.recall) : '—'}</b></span></div>
+    <div className="tb-plot"><div className="tb-y-labels"><span style={{ top: '0%' }}>{axisLabel(yMaximum)}</span><span style={{ top: '50%' }}>{axisLabel(yMaximum / 2)}</span><span style={{ top: '100%' }}>0</span></div><div className="tb-plot-area"><svg viewBox="0 0 220 86" preserveAspectRatio="none" role="img" aria-label="Precision versus recall curve"><defs><linearGradient id="pr-area-gradient" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stopColor="#b4232e" /><stop offset="36%" stopColor="#d12b2f" /><stop offset="68%" stopColor="#ef3d24" /><stop offset="88%" stopColor="#f97316" /><stop offset="100%" stopColor="#facc15" /></linearGradient><radialGradient id="pr-area-glow" cx="48%" cy="3%" r="76%"><stop offset="0%" stopColor="#fff7a8" stopOpacity=".88" /><stop offset="24%" stopColor="#fb923c" stopOpacity=".5" /><stop offset="62%" stopColor="#f04438" stopOpacity=".24" /><stop offset="100%" stopColor="#b4232e" stopOpacity="0" /></radialGradient><linearGradient id="pr-heat-line" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stopColor="#ef4444" /><stop offset="55%" stopColor="#f97316" /><stop offset="82%" stopColor="#fde047" /><stop offset="100%" stopColor="#fff7c2" /></linearGradient></defs><polygon className="pr-area" points={areaPolygon} fill="url(#pr-area-gradient)" /><polygon className="pr-area-glow" points={areaPolygon} fill="url(#pr-area-glow)" /><line x1="0" y1="0" x2="220" y2="0" /><line x1="0" y1="43" x2="220" y2="43" /><line x1="0" y1="86" x2="220" y2="86" /><polyline className="tb-tube-body" points={chartPoints} fill="none" stroke="url(#pr-heat-line)" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />{bestF1Coordinate && <><line className="pr-best-guide" x1={bestF1Coordinate.x} y1={bestF1Coordinate.y} x2={bestF1Coordinate.x} y2="85" /><line className="pr-best-guide" x1="2" y1={bestF1Coordinate.y} x2={bestF1Coordinate.x} y2={bestF1Coordinate.y} /><circle className="pr-best-halo" cx={bestF1Coordinate.x} cy={bestF1Coordinate.y} r="5" /><circle className="pr-best-point" cx={bestF1Coordinate.x} cy={bestF1Coordinate.y} r="2.4"><title>{`Best F1 · confidence ${confidenceLabel(bestF1Point)} · F1 ${f1Score(bestF1Point).toFixed(2)}`}</title></circle><text className="pr-best-label" x={Math.min(202, bestF1Coordinate.x + 5)} y={Math.max(9, bestF1Coordinate.y - 6)}>{`BEST F1 · ${confidenceLabel(bestF1Point)}`}</text></>}</svg><div className="tb-x-axis"><span style={{ left: '50%' }}>{axisLabel(xMaximum / 2)}</span><span style={{ left: '100%' }}>{axisLabel(xMaximum)}</span></div></div></div>
+    <div className="tb-values"><span>{points.length ? `${points.length} threshold points` : 'No PR data'}</span><span>micro PR score <b>{prScore == null ? '—' : prScore.toFixed(2)}</b></span><span>best F1 threshold <b>{bestF1Point ? confidenceLabel(bestF1Point) : '—'}</b></span><span>best-point P / R <b>{bestF1Point ? `${percent(bestF1Point.precision)} / ${percent(bestF1Point.recall)}` : '—'}</b></span></div>
+    {bestF1Point && <p className="pr-insight"><strong>At confidence {confidenceLabel(bestF1Point)}, the detector is most balanced: about {percent(bestF1Point.precision)} of its detections are correct, and it finds about {percent(bestF1Point.recall)} of the ground-truth objects (F1 {f1Score(bestF1Point).toFixed(2)}).</strong> Lowering the threshold can find more objects but adds more false alarms; raising it makes the detector more selective.</p>}
     {prScore != null && <p className="pr-insight">A micro PR score of {prScore.toFixed(2)} summarizes the entire confidence sweep, not one cutoff. A score of 1.00 means the curve reaches the ideal precision–recall envelope: at one confidence setting, the model finds every ground-truth object and its detections are all correct.</p>}
     {lowerThreshold && thresholdInsight(lowerThreshold, 'the lowest threshold and most permissive setting')}
     {middleThreshold && thresholdInsight(middleThreshold, 'a middle confidence setting between the two extremes')}
