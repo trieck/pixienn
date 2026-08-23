@@ -21,6 +21,12 @@ events.out.tfevents.*
 /ruby/.idea/
 /monitor/node_modules/
 /monitor/dist/
+/model-graph/dist/
+/model-graph/node_modules/
+/model-graph/.model-graph.pid
+/model-graph/model-graph.log
+/model-graph/__pycache__/
+/tools/__pycache__/
 
 *.geojson
 *.qml

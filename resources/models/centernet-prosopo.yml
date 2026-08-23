@@ -431,8 +431,6 @@ model:
 
     # Decoupled CenterNet head: separate local feature processing for the
     # heatmap, size, and offset predictions before concatenation.
-    - type: route
-      layers: [ 65 ]
     - type: conv
       filters: 256
       kernel: 3
@@ -480,7 +478,7 @@ model:
       activation: linear
 
     - type: route
-      layers: [ 68, 71, 74 ]
+      layers: [ 67, 70, 73 ]
 
     - type: centernet
       focal_alpha: 2.0
@@ -511,7 +509,7 @@ model:
       batch_normalize: True
 
     - type: route
-      layers: [ 80 ]
+      layers: [ 79 ]
     - type: conv
       filters: 128
       kernel: 3
@@ -527,7 +525,7 @@ model:
       activation: linear
 
     - type: route
-      layers: [ 80 ]
+      layers: [ 79 ]
     - type: conv
       filters: 128
       kernel: 3
@@ -543,7 +541,7 @@ model:
       activation: linear
 
     - type: route
-      layers: [ 80 ]
+      layers: [ 79 ]
     - type: conv
       filters: 128
       kernel: 3
@@ -559,7 +557,7 @@ model:
       activation: linear
 
     - type: route
-      layers: [ 84, 87, 90 ]
+      layers: [ 83, 86, 89 ]
     - type: centernet
       focal_alpha: 2.0
       focal_beta: 4.0

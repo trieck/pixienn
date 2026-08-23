@@ -2126,8 +2126,14 @@ void Model<D>::validate()
     avgValLoss_ = validator.avgLoss();
     valAccuracy_ = validator.accuracy();
 
-    currentPolicy()->onValidation({ mAP_, avgValLoss_, avgRecall_, microAvgF1_, valAccuracy_ },
-                                  static_cast<int>(optimizerStep_));
+    // Burn-in is deliberately invisible to validation-driven policies.  No
+    // learning-rate policy may react to validation or change the learning
+    // rate while the burn-in schedule is establishing the requested initial
+    // rate.
+    if (!isBurningIn()) {
+        currentPolicy()->onValidation({ mAP_, avgValLoss_, avgRecall_, microAvgF1_, valAccuracy_ },
+                                        static_cast<int>(optimizerStep_));
+    }
 
     // Validation values change only here. Write them at their real step
     // instead of repeating stale values on the training-metric interval.
@@ -2175,7 +2181,10 @@ LRPolicy* Model<D>::currentPolicy() const noexcept
 template<Device D>
 bool Model<D>::isBurningIn() const noexcept
 {
-    return optimizerStep_ < burnInBatches_;
+    // optimizerStep_ is incremented before the optimizer update.  Include
+    // the endpoint so the final burn-in update and any validation triggered
+    // there remain protected from policy-driven learning-rate changes.
+    return burnInBatches_ > 0 && optimizerStep_ <= burnInBatches_;
 }
 
 template<Device D>
