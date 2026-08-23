@@ -33,6 +33,10 @@ list(APPEND TEST_SOURCES
         src/crc32.cpp
         src/darkbox.cpp
         src/imagebatch.cpp
+        src/layernorm.cpp
+        src/selfattention.cpp
+        src/positionalencoding.cpp
+        src/transformer.cpp
         src/main.cpp
         src/math.cpp
         src/maxpool.cpp

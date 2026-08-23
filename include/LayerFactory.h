@@ -8,8 +8,11 @@
 #include "DetectLayer.h"
 #include "DropoutLayer.h"
 #include "MaxPoolLayer.h"
+#include "LayerNorm.h"
+#include "PositionalEncoding.h"
 #include "RegionLayer.h"
 #include "RouteLayer.h"
+#include "SelfAttention.h"
 #include "ShortcutLayer.h"
 #include "Singleton.h"
 #include "SoftmaxLayer.h"
@@ -48,6 +51,11 @@ LayerFactories<D>::LayerFactories()
     registerFactory<DetectLayer<D>>("detection");
     registerFactory<DropoutLayer<D>>("dropout");
     registerFactory<MaxPoolLayer<D>>("maxpool");
+    if constexpr (D == Device::CPU) {
+        registerFactory<LayerNorm<D>>("layernorm");
+        registerFactory<PositionalEncoding<D>>("positional-encoding");
+        registerFactory<SelfAttention<D>>("self-attention");
+    }
     registerFactory<RegionLayer<D>>("region");
     registerFactory<RouteLayer<D>>("route");
     registerFactory<ShortcutLayer<D>>("shortcut");

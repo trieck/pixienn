@@ -176,6 +176,7 @@ list(APPEND SOURCES
         src/ImageAugmenter.cpp
         src/ImageVec.cpp
         src/InvLRPolicy.cpp
+        src/LayerNorm.cpp
         src/Math.cpp
         src/MiniBatch.cpp
         src/Model.cpp

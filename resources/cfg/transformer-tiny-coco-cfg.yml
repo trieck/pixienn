@@ -1,0 +1,12 @@
+configuration:
+  model: ../models/transformer-tiny-coco.yml
+  weights: ../weights/transformer-tiny-coco.weights
+  labels: ../data/coco.names
+
+training:
+  # Deliberately use the same image for training and validation. This is an
+  # overfit diagnostic, not a meaningful generalization experiment.
+  train-images: ../data/coco/val-1.txt
+  train-labels: ../data/coco/labels/val2014
+  val-images: ../data/coco/val-1.txt
+  val-labels: ../data/coco/labels/val2014
