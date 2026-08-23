@@ -14,6 +14,8 @@ events.out.tfevents.*
 /resources/data/voc/val-*.txt
 /resources/data/voc/val.txt
 /resources/data/kitti/
+/resources/data/prosopo/images/
+/resources/data/prosopo/labels/
 /resources/images/*.jpg
 /python/__pycache__/
 /ruby/.idea/

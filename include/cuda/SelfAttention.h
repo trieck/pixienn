@@ -116,6 +116,34 @@ inline void SelfAttention<Device::CUDA>::update()
 }
 
 template<>
+inline void SelfAttention<Device::CUDA>::scaleGradients()
+{
+    Layer<Device::CUDA>::scaleGradients();
+    this->scaleTensor(queryUpdates_);
+    this->scaleTensor(keyUpdates_);
+    this->scaleTensor(valueUpdates_);
+    this->scaleTensor(outputUpdates_);
+    this->scaleTensor(queryBiasUpdates_);
+    this->scaleTensor(keyBiasUpdates_);
+    this->scaleTensor(valueBiasUpdates_);
+    this->scaleTensor(outputBiasUpdates_);
+}
+
+template<>
+inline void SelfAttention<Device::CUDA>::clipGradients()
+{
+    Layer<Device::CUDA>::clipGradients();
+    constrainGpu(queryUpdates_.size(), this->gradientClipValue_, queryUpdates_.data());
+    constrainGpu(keyUpdates_.size(), this->gradientClipValue_, keyUpdates_.data());
+    constrainGpu(valueUpdates_.size(), this->gradientClipValue_, valueUpdates_.data());
+    constrainGpu(outputUpdates_.size(), this->gradientClipValue_, outputUpdates_.data());
+    constrainGpu(queryBiasUpdates_.size(), this->gradientClipValue_, queryBiasUpdates_.data());
+    constrainGpu(keyBiasUpdates_.size(), this->gradientClipValue_, keyBiasUpdates_.data());
+    constrainGpu(valueBiasUpdates_.size(), this->gradientClipValue_, valueBiasUpdates_.data());
+    constrainGpu(outputBiasUpdates_.size(), this->gradientClipValue_, outputBiasUpdates_.data());
+}
+
+template<>
 inline std::streamoff SelfAttention<Device::CUDA>::loadWeights(std::istream& is)
 {
     const auto start = is.tellg();

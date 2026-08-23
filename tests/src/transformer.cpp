@@ -89,6 +89,49 @@ TEST(TransformerSuite, ComposesAnEncoderBlockFromExistingLayers)
     }
 }
 
+TEST(TransformerSuite, ClipsAttentionParameterGradients)
+{
+    const auto definition = YAML::Load(R"(
+        model:
+          batch: 1
+          channels: 4
+          height: 1
+          width: 2
+          max_batches: 1
+          momentum: 0.9
+          gradient_rescale:
+            enabled: False
+          gradient_clipping:
+            enabled: True
+            value: 0.5
+          learning_rate:
+            initial_learning_rate: 0.001
+            policy: constant
+          layers:
+            - type: self-attention
+              heads: 2
+    )");
+    Model<> model;
+    model.setMode(Mode::TRAINING);
+    model.parseModel(definition);
+    ASSERT_EQ(model.layerSize(), 1);
+    const PxCpuVector input(8, 1000.0f);
+    auto* attention = dynamic_cast<CpuSelfAttention*>(model.layerAt(0).get());
+    ASSERT_NE(attention, nullptr);
+
+    model.forward(input);
+    attention->delta().fill(1000.0f);
+    model.backward(input);
+    const auto before = attention->queryWeights().asVector();
+    attention->update();
+    const auto after = attention->queryWeights().asVector();
+
+    ASSERT_EQ(before.size(), after.size());
+    for (std::size_t i = 0; i < before.size(); ++i) {
+        EXPECT_LE(std::abs(after[i] - before[i]), 0.000501f) << "weight index " << i;
+    }
+}
+
 #ifdef USE_CUDA
 
 TEST(TransformerSuite, CUDAForwardMatchesCPU)
@@ -144,6 +187,50 @@ TEST(TransformerSuite, CUDAForwardMatchesCPU)
             EXPECT_NEAR(cpuLayerOutput[i], gpuLayerOutput[i], 2e-4f)
                     << "layer " << layerIndex << " output index " << i;
         }
+    }
+}
+
+TEST(TransformerSuite, CUDAClipsAttentionParameterGradients)
+{
+    const auto definition = YAML::Load(R"(
+        model:
+          batch: 1
+          channels: 4
+          height: 1
+          width: 2
+          max_batches: 1
+          momentum: 0.9
+          gradient_rescale:
+            enabled: False
+          gradient_clipping:
+            enabled: True
+            value: 0.5
+          learning_rate:
+            initial_learning_rate: 0.001
+            policy: constant
+          layers:
+            - type: self-attention
+              heads: 2
+    )");
+    Model<Device::CUDA> model;
+    model.setMode(Mode::TRAINING);
+    model.parseModel(definition);
+    ASSERT_EQ(model.layerSize(), 1);
+    auto* attention = dynamic_cast<SelfAttention<Device::CUDA>*>(model.layerAt(0).get());
+    ASSERT_NE(attention, nullptr);
+    const PxCpuVector hostInput(8, 1000.0f);
+    const PxCudaVector input(hostInput.data(), hostInput.data() + hostInput.size());
+
+    model.forward(input);
+    attention->delta().fill(1000.0f);
+    model.backward(input);
+    const auto before = attention->queryWeights().asVector();
+    attention->update();
+    const auto after = attention->queryWeights().asVector();
+
+    ASSERT_EQ(before.size(), after.size());
+    for (std::size_t i = 0; i < before.size(); ++i) {
+        EXPECT_LE(std::abs(after[i] - before[i]), 0.000501f) << "weight index " << i;
     }
 }
 

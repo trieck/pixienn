@@ -47,6 +47,8 @@ public:
     void forward(const V& input) override;
     void backward(const V& input, V* grad) override;
     void update() override;
+    void scaleGradients() override;
+    void clipGradients() override;
 
     std::streamoff loadWeights(std::istream& is) override;
     std::streamoff saveWeights(std::ostream& os) override;
@@ -331,6 +333,34 @@ inline void SelfAttention<>::update()
     update(keyBiases_, keyBiasUpdates_);
     update(valueBiases_, valueBiasUpdates_);
     update(outputBiases_, outputBiasUpdates_);
+}
+
+template<>
+inline void SelfAttention<>::scaleGradients()
+{
+    Layer<>::scaleGradients();
+    this->scaleTensor(queryUpdates_);
+    this->scaleTensor(keyUpdates_);
+    this->scaleTensor(valueUpdates_);
+    this->scaleTensor(outputUpdates_);
+    this->scaleTensor(queryBiasUpdates_);
+    this->scaleTensor(keyBiasUpdates_);
+    this->scaleTensor(valueBiasUpdates_);
+    this->scaleTensor(outputBiasUpdates_);
+}
+
+template<>
+inline void SelfAttention<>::clipGradients()
+{
+    Layer<>::clipGradients();
+    constrain(queryUpdates_.size(), this->gradientClipValue_, queryUpdates_.data(), 1);
+    constrain(keyUpdates_.size(), this->gradientClipValue_, keyUpdates_.data(), 1);
+    constrain(valueUpdates_.size(), this->gradientClipValue_, valueUpdates_.data(), 1);
+    constrain(outputUpdates_.size(), this->gradientClipValue_, outputUpdates_.data(), 1);
+    constrain(queryBiasUpdates_.size(), this->gradientClipValue_, queryBiasUpdates_.data(), 1);
+    constrain(keyBiasUpdates_.size(), this->gradientClipValue_, keyBiasUpdates_.data(), 1);
+    constrain(valueBiasUpdates_.size(), this->gradientClipValue_, valueBiasUpdates_.data(), 1);
+    constrain(outputBiasUpdates_.size(), this->gradientClipValue_, outputBiasUpdates_.data(), 1);
 }
 
 template<>

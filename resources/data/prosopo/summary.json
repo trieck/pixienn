@@ -1,0 +1,31 @@
+{
+  "classes": [
+    "person"
+  ],
+  "dataset": "prosopo",
+  "kitti_excluded_classes": {
+    "5": "cyclist"
+  },
+  "kitti_person_classes": {
+    "3": "pedestrian",
+    "4": "person_sitting"
+  },
+  "sources": {
+    "coco": {
+      "boxes": 276638,
+      "images": 66808
+    },
+    "kitti": {
+      "boxes": 4709,
+      "images": 1796
+    },
+    "voc": {
+      "boxes": 10456,
+      "images": 4750
+    }
+  },
+  "train_boxes": 199470,
+  "train_images": 50343,
+  "val_boxes": 4093,
+  "val_images": 1000
+}

@@ -1,0 +1,10 @@
+configuration:
+  model: ../models/centernet-prosopo.yml
+  weights: ../weights/centernet-prosopo.weights
+  labels: ../data/prosopo/prosopo.names
+
+training:
+  train-images: ../data/prosopo/train.txt
+  train-labels: ../data/prosopo/labels
+  val-images: ../data/prosopo/val.txt
+  val-labels: ../data/prosopo/labels
