@@ -24,7 +24,7 @@ model:
 
   validation:
     enabled: True
-    interval: 748
+    interval: 5000
     confidence_threshold: 0.3
     ap_confidence_threshold: 0.001
     iou_threshold: 0.5
@@ -448,17 +448,9 @@ model:
     - type: centernet
       focal_alpha: 2.0
       focal_beta: 4.0
-      # 80 classes x 104 x 104 cells is extremely sparse.  Start the
-      # heatmaps near 1% rather than 10% foreground probability so early
-      # updates are not dominated by easy negative cells.
       heatmap_bias: -4.6
       size_weight: 0.75
       max_detections: 100
-    # Multi-scale fusion head: bring the coarse CenterNet features back to
-    # the stride-4 feature resolution and combine them with the fine feature
-    # map before a second prediction head.  The first head remains intact;
-    # this gives small objects a higher-resolution detection path while
-    # retaining the original coarse-context predictions.
     - type: route
       layers: [ 52 ]
     - type: conv

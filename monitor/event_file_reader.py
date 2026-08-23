@@ -275,15 +275,20 @@ def condensed_confusion_matrix():
         row = sum(values[index * size:(index + 1) * size])
         column = sum(values[index::size])
         totals.append((row + column, index))
-    keep = [index for _, index in sorted(totals, reverse=True)[:MAX_CONFUSION_CLASSES]]
-    keep_set = set(keep)
+    # Each retained class is its own group; ``other`` and background are
+    # already grouped lists. Keeping bare indices here makes the later
+    # row/column aggregation try to iterate an integer and aborts the entire
+    # monitor refresh for datasets with more than 26 classes.
+    keep_indices = [index for _, index in sorted(totals, reverse=True)[:MAX_CONFUSION_CLASSES]]
+    keep = [[index] for index in keep_indices]
+    keep_set = set(keep_indices)
     other = [index for index in range(background) if index not in keep_set]
     groups = keep + [other, [background]]
     condensed = []
     for row_group in groups:
         for col_group in groups:
             condensed.append(sum(values[row * size + col] for row in row_group for col in col_group))
-    condensed_labels = [labels[index] for index in keep] + ["other", labels[background] if background < len(labels) else "background"]
+    condensed_labels = [labels[index] for index in keep_indices] + ["other", labels[background] if background < len(labels) else "background"]
     return {"step": confusion_matrix.get("step"), "values": condensed, "size": len(groups),
             "labels": condensed_labels, "condensed": True, "hiddenClasses": len(other)}
 
@@ -292,15 +297,15 @@ cached_response = load_cache()
 for _ in sys.stdin:
     try:
         if cached_response is not None:
-            response = cached_response
+            # The cache is useful for avoiding a cold-start empty view, but it
+            # must not be returned as the current snapshot.  Catch up the
+            # in-memory series before replying so the monitor cannot pin the
+            # server to an old cached step while the event file continues to
+            # grow.
             cached_response = None
-            print(json.dumps(response, separators=(",", ":")), flush=True)
-            # Let the caller render the cached snapshot immediately, then
-            # catch the reader up before the next poll arrives.
             update_series()
             response = current_response()
             save_cache(response)
-            continue
         else:
             update_series()
             response = current_response()
