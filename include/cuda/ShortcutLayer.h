@@ -23,7 +23,7 @@ namespace px {
 template<>
 inline void ShortcutLayer<Device::CUDA>::forward(const V& input)
 {
-    Layer<Device::CUDA>::forward(input);
+    Layer::forward(input);
 
     this->output_.copy(input);
 
@@ -36,7 +36,7 @@ inline void ShortcutLayer<Device::CUDA>::forward(const V& input)
 template<>
 inline void ShortcutLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
-    Layer<Device::CUDA>::backward(input, grad);
+    Layer::backward(input, grad);
 
     activation_->gradient(this->output_, this->delta_);
 

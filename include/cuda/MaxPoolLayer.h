@@ -36,7 +36,7 @@ inline void MaxPoolLayer<Device::CUDA>::setup()
 template<>
 inline void MaxPoolLayer<Device::CUDA>::forward(const V& input)
 {
-    Layer<Device::CUDA>::forward(input);
+    Layer::forward(input);
     maxPoolForwardGpu(input.data(), this->output_.data(), indexes_.data(), this->batch(), this->channels(),
                       this->height(), this->width(), this->outHeight(), this->outWidth(), kernel_, stride_, padding_);
 }
@@ -44,7 +44,7 @@ inline void MaxPoolLayer<Device::CUDA>::forward(const V& input)
 template<>
 inline void MaxPoolLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
-    Layer<Device::CUDA>::backward(input, grad);
+    Layer::backward(input, grad);
 
     if (grad == nullptr) {
         return;

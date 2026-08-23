@@ -22,7 +22,7 @@ template<Device D = Device::CPU>
 class LayerFactories : public Singleton<LayerFactories<D>>
 {
 public:
-    using LayerPtr = typename Layer<D>::Ptr;
+    using LayerPtr = Layer<D>::Ptr;
 
     LayerFactories();
 

@@ -29,7 +29,7 @@ inline void adapt_strides(const shape_type& shape, strides_type& strides, typena
 template<typename shape_type, typename strides_type>
 inline std::size_t compute_strides(const shape_type& shape, strides_type& strides)
 {
-    using strides_value_type = typename std::decay_t<strides_type>::value_type;
+    using strides_value_type = std::decay_t<strides_type>::value_type;
     strides_value_type data_size = 1;
 
     for (auto i = shape.size(); i != 0; --i) {

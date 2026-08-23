@@ -130,14 +130,14 @@ class PxCpuVectorT : public PxVector<T>
 public:
     using C = std::vector<T>;
     using allocator_type = A;
-    using pointer = typename C::pointer;
-    using const_pointer = typename C::const_pointer;
-    using value_type = typename C::value_type;
-    using reference = typename C::reference;
-    using const_reference = typename C::const_reference;
-    using size_type = typename C::size_type;
-    using iterator = typename C::iterator;
-    using const_iterator = typename C::const_iterator;
+    using pointer = C::pointer;
+    using const_pointer = C::const_pointer;
+    using value_type = C::value_type;
+    using reference = C::reference;
+    using const_reference = C::const_reference;
+    using size_type = C::size_type;
+    using iterator = C::iterator;
+    using const_iterator = C::const_iterator;
     using device_type = std::integral_constant<Device, Device::CPU>;
 
     PxCpuVectorT();
@@ -438,11 +438,11 @@ class PxCudaVectorT : public PxVector<T>
 {
 public:
     using allocator_type = A;
-    using pointer = typename A::pointer;
-    using const_pointer = typename A::const_pointer;
-    using reference = typename A::reference;
-    using const_reference = typename A::const_reference;
-    using size_type = typename A::size_type;
+    using pointer = A::pointer;
+    using const_pointer = A::const_pointer;
+    using reference = A::reference;
+    using const_reference = A::const_reference;
+    using size_type = A::size_type;
     using device_type = std::integral_constant<Device, Device::CUDA>;
 
     PxCudaVectorT();
@@ -770,12 +770,12 @@ public:
     using self_type = PxTensorImpl<T, D, C, N>;
     using base_type = PxTensor<T, N>;
     using value_type = T;
-    using pointer = typename C::pointer;
-    using const_pointer = typename C::const_pointer;
-    using reference = typename C::reference;
-    using const_reference = typename C::const_reference;
-    using size_type = typename C::size_type;
-    using shape_type = typename base_type::shape_type;
+    using pointer = C::pointer;
+    using const_pointer = C::const_pointer;
+    using reference = C::reference;
+    using const_reference = C::const_reference;
+    using size_type = C::size_type;
+    using shape_type = base_type::shape_type;
     using device_type = std::integral_constant<Device, D>;
 
     PxTensorImpl();
@@ -1038,7 +1038,7 @@ template<typename T>
 void random(T& out, typename T::value_type lo = 0, typename T::value_type hi = 1)
 {
 #ifdef USE_CUDA
-    if constexpr (typename T::device_type() == Device::CUDA) {
+    if constexpr (T::device_type::value == Device::CUDA) {
         randomGpu(out.data(), out.size(), lo, hi);
     } else {
         randomCpu(out.data(), out.size(), lo, hi);
@@ -1052,7 +1052,7 @@ template<typename T>
 void randomNormal(T& out, typename T::value_type mean = 0, typename T::value_type stddev = 1)
 {
 #ifdef USE_CUDA
-    if constexpr (typename T::device_type() == Device::CUDA) {
+    if constexpr (T::device_type::value == Device::CUDA) {
         randomNormalGpu(out.data(), out.size(), mean, stddev);
     } else {
         randomNormalCpu(out.data(), out.size(), mean, stddev);

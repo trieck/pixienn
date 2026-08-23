@@ -32,7 +32,7 @@ template<Device D = Device::CPU>
 class ConnLayer : public Layer<D>, public FCExtras<D>
 {
 public:
-    using V = typename Layer<D>::V;
+    using V = Layer<D>::V;
 
     ConnLayer(Model<D>& model, const YAML::Node& layerDef);
 

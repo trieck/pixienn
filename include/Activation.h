@@ -234,8 +234,8 @@ template<>
 class IActivation<Device::CPU>
 {
 public:
-    using V = typename DeviceTraits<Device::CPU>::VectorType;
-    using T = typename DeviceTraits<Device::CPU>::ValueType;
+    using V = DeviceTraits<Device::CPU>::VectorType;
+    using T = DeviceTraits<Device::CPU>::ValueType;
 
     virtual T apply(T x) const = 0;
     virtual void apply(T* begin, T* end) const = 0;
@@ -252,8 +252,8 @@ template<>
 class IActivation<Device::CUDA>
 {
 public:
-    using V = typename DeviceTraits<Device::CUDA>::VectorType;
-    using T = typename DeviceTraits<Device::CUDA>::ValueType;
+    using V = DeviceTraits<Device::CUDA>::VectorType;
+    using T = DeviceTraits<Device::CUDA>::ValueType;
 
     virtual void apply(T* begin, T* end) const = 0;
     virtual void apply(V& container) const = 0;
@@ -268,8 +268,8 @@ template<typename U, Device D = Device::CPU>
 class Activation : public IActivation<D>
 {
 public:
-    using V = typename DeviceTraits<D>::VectorType;
-    using T = typename DeviceTraits<D>::ValueType;
+    using V = DeviceTraits<D>::VectorType;
+    using T = DeviceTraits<D>::ValueType;
 
     T apply(T x) const override;
     void apply(T* begin, T* end) const override;
@@ -329,8 +329,8 @@ template<typename U>
 class Activation<U, Device::CUDA> : public IActivation<Device::CUDA>
 {
 public:
-    using V = typename DeviceTraits<Device::CUDA>::VectorType;
-    using T = typename DeviceTraits<Device::CUDA>::ValueType;
+    using V = DeviceTraits<Device::CUDA>::VectorType;
+    using T = DeviceTraits<Device::CUDA>::ValueType;
 
     void apply(T* begin, T* end) const override;
     void apply(V& container) const override;
@@ -391,7 +391,7 @@ template<Device D = Device::CPU>
 class Activations : public Singleton<Activations<D>>
 {
 public:
-    using T = typename DeviceTraits<D>::ValueType;
+    using T = DeviceTraits<D>::ValueType;
     using Ptr = std::shared_ptr<IActivation<D>>;
 
     static Ptr get(const std::string& name);

@@ -39,7 +39,7 @@ inline void RegionLayer<Device::CUDA>::setup()
 template<>
 inline void RegionLayer<Device::CUDA>::forward(const V& input)
 {
-    Layer<Device::CUDA>::forward(input);
+    Layer::forward(input);
 
     PxCpuVector cpuInput(input.size());
     cpuInput.copyDevice(input.data(), input.size());
@@ -56,7 +56,7 @@ inline void RegionLayer<Device::CUDA>::forward(const V& input)
 template<>
 inline void RegionLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
-    Layer<Device::CUDA>::backward(input, grad);
+    Layer::backward(input, grad);
 
     if (grad == nullptr) {
         return;

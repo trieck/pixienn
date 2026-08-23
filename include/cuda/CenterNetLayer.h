@@ -37,7 +37,7 @@ inline void CenterNetLayer<Device::CUDA>::setup()
 template<>
 inline void CenterNetLayer<Device::CUDA>::forward(const V& input)
 {
-    Layer<Device::CUDA>::forward(input);
+    Layer::forward(input);
     const auto area = this->width() * this->height();
     centerNetActivateGpu(input.data(), this->output_.data(), this->batch(),
                          this->classes(), area, heatmapBias_);
@@ -76,7 +76,7 @@ inline void CenterNetLayer<Device::CUDA>::forward(const V& input)
 template<>
 inline void CenterNetLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
-    Layer<Device::CUDA>::backward(input, grad);
+    Layer::backward(input, grad);
     if (grad == nullptr) {
         return;
     }

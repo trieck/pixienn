@@ -67,7 +67,7 @@ inline void SoftmaxLayer<Device::CUDA>::computeLoss()
 template<>
 inline void SoftmaxLayer<Device::CUDA>::forward(const V& input)
 {
-    Layer<Device::CUDA>::forward(input);
+    Layer::forward(input);
 
     auto alpha = 1.0f;
     auto beta = 0.0f;
@@ -87,7 +87,7 @@ inline void SoftmaxLayer<Device::CUDA>::forward(const V& input)
 template<>
 inline void SoftmaxLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
-    Layer<Device::CUDA>::backward(input, grad);
+    Layer::backward(input, grad);
 
     if (grad == nullptr) {
         return;

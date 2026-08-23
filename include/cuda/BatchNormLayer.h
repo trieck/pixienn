@@ -44,7 +44,7 @@ inline std::streamoff BatchNormLayer<Device::CUDA>::loadWeights(std::istream& is
 template<>
 inline void BatchNormLayer<Device::CUDA>::forward(const PxCudaVector& input)
 {
-    Layer<Device::CUDA>::forward(input);
+    Layer::forward(input);
 
     cudnnStatus_t status = CUDNN_STATUS_SUCCESS;
 
@@ -98,7 +98,7 @@ inline void BatchNormLayer<Device::CUDA>::forward(const PxCudaVector& input)
 template<>
 inline void BatchNormLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
-    Layer<Device::CUDA>::backward(input, grad);
+    Layer::backward(input, grad);
 
     auto alpha = 1.0f;
     auto betaData = 0.0f;
@@ -146,7 +146,7 @@ inline void BatchNormLayer<Device::CUDA>::update()
     auto momentum = net.momentum();
     auto batch = net.updateBatch();
 
-    Layer<Device::CUDA>::update();
+    Layer::update();
 
     const auto& ctxt = this->cublasContext();
 
@@ -168,7 +168,7 @@ inline void BatchNormLayer<Device::CUDA>::update()
 template<>
 inline void BatchNormLayer<Device::CUDA>::scaleGradients()
 {
-    Layer<Device::CUDA>::scaleGradients();
+    Layer::scaleGradients();
 
     this->scaleTensor(biasUpdates_);
     this->scaleTensor(scaleUpdates_);
@@ -177,7 +177,7 @@ inline void BatchNormLayer<Device::CUDA>::scaleGradients()
 template<>
 inline void BatchNormLayer<Device::CUDA>::clipGradients()
 {
-    Layer<Device::CUDA>::clipGradients();
+    Layer::clipGradients();
 
     constrainGpu(biasUpdates_.size(), this->gradientClipValue_, biasUpdates_.data());
     constrainGpu(scaleUpdates_.size(), this->gradientClipValue_, scaleUpdates_.data());

@@ -39,7 +39,7 @@ inline void DetectLayer<Device::CUDA>::setup()
 template<>
 inline void DetectLayer<Device::CUDA>::forward(const V& input)
 {
-    Layer<Device::CUDA>::forward(input);
+    Layer::forward(input);
 
     if (this->inferring()) {
         this->output_.copy(input);
@@ -61,7 +61,7 @@ inline void DetectLayer<Device::CUDA>::forward(const V& input)
 template<>
 inline void DetectLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
-    Layer<Device::CUDA>::backward(input, grad);
+    Layer::backward(input, grad);
 
     if (grad == nullptr) {
         return;

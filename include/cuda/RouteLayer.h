@@ -21,7 +21,7 @@ namespace px {
 template<>
 inline void RouteLayer<Device::CUDA>::forward(const V& input)
 {
-    Layer<Device::CUDA>::forward(input);
+    Layer::forward(input);
 
     auto offset = 0;
 
@@ -46,7 +46,7 @@ inline void RouteLayer<Device::CUDA>::forward(const V& input)
 template<>
 inline void RouteLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
-    Layer<Device::CUDA>::backward(input, grad);
+    Layer::backward(input, grad);
 
     auto alpha = 1.0f;
     auto offset = 0;

@@ -16,7 +16,7 @@ template<Device D = Device::CPU>
 class CenterNetLayer : public Layer<D>, public Detector, public CenterNetExtras<D>
 {
 public:
-    using V = typename Layer<D>::V;
+    using V = Layer<D>::V;
 
     CenterNetLayer(Model<D>& model, const YAML::Node& layerDef);
 

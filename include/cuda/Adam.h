@@ -27,7 +27,7 @@ template<Device D>
 class Adam
 {
 public:
-    using V = typename DeviceTraits<D>::VectorType;
+    using V = DeviceTraits<D>::VectorType;
 
     Adam(const CublasContext& ctxt, int batch, int t, float lr, float beta1, float beta2, float epsilon, float decay);
 

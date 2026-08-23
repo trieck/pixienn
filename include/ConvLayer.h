@@ -33,7 +33,7 @@ template<Device D = Device::CPU>
 class ConvLayer : public Layer<D>, public CVExtras<D>
 {
 public:
-    using V = typename Layer<D>::V;
+    using V = Layer<D>::V;
     ConvLayer(Model<D>& model, YAML::Node layerDef);
 
     void forward(const V& input) override;

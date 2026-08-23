@@ -53,7 +53,7 @@ inline void YoloLayer<Device::CUDA>::setup()
     assignedBoxes_ = PxCudaVector(hostAssignedBoxes_.size());
     assignedClasses_ = PxCudaVectorT<int>(slots);
     assignedAnchors_ = PxCudaVectorT<int>(slots);
-    masksGpu_ = PxCudaVectorT<int>(mask_.data(), mask_.data() + mask_.size());
+    masksGpu_ = PxCudaVectorT(mask_.data(), mask_.data() + mask_.size());
     PxCpuVector anchorValues(anchors_.size());
     std::transform(anchors_.begin(), anchors_.end(), anchorValues.begin(),
                    [](int value) { return static_cast<float>(value); });
@@ -70,7 +70,7 @@ inline void YoloLayer<Device::CUDA>::setup()
 template<>
 inline void YoloLayer<Device::CUDA>::forward(const V& input)
 {
-    Layer<Device::CUDA>::forward(input);
+    Layer::forward(input);
 
     const auto area = this->width() * this->height();
     yoloActivateGpu(input.data(), this->output_.data(), this->batch(), numMasks_,
@@ -150,7 +150,7 @@ inline void YoloLayer<Device::CUDA>::forward(const V& input)
 template<>
 inline void YoloLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
-    Layer<Device::CUDA>::backward(input, grad);
+    Layer::backward(input, grad);
 
     if (grad == nullptr) {
         return;

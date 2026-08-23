@@ -32,7 +32,7 @@ template<Device D = Device::CPU>
 class MaxPoolLayer : public Layer<D>, public MPExtras<D>
 {
 public:
-    using V = typename Layer<D>::V;
+    using V = Layer<D>::V;
 
     MaxPoolLayer(Model<D>& model, const YAML::Node& layerDef);
 

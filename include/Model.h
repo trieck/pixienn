@@ -177,7 +177,7 @@ template<Device D = Device::CPU>
 class Model : public BaseModel, public DeviceExtras<D>
 {
 public:
-    using V = typename DeviceTraits<D>::VectorType;
+    using V = DeviceTraits<D>::VectorType;
     using LayerPtr = std::shared_ptr<Layer<D>>;
     using LayerVec = std::vector<LayerPtr>;
 

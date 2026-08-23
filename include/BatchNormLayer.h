@@ -15,7 +15,7 @@ template<Device D = Device::CPU>
 class BatchNormLayer : public Layer<D>, public BNExtras<D>
 {
 public:
-    using V = typename Layer<D>::V;
+    using V = Layer<D>::V;
     BatchNormLayer(Model<D>& model, YAML::Node layerDef);
 
     void forward(const V& input) override;

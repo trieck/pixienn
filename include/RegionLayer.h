@@ -31,7 +31,7 @@ template<Device D = Device::CPU>
 class RegionLayer : public Layer<D>, public Detector, public RegionExtras<D>
 {
 public:
-    using V = typename Layer<D>::V;
+    using V = Layer<D>::V;
 
     RegionLayer(Model<D>& model, const YAML::Node& layerDef);
 

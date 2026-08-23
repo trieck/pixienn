@@ -31,7 +31,7 @@ template<Device D>
 class SoftmaxLayer : public Layer<D>, public SMExtras<D>, public Detector
 {
 public:
-    using V = typename Layer<D>::V;
+    using V = Layer<D>::V;
 
     SoftmaxLayer(Model<D>& model, const YAML::Node& layerDef);
 

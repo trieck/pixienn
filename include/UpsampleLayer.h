@@ -29,7 +29,7 @@ template<Device D = Device::CPU>
 class UpsampleLayer : public Layer<D>, public UpsampleExtras<D>
 {
 public:
-    using V = typename Layer<D>::V;
+    using V = Layer<D>::V;
 
     UpsampleLayer(Model<D>& model, const YAML::Node& layerDef);
 

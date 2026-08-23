@@ -44,7 +44,7 @@ template<Device D = Device::CPU>
 class Layer
 {
 public:
-    using V = typename Model<D>::V;
+    using V = Model<D>::V;
     using Ptr = std::shared_ptr<Layer<D>>;
 
     Layer(Model<D>& model, YAML::Node layerDef);

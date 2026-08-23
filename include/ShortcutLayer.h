@@ -24,7 +24,7 @@ template<Device D = Device::CPU>
 class ShortcutLayer : public Layer<D>
 {
 public:
-    using V = typename Layer<D>::V;
+    using V = Layer<D>::V;
 
     ShortcutLayer(Model<D>& model, const YAML::Node& layerDef);
 

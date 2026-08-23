@@ -34,7 +34,7 @@ public:
     Validator(float confidenceThreshold, float apConfidenceThreshold, float iouThreshold, float nmsThreshold,
               int numClasses);
 
-    using V = typename DeviceTraits<D>::VectorType;
+    using V = DeviceTraits<D>::VectorType;
 
     void validate(Model<D>& model, const MiniBatch& batch);
     void reset() noexcept;

@@ -22,7 +22,7 @@ template<>
 class DropoutExtras<Device::CUDA>
 {
 protected:
-    using V = typename Layer<Device::CUDA>::V;
+    using V = Layer<Device::CUDA>::V;
 
     CudnnDropoutDesc::Ptr dropoutDesc_;
     CudnnTensorDesc::Ptr inputDesc_, outputDesc_;
@@ -70,7 +70,7 @@ inline void DropoutLayer<Device::CUDA>::setup()
 template<>
 inline void DropoutLayer<Device::CUDA>::forward(const V& input)
 {
-    Layer<Device::CUDA>::forward(input);
+    Layer::forward(input);
 
     this->output_.copy(input);
 
@@ -92,7 +92,7 @@ inline void DropoutLayer<Device::CUDA>::forward(const V& input)
 template<>
 inline void DropoutLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
-    Layer<Device::CUDA>::backward(input, grad);
+    Layer::backward(input, grad);
 
     if (grad == nullptr) {
         return;

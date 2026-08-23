@@ -266,7 +266,7 @@ inline std::streamoff ConvLayer<Device::CUDA>::saveOptimizer(std::ostream& os)
 template<>
 inline void ConvLayer<Device::CUDA>::forward(const V& input)
 {
-    Layer<Device::CUDA>::forward(input);
+    Layer::forward(input);
 
     auto alpha = 1.0f;
     auto beta = 0.0f;
@@ -310,7 +310,7 @@ inline void ConvLayer<Device::CUDA>::forward(const V& input)
 template<>
 inline void ConvLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
-    Layer<Device::CUDA>::backward(input, grad);
+    Layer::backward(input, grad);
 
     activation_->gradient(this->preActivation_, this->delta_);
 
@@ -363,7 +363,7 @@ inline void ConvLayer<Device::CUDA>::update()
     auto decay = net.decay();
     auto batch = net.updateBatch();
 
-    Layer<Device::CUDA>::update();
+    Layer::update();
 
     const auto& ctxt = this->cublasContext();
 
@@ -416,7 +416,7 @@ inline void ConvLayer<Device::CUDA>::update()
 template<>
 inline void ConvLayer<Device::CUDA>::scaleGradients()
 {
-    Layer<Device::CUDA>::scaleGradients();
+    Layer::scaleGradients();
 
     this->scaleTensor(weightUpdates_);
     this->scaleTensor(biasUpdates_);
@@ -426,7 +426,7 @@ inline void ConvLayer<Device::CUDA>::scaleGradients()
 template<>
 inline void ConvLayer<Device::CUDA>::clipGradients()
 {
-    Layer<Device::CUDA>::clipGradients();
+    Layer::clipGradients();
 
     constrainGpu(weightUpdates_.size(), this->gradientClipValue_, this->weightUpdates_.data());
     constrainGpu(biasUpdates_.size(), this->gradientClipValue_, this->biasUpdates_.data());

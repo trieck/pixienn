@@ -29,7 +29,7 @@ template<Device D>
 class AvgPoolLayer : public Layer<D>, public APExtras<D>
 {
 public:
-    using V = typename Layer<D>::V;
+    using V = Layer<D>::V;
 
     AvgPoolLayer(Model<D>& model, const YAML::Node& layerDef);
 

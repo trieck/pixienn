@@ -50,7 +50,7 @@ template<Device D = Device::CPU>
 class DetectLayer : public Layer<D>, public Detector, public DetectExtras<D>
 {
 public:
-    using V = typename Layer<D>::V;
+    using V = Layer<D>::V;
 
     DetectLayer(Model<D>& model, const YAML::Node& layerDef);
 

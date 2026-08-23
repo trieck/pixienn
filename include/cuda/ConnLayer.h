@@ -26,7 +26,7 @@ template<>
 class FCExtras<Device::CUDA>
 {
 protected:
-    using V = typename Layer<Device::CUDA>::V;
+    using V = Layer<Device::CUDA>::V;
 
     CudnnTensorDesc::Ptr yDesc_, sbmv_;
     V m_, v_;
@@ -170,7 +170,7 @@ inline std::streamoff ConnLayer<Device::CUDA>::saveOptimizer(std::ostream& os)
 template<>
 inline void ConnLayer<Device::CUDA>::forward(const V& input)
 {
-    Layer<Device::CUDA>::forward(input);
+    Layer::forward(input);
 
     auto m = this->batch();
     auto n = this->outputs();
@@ -221,7 +221,7 @@ inline void ConnLayer<Device::CUDA>::forward(const V& input)
 template<>
 inline void ConnLayer<Device::CUDA>::backward(const V& input, V* grad)
 {
-    Layer<Device::CUDA>::backward(input, grad);
+    Layer::backward(input, grad);
 
     activation_->gradient(this->preActivation_, this->delta_);
 
@@ -274,7 +274,7 @@ inline void ConnLayer<Device::CUDA>::update()
     auto decay = net.decay();
     auto batch = net.updateBatch();
 
-    Layer<Device::CUDA>::update();
+    Layer::update();
 
     const auto& ctxt = this->cublasContext();
 
@@ -331,7 +331,7 @@ inline void ConnLayer<Device::CUDA>::update()
 template<>
 inline void ConnLayer<Device::CUDA>::scaleGradients()
 {
-    Layer<Device::CUDA>::scaleGradients();
+    Layer::scaleGradients();
 
     this->scaleTensor(weightUpdates_);
     this->scaleTensor(biasUpdates_);
@@ -341,7 +341,7 @@ inline void ConnLayer<Device::CUDA>::scaleGradients()
 template<>
 inline void ConnLayer<Device::CUDA>::clipGradients()
 {
-    Layer<Device::CUDA>::clipGradients();
+    Layer::clipGradients();
 
     constrainGpu(weightUpdates_.size(), gradientClipValue_, weightUpdates_.data());
     constrainGpu(biasUpdates_.size(), gradientClipValue_, biasUpdates_.data());

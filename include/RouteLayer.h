@@ -24,7 +24,7 @@ template<Device D = Device::CPU>
 class RouteLayer : public Layer<D>
 {
 public:
-    using V = typename Layer<D>::V;
+    using V = Layer<D>::V;
 
     RouteLayer(Model<D>& model, const YAML::Node& layerDef);
 
@@ -146,4 +146,3 @@ using CudaRoute = RouteLayer<Device::CUDA>;
 #include "cuda/RouteLayer.h"
 
 #endif // USE_CUDA
-

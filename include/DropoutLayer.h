@@ -24,7 +24,7 @@ namespace px {
 template<Device D>
 class DropoutExtras
 {
-    using V = typename Layer<D>::V;
+    using V = Layer<D>::V;
 
 protected:
     V randoms_;
@@ -35,7 +35,7 @@ template<Device D = Device::CPU>
 class DropoutLayer : public Layer<D>, public DropoutExtras<D>
 {
 public:
-    using V = typename Layer<D>::V;
+    using V = Layer<D>::V;
     DropoutLayer(Model<D>& model, YAML::Node layerDef);
 
     void forward(const V& input) override;

@@ -46,7 +46,7 @@ template<Device D = Device::CPU>
 class YoloLayer : public Layer<D>, public Detector, public YoloExtras<D>
 {
 public:
-    using V = typename Layer<D>::V;
+    using V = Layer<D>::V;
 
     YoloLayer(Model<D>& model, const YAML::Node& layerDef);
 
@@ -396,7 +396,7 @@ void YoloLayer<D>::deltaYoloClass(int index, int classId)
     auto stride = this->width() * this->height();
 
     for (auto i = 0; i < this->classes(); ++i) {
-        auto netTruth = (i == classId) ? 1.0f : 0.0f;
+        auto netTruth = i == classId ? 1.0f : 0.0f;
         pdelta[index + i * stride] = classScale_ * (netTruth - poutput[index + i * stride]);
 
         if (netTruth) {
@@ -606,12 +606,12 @@ cv::Rect YoloLayer<D>::scaledYoloBox(const float* p, int mask, int index, int i,
     const auto netH = this->model().height();
 
     int newW, newH;
-    if (((float) netW / w) < ((float) netH / h)) {
+    if ((float) netW / w < (float) netH / h) {
         newW = netW;
-        newH = (h * netW) / w;
+        newH = h * netW / w;
     } else {
         newH = netH;
-        newW = (w * netH) / h;
+        newW = w * netH / h;
     }
 
     auto x = (i + p[index + 0 * stride]) / this->width();
