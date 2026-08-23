@@ -117,3 +117,7 @@ inline std::ostream& PositionalEncoding<>::print(std::ostream& os)
 }
 
 } // namespace px
+
+#ifdef USE_CUDA
+#include "cuda/PositionalEncoding.h"
+#endif

@@ -12,7 +12,9 @@ model:
   decay: 0.0005
 
   adam:
-    enabled: True
+    # Keep the CUDA smoke run on the same SGD-style update path as the CPU
+    # reference layers; CUDA convolution otherwise switches to Adam.
+    enabled: False
     beta1: 0.9
     beta2: 0.999
     epsilon: 1e-8

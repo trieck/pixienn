@@ -145,6 +145,7 @@ if (USE_CUDA)
             src/MaxPoolKernels.cu
             src/ShortcutKernel.cu
             src/SoftmaxKernel.cu
+            src/TransformerKernel.cu
             src/UpsampleKernels.cu
             src/YoloKernels.cu
     )

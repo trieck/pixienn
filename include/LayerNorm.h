@@ -25,9 +25,8 @@ namespace px {
  *
  * PixieNN tensors are stored as [batch, channels, height, width]. For every
  * (batch, y, x) location, this layer normalizes the channels independently of
- * every other spatial location. The CPU implementation is intentionally being
- * built first; CUDA support will be added after the reference behavior is
- * covered by tests.
+ * every other spatial location. CPU and CUDA implementations share the same
+ * parameter layout.
  */
 template<Device D = Device::CPU>
 class LayerNorm : public Layer<D>
@@ -61,3 +60,7 @@ private:
 using CpuLayerNorm = LayerNorm<>;
 
 } // namespace px
+
+#ifdef USE_CUDA
+#include "cuda/LayerNorm.h"
+#endif

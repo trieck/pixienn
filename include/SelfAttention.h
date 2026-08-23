@@ -433,3 +433,7 @@ inline std::ostream& SelfAttention<>::print(std::ostream& os)
 }
 
 } // namespace px
+
+#ifdef USE_CUDA
+#include "cuda/SelfAttention.h"
+#endif
