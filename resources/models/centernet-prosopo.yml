@@ -4,7 +4,7 @@ model:
   channels: 3
   height: 512
   width: 512
-  max_batches: 64000
+  max_batches: 300000
   momentum: 0.9
   decay: 0.001
 
@@ -24,7 +24,7 @@ model:
 
   validation:
     enabled: True
-    interval: 500
+    interval: 6000
     confidence_threshold: 0.3
     ap_confidence_threshold: 0.001
     iou_threshold: 0.5
@@ -43,7 +43,7 @@ model:
     threshold: 100.0
 
   gradient_clipping:
-    enabled: True
+    enabled: False
     value: 10.0
 
   save_weights_interval: 1000
@@ -51,16 +51,16 @@ model:
   write_metrics_interval: 50
 
   learning_rate:
-    initial_learning_rate: 0.001
+    initial_learning_rate: 0.0001
     policy: reduce_on_plateau
 
     reduce_on_plateau:
-      factor: 0.8
-      patience: 3
-      threshold: 0.003
-      cooldown: 1
-      min_learning_rate: 0.0000001
-      smoothing: 3
+      factor: 0.8                   # Multiply LR by this after a confirmed plateau.
+      patience: 3                   # Consecutive non-improving validations before reducing.
+      threshold: 0.003              # Minimum absolute mAP50 gain counted as improvement.
+      cooldown: 3                   # Non-improving validations ignored after each reduction.
+      min_learning_rate: 0.0000001  # Never reduce the LR below this floor.
+      smoothing: 3                  # Compare the 3-validation moving average of mAP50.
 
   layers:
     - type: conv
@@ -329,43 +329,6 @@ model:
       from: -3
       activation: linear
 
-    # Transformer enhancement at the stride-32 bottleneck.  Attention sees
-    # the whole 16 x 16 feature map, then the residual feed-forward path
-    # returns the context-enriched representation to the CenterNet pyramid.
-    - type: conv
-      filters: 256
-      kernel: 1
-      stride: 1
-      pad: False
-      activation: mish
-      batch_normalize: True
-    - type: positional-encoding
-    # Normalize before Q/K/V projection so attention scores remain finite
-    # while the convolutional backbone is still learning.
-    - type: layernorm
-    - type: self-attention
-      heads: 8
-    - type: shortcut
-      from: -2
-      activation: linear
-    - type: layernorm
-    - type: conv
-      filters: 512
-      kernel: 1
-      stride: 1
-      pad: False
-      activation: mish
-      batch_normalize: True
-    - type: conv
-      filters: 256
-      kernel: 1
-      stride: 1
-      pad: False
-      activation: linear
-    - type: shortcut
-      from: -4
-      activation: linear
-
     # Top-down pyramid: 32 -> 16 -> 8 -> 4 pixel strides.
     - type: conv
       filters: 512
@@ -446,7 +409,7 @@ model:
       activation: linear
 
     - type: route
-      layers: [ 65 ]
+      layers: [ 56 ]
     - type: conv
       filters: 128
       kernel: 3
@@ -462,7 +425,7 @@ model:
       activation: linear
 
     - type: route
-      layers: [ 65 ]
+      layers: [ 56 ]
     - type: conv
       filters: 128
       kernel: 3
@@ -478,7 +441,7 @@ model:
       activation: linear
 
     - type: route
-      layers: [ 67, 70, 73 ]
+      layers: [ 58, 61, 64 ]
 
     - type: centernet
       focal_alpha: 2.0
@@ -487,7 +450,7 @@ model:
       size_weight: 0.75
       max_detections: 100
     - type: route
-      layers: [ 60 ]
+      layers: [ 52 ]
     - type: conv
       filters: 128
       kernel: 1
@@ -499,7 +462,7 @@ model:
       stride: 2
 
     - type: route
-      layers: [ -1, 65 ]
+      layers: [ -1, 56 ]
     - type: conv
       filters: 128
       kernel: 3
@@ -509,7 +472,7 @@ model:
       batch_normalize: True
 
     - type: route
-      layers: [ 79 ]
+      layers: [ 71 ]
     - type: conv
       filters: 128
       kernel: 3
@@ -525,7 +488,7 @@ model:
       activation: linear
 
     - type: route
-      layers: [ 79 ]
+      layers: [ 71 ]
     - type: conv
       filters: 128
       kernel: 3
@@ -541,7 +504,7 @@ model:
       activation: linear
 
     - type: route
-      layers: [ 79 ]
+      layers: [ 71 ]
     - type: conv
       filters: 128
       kernel: 3
@@ -557,7 +520,7 @@ model:
       activation: linear
 
     - type: route
-      layers: [ 83, 86, 89 ]
+      layers: [ 74, 77, 80 ]
     - type: centernet
       focal_alpha: 2.0
       focal_beta: 4.0

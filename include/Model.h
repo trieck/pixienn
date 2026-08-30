@@ -1060,11 +1060,7 @@ std::string Model<D>::predictBatchImageList(const std::string& imageList, float 
     const auto columns = std::max<std::size_t>(1, static_cast<std::size_t>(std::ceil(std::sqrt(imageFiles.size()))));
     const auto rows = (imageFiles.size() + columns - 1) / columns;
     constexpr int tileWidth = 640;
-    const auto maxAspectHeight = std::accumulate(images.begin(), images.end(), 0.0f,
-        [](float height, const cv::Mat& image) {
-            return std::max(height, static_cast<float>(image.rows) / image.cols);
-        });
-    const auto tileHeight = std::max(1, static_cast<int>(std::lround(tileWidth * maxAspectHeight)));
+    constexpr int tileHeight = tileWidth;
     cv::Mat mosaic(static_cast<int>(rows) * tileHeight, static_cast<int>(columns) * tileWidth,
                    CV_8UC4, cv::Scalar(32, 32, 32, 255));
     ColorMaps colors(options_.count("color-map") ? option<std::string>("color-map") : "viridis");
