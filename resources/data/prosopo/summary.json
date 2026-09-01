@@ -2,6 +2,12 @@
   "classes": [
     "person"
   ],
+  "curation": {
+    "filtered_boxes": 92417,
+    "minimum_box_pixels": 10,
+    "removed_images": 5514,
+    "training_size": 256
+  },
   "dataset": "prosopo",
   "kitti_excluded_classes": {
     "5": "cyclist"
@@ -12,20 +18,20 @@
   },
   "sources": {
     "coco": {
-      "boxes": 276638,
-      "images": 66808
+      "boxes": 187720,
+      "images": 62252
     },
     "kitti": {
-      "boxes": 4709,
-      "images": 1796
+      "boxes": 1682,
+      "images": 928
     },
     "voc": {
-      "boxes": 10456,
-      "images": 4750
+      "boxes": 9984,
+      "images": 4660
     }
   },
-  "train_boxes": 199470,
-  "train_images": 50343,
-  "val_boxes": 4093,
+  "train_boxes": 135942,
+  "train_images": 46468,
+  "val_boxes": 3108,
   "val_images": 1000
 }

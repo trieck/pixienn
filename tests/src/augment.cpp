@@ -205,3 +205,27 @@ TEST_F(AugmentationTest, TransformGT)
     // EXPECT_TRUE(matched); won't work for boxes not fully contained in the image
     (void)matched;
 }
+
+TEST_F(AugmentationTest, Mosaic)
+{
+    const auto targetSize = cv::Size{ 200, 200 };
+    const auto normalized = imnormalize(image);
+    const std::array<ImageLabel, 4> sources{
+            ImageLabel{ normalized, { gt } }, ImageLabel{ normalized, { gt } },
+            ImageLabel{ normalized, { gt } }, ImageLabel{ normalized, { gt } }
+    };
+    ImageAugmenter augmenter{ 0.0f, 0.0f, 1.0f, 1.0f, false, true, 1.0f };
+
+    const auto mosaic = augmenter.augmentMosaic(sources, targetSize);
+
+    ASSERT_EQ(mosaic.first.size(), targetSize);
+    ASSERT_EQ(mosaic.first.type(), CV_32FC3);
+    // A crop is allowed to remove every source box. Mosaic must not retain
+    // partially visible boxes just to guarantee a non-empty target list.
+    for (const auto& label : mosaic.second) {
+        EXPECT_GE(label.box.x() - label.box.w() / 2.0f, 0.0f);
+        EXPECT_LE(label.box.x() + label.box.w() / 2.0f, 1.0f);
+        EXPECT_GE(label.box.y() - label.box.h() / 2.0f, 0.0f);
+        EXPECT_LE(label.box.y() + label.box.h() / 2.0f, 1.0f);
+    }
+}

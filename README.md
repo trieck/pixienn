@@ -295,6 +295,27 @@ training:
 
 The model YAML controls layers, batch sizing, augmentation, validation cadence, optimizer parameters, learning-rate policy, checkpointing, and early stopping. Start with an included preset; then change one variable at a time and preserve the generated run metadata.
 
+Mosaic augmentation is opt-in and combines four training images before the
+normal detector target builder runs. Add it under `augmentation` in a model
+YAML:
+
+```yaml
+augmentation:
+  enabled: True
+  flip: True
+  jitter: 0.2
+  saturation: 1.5
+  exposure: 1.5
+  hue: 0.1
+  mosaic:
+    enabled: True
+    probability: 0.5
+```
+
+The probability controls how often a training sample is built from four source
+images. Validation never uses Mosaic because validation loaders do not create
+an augmenter.
+
 ## Project direction
 
 The next meaningful milestones are evidence, not feature-count theater:

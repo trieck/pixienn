@@ -24,6 +24,7 @@
 #include "FileUtil.h"
 #include "Image.h"
 #include "ImageAugmenter.h"
+#include "Utility.h"
 
 namespace px {
 
@@ -92,9 +93,23 @@ void BatchLoader::loadBatches()
             // other workers can prepare subsequent batches concurrently.
             MiniBatch batch(batchSize_, channels_, height_, width_);
             for (std::uint32_t i = 0; i < validSize; ++i) {
-                auto imgLabels = loadImgLabels(paths[i]);
+                ImageLabels imgLabels;
+                if (augmenter_ && augmenter_->useMosaic()) {
+                    std::array<ImageLabel, 4> sources;
+                    for (auto tile = 0; tile < 4; ++tile) {
+                        auto sourcePath = tile == 0 ? paths[i]
+                                                    : imageFiles_[randomUniform<std::size_t>(0, imageFiles_.size() - 1)];
+                        auto source = loadRawImgLabels(sourcePath);
+                        sources[tile] = std::make_pair(std::move(source.first), std::move(source.second));
+                    }
+                    auto mosaic = augmenter_->augmentMosaic(
+                            sources, { static_cast<int>(width_), static_cast<int>(height_) });
+                    imgLabels = std::move(mosaic);
+                } else {
+                    imgLabels = loadImgLabels(paths[i]);
+                }
 
-                batch.setImageData(i, imgLabels.first);  // the image data must be copied
+                batch.setImageData(i, imvector(imgLabels.first));  // the image data must be copied
                 batch.setGroundTruth(i, std::move(imgLabels.second));
             }
             batch.setValidSize(validSize);
@@ -190,36 +205,35 @@ void BatchLoader::loadPaths()
 
 auto BatchLoader::loadImgLabels(const std::string& imagePath) -> ImageLabels
 {
-    auto gts = groundTruth(imagePath);
-
-    if (viewImage_) {
-        viewImageGT(imagePath, gts);
-    }
+    auto raw = loadRawImgLabels(imagePath);
+    auto& gts = raw.second;
 
     if (augmenter_) {
-        auto orig = imreadNormalize(imagePath.c_str(), channels_);
-        auto augmented = augmenter_->augment(orig, { (int) width_, (int) height_ }, gts);
-        auto vector = imvector(augmented.first);
-
-        return { vector, augmented.second };
+        auto augmented = augmenter_->augment(raw.first, { (int) width_, (int) height_ }, gts);
+        return augmented;
     } else {
-        auto vec = imreadVector(imagePath.c_str(), width_, height_, channels_);
+        auto mat = imletterbox(raw.first, width_, height_);
 
         // Shift the ground truth boxes to the new image size
         GroundTruthVec newGts;
 
         for (const auto& gt: gts) {
             GroundTruth newGt(gt);
-            newGt.box.x() = (gt.box.x() * vec.ax) + vec.dx;
-            newGt.box.y() = (gt.box.y() * vec.ay) + vec.dy;
-            newGt.box.w() = gt.box.w() * vec.ax;
-            newGt.box.h() = gt.box.h() * vec.ay;
+            newGt.box.x() = (gt.box.x() * mat.ax) + mat.dx;
+            newGt.box.y() = (gt.box.y() * mat.ay) + mat.dy;
+            newGt.box.w() = gt.box.w() * mat.ax;
+            newGt.box.h() = gt.box.h() * mat.ay;
 
             newGts.emplace_back(std::move(newGt));
         }
 
-        return { vec.data, newGts };
+        return { std::move(mat.image), std::move(newGts) };
     }
+}
+
+auto BatchLoader::loadRawImgLabels(const std::string& imagePath) -> RawImageLabels
+{
+    return { imreadNormalize(imagePath.c_str(), channels_), groundTruth(imagePath) };
 }
 
 GroundTruthVec BatchLoader::groundTruth(const std::string& imagePath)
@@ -259,55 +273,44 @@ std::size_t BatchLoader::size() const
     return imageFiles_.size();
 }
 
-void BatchLoader::viewImageGT(const std::string& imagePath, const GroundTruthVec& gt) const
+void BatchLoader::viewBatch(const MiniBatch& batch) const
 {
+    const auto planeSize = static_cast<std::size_t>(batch.width()) * batch.height();
+    const auto type = CV_MAKETYPE(CV_32F, batch.channels());
+    for (auto b = 0u; b < batch.validSize(); ++b) {
+        cv::Mat image(static_cast<int>(batch.height()), static_cast<int>(batch.width()), type);
+        const auto* planes = batch.slice(b);
+        for (auto y = 0u; y < batch.height(); ++y) {
+            auto* pixels = image.ptr<float>(static_cast<int>(y));
+            for (auto x = 0u; x < batch.width(); ++x) {
+                for (auto channel = 0u; channel < batch.channels(); ++channel) {
+                    pixels[x * batch.channels() + channel] =
+                            planes[channel * planeSize + y * batch.width() + x];
+                }
+            }
+        }
+        viewImageGT(image, batch.groundTruth(b));
+    }
+}
+
+void BatchLoader::viewImageGT(const cv::Mat& source, const GroundTruthVec& gt) const
+{
+    auto image = source.depth() == CV_8U ? source.clone() : imdenormalize(source);
+    if (image.channels() == 3) {
+        cv::cvtColor(image, image, cv::COLOR_BGR2BGRA);
+    } else if (image.channels() == 1) {
+        cv::cvtColor(image, image, cv::COLOR_GRAY2BGRA);
+    }
+
     ColorMaps colors("plasma");
-
-    cv::Mat image;
-
-    if (augmenter_) {
-        auto orig = imread(imagePath.c_str(), channels_);
-        auto augmented = augmenter_->augment(orig, { static_cast<int>(width_), static_cast<int>(height_) }, gt);
-
-        image = augmented.first;
-
-        cv::cvtColor(image, image, cv::COLOR_BGR2BGRA);
-
-        for (const auto& g: augmented.second) {
-            auto index = g.classId;
-            const auto& label = labels_[index];
-
-            auto bgColor = colors.color(index);
-            auto textColor = imtextcolor(bgColor);
-
-            auto lb = lightBox(g.box, { static_cast<int>(width_), static_cast<int>(height_) });
-
-            imrect(image, lb, bgColor, 2);
-            imtabbedText(image, label.c_str(), lb.tl(), textColor, bgColor, 2);
-        }
-    } else {
-        auto mat = imread(imagePath.c_str(), width_, height_, channels_);
-        image = mat.image;
-
-        cv::cvtColor(image, image, cv::COLOR_BGR2BGRA);
-
-        for (const auto& g: gt) {
-            auto index = g.classId;
-            const auto& label = labels_[index];
-
-            auto bgColor = colors.color(index);
-            auto textColor = imtextcolor(bgColor);
-
-            auto x = (g.box.x() * mat.ax) + mat.dx;
-            auto y = (g.box.y() * mat.ay) + mat.dy;
-            auto w = g.box.w() * mat.ax;
-            auto h = g.box.h() * mat.ay;
-
-            auto lb = lightBox({ x, y, w, h }, { static_cast<int>(width_), static_cast<int>(height_) });
-
-            imrect(image, lb, bgColor, 2);
-            imtabbedText(image, label.c_str(), lb.tl(), textColor, bgColor, 2);
-        }
+    for (const auto& g: gt) {
+        const auto index = g.classId;
+        const auto& label = labels_[index];
+        const auto bgColor = colors.color(index);
+        const auto textColor = imtextcolor(bgColor);
+        const auto box = lightBox(g.box, { static_cast<int>(width_), static_cast<int>(height_) });
+        imrect(image, box, bgColor, 2);
+        imtabbedText(image, label.c_str(), box.tl(), textColor, bgColor, 2);
     }
 
     cv::imshow("image", image);

@@ -295,6 +295,7 @@ private:
     float trainOnce(const V& input);
 
     using ImageLabels = std::pair<PxCpuVector, GroundTruthVec>;
+    using ValidationGalleryBatch = std::pair<MiniBatch, Detections>;
     std::string weightsFileName(bool final) const;
     std::string weightsLatestFileName() const;
     std::string weightsBestFileName() const;
@@ -314,7 +315,7 @@ private:
     void writeAvgValLoss();
     void writeAccuracy();
     void writeValidationDuration(double seconds);
-    void writeValidationGallery(const MiniBatch& batch);
+    void writeValidationGallery(const std::vector<ValidationGalleryBatch>& batches);
 
     Mode mode_ = Mode::INFERRING;
 
@@ -342,6 +343,7 @@ private:
 
     bool gradRescale_ = false;
     float gradThreshold_ = 0.0f;
+    bool viewImage_ = false;
 
     bool gradClip_ = false;
     float gradClipValue_ = 0.0f;
@@ -461,11 +463,11 @@ void Model<D>::train()
 {
     parseTrainConfig();
 
-    auto viewImage = hasOption("view-image");
+    viewImage_ = hasOption("view-image");
 
     const auto deterministicData = std::getenv("PIXIENN_DETERMINISTIC_DATA") != nullptr;
     trainLoader_ = std::make_unique<BatchLoader>(trainImagePath_, trainLabelPath_, batch_, channels_, height_, width_,
-                                                 labels_, augmenter_, viewImage, 10, !deterministicData);
+                                                 labels_, augmenter_, false, 10, !deterministicData);
 
     avgLoss_ = std::numeric_limits<float>::lowest();
     constexpr auto windowSize = 10;
@@ -721,36 +723,41 @@ void Model<D>::writeValidationDuration(double seconds)
 }
 
 template<Device D>
-void Model<D>::writeValidationGallery(const MiniBatch& batch)
+void Model<D>::writeValidationGallery(const std::vector<ValidationGalleryBatch>& batches)
 {
     // Keep the event stream useful for long runs: six fixed validation images
     // every configured number of validation runs expose localization failures
     // without turning the event file into an image archive.
     if (!valGalleryEnabled_ || validationRuns_ == 0 ||
-        validationRuns_ % static_cast<std::size_t>(valGalleryInterval_) != 0 || batch.validSize() == 0) {
+        validationRuns_ % static_cast<std::size_t>(valGalleryInterval_) != 0 || batches.empty()) {
         return;
     }
 
-    constexpr int columns = 3;
-    constexpr int rows = 2;
     constexpr int tileWidth = 480;
     constexpr int tileHeight = 360;
-    constexpr int maxImages = columns * rows;
-    const auto count = std::min<std::size_t>(batch.validSize(), maxImages);
+    constexpr std::size_t maxImages = 6;
+    std::size_t count = 0;
+    for (const auto& item : batches) {
+        count += item.first.validSize();
+        if (count >= maxImages) {
+            count = maxImages;
+            break;
+        }
+    }
+    if (count == 0) return;
+    const auto columns = std::min<std::size_t>(3, count);
+    const auto rows = (count + columns - 1) / columns;
     // imtabbedText uses Cairo/Pango when available, whose ARGB32 surface
     // requires four bytes per pixel. Keep the gallery BGRA while drawing so
     // labels use the same memory layout as the other annotated image paths.
-    cv::Mat gallery(rows * tileHeight, columns * tileWidth, CV_8UC4, cv::Scalar(32, 32, 32, 255));
+    cv::Mat gallery(static_cast<int>(rows) * tileHeight, static_cast<int>(columns) * tileWidth,
+                    CV_8UC4, cv::Scalar(32, 32, 32, 255));
 
-    auto predictions = nms(detections(valConfidenceThresh_), valNmsThresh_);
-    const auto hasVisiblePrediction = std::any_of(predictions.cbegin(), predictions.cend(), [count](const auto& detect) {
-        return detect.batchId() >= 0 && static_cast<std::size_t>(detect.batchId()) < count;
-    });
-    if (!hasVisiblePrediction) {
-        return;
-    }
-
-    for (std::size_t b = 0; b < count; ++b) {
+    std::size_t galleryIndex = 0;
+    for (const auto& item : batches) {
+        const auto& batch = item.first;
+        const auto predictions = nms(item.second, valNmsThresh_);
+        for (std::size_t b = 0; b < batch.validSize() && galleryIndex < count; ++b, ++galleryIndex) {
         cv::Mat normalized(height_, width_, CV_32FC3);
         auto* pixels = normalized.ptr<float>();
         const auto* planar = batch.slice(static_cast<std::uint32_t>(b));
@@ -817,9 +824,10 @@ void Model<D>::writeValidationGallery(const MiniBatch& batch)
             imtabbedText(tile, labels_.at(truth.classId).c_str(), rect.tl(), imtextcolor(color), color, 1);
         }
 
-        const auto col = static_cast<int>(b % columns);
-        const auto row = static_cast<int>(b / columns);
+        const auto col = static_cast<int>(galleryIndex % columns);
+        const auto row = static_cast<int>(galleryIndex / columns);
         tile.copyTo(gallery(cv::Rect(col * tileWidth, row * tileHeight, tileWidth, tileHeight)));
+        }
     }
 
     std::vector<uchar> encoded;
@@ -846,6 +854,10 @@ template<Device D>
 float Model<D>::trainBatch()
 {
     trainBatch_ = trainLoader_->next();
+
+    if (viewImage_) {
+        trainLoader_->viewBatch(trainBatch_);
+    }
 
     auto error = trainOnce(trainBatch_.imageData());
 
@@ -1575,8 +1587,16 @@ void Model<D>::parseModel(const Node& modelDoc)
             auto exposure = augmentNode["exposure"].as<float>(1.0f);
 
             auto flip = augmentNode["flip"].as<bool>(false);
+            auto mosaicEnabled = false;
+            auto mosaicProbability = 0.0f;
+            auto mosaicNode = augmentNode["mosaic"];
+            if (mosaicNode && mosaicNode.IsMap()) {
+                mosaicEnabled = mosaicNode["enabled"].as<bool>(false);
+                mosaicProbability = mosaicNode["probability"].as<float>(0.5f);
+            }
             if (augment) {
-                augmenter_ = std::make_unique<ImageAugmenter>(jitter, hue, saturation, exposure, flip);
+                augmenter_ = std::make_unique<ImageAugmenter>(
+                        jitter, hue, saturation, exposure, flip, mosaicEnabled, mosaicProbability);
             }
         }
 
@@ -2104,13 +2124,17 @@ void Model<D>::validate()
                                  labels_, nullptr, false, 1, false);
 
     const auto availableBatches = std::max<std::size_t>(1, (validationLoader.size() + batch_ - 1) / batch_);
+    std::vector<ValidationGalleryBatch> galleryBatches;
+    std::size_t galleryImages = 0;
     for (std::size_t i = 0; i < availableBatches; ++i) {
         trainBatch_ = validationLoader.next();
         validator.validate(*this, trainBatch_);
-        if (i == 0) {
-            writeValidationGallery(trainBatch_);
+        if (galleryImages < 6) {
+            galleryBatches.emplace_back(trainBatch_, detections(valConfidenceThresh_));
+            galleryImages += trainBatch_.validSize();
         }
     }
+    writeValidationGallery(galleryBatches);
 
     const auto validationSeconds = std::chrono::duration<double>(
             std::chrono::steady_clock::now() - validationStart).count();

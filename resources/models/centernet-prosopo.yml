@@ -1,10 +1,10 @@
 model:
   batch: 8
-  subdivisions: 1
+  subdivisions: 2
   channels: 3
-  height: 512
-  width: 512
-  max_batches: 300000
+  height: 768
+  width: 768
+  max_batches: 1000000
   momentum: 0.9
   decay: 0.001
 
@@ -21,10 +21,13 @@ model:
     saturation: 1.2
     exposure: 1.2
     hue: 0.05
+    mosaic:
+      enabled: True
+      probability: 0.2
 
   validation:
     enabled: True
-    interval: 6000
+    interval: 1000
     confidence_threshold: 0.3
     ap_confidence_threshold: 0.001
     iou_threshold: 0.5

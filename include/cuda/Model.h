@@ -41,6 +41,10 @@ inline float Model<Device::CUDA>::trainBatch()
 {
     trainBatch_ = trainLoader_->next();
 
+    if (this->viewImage_) {
+        this->trainLoader_->viewBatch(this->trainBatch_);
+    }
+
     const auto& imageData = trainBatch_.imageData();
 
     V input(&(*imageData.begin()), &(*imageData.end()));

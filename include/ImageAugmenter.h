@@ -32,19 +32,25 @@ class ImageAugmenter
 public:
     using Ptr = std::shared_ptr<ImageAugmenter>;
 
-    ImageAugmenter(float jitter, float hue, float saturation, float exposure, bool flip);
+    ImageAugmenter(float jitter, float hue, float saturation, float exposure, bool flip,
+                   bool mosaic = false, float mosaicProbability = 0.0f);
 
     virtual ~ImageAugmenter() = default;
 
     Augmentation augment(cv::Mat& image, const cv::Size& targetSize) const;
     ImageLabel augment(cv::Mat& image, const cv::Size& targetSize, const GroundTruthVec& labels) const;
+    ImageLabel augmentMosaic(const std::array<ImageLabel, 4>& images,
+                             const cv::Size& targetSize) const;
+
+    bool useMosaic() const;
 
     void distort(cv::Mat& image) const;
 
 private:
     float jitter_, hue_, saturation_, exposure_;
     bool flip_;
+    bool mosaic_;
+    float mosaicProbability_;
 };
 
 }   // px
-

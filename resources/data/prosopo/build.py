@@ -16,9 +16,16 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
+from PIL import Image
+
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT.parent
+# The current CenterNet Prosopo model uses a 768x768 input. Mosaic places each
+# source image in a 384x384 quadrant, so curate boxes against that effective
+# per-source resolution.
+TRAINING_SIZE = 384
+MIN_BOX_PIXELS = 10
 
 
 @dataclass(frozen=True)
@@ -75,6 +82,16 @@ def person_boxes(record: Record) -> list[tuple[float, float, float, float]]:
     return boxes
 
 
+def usable_person_boxes(record: Record, boxes: list[tuple[float, float, float, float]]) -> list[tuple[float, float, float, float]]:
+    """Keep boxes large enough to provide a useful target at training size."""
+    with Image.open(record.image) as image:
+        width, height = image.size
+    scale = min(TRAINING_SIZE / width, TRAINING_SIZE / height)
+    return [box for box in boxes
+            if box[2] * width * scale >= MIN_BOX_PIXELS
+            and box[3] * height * scale >= MIN_BOX_PIXELS]
+
+
 def link_or_copy(source: Path, destination: Path) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -129,6 +146,8 @@ def main() -> None:
     manifest = []
     seen: set[Path] = set()
     source_stats: dict[str, dict[str, int]] = {}
+    filtered_images = 0
+    filtered_boxes = 0
 
     for record in source_records():
         resolved_image = record.image.resolve()
@@ -138,6 +157,12 @@ def main() -> None:
         boxes = person_boxes(record)
         if not boxes:
             continue
+        usable_boxes = usable_person_boxes(record, boxes)
+        filtered_boxes += len(boxes) - len(usable_boxes)
+        if not usable_boxes:
+            filtered_images += 1
+            continue
+        boxes = usable_boxes
 
         output_split = {
             "train2014": "train",
@@ -184,6 +209,12 @@ def main() -> None:
         "train_boxes": sum(item["person_boxes"] for item in manifest if item["image"] in train_images),
         "val_boxes": sum(item["person_boxes"] for item in manifest if item["image"] in diagnostic_images),
         "sources": source_stats,
+        "curation": {
+            "training_size": TRAINING_SIZE,
+            "minimum_box_pixels": MIN_BOX_PIXELS,
+            "filtered_boxes": filtered_boxes,
+            "removed_images": filtered_images,
+        },
         "kitti_person_classes": {"3": "pedestrian", "4": "person_sitting"},
         "kitti_excluded_classes": {"5": "cyclist"},
     }

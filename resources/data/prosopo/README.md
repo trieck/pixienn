@@ -6,14 +6,21 @@ object categories are discarded.
 
 ## Sources
 
+The generated dataset is curated for the current CenterNet Prosopo training
+configuration: each source image occupies a `384x384` Mosaic quadrant within
+the `768x768` training input. Person boxes whose letterboxed width or height is
+below 10 pixels at that effective per-source resolution are removed; images
+with no usable boxes remaining are excluded. The source datasets are not
+modified.
+
 The generated dataset is an amalgamation of the locally configured splits:
 
 | Source | Training images | Validation images | Person boxes |
 | --- | ---: | ---: | ---: |
-| COCO | 45,174 | 21,634 | 276,638 |
-| KITTI | 1,446 | 350 | 4,709 |
-| VOC | 3,723 | 1,027 | 10,456 |
-| **Total** | **50,343** | **23,011** | **291,803** |
+| COCO | 44,252 | 21,171 | 236,779 |
+| KITTI | 1,060 | 263 | 3,178 |
+| VOC | 3,718 | 1,027 | 10,437 |
+| **Total** | **49,030** | **22,461** | **250,394** |
 
 COCO `person` is mapped from class 0.  VOC `person` is mapped from class 14.
 KITTI `pedestrian` and `person_sitting` are mapped to `person`.  KITTI

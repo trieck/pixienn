@@ -22,8 +22,10 @@ using namespace cv;
 
 namespace px {
 
-ImageAugmenter::ImageAugmenter(float jitter, float hue, float saturation, float exposure, bool flip)
-        : jitter_(jitter), hue_(hue), saturation_(saturation), exposure_(exposure), flip_(flip)
+ImageAugmenter::ImageAugmenter(float jitter, float hue, float saturation, float exposure, bool flip,
+                               bool mosaic, float mosaicProbability)
+        : jitter_(jitter), hue_(hue), saturation_(saturation), exposure_(exposure), flip_(flip),
+          mosaic_(mosaic), mosaicProbability_(constrain(0.0f, 1.0f, mosaicProbability))
 {
 }
 
@@ -114,6 +116,58 @@ ImageLabel ImageAugmenter::augment(Mat& image, const cv::Size& targetSize, const
                    });
 
     return { augmentation.first, transformed };
+}
+
+bool ImageAugmenter::useMosaic() const
+{
+    return mosaic_ && randomUniform<float>() < mosaicProbability_;
+}
+
+ImageLabel ImageAugmenter::augmentMosaic(const std::array<ImageLabel, 4>& images,
+                                         const cv::Size& targetSize) const
+{
+    const auto canvasSize = targetSize;
+    const auto tileWidth = targetSize.width / 2;
+    const auto tileHeight = targetSize.height / 2;
+    cv::Mat canvas{ canvasSize.height, canvasSize.width, images[0].first.type(),
+                    immidpoint(images[0].first) };
+    GroundTruthVec transformed;
+
+    for (auto tile = 0; tile < 4; ++tile) {
+        const auto& source = images[tile].first;
+        const auto& labels = images[tile].second;
+        const auto scale = std::min(static_cast<float>(tileWidth) / source.cols,
+                                    static_cast<float>(tileHeight) / source.rows);
+        const auto resizedWidth = std::max(1, static_cast<int>(std::round(source.cols * scale)));
+        const auto resizedHeight = std::max(1, static_cast<int>(std::round(source.rows * scale)));
+        cv::Mat resized;
+        cv::resize(source, resized, { resizedWidth, resizedHeight });
+
+        const auto quadrantX = (tile % 2) * tileWidth;
+        const auto quadrantY = (tile / 2) * tileHeight;
+        const auto imageLeft = static_cast<float>(quadrantX + (tileWidth - resizedWidth) / 2);
+        const auto imageTop = static_cast<float>(quadrantY + (tileHeight - resizedHeight) / 2);
+        const auto destination = cv::Rect{ static_cast<int>(imageLeft), static_cast<int>(imageTop),
+                                           resized.cols, resized.rows };
+        resized.copyTo(canvas(destination));
+
+        for (const auto& label : labels) {
+            const auto sourceBox = label.box;
+            const auto boxLeft = imageLeft + (sourceBox.x() - sourceBox.w() / 2.0f) * resized.cols;
+            const auto boxTop = imageTop + (sourceBox.y() - sourceBox.h() / 2.0f) * resized.rows;
+            const auto boxRight = imageLeft + (sourceBox.x() + sourceBox.w() / 2.0f) * resized.cols;
+            const auto boxBottom = imageTop + (sourceBox.y() + sourceBox.h() / 2.0f) * resized.rows;
+            const auto x = (boxLeft + boxRight) / (2.0f * targetSize.width);
+            const auto y = (boxTop + boxBottom) / (2.0f * targetSize.height);
+            const auto width = (boxRight - boxLeft) / targetSize.width;
+            const auto height = (boxBottom - boxTop) / targetSize.height;
+            transformed.push_back({ label.classId, { x, y, width, height } });
+        }
+    }
+
+    auto result = canvas;
+    distort(result);
+    return { std::move(result), std::move(transformed) };
 }
 
 }   // px

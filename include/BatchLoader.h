@@ -35,17 +35,20 @@ public:
     using Ptr = std::unique_ptr<BatchLoader>;
 
     MiniBatch next();
+    void viewBatch(const MiniBatch& batch) const;
     void stop();
     std::size_t size() const;
 
 private:
-    using ImageLabels = std::pair<PxCpuVector, GroundTruthVec>;
+    using ImageLabels = ImageLabel;
+    using RawImageLabels = std::pair<cv::Mat, GroundTruthVec>;
 
     void loadPaths();
     void loadBatches();
     ImageLabels loadImgLabels(const std::string& imagePath);
+    RawImageLabels loadRawImgLabels(const std::string& imagePath);
     GroundTruthVec groundTruth(const std::string& imagePath);
-    void viewImageGT(const std::string& imgPath, const GroundTruthVec& gt) const;
+    void viewImageGT(const cv::Mat& image, const GroundTruthVec& gt) const;
 
     ImageAugmenter::Ptr augmenter_;
     std::vector<std::thread> workers_;

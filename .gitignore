@@ -16,6 +16,7 @@ events.out.tfevents.*
 /resources/data/kitti/
 /resources/data/prosopo/images/
 /resources/data/prosopo/labels/
+/resources/data/prosopo/manifest.jsonl
 /resources/images/*.jpg
 /python/__pycache__/
 /ruby/.idea/
