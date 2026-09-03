@@ -21,10 +21,10 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT.parent
-# The current CenterNet Prosopo model uses a 768x768 input. Mosaic places each
-# source image in a 384x384 quadrant, so curate boxes against that effective
+# The current CenterNet Prosopo model uses a 512x512 input. Mosaic places each
+# source image in a 256x256 quadrant, so curate boxes against that effective
 # per-source resolution.
-TRAINING_SIZE = 384
+TRAINING_SIZE = 256
 MIN_BOX_PIXELS = 10
 
 

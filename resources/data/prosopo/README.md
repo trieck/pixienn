@@ -7,8 +7,8 @@ object categories are discarded.
 ## Sources
 
 The generated dataset is curated for the current CenterNet Prosopo training
-configuration: each source image occupies a `384x384` Mosaic quadrant within
-the `768x768` training input. Person boxes whose letterboxed width or height is
+configuration: each source image occupies a `256x256` Mosaic quadrant within
+the `512x512` training input. Person boxes whose letterboxed width or height is
 below 10 pixels at that effective per-source resolution are removed; images
 with no usable boxes remaining are excluded. The source datasets are not
 modified.
